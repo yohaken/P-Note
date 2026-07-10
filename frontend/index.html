@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="64">
-  <meta name="pnote-built" content="2026-07-11T00:40:00+07:00">
-  <script src="js/cache-bootstrap.js?v=64"></script>
+  <meta name="pnote-build" content="65">
+  <meta name="pnote-built" content="2026-07-11T00:50:00+07:00">
+  <script src="js/cache-bootstrap.js?v=65"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -64,16 +64,6 @@
     }
     .sortable-block.dragging { opacity: 0.45; z-index: 10; }
     .sortable-block.drag-over { transform: translateY(4px); }
-
-    /* Date bar always stays visible while scrolling */
-    .sortable-block[data-block-id="date"] {
-      position: sticky;
-      top: 0;
-      z-index: 35;
-      background: var(--bg);
-      padding: 0.2rem 0 0.15rem;
-      margin: 0;
-    }
 
     .drag-handle {
       position: absolute; top: 0.45rem; right: 0.45rem;
@@ -166,41 +156,38 @@
       background: var(--surface); border-radius: var(--radius);
       padding: 0.4rem 0.45rem; box-shadow: var(--shadow);
     }
-    .date-nav button {
+    .date-nav button#btnPrevDay,
+    .date-nav button#btnNextDay {
       background: var(--surface-2); border: none; color: var(--text);
       width: 32px; height: 32px; border-radius: 8px; font-size: 0.95rem; flex-shrink: 0;
     }
+    /* Original layout: small label + date text (never rely on native date input paint) */
     .date-display {
       flex: 1; text-align: center; min-width: 0; position: relative;
-    }
-    .date-display-btn {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      width: 100%; min-height: 2.6rem; padding: 0.15rem 0.35rem;
-      border: none; background: transparent; cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
     }
     .date-display .label {
-      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.01em;
-      color: var(--accent) !important;
-      line-height: 1.2; margin-bottom: 0.05rem;
+      font-size: 0.6rem; color: var(--muted); text-transform: uppercase;
+      line-height: 1.2; pointer-events: none;
     }
-    .date-display .label:not(.is-today) {
-      color: var(--text) !important;
-      font-weight: 600;
-    }
+    .date-display .label.is-today { color: var(--accent); }
     .date-display .date-value {
-      font-size: 1rem; font-weight: 700; color: var(--text) !important;
-      line-height: 1.2;
+      display: block;
+      font-size: 16px; font-weight: 600; color: var(--text);
+      line-height: 1.35; min-height: 1.35em;
+      pointer-events: none;
     }
-    /* Native picker stays tappable but never relied on for visible text (iOS blank bug) */
-    .date-display .date-picker-hit {
-      position: absolute; inset: 0; opacity: 0.01; width: 100%; height: 100%;
-      border: none; background: transparent; color: transparent;
-      font-size: 16px; cursor: pointer; z-index: 1;
-    }
-    .date-display .date-picker-hit::-webkit-calendar-picker-indicator {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      opacity: 0; cursor: pointer;
+    /* Hidden native picker — used only to open the system calendar */
+    .date-display .date-picker-hidden {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+      opacity: 0;
+      pointer-events: none;
     }
 
     .block-order-list {
@@ -709,12 +696,10 @@
         <span class="drag-handle">⋮⋮</span>
         <nav class="date-nav">
           <button type="button" id="btnPrevDay" aria-label="วันก่อนหน้า">‹</button>
-          <div class="date-display">
-            <button type="button" class="date-display-btn" id="dateDisplayBtn" aria-label="เลือกวันที่">
-              <span class="label is-today" id="dateLabel">วันนี้</span>
-              <span class="date-value" id="dateValue">—</span>
-            </button>
-            <input type="date" id="datePicker" class="date-picker-hit" aria-label="เลือกวันที่">
+          <div class="date-display" id="dateDisplay" role="button" tabindex="0" aria-label="เลือกวันที่">
+            <div class="label is-today" id="dateLabel">วันนี้</div>
+            <div class="date-value" id="dateValue">กำลังโหลด…</div>
+            <input type="date" id="datePicker" class="date-picker-hidden" tabindex="-1" aria-hidden="true">
           </div>
           <button type="button" id="btnNextDay" aria-label="วันถัดไป">›</button>
         </nav>
@@ -946,7 +931,7 @@
         <div class="field">
           <div id="blockOrderList" class="block-order-list" aria-label="ลำดับกล่องงาน"></div>
           <button type="button" class="btn btn-ghost" id="btnResetBlockOrder" style="width:100%;margin-top:0.15rem">รีเซ็ตลำดับเริ่มต้น</button>
-          <p class="hint">หรือลาก ⋮⋮ ที่หน้าหลัก · แถบวันที่ติดด้านบนเสมอ</p>
+          <p class="hint">หรือลาก ⋮⋮ ที่หน้าหลักเพื่อจัดลำดับ</p>
         </div>
         <p class="sheet-section-label">🗄️ ฐานข้อมูล (Calorie + Note)</p>
         <div class="field">
@@ -1067,8 +1052,8 @@
 
   <div class="toast error" id="toast"></div>
 
-  <script src="js/page-nav.js?v=64"></script>
-  <script src="js/fab-drag.js?v=64"></script>
+  <script src="js/page-nav.js?v=65"></script>
+  <script src="js/fab-drag.js?v=65"></script>
   <script>
     const STORAGE_PREFIX = 'calorieTracker:';
     const SETTINGS_KEY = 'calorieTracker:settings';
@@ -1086,7 +1071,7 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const APP_VERSION = 'build-64';
+    const APP_VERSION = 'build-65';
 
     const PERIODS = [
       { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
@@ -1174,7 +1159,7 @@
       pagesMenuOverlay: $('#pagesMenuOverlay'),
       periodGrid: $('#periodGrid'),
       datePicker: $('#datePicker'), dateLabel: $('#dateLabel'), dateValue: $('#dateValue'),
-      dateDisplayBtn: $('#dateDisplayBtn'),
+      dateDisplay: $('#dateDisplay'),
       btnPrevDay: $('#btnPrevDay'), btnNextDay: $('#btnNextDay'),
       totalCal: $('#totalCal'), protRemain: $('#protRemain'), protCard: $('#protCard'), protSub: $('#protSub'),
       calSub: $('#calSub'), balance: $('#balance'), balanceCard: $('#balanceCard'), balSub: $('#balSub'),
@@ -1264,16 +1249,18 @@
         weekday: 'short', day: 'numeric', month: 'short',
       });
     }
+    /** Always-visible date text (native <input type=date> often paints blank on iOS). */
     function formatDateValue(d) {
       try {
         return new Date(d + 'T12:00:00').toLocaleDateString('th-TH', {
           day: 'numeric', month: 'short', year: 'numeric',
         });
       } catch {
-        return d;
+        return d || '';
       }
     }
     function syncDateDisplay(d) {
+      if (!d) return;
       const start = getProgramStartDate();
       const beforeStart = start && d < start;
       const isToday = d === todayStr();
@@ -1284,8 +1271,8 @@
       if (els.dateValue) {
         els.dateValue.textContent = formatDateValue(d);
       }
-      if (els.datePicker && els.datePicker.value !== d) {
-        els.datePicker.value = d;
+      if (els.datePicker) {
+        try { els.datePicker.value = d; } catch (_) {}
       }
     }
     function formatDateShort(d) {
@@ -3024,18 +3011,46 @@
     function openDatePicker() {
       const input = els.datePicker;
       if (!input) return;
-      input.value = currentDate;
+      try { input.value = currentDate; } catch (_) {}
       try {
-        if (typeof input.showPicker === 'function') input.showPicker();
-        else { input.focus(); input.click(); }
-      } catch {
-        input.focus();
-      }
+        if (typeof input.showPicker === 'function') {
+          input.showPicker();
+          return;
+        }
+      } catch (_) {}
+      // Fallback: briefly enable pointer events and click
+      const prev = input.style.pointerEvents;
+      input.style.pointerEvents = 'auto';
+      input.style.opacity = '0.01';
+      input.style.position = 'fixed';
+      input.style.left = '50%';
+      input.style.top = '40%';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      input.style.clip = 'auto';
+      try { input.focus(); input.click(); } catch (_) {}
+      setTimeout(() => {
+        input.style.pointerEvents = prev || 'none';
+        input.style.opacity = '';
+        input.style.position = '';
+        input.style.left = '';
+        input.style.top = '';
+        input.style.width = '';
+        input.style.height = '';
+        input.style.clip = '';
+        input.className = 'date-picker-hidden';
+      }, 800);
     }
-    if (els.dateDisplayBtn) {
-      els.dateDisplayBtn.addEventListener('click', (e) => {
+    if (els.dateDisplay) {
+      els.dateDisplay.addEventListener('click', (e) => {
         e.preventDefault();
         openDatePicker();
+      });
+      els.dateDisplay.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openDatePicker();
+        }
       });
     }
     els.datePicker.onchange = () => {
@@ -3043,7 +3058,7 @@
       const start = getProgramStartDate();
       if (p && p <= todayStr() && (!start || p >= start)) setDate(p);
       else {
-        els.datePicker.value = currentDate;
+        try { els.datePicker.value = currentDate; } catch (_) {}
         syncDateDisplay(currentDate);
       }
     };
@@ -3262,6 +3277,10 @@
     applyBlockOrder();
     initDragReorder();
     updateClientIdHint();
+    // Paint date text immediately (do not wait for network / native input)
+    currentDate = todayStr();
+    followToday = true;
+    syncDateDisplay(currentDate);
     pullOrMigrateCalorie();
     if (els.btnCopySyncCode) {
       els.btnCopySyncCode.onclick = async () => {
@@ -3286,6 +3305,6 @@
       history.replaceState(null, '', location.pathname + location.search);
     }
   </script>
-  <script src="js/update-watch.js?v=64"></script>
+  <script src="js/update-watch.js?v=65"></script>
 </body>
 </html>
