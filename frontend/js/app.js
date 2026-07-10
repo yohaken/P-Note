@@ -1,18 +1,29 @@
-import { autoLogin, signOut, startLogin } from './auth.js?v=9';
-import { loadNotes } from './drive.js?v=9';
+import { autoLogin, signOut, startLogin } from './auth.js?v=10';
+import { loadNotes } from './drive.js?v=10';
 import {
+  addTag,
+  countNotesByTag,
   createNote,
+  deleteTag,
+  filterNotesByTag,
   formatDate,
+  getTagsForNote,
+  normalizeNotesData,
   previewText,
+  renameTag,
+  safeTagColor,
+  setTagColor,
   sortNotes,
+  toggleNoteTag,
   updateNote,
-} from './notes.js?v=9';
-import { SaveManager } from './sync.js?v=9';
+} from './notes.js?v=10';
+import { SaveManager } from './sync.js?v=10';
 
 const state = {
   accessToken: null,
-  notesData: { version: 1, updatedAt: '', notes: [] },
+  notesData: { version: 2, updatedAt: '', tags: [], notes: [] },
   activeNoteId: null,
+  tagFilterId: null,
   view: 'login',
 };
 
@@ -31,14 +42,22 @@ const els = {
   notesList: document.getElementById('notes-list'),
   emptyState: document.getElementById('empty-state'),
   addNoteBtn: document.getElementById('add-note-btn'),
+  manageTagsBtn: document.getElementById('manage-tags-btn'),
+  tagFilterBar: document.getElementById('tag-filter-bar'),
   signOutBtn: document.getElementById('sign-out-btn'),
   backBtn: document.getElementById('back-btn'),
   saveBtn: document.getElementById('save-btn'),
   deleteBtn: document.getElementById('delete-btn'),
   noteTitle: document.getElementById('note-title'),
   noteContent: document.getElementById('note-content'),
+  editorTags: document.getElementById('editor-tags'),
   syncStatus: document.getElementById('sync-status'),
   editorSyncStatus: document.getElementById('editor-sync-status'),
+  tagModal: document.getElementById('tag-modal'),
+  tagAddForm: document.getElementById('tag-add-form'),
+  newTagInput: document.getElementById('new-tag-input'),
+  tagManagerList: document.getElementById('tag-manager-list'),
+  closeTagModalBtn: document.getElementById('close-tag-modal-btn'),
   conflictModal: document.getElementById('conflict-modal'),
   useLocalBtn: document.getElementById('use-local-btn'),
   useRemoteBtn: document.getElementById('use-remote-btn'),
@@ -93,17 +112,71 @@ function persistLocalChanges() {
   );
 }
 
+// Replaces the whole payload, persists it, and refreshes tag-aware views.
+function commitData(newData) {
+  state.notesData = newData;
+  saveManager.saveNow(state.notesData);
+  renderNotesList();
+  renderEditorTags();
+  renderTagManager();
+}
+
+function renderTagFilterBar() {
+  const tags = state.notesData.tags || [];
+  els.tagFilterBar.innerHTML = '';
+  if (!tags.length) return;
+
+  const allChip = document.createElement('button');
+  allChip.type = 'button';
+  allChip.className = `tag-filter-chip${state.tagFilterId ? '' : ' active'}`;
+  allChip.textContent = 'ทั้งหมด';
+  allChip.addEventListener('click', () => {
+    state.tagFilterId = null;
+    renderNotesList();
+  });
+  els.tagFilterBar.appendChild(allChip);
+
+  tags.forEach((tag) => {
+    const active = state.tagFilterId === tag.id;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `tag-filter-chip${active ? ' active' : ''}`;
+    chip.style.setProperty('--tag', safeTagColor(tag.color));
+    chip.textContent = `${tag.name} (${countNotesByTag(state.notesData.notes, tag.id)})`;
+    chip.addEventListener('click', () => {
+      state.tagFilterId = active ? null : tag.id;
+      renderNotesList();
+    });
+    els.tagFilterBar.appendChild(chip);
+  });
+}
+
 function renderNotesList() {
-  const notes = sortNotes(state.notesData.notes);
+  renderTagFilterBar();
+
+  const filtered = filterNotesByTag(state.notesData.notes, state.tagFilterId);
+  const notes = sortNotes(filtered);
   els.notesList.innerHTML = '';
 
   notes.forEach((note) => {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'note-card';
+
+    const tags = getTagsForNote(note, state.notesData.tags || []);
+    const chipsHtml = tags.length
+      ? `<div class="tag-chips">${tags
+          .map(
+            (tag) =>
+              `<span class="tag-chip" style="--tag:${safeTagColor(tag.color)}">${escapeHtml(tag.name)}</span>`,
+          )
+          .join('')}</div>`
+      : '';
+
     item.innerHTML = `
       <h3>${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
       <p>${escapeHtml(previewText(note))}</p>
+      ${chipsHtml}
       <time>${escapeHtml(formatDate(note.updatedAt))}</time>
     `;
     item.addEventListener('click', () => openEditor(note.id));
@@ -111,6 +184,108 @@ function renderNotesList() {
   });
 
   els.emptyState.hidden = notes.length > 0;
+}
+
+function renderEditorTags() {
+  const note = getActiveNote();
+  els.editorTags.innerHTML = '';
+  if (!note) return;
+
+  const tags = state.notesData.tags || [];
+  tags.forEach((tag) => {
+    const selected = (note.tagIds || []).includes(tag.id);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `editor-tag-chip${selected ? ' selected' : ''}`;
+    chip.style.setProperty('--tag', safeTagColor(tag.color));
+    chip.textContent = tag.name;
+    chip.addEventListener('click', () => toggleActiveNoteTag(tag.id));
+    els.editorTags.appendChild(chip);
+  });
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'editor-tag-chip add-tag';
+  addBtn.textContent = '+ แท็ก';
+  addBtn.addEventListener('click', openTagManager);
+  els.editorTags.appendChild(addBtn);
+}
+
+function toggleActiveNoteTag(tagId) {
+  const note = getActiveNote();
+  if (!note) return;
+
+  const updated = toggleNoteTag(note, tagId);
+  state.notesData = {
+    ...state.notesData,
+    notes: state.notesData.notes.map((item) =>
+      item.id === updated.id ? updated : item,
+    ),
+  };
+  saveManager.saveNow(state.notesData);
+  renderEditorTags();
+}
+
+function openTagManager() {
+  renderTagManager();
+  els.tagModal.hidden = false;
+  els.newTagInput.value = '';
+  els.newTagInput.focus();
+}
+
+function closeTagManager() {
+  els.tagModal.hidden = true;
+}
+
+function renderTagManager() {
+  const tags = state.notesData.tags || [];
+  els.tagManagerList.innerHTML = '';
+
+  tags.forEach((tag) => {
+    const row = document.createElement('div');
+    row.className = 'tag-manager-row';
+
+    const color = document.createElement('input');
+    color.type = 'color';
+    color.className = 'tag-color-input';
+    color.value = safeTagColor(tag.color);
+    color.setAttribute('aria-label', 'สีแท็ก');
+    color.addEventListener('change', () => {
+      commitData(setTagColor(state.notesData, tag.id, color.value));
+    });
+
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.className = 'tag-manager-name';
+    name.value = tag.name;
+    name.maxLength = 40;
+    name.addEventListener('change', () => {
+      const value = name.value.trim();
+      if (value) {
+        commitData(renameTag(state.notesData, tag.id, value));
+      } else {
+        name.value = tag.name;
+      }
+    });
+
+    const count = document.createElement('span');
+    count.className = 'tag-manager-count';
+    count.textContent = `${countNotesByTag(state.notesData.notes, tag.id)} โน้ต`;
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'tag-delete-btn';
+    del.setAttribute('aria-label', 'ลบแท็ก');
+    del.textContent = '✕';
+    del.addEventListener('click', () => {
+      if (window.confirm(`ลบแท็ก "${tag.name}"? โน้ตจะไม่ถูกลบ`)) {
+        commitData(deleteTag(state.notesData, tag.id));
+      }
+    });
+
+    row.append(color, name, count, del);
+    els.tagManagerList.appendChild(row);
+  });
 }
 
 function openEditor(noteId) {
@@ -122,6 +297,7 @@ function openEditor(noteId) {
   els.noteContent.value = note.content;
   setStatus('');
   showView('editor');
+  renderEditorTags();
 }
 
 function openNewNote() {
@@ -150,7 +326,8 @@ async function bootstrapData(accessToken) {
   setLoading(true, 'กำลังโหลดโน้ตจาก Drive...');
   const { fileId, modifiedTime, data } = await loadNotes(accessToken);
   state.accessToken = accessToken;
-  state.notesData = data;
+  state.notesData = normalizeNotesData(data);
+  state.tagFilterId = null;
 
   saveManager.configure({
     accessToken,
@@ -190,11 +367,28 @@ async function init() {
     }
   });
   els.addNoteBtn.addEventListener('click', openNewNote);
+  els.manageTagsBtn.addEventListener('click', openTagManager);
   els.backBtn.addEventListener('click', backToList);
   els.signOutBtn.addEventListener('click', async () => {
     await signOut();
     state.accessToken = null;
     showView('login');
+  });
+
+  els.tagAddForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const { data, tag } = addTag(state.notesData, els.newTagInput.value);
+    if (tag) {
+      commitData(data);
+    }
+    els.newTagInput.value = '';
+    els.newTagInput.focus();
+  });
+  els.closeTagModalBtn.addEventListener('click', closeTagManager);
+  els.tagModal.addEventListener('click', (event) => {
+    if (event.target === els.tagModal) {
+      closeTagManager();
+    }
   });
 
   els.saveBtn.addEventListener('click', () => {

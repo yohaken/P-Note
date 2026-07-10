@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body>
   <p id="hello-world-banner" class="hello-world-banner" role="status">hello world</p>
@@ -44,10 +44,12 @@
           <p class="hello-world">hello world</p>
         </div>
         <div class="topbar-actions">
+          <button id="manage-tags-btn" class="btn btn-text" type="button">แท็ก</button>
           <button id="add-note-btn" class="btn btn-icon" type="button" aria-label="เพิ่มโน้ต">+</button>
           <button id="sign-out-btn" class="btn btn-text" type="button">ออก</button>
         </div>
       </header>
+      <div id="tag-filter-bar" class="tag-filter-bar" aria-label="กรองตามแท็ก"></div>
       <p id="sync-status" class="sync-status" aria-live="polite"></p>
       <div id="empty-state" class="empty-state" hidden>
         <p>ยังไม่มีโน้ต</p>
@@ -68,12 +70,28 @@
       </header>
       <div class="editor-body">
         <input id="note-title" class="note-title" type="text" placeholder="หัวข้อโน้ต" autocomplete="off">
+        <div id="editor-tags" class="editor-tags" aria-label="แท็กของโน้ต"></div>
         <textarea id="note-content" class="note-content" placeholder="พิมพ์โน้ตของคุณ..."></textarea>
       </div>
       <footer class="editor-footer">
         <button id="delete-btn" class="btn btn-danger" type="button">ลบโน้ต</button>
       </footer>
     </section>
+
+    <div id="tag-modal" class="modal" hidden>
+      <div class="modal-card">
+        <h2>จัดการแท็ก</h2>
+        <p>สร้างหมวดแท็ก เช่น งานที่ดิน, งานร้านน้ำ แล้วนำไปติดกับโน้ตได้</p>
+        <form id="tag-add-form" class="tag-add-row">
+          <input id="new-tag-input" class="tag-add-input" type="text" placeholder="ชื่อแท็กใหม่" autocomplete="off" maxlength="40">
+          <button id="add-tag-btn" class="btn btn-primary" type="submit">เพิ่ม</button>
+        </form>
+        <div id="tag-manager-list" class="tag-manager-list"></div>
+        <div class="modal-actions">
+          <button id="close-tag-modal-btn" class="btn btn-secondary" type="button">ปิด</button>
+        </div>
+      </div>
+    </div>
 
     <div id="conflict-modal" class="modal" hidden>
       <div class="modal-card">
@@ -92,6 +110,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=9"></script>
+  <script type="module" src="js/app.js?v=10"></script>
 </body>
 </html>

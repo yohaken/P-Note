@@ -22,3 +22,8 @@ Personal notes PWA. Static frontend (`frontend/`) synced to Google Drive via Fir
 - No linter and no unit-test framework are configured. `backend/package.json` only has `start`/`dev`; there is no `npm test`.
 - The only automated tests are Playwright scripts: `scripts/test-hello-world.mjs` (verifies the "hello world" banner across visitor states) and `scripts/test-login-flow.mjs` (verifies the Google sign-in popup loads). They default to the deployed site; set `TEST_URL=http://localhost:5000/` to run against the local frontend. They need Playwright installed with a Chromium browser; because `scripts/` has no `package.json`, Node resolves `playwright` from a parent `node_modules`.
 - The frontend "build" for production is just `firebase deploy --only hosting`; there is nothing to compile locally.
+
+### Frontend caching gotcha
+
+- The PWA registers a service worker (`frontend/sw.js`) that caches all assets. When you change any file in `frontend/js/` or `frontend/css/`, you MUST bump the cache-busting `?v=N` query used in `frontend/index.html` and the `./js/*.js?v=N` import statements, AND bump `CACHE_NAME` in `frontend/sw.js`. Otherwise browsers (and the deployed site) keep serving stale JS/CSS even after deploy. During local testing, a hard refresh (Ctrl+Shift+R) forces fresh assets.
+- Notes data on Drive is versioned (`my_notes.json`, currently `version: 2`). `normalizeNotesData()` in `frontend/js/notes.js` migrates older payloads forward and is idempotent — run it on any loaded payload.
