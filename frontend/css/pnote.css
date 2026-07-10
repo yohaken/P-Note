@@ -439,8 +439,8 @@ body.light #health-mode-btn .bottom-nav-label {
 .movable-bar {
   display: flex;
   align-items: stretch;
-  gap: 0.25rem;
-  padding-left: 0.2rem;
+  gap: 0.15rem;
+  padding-left: 0.1rem;
 }
 
 .movable-bar[hidden] {
@@ -452,17 +452,11 @@ body.light #health-mode-btn .bottom-nav-label {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0;
 }
 
 .bar-label {
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text-muted);
-  padding-left: 0.15rem;
-  line-height: 1.1;
-  user-select: none;
+  display: none !important;
 }
 
 .movable-bar > .bar-body > .sort-bar,
@@ -475,7 +469,7 @@ body.light #health-mode-btn .bottom-nav-label {
 
 .bar-grip {
   flex: 0 0 auto;
-  width: 20px;
+  width: var(--bar-grip-w, 20px);
   align-self: stretch;
   display: grid;
   place-items: center;
@@ -903,7 +897,7 @@ body.light .note-schedule {
 .priority-filter-bar,
 .group-nav {
   display: flex;
-  gap: 0.35rem;
+  gap: var(--bar-gap, 0.35rem);
   align-items: center;
   padding-top: var(--bar-pad, 0.4rem);
   padding-bottom: var(--bar-pad, 0.4rem);
@@ -914,7 +908,7 @@ body.light .note-schedule {
 .bars-filters .sort-bar,
 .bars-filters .tag-filter-bar,
 .bars-filters .priority-filter-bar {
-  padding-bottom: 0.25rem;
+  padding-bottom: max(0.1rem, calc(var(--bar-pad, 0.25rem) * 0.6));
 }
 
 .tag-filter-bar,
@@ -932,9 +926,9 @@ body.light .note-schedule {
 .tag-filter-chip,
 .priority-chip,
 .group-tab {
-  font-size: 0.85rem;
+  font-size: var(--bar-chip-font, 0.85rem);
   font-weight: 500;
-  padding: 0.35rem 0.8rem;
+  padding: var(--bar-chip-py, 0.35rem) var(--bar-chip-px, 0.8rem);
   border-radius: 999px;
   color: var(--text-muted);
   background: var(--surface-2);
