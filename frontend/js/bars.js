@@ -5,11 +5,12 @@
  * chosen layout is persisted so it survives app updates.
  */
 
-const BAR_IDS = ['sort', 'tag', 'priority'];
+const BAR_IDS = ['sort', 'tag', 'priority', 'recurrence'];
 
 export const DEFAULT_BAR_LAYOUT = [
   { bar: 'sort', zone: 'top' },
   { bar: 'priority', zone: 'bottom' },
+  { bar: 'recurrence', zone: 'bottom' },
   { bar: 'tag', zone: 'bottom' },
 ];
 

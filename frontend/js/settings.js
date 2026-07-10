@@ -5,7 +5,7 @@ const DEFAULTS = {
   theme: 'dark',
   cardDensity: 0,
   sortMode: 'updated',
-  barThickness: { sort: 0, tag: 0, priority: 0 },
+  barThickness: { sort: 0, tag: 0, priority: 0, recurrence: 0 },
 };
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
@@ -35,6 +35,7 @@ export function loadSettings() {
         sort: clampPct(bt.sort),
         tag: clampPct(bt.tag),
         priority: clampPct(bt.priority),
+        recurrence: clampPct(bt.recurrence),
       },
       barLayout: normalizeLayout(parsed.barLayout),
     };

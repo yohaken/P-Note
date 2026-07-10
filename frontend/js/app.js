@@ -38,18 +38,22 @@ import {
 } from './notes.js?v=61';
 import {
   completeOrAdvanceNote,
+  countNotesByRecurrence,
+  filterNotesByRecurrence,
   fromDatetimeLocalValue,
   getScheduleStatus,
   normalizeRecurrence,
+  normalizeRecurrenceFilter,
   recurrenceLabel,
+  RECURRENCE_FILTER_OPTIONS,
   RECURRENCE_OPTIONS,
   relativeDayLabel,
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=61';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=56';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=46';
+} from './schedule.js?v=64';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=64';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -66,6 +70,7 @@ const state = {
   activeNoteId: null,
   tagFilterId: null,
   priorityFilter: null,
+  recurrenceFilter: null,
   listGroup: NOTE_STATUS.ACTIVE,
   sortMode: 'updated',
   view: 'list',
@@ -95,6 +100,7 @@ const els = {
   appBuilt: document.getElementById('app-built'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
   priorityFilterBar: document.getElementById('priority-filter-bar'),
+  recurrenceFilterBar: document.getElementById('recurrence-filter-bar'),
   editorPriority: document.getElementById('editor-priority'),
   sortBar: document.getElementById('sort-bar'),
   barsTop: document.getElementById('bars-top'),
@@ -105,6 +111,7 @@ const els = {
   sortWrap: document.querySelector('.movable-bar[data-bar="sort"]'),
   tagWrap: document.querySelector('.movable-bar[data-bar="tag"]'),
   priorityWrap: document.querySelector('.movable-bar[data-bar="priority"]'),
+  recurrenceWrap: document.querySelector('.movable-bar[data-bar="recurrence"]'),
   resetBarsBtn: document.getElementById('reset-bars-btn'),
   sortUpdatedBtn: document.getElementById('sort-updated-btn'),
   sortScheduleBtn: document.getElementById('sort-schedule-btn'),
@@ -137,6 +144,7 @@ const els = {
   thicknessSort: document.getElementById('thickness-sort'),
   thicknessTag: document.getElementById('thickness-tag'),
   thicknessPriority: document.getElementById('thickness-priority'),
+  thicknessRecurrence: document.getElementById('thickness-recurrence'),
   syncCodeValue: null,
   syncCodeInput: null,
   copySyncCodeBtn: null,
@@ -206,15 +214,17 @@ function barWrapper(bar) {
 }
 
 function applyBarThickness() {
-  const bt = state.settings.barThickness || { sort: 0, tag: 0, priority: 0 };
-  ['sort', 'tag', 'priority'].forEach((bar) => {
+  const bt = state.settings.barThickness || { sort: 0, tag: 0, priority: 0, recurrence: 0 };
+  ['sort', 'tag', 'priority', 'recurrence'].forEach((bar) => {
     const wrap = barWrapper(bar);
     if (!wrap) return;
     const vars = thicknessStyleVars(bt[bar] || 0);
     Object.entries(vars).forEach(([key, value]) => {
       wrap.style.setProperty(key, value);
     });
-    const inner = wrap.querySelector('.sort-bar, .tag-filter-bar, .priority-filter-bar');
+    const inner = wrap.querySelector(
+      '.sort-bar, .tag-filter-bar, .priority-filter-bar, .recurrence-filter-bar',
+    );
     if (inner) {
       Object.entries(vars).forEach(([key, value]) => {
         inner.style.setProperty(key, value);
@@ -224,6 +234,7 @@ function applyBarThickness() {
   if (els.thicknessSort) els.thicknessSort.value = String(bt.sort || 0);
   if (els.thicknessTag) els.thicknessTag.value = String(bt.tag || 0);
   if (els.thicknessPriority) els.thicknessPriority.value = String(bt.priority || 0);
+  if (els.thicknessRecurrence) els.thicknessRecurrence.value = String(bt.recurrence || 0);
 }
 
 function openDrawer() {
@@ -284,6 +295,7 @@ function notesForCurrentGroup() {
 function sortedFilteredNotes() {
   let notes = notesForCurrentGroup();
   notes = filterNotesByPriority(notes, state.priorityFilter);
+  notes = filterNotesByRecurrence(notes, state.recurrenceFilter);
   notes = filterNotesByTag(notes, state.tagFilterId);
   if (state.sortMode === 'schedule') return sortNotesBySchedule(notes);
   if (state.sortMode === 'manual') return sortNotesManual(notes);
@@ -299,6 +311,7 @@ function renderGroupNav() {
   const hasTags = (state.notesData.tags || []).length > 0;
   if (els.sortWrap) els.sortWrap.hidden = !isActiveGroup;
   if (els.priorityWrap) els.priorityWrap.hidden = !isActiveGroup;
+  if (els.recurrenceWrap) els.recurrenceWrap.hidden = !isActiveGroup;
   if (els.tagWrap) els.tagWrap.hidden = !isActiveGroup || !hasTags;
   els.addNoteBtn.hidden = !isActiveGroup;
 
@@ -426,6 +439,35 @@ function setActiveNoteRecurrence(recurrence) {
   state.notesData = updateNoteInData(state.notesData, updated);
   autosave();
   renderEditorRecurrence();
+}
+
+function renderRecurrenceFilterBar() {
+  if (state.listGroup !== NOTE_STATUS.ACTIVE || !els.recurrenceFilterBar) return;
+
+  els.recurrenceFilterBar.innerHTML = '';
+  const groupNotes = notesForCurrentGroup();
+  const current = normalizeRecurrenceFilter(state.recurrenceFilter);
+
+  RECURRENCE_FILTER_OPTIONS.forEach((opt) => {
+    const active = current === opt.id;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `recurrence-filter-chip${active ? ' active' : ''}`;
+    if (opt.id === 'any') {
+      const n = countNotesByRecurrence(groupNotes, 'any');
+      chip.textContent = n ? `${opt.label} (${n})` : opt.label;
+    } else if (opt.id) {
+      const n = countNotesByRecurrence(groupNotes, opt.id);
+      chip.textContent = n ? `${opt.label} (${n})` : opt.label;
+    } else {
+      chip.textContent = opt.label;
+    }
+    chip.addEventListener('click', () => {
+      state.recurrenceFilter = active ? null : opt.id;
+      renderNotesList();
+    });
+    els.recurrenceFilterBar.appendChild(chip);
+  });
 }
 
 function renderTagFilterBar() {
@@ -608,6 +650,7 @@ function renderNotesList() {
   renderGroupNav();
   renderSortBar();
   renderPriorityFilterBar();
+  renderRecurrenceFilterBar();
   renderTagFilterBar();
   applyCardDensity();
   applyDockOffset();
@@ -852,6 +895,7 @@ function setListGroup(group) {
   state.listGroup = group;
   state.tagFilterId = null;
   state.priorityFilter = null;
+  state.recurrenceFilter = null;
   closeContextMenu();
   closeDrawer();
   renderNotesList();
@@ -895,6 +939,7 @@ async function bootstrapData() {
   state.settings = loadSettings();
   state.tagFilterId = null;
   state.priorityFilter = null;
+  state.recurrenceFilter = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
 
   const localData = loadNotes().data;
@@ -950,6 +995,7 @@ async function applySyncCode(code) {
   }
   state.tagFilterId = null;
   state.priorityFilter = null;
+  state.recurrenceFilter = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
   renderNotesList();
   setLoading(false);
@@ -1078,6 +1124,14 @@ async function init() {
     saveSettings(state.settings);
     applyBarThickness();
   });
+  if (els.thicknessRecurrence) {
+    els.thicknessRecurrence.addEventListener('input', () => {
+      if (!state.settings.barThickness) state.settings.barThickness = {};
+      state.settings.barThickness.recurrence = Number(els.thicknessRecurrence.value);
+      saveSettings(state.settings);
+      applyBarThickness();
+    });
+  }
   els.resetBarsBtn.addEventListener('click', () => {
     state.settings.barLayout = [...DEFAULT_BAR_LAYOUT];
     saveSettings(state.settings);

@@ -462,7 +462,8 @@ body.light #health-mode-btn .bottom-nav-label {
 .movable-bar > .bar-body > .sort-bar,
 .movable-bar > .bar-body > .group-nav,
 .movable-bar > .bar-body > .tag-filter-bar,
-.movable-bar > .bar-body > .priority-filter-bar {
+.movable-bar > .bar-body > .priority-filter-bar,
+.movable-bar > .bar-body > .recurrence-filter-bar {
   flex: 1;
   min-width: 0;
 }
@@ -920,10 +921,11 @@ body.light .note-schedule {
   color: var(--accent);
 }
 
-/* Bars: sort / tag / priority / group — equal text size */
+/* Bars: sort / tag / priority / recurrence / group — equal text size */
 .sort-bar,
 .tag-filter-bar,
 .priority-filter-bar,
+.recurrence-filter-bar,
 .group-nav {
   display: flex;
   gap: var(--bar-gap, 0.35rem);
@@ -936,24 +938,28 @@ body.light .note-schedule {
 /* Filter chips in the stack above bottom nav */
 .bars-filters .sort-bar,
 .bars-filters .tag-filter-bar,
-.bars-filters .priority-filter-bar {
+.bars-filters .priority-filter-bar,
+.bars-filters .recurrence-filter-bar {
   padding-bottom: max(0.1rem, calc(var(--bar-pad, 0.25rem) * 0.6));
 }
 
 .tag-filter-bar,
-.priority-filter-bar {
+.priority-filter-bar,
+.recurrence-filter-bar {
   overflow-x: auto;
   scrollbar-width: none;
 }
 
 .tag-filter-bar::-webkit-scrollbar,
-.priority-filter-bar::-webkit-scrollbar {
+.priority-filter-bar::-webkit-scrollbar,
+.recurrence-filter-bar::-webkit-scrollbar {
   display: none;
 }
 
 .sort-chip,
 .tag-filter-chip,
 .priority-chip,
+.recurrence-filter-chip,
 .group-tab {
   font-size: var(--bar-chip-font, 0.85rem);
   font-weight: 500;
@@ -967,7 +973,8 @@ body.light .note-schedule {
 }
 
 .tag-filter-chip,
-.priority-chip {
+.priority-chip,
+.recurrence-filter-chip {
   --tag: var(--text-muted);
   flex: 0 0 auto;
 }
@@ -975,6 +982,7 @@ body.light .note-schedule {
 .sort-chip.active,
 .tag-filter-chip.active,
 .priority-chip.active,
+.recurrence-filter-chip.active,
 .group-tab.active {
   color: #fff;
   background: var(--accent);
