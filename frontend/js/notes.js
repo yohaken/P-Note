@@ -204,9 +204,13 @@ export function applyManualOrder(data, orderedIds) {
 }
 
 export function previewText(note) {
-  const text = note.content.replace(/\s+/g, ' ').trim();
-  if (!text) return 'ไม่มีเนื้อหา';
-  return text.length > 80 ? `${text.slice(0, 80)}...` : text;
+  const text = String(note.content || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+}
+
+export function noteHasContent(note) {
+  return Boolean(previewText(note));
 }
 
 export function formatDate(iso) {

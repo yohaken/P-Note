@@ -406,7 +406,7 @@ body.bars-dragging .list-scroll {
 .notes-list {
   display: flex;
   flex-direction: column;
-  gap: calc(0.5rem - var(--card-density, 0) * 0.4rem);
+  gap: calc(0.4rem - var(--card-density, 0) * 0.32rem);
   padding: 0.5rem 0.75rem 0.75rem;
 }
 
@@ -416,9 +416,10 @@ body.bars-dragging .list-scroll {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  /* Density 0 → comfortable; 1 → minimal vertical padding */
   padding:
-    calc(0.8rem - var(--card-density, 0) * 0.52rem)
-    calc(0.9rem - var(--card-density, 0) * 0.25rem);
+    calc(0.55rem - var(--card-density, 0) * 0.42rem)
+    calc(0.75rem - var(--card-density, 0) * 0.2rem);
   color: inherit;
   cursor: pointer;
   touch-action: manipulation;
@@ -429,42 +430,82 @@ body.bars-dragging .list-scroll {
   background: var(--surface-2);
 }
 
+/* Title + tags/priority/schedule on one horizontal row */
+.card-top-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.note-card .card-title,
 .note-card h3 {
-  margin: 0 0 calc(0.3rem - var(--card-density, 0) * 0.26rem);
-  font-size: calc(1rem - var(--card-density, 0) * 0.18rem);
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: calc(0.95rem - var(--card-density, 0) * 0.12rem);
   font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-meta-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 1 auto;
+  max-width: 58%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.card-meta-row .tag-chip,
+.card-meta-row .priority-badge,
+.card-meta-row .schedule-badge {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.card-meta-row .schedule-badge {
+  font-size: 0.68rem;
+  padding: 0.12rem 0.4rem;
+}
+
+.card-meta-row .priority-badge {
+  font-size: 0.65rem;
+  padding: 0.12rem 0.4rem;
+}
+
+.card-meta-row .tag-chip {
+  font-size: 0.65rem;
+  padding: 0.18rem 0.42rem;
+}
+
+/* Single-line content; omit element entirely when empty (no reserved space) */
+.note-card .card-preview {
+  margin: calc(0.28rem - var(--card-density, 0) * 0.18rem) 0 0;
+  color: var(--text-muted);
+  font-size: calc(0.82rem - var(--card-density, 0) * 0.1rem);
   line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.note-card p {
-  margin: 0 0 calc(0.4rem - var(--card-density, 0) * 0.34rem);
-  color: var(--text-muted);
-  font-size: calc(0.88rem - var(--card-density, 0) * 0.14rem);
-  line-height: 1.35;
-  max-height: calc(3.6em * (1 - var(--card-density, 0) * 0.92));
-  overflow: hidden;
-  opacity: calc(1 - var(--card-density, 0) * 0.7);
-}
-
-.note-card .tag-chips,
-.note-card time {
-  opacity: calc(1 - var(--card-density, 0) * 0.95);
-  max-height: calc(2.4rem * (1 - var(--card-density, 0)));
-  overflow: hidden;
-}
-
-.note-card time {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+.note-card .card-preview:empty {
+  display: none;
 }
 
 .note-card.done-card {
   opacity: 0.7;
 }
 
+.note-card.done-card .card-title,
 .note-card.done-card h3 {
   text-decoration: line-through;
   text-decoration-color: var(--text-muted);
@@ -496,10 +537,8 @@ body.bars-dragging .list-scroll {
   touch-action: none;
 }
 
-.notes-list.manual-sort .note-card h3,
-.notes-list.manual-sort .note-card p,
-.notes-list.manual-sort .note-card time,
-.notes-list.manual-sort .note-card .tag-chips {
+.notes-list.manual-sort .card-top-row,
+.notes-list.manual-sort .card-preview {
   padding-left: 1.7rem;
 }
 
@@ -712,12 +751,12 @@ body.light .note-schedule {
   background: transparent;
 }
 
-/* Chips (list) */
+/* Chips (list / card meta) */
 .tag-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
-  margin: 0 0 0.4rem;
+  margin: 0;
 }
 
 .tag-chip {
@@ -833,17 +872,6 @@ body.light .note-schedule {
 
 .priority-chip.priority-normal.active {
   background: var(--text-muted);
-}
-
-.card-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-bottom: 0.25rem;
-}
-
-.card-badges:empty {
-  display: none;
 }
 
 .priority-badge {

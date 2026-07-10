@@ -1,10 +1,10 @@
-import { loadNotes, saveNotes } from './local.js?v=34';
-import { registerServiceWorker } from './cache.js?v=34';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=34';
-import { initListSortable } from './sortable.js?v=34';
-import { bindComposableInput } from './text-input.js?v=34';
-import { CONFIG } from './config.js?v=34';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=34';
+import { loadNotes, saveNotes } from './local.js?v=35';
+import { registerServiceWorker } from './cache.js?v=35';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=35';
+import { initListSortable } from './sortable.js?v=35';
+import { bindComposableInput } from './text-input.js?v=35';
+import { CONFIG } from './config.js?v=35';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=35';
 import {
   addTag,
   countNotesByTag,
@@ -36,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=34';
+} from './notes.js?v=35';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -44,20 +44,20 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=34';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=34';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=34';
+} from './schedule.js?v=35';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=35';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=35';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=34';
-import { normalizeNotesData } from './notes.js?v=34';
-import { SaveManager } from './sync.js?v=34';
-import { startUpdateWatcher } from './update.js?v=34';
-import { getAppBuild, formatAppBuiltAt } from './version.js?v=34';
-import { initViewportLock } from './viewport.js?v=34';
+} from './remote.js?v=35';
+import { normalizeNotesData } from './notes.js?v=35';
+import { SaveManager } from './sync.js?v=35';
+import { startUpdateWatcher } from './update.js?v=35';
+import { getAppBuild, formatAppBuiltAt } from './version.js?v=35';
+import { initViewportLock } from './viewport.js?v=35';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -571,29 +571,27 @@ function renderNotesList() {
     if (state.listGroup === NOTE_STATUS.TRASH) item.classList.add('trash-card');
 
     const tags = getTagsForNote(note, state.notesData.tags || []);
-    const chipsHtml = tags.length
-      ? `<div class="tag-chips">${tags
-          .map(
-            (tag) =>
-              `<span class="tag-chip" style="--tag:${safeTagColor(tag.color)}">${escapeHtml(tag.name)}</span>`,
-          )
-          .join('')}</div>`
+    const tagSpans = tags
+      .map(
+        (tag) =>
+          `<span class="tag-chip" style="--tag:${safeTagColor(tag.color)}">${escapeHtml(tag.name)}</span>`,
+      )
+      .join('');
+    const priorityHtml = priorityBadgeHtml(note);
+    const scheduleHtml = scheduleBadgeHtml(note);
+    const metaHtml = `${priorityHtml}${scheduleHtml}${tagSpans}`;
+    const preview = previewText(note);
+    const previewHtml = preview
+      ? `<p class="card-preview">${escapeHtml(preview)}</p>`
       : '';
-
-    const metaTime =
-      state.listGroup === NOTE_STATUS.DONE && note.completedAt
-        ? `ทำแล้ว ${escapeHtml(formatDate(note.completedAt))}`
-        : state.listGroup === NOTE_STATUS.TRASH && note.deletedAt
-          ? `ลบ ${escapeHtml(formatDate(note.deletedAt))}`
-          : `แก้ไข ${escapeHtml(formatDate(note.updatedAt))}`;
 
     item.innerHTML = `
       ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
-      <div class="card-badges">${priorityBadgeHtml(note)}${scheduleBadgeHtml(note)}</div>
-      <h3>${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
-      <p>${escapeHtml(previewText(note))}</p>
-      ${chipsHtml}
-      <time>${metaTime}</time>
+      <div class="card-top-row">
+        <h3 class="card-title">${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
+        ${metaHtml ? `<div class="card-meta-row">${metaHtml}</div>` : ''}
+      </div>
+      ${previewHtml}
     `;
 
     if (manual) {
