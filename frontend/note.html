@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="55">
-  <meta name="pnote-built" content="2026-07-10T23:32:00+07:00">
+  <meta name="pnote-build" content="56">
+  <meta name="pnote-built" content="2026-07-10T23:36:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=55"></script>
+  <script src="js/cache-bootstrap.js?v=56"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=55">
+  <link rel="stylesheet" href="css/pnote.css?v=56">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -163,7 +163,6 @@
         <div class="movable-bar" data-bar="sort" data-bar-name="กำหนดเวลา">
           <span class="bar-grip" aria-hidden="true">⠿</span>
           <div class="bar-body">
-            <span class="bar-label">กำหนดเวลา</span>
             <div id="sort-bar" class="sort-bar" aria-label="กำหนดเวลา">
               <button id="sort-updated-btn" class="sort-chip active" type="button">ล่าสุด</button>
               <button id="sort-schedule-btn" class="sort-chip" type="button">ตามกำหนด</button>
@@ -174,14 +173,12 @@
         <div class="movable-bar" data-bar="priority" data-bar-name="ความสำคัญ">
           <span class="bar-grip" aria-hidden="true">⠿</span>
           <div class="bar-body">
-            <span class="bar-label">ความสำคัญ</span>
             <div id="priority-filter-bar" class="priority-filter-bar" aria-label="ความสำคัญ"></div>
           </div>
         </div>
         <div class="movable-bar" data-bar="tag" data-bar-name="แท็ก">
           <span class="bar-grip" aria-hidden="true">⠿</span>
           <div class="bar-body">
-            <span class="bar-label">แท็ก</span>
             <div id="tag-filter-bar" class="tag-filter-bar" aria-label="แท็ก"></div>
           </div>
         </div>
@@ -253,18 +250,18 @@
           <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
         </div>
         <div class="settings-row">
-          <span class="settings-label">ความบางของแถบ (ปรับแยกแต่ละแถบ)</span>
+          <span class="settings-label">ความบางของแถบ (เลื่อนขวา = บางลง · สเกลกว้างขึ้น)</span>
           <div class="thickness-row">
             <span>กำหนดเวลา</span>
-            <input id="thickness-sort" type="range" min="0" max="100" value="0" step="5">
+            <input id="thickness-sort" type="range" min="0" max="100" value="0" step="1">
           </div>
           <div class="thickness-row">
             <span>แท็ก</span>
-            <input id="thickness-tag" type="range" min="0" max="100" value="0" step="5">
+            <input id="thickness-tag" type="range" min="0" max="100" value="0" step="1">
           </div>
           <div class="thickness-row">
             <span>ความสำคัญ</span>
-            <input id="thickness-priority" type="range" min="0" max="100" value="0" step="5">
+            <input id="thickness-priority" type="range" min="0" max="100" value="0" step="1">
           </div>
           <button id="reset-bars-btn" class="btn btn-secondary" type="button">รีเซ็ตตำแหน่งแถบ</button>
         </div>
@@ -303,7 +300,7 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=55"></script>
+  <script src="js/page-nav.js?v=56"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -336,7 +333,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=55"></script>
-  <script src="js/update-watch.js?v=55"></script>
+  <script type="module" src="js/app.js?v=56"></script>
+  <script src="js/update-watch.js?v=56"></script>
 </body>
 </html>

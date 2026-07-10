@@ -55,8 +55,22 @@ export function densityToCssUnit(percent) {
   return Math.min(100, Math.max(0, percent)) / 100;
 }
 
-/** Map thickness 0..100 (thin) to vertical bar padding in rem. */
+/** Map thickness 0..100 (thin) → bar padding + chip scale (wider range, ultra-thin at 100). */
 export function thicknessToPadRem(percent) {
   const p = Math.min(100, Math.max(0, percent)) / 100;
-  return `${(0.5 - p * 0.44).toFixed(3)}rem`;
+  // 0 → 0.48rem, 100 → 0
+  return `${(0.48 * (1 - p)).toFixed(3)}rem`;
+}
+
+/** Extra CSS vars so the whole filter row shrinks with thickness. */
+export function thicknessStyleVars(percent) {
+  const p = Math.min(100, Math.max(0, Number(percent) || 0)) / 100;
+  return {
+    '--bar-pad': `${(0.48 * (1 - p)).toFixed(3)}rem`,
+    '--bar-gap': `${(0.35 * (1 - p * 0.75)).toFixed(3)}rem`,
+    '--bar-chip-py': `${(0.35 * (1 - p * 0.9)).toFixed(3)}rem`,
+    '--bar-chip-px': `${(0.8 * (1 - p * 0.55)).toFixed(3)}rem`,
+    '--bar-chip-font': `${(0.85 * (1 - p * 0.42)).toFixed(3)}rem`,
+    '--bar-grip-w': `${Math.max(12, 20 * (1 - p * 0.45)).toFixed(1)}px`,
+  };
 }

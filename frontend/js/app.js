@@ -44,7 +44,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=46';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=46';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=56';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=46';
 import {
   fetchRemoteNotes,
@@ -204,10 +204,17 @@ function applyBarThickness() {
   const bt = state.settings.barThickness || { sort: 0, tag: 0, priority: 0 };
   ['sort', 'tag', 'priority'].forEach((bar) => {
     const wrap = barWrapper(bar);
-    const inner = wrap
-      ? wrap.querySelector('.sort-bar, .tag-filter-bar, .priority-filter-bar')
-      : null;
-    if (inner) inner.style.setProperty('--bar-pad', thicknessToPadRem(bt[bar] || 0));
+    if (!wrap) return;
+    const vars = thicknessStyleVars(bt[bar] || 0);
+    Object.entries(vars).forEach(([key, value]) => {
+      wrap.style.setProperty(key, value);
+    });
+    const inner = wrap.querySelector('.sort-bar, .tag-filter-bar, .priority-filter-bar');
+    if (inner) {
+      Object.entries(vars).forEach(([key, value]) => {
+        inner.style.setProperty(key, value);
+      });
+    }
   });
   if (els.thicknessSort) els.thicknessSort.value = String(bt.sort || 0);
   if (els.thicknessTag) els.thicknessTag.value = String(bt.tag || 0);
@@ -929,7 +936,7 @@ function initSwipeBack() {
       }
       if (state.view === 'editor') {
         const target = event.target;
-        if (target && target.closest && target.closest('input[type="datetime-local"], input[type="color"]')) {
+        if (target && target.closest && target.closest('input[type="datetime-local"], input[type="color"], .topbar, .topbar-actions, #manage-tags-btn, #settings-btn, .btn-mini')) {
           tracking = false;
           mode = null;
           return;
