@@ -1,5 +1,5 @@
-import { autoLogin, signOut, startLogin } from './auth.js?v=10';
-import { loadNotes } from './drive.js?v=10';
+import { autoLogin, handleAuthRedirect, isAuthRedirectPending, signOut, startLogin } from './auth.js?v=11';
+import { loadNotes } from './drive.js?v=11';
 import {
   addTag,
   countNotesByTag,
@@ -16,8 +16,8 @@ import {
   sortNotes,
   toggleNoteTag,
   updateNote,
-} from './notes.js?v=10';
-import { SaveManager } from './sync.js?v=10';
+} from './notes.js?v=11';
+import { SaveManager } from './sync.js?v=11';
 
 const state = {
   accessToken: null,
@@ -352,8 +352,13 @@ async function init() {
 
   els.loginBtn.addEventListener('click', async () => {
     els.loginError.textContent = '';
+    setLoading(true, 'กำลังไปยัง Google...');
     try {
       const accessToken = await startLogin();
+      if (!accessToken) {
+        // Mobile redirect — page will navigate away to Google.
+        return;
+      }
       await bootstrapData(accessToken);
     } catch (error) {
       setLoading(false);
@@ -432,8 +437,18 @@ async function init() {
   setLoading(true, 'กำลังตรวจสอบการล็อกอิน...');
 
   try {
+    const redirectToken = await handleAuthRedirect();
+    if (redirectToken) {
+      await bootstrapData(redirectToken);
+      return;
+    }
+
     const accessToken = await autoLogin();
     if (!accessToken) {
+      if (isAuthRedirectPending()) {
+        setLoading(true, 'กำลังไปยัง Google...');
+        return;
+      }
       setLoading(false);
       showView('login');
       return;

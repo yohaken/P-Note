@@ -27,3 +27,10 @@ Personal notes PWA. Static frontend (`frontend/`) synced to Google Drive via Fir
 
 - The PWA registers a service worker (`frontend/sw.js`) that caches all assets. When you change any file in `frontend/js/` or `frontend/css/`, you MUST bump the cache-busting `?v=N` query used in `frontend/index.html` and the `./js/*.js?v=N` import statements, AND bump `CACHE_NAME` in `frontend/sw.js`. Otherwise browsers (and the deployed site) keep serving stale JS/CSS even after deploy. During local testing, a hard refresh (Ctrl+Shift+R) forces fresh assets.
 - Notes data on Drive is versioned (`my_notes.json`, currently `version: 2`). `normalizeNotesData()` in `frontend/js/notes.js` migrates older payloads forward and is idempotent — run it on any loaded payload.
+
+### Mobile login
+
+- Production must use **`signInWithRedirect` on mobile** (iPhone/Android/PWA) — popup-only auth fails on many phones. Desktop keeps popup with redirect fallback when blocked.
+- `frontend/js/firebase.js` sets `authDomain` to `window.location.hostname` on Firebase Hosting (e.g. `mypeer-501909.web.app`) so `/__/auth/handler` is same-origin; using `*.firebaseapp.com` while the app runs on `*.web.app` breaks sign-in on Safari/modern mobile browsers.
+- Local static dev (`localhost`) has no `/__/auth` handler — mobile emulation on localhost still uses popup; test redirect flow on the deployed Hosting URL.
+- `autoLogin()` reuses a cached Drive token (~55 min) and does **not** auto-open popup/redirect when the token expires (requires tapping "Sign in with Google" again).

@@ -1,5 +1,5 @@
-import { CONFIG } from './config.js?v=10';
-import { saveNotes } from './drive.js?v=10';
+import { CONFIG } from './config.js?v=11';
+import { saveNotes } from './drive.js?v=11';
 
 export class SaveManager {
   constructor() {
