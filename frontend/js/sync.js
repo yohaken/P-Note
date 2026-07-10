@@ -1,5 +1,5 @@
-import { CONFIG } from './config.js?v=26';
-import { saveNotes } from './local.js?v=26';
+import { CONFIG } from './config.js?v=27';
+import { saveNotes } from './local.js?v=27';
 
 export class SaveManager {
   constructor() {

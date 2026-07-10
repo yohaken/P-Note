@@ -343,6 +343,71 @@ body.bars-dragging .list-scroll {
   opacity: 0.6;
 }
 
+/* Manual (free) sort mode */
+.notes-list.manual-sort .note-card {
+  position: relative;
+  padding-right: 4.5rem;
+  touch-action: pan-y;
+}
+
+.note-card .drag-hint {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  opacity: 0.5;
+}
+
+.notes-list.manual-sort .note-card h3,
+.notes-list.manual-sort .note-card p,
+.notes-list.manual-sort .note-card time,
+.notes-list.manual-sort .note-card .tag-chips {
+  padding-left: 1.1rem;
+}
+
+.card-actions {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: flex;
+  gap: 0.3rem;
+}
+
+.card-action {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.85rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card-action.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.note-card.reordering {
+  z-index: 50;
+  opacity: 0.95;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  background: var(--surface-2);
+}
+
+body.reordering-active {
+  cursor: grabbing;
+}
+
+body.reordering-active .list-scroll {
+  overflow: hidden;
+}
+
 /* Empty state */
 .empty-state {
   flex: 1;

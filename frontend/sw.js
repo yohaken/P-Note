@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pnote-v26';
+const CACHE_NAME = 'pnote-v27';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './js/remote.js',
   './js/text-input.js',
   './js/bars.js',
+  './js/sortable.js',
   './js/config.js',
   './js/local.js',
   './js/sync.js',

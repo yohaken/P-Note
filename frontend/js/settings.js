@@ -1,11 +1,14 @@
-import { STORAGE_KEYS } from './config.js?v=26';
-import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=26';
+import { STORAGE_KEYS } from './config.js?v=27';
+import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=27';
 
 const DEFAULTS = {
   theme: 'dark',
   cardDensity: 0,
+  sortMode: 'updated',
   barThickness: { sort: 0, tag: 0 },
 };
+
+const SORT_MODES = ['updated', 'schedule', 'manual'];
 
 function clampPct(value, fallback = 0) {
   const n = Number(value);
@@ -27,6 +30,7 @@ export function loadSettings() {
     return {
       theme: parsed.theme === 'light' ? 'light' : 'dark',
       cardDensity: clampPct(parsed.cardDensity),
+      sortMode: SORT_MODES.includes(parsed.sortMode) ? parsed.sortMode : 'updated',
       barThickness: {
         sort: clampPct(bt.sort),
         tag: clampPct(bt.tag),

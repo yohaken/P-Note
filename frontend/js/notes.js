@@ -104,6 +104,7 @@ export function createNote(title = '', content = '') {
     status: NOTE_STATUS.ACTIVE,
     completedAt: null,
     deletedAt: null,
+    order: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -136,6 +137,25 @@ export function sortNotes(notes) {
   return [...notes].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
+}
+
+export function sortNotesManual(notes) {
+  return [...notes].sort((a, b) => {
+    const ao = Number.isFinite(a.order) ? a.order : Infinity;
+    const bo = Number.isFinite(b.order) ? b.order : Infinity;
+    if (ao !== bo) return ao - bo;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+}
+
+export function applyManualOrder(data, orderedIds) {
+  const idx = new Map(orderedIds.map((id, i) => [id, i]));
+  return {
+    ...data,
+    notes: data.notes.map((note) =>
+      idx.has(note.id) ? { ...note, order: idx.get(note.id) } : note,
+    ),
+  };
 }
 
 export function previewText(note) {
@@ -187,6 +207,7 @@ export function normalizeNotesData(data) {
           : NOTE_STATUS.ACTIVE,
         completedAt: note.completedAt || null,
         deletedAt: note.deletedAt || null,
+        order: Number.isFinite(note.order) ? note.order : null,
       }))
     : [];
 

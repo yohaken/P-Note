@@ -1,9 +1,10 @@
-import { loadNotes, saveNotes } from './local.js?v=26';
-import { registerServiceWorker } from './cache.js?v=26';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=26';
-import { bindComposableInput } from './text-input.js?v=26';
-import { CONFIG } from './config.js?v=26';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=26';
+import { loadNotes, saveNotes } from './local.js?v=27';
+import { registerServiceWorker } from './cache.js?v=27';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=27';
+import { initListSortable } from './sortable.js?v=27';
+import { bindComposableInput } from './text-input.js?v=27';
+import { CONFIG } from './config.js?v=27';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=27';
 import {
   addTag,
   countNotesByTag,
@@ -24,10 +25,12 @@ import {
   safeTagColor,
   setTagColor,
   sortNotes,
+  sortNotesManual,
+  applyManualOrder,
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=26';
+} from './notes.js?v=27';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -35,19 +38,19 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=26';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=26';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=26';
+} from './schedule.js?v=27';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=27';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=27';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=26';
-import { normalizeNotesData } from './notes.js?v=26';
-import { SaveManager } from './sync.js?v=26';
-import { startUpdateWatcher } from './update.js?v=26';
-import { getAppBuild } from './version.js?v=26';
+} from './remote.js?v=27';
+import { normalizeNotesData } from './notes.js?v=27';
+import { SaveManager } from './sync.js?v=27';
+import { startUpdateWatcher } from './update.js?v=27';
+import { getAppBuild } from './version.js?v=27';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -88,6 +91,7 @@ const els = {
   resetBarsBtn: document.getElementById('reset-bars-btn'),
   sortUpdatedBtn: document.getElementById('sort-updated-btn'),
   sortScheduleBtn: document.getElementById('sort-schedule-btn'),
+  sortManualBtn: document.getElementById('sort-manual-btn'),
   groupActiveBtn: document.getElementById('group-active-btn'),
   groupDoneBtn: document.getElementById('group-done-btn'),
   groupTrashBtn: document.getElementById('group-trash-btn'),
@@ -250,7 +254,9 @@ function notesForCurrentGroup() {
 function sortedFilteredNotes() {
   let notes = notesForCurrentGroup();
   notes = filterNotesByTag(notes, state.tagFilterId);
-  return state.sortMode === 'schedule' ? sortNotesBySchedule(notes) : sortNotes(notes);
+  if (state.sortMode === 'schedule') return sortNotesBySchedule(notes);
+  if (state.sortMode === 'manual') return sortNotesManual(notes);
+  return sortNotes(notes);
 }
 
 function renderGroupNav() {
@@ -277,6 +283,18 @@ function renderGroupNav() {
 function renderSortBar() {
   els.sortUpdatedBtn.classList.toggle('active', state.sortMode === 'updated');
   els.sortScheduleBtn.classList.toggle('active', state.sortMode === 'schedule');
+  els.sortManualBtn.classList.toggle('active', state.sortMode === 'manual');
+}
+
+function isManualMode() {
+  return state.sortMode === 'manual';
+}
+
+function setSortMode(mode) {
+  state.sortMode = mode;
+  state.settings.sortMode = mode;
+  saveSettings(state.settings);
+  renderNotesList();
 }
 
 function renderTagFilterBar() {
@@ -397,6 +415,49 @@ function applyNoteAction(noteId, action) {
   setStatus(action === 'done' ? 'ย้ายไปทำแล้ว' : action === 'trash' ? 'ย้ายไปถังขยะ' : 'กู้คืนแล้ว');
 }
 
+function cardActionsFor(note) {
+  if (state.listGroup === NOTE_STATUS.ACTIVE) {
+    return [
+      { label: '✓', title: 'ทำแล้ว', action: 'done' },
+      { label: '🗑', title: 'ลบ', danger: true, action: 'trash' },
+    ];
+  }
+  if (state.listGroup === NOTE_STATUS.DONE) {
+    return [
+      { label: '↩', title: 'คืนเป็นงาน', action: 'restore' },
+      { label: '🗑', title: 'ลบ', danger: true, action: 'trash' },
+    ];
+  }
+  return [
+    { label: '↩', title: 'กู้คืน', action: 'restore' },
+    { label: '✕', title: 'ลบถาวร', danger: true, action: 'purge' },
+  ];
+}
+
+function appendCardActions(item, note) {
+  const wrap = document.createElement('div');
+  wrap.className = 'card-actions';
+  cardActionsFor(note).forEach((a) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `card-action${a.danger ? ' danger' : ''}`;
+    btn.textContent = a.label;
+    btn.title = a.title;
+    btn.setAttribute('aria-label', a.title);
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      applyNoteAction(note.id, a.action);
+    });
+    wrap.appendChild(btn);
+  });
+  item.appendChild(wrap);
+}
+
+function reorderNotes(orderedIds) {
+  state.notesData = applyManualOrder(state.notesData, orderedIds);
+  autosave();
+}
+
 function renderNotesList() {
   renderGroupNav();
   renderSortBar();
@@ -406,10 +467,14 @@ function renderNotesList() {
   const notes = sortedFilteredNotes();
   els.notesList.innerHTML = '';
 
+  const manual = isManualMode();
+  els.notesList.classList.toggle('manual-sort', manual);
+
   notes.forEach((note) => {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'note-card';
+    item.dataset.noteId = note.id;
     if (state.listGroup === NOTE_STATUS.DONE) item.classList.add('done-card');
     if (state.listGroup === NOTE_STATUS.TRASH) item.classList.add('trash-card');
 
@@ -431,6 +496,7 @@ function renderNotesList() {
           : `แก้ไข ${escapeHtml(formatDate(note.updatedAt))}`;
 
     item.innerHTML = `
+      ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
       ${scheduleBadgeHtml(note)}
       <h3>${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
       <p>${escapeHtml(previewText(note))}</p>
@@ -438,11 +504,16 @@ function renderNotesList() {
       <time>${metaTime}</time>
     `;
 
-    attachNoteCardInteractions(item, {
-      noteId: note.id,
-      onTap: () => openEditor(note.id),
-      onLongPress: ({ clientX, clientY }) => openContextMenu(note.id, clientX, clientY),
-    });
+    if (manual) {
+      appendCardActions(item, note);
+      // Tap + long-press drag handled by the list-level sortable.
+    } else {
+      attachNoteCardInteractions(item, {
+        noteId: note.id,
+        onTap: () => openEditor(note.id),
+        onLongPress: ({ clientX, clientY }) => openContextMenu(note.id, clientX, clientY),
+      });
+    }
 
     els.notesList.appendChild(item);
   });
@@ -671,6 +742,7 @@ async function bootstrapData() {
 
   state.notesData = result.data;
   state.online = result.online;
+  state.sortMode = state.settings.sortMode || 'updated';
   saveNotes(state.notesData);
 
   saveManager.configure({
@@ -868,13 +940,14 @@ async function init() {
   els.manageTagsBtn.addEventListener('click', openTagManager);
   els.backBtn.addEventListener('click', backToList);
 
-  els.sortUpdatedBtn.addEventListener('click', () => {
-    state.sortMode = 'updated';
-    renderNotesList();
-  });
-  els.sortScheduleBtn.addEventListener('click', () => {
-    state.sortMode = 'schedule';
-    renderNotesList();
+  els.sortUpdatedBtn.addEventListener('click', () => setSortMode('updated'));
+  els.sortScheduleBtn.addEventListener('click', () => setSortMode('schedule'));
+  els.sortManualBtn.addEventListener('click', () => setSortMode('manual'));
+
+  initListSortable(els.notesList, {
+    isEnabled: isManualMode,
+    onTap: (noteId) => openEditor(noteId),
+    onReorder: (ids) => reorderNotes(ids),
   });
 
   els.tagAddForm.addEventListener('submit', (event) => {
