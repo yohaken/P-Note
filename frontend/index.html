@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="58">
-  <meta name="pnote-built" content="2026-07-10T23:48:00+07:00">
-  <script src="js/cache-bootstrap.js?v=58"></script>
+  <meta name="pnote-build" content="59">
+  <meta name="pnote-built" content="2026-07-10T23:59:00+07:00">
+  <script src="js/cache-bootstrap.js?v=59"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -30,9 +30,7 @@
     input, select, textarea { font-size: 16px; }
     .btn-sm, .btn-icon, .btn-tpl-save, .period-pill, .chip, .info-btn, .drag-handle { font-size: 0.72rem; }
     .btn { font-size: 0.82rem; }
-    .app { max-width: 480px; margin: 0 auto; padding: 0.65rem; }
-    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
-    .top-bar h1 { font-size: 1.1rem; font-weight: 700; }
+    .app { max-width: 480px; margin: 0 auto; padding: 0.45rem 0.65rem; }
     .top-actions { display: flex; gap: 0.3rem; }
 
     .page-tabs {
@@ -532,12 +530,20 @@
     }
     .update-toast[hidden]:not(.visible) { display: none; }
 
-    /* Floating page switcher (Calorie home) */
-    .fab-pages {
+    /* Floating actions (settings + pages) */
+    .fab-stack {
       position: fixed;
       right: max(0.85rem, env(safe-area-inset-right, 0px));
       bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
       z-index: 55;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .fab-pages,
+    .fab-action {
+      position: relative;
       width: 3rem;
       height: 3rem;
       border: none;
@@ -553,7 +559,8 @@
       justify-content: center;
       -webkit-tap-highlight-color: transparent;
     }
-    .fab-pages:active { transform: scale(0.96); opacity: 0.9; }
+    .fab-pages:active,
+    .fab-action:active { transform: scale(0.96); opacity: 0.9; }
     .pages-menu-overlay {
       position: fixed;
       inset: 0;
@@ -622,15 +629,7 @@
 </head>
 <body>
   <div class="app">
-    <div class="top-bar">
-      <h1>Calorie & Protein</h1>
-      <div class="top-actions">
-        <button type="button" class="btn-sm" id="btnTheme">☀️</button>
-        <button type="button" class="btn-sm" id="btnSettings">⚙️</button>
-      </div>
-    </div>
     <div class="page-panel" id="page-calorie" data-page="calorie">
-    <p class="reorder-hint">ลาก ⋮⋮ เพื่อจัดลำดับหมวด — ระบบจำไว้</p>
 
     <div id="blocksContainer">
       <div class="sortable-block" data-block-id="summary">
@@ -868,6 +867,14 @@
         <p class="sheet-scroll-hint">เลื่อนลงเพื่อดูทั้งหมด ↓</p>
       </div>
       <div class="edit-sheet-body" id="settingsScrollBody">
+        <p class="sheet-section-label">ธีม</p>
+        <div class="field">
+          <div class="chart-period-btns" id="themeSegmented" style="margin-bottom:0.35rem">
+            <button type="button" class="period-pill" id="themeDarkBtn" data-theme="dark">มืด</button>
+            <button type="button" class="period-pill" id="themeLightBtn" data-theme="light">สว่าง</button>
+          </div>
+          <p class="hint">สลับธีมมืด / สว่าง</p>
+        </div>
         <p class="sheet-section-label">🗄️ ฐานข้อมูล (Calorie + Note)</p>
         <div class="field">
           <label for="settingsSyncCode">รหัสซิงค์</label>
@@ -975,7 +982,10 @@
     </div>
   </div>
 
-  <button type="button" class="fab-pages" id="fabPages" aria-label="สลับแผ่นงาน" title="แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน">▦</button>
+  <div class="fab-stack" id="fabStack" aria-label="ทางลัด">
+    <button type="button" class="fab-pages" id="fabPages" aria-label="สลับแผ่นงาน" title="แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน">▦</button>
+    <button type="button" class="fab-action" id="btnSettings" aria-label="ตั้งค่า" title="ตั้งค่า">⚙</button>
+  </div>
   <div class="pages-menu-overlay" id="pagesMenuOverlay" hidden>
     <div class="pages-menu" role="menu" aria-label="แผ่นงาน">
       <p class="pages-menu-title">แผ่นงาน</p>
@@ -984,7 +994,7 @@
 
   <div class="toast error" id="toast"></div>
 
-  <script src="js/page-nav.js?v=58"></script>
+  <script src="js/page-nav.js?v=59"></script>
   <script>
     const STORAGE_PREFIX = 'calorieTracker:';
     const SETTINGS_KEY = 'calorieTracker:settings';
@@ -1002,7 +1012,7 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const APP_VERSION = 'build-58';
+    const APP_VERSION = 'build-59';
 
     const PERIODS = [
       { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
@@ -1134,7 +1144,9 @@
       appVersionTag: $('#appVersionTag'), settingsScrollBody: $('#settingsScrollBody'),
       templateEditor: $('#templateEditor'), btnAddTemplate: $('#btnAddTemplate'),
       exerciseTemplateEditor: $('#exerciseTemplateEditor'), btnAddExTemplate: $('#btnAddExTemplate'),
-      btnSettings: $('#btnSettings'), btnTheme: $('#btnTheme'),
+      btnSettings: $('#btnSettings'),
+      themeDarkBtn: $('#themeDarkBtn'),
+      themeLightBtn: $('#themeLightBtn'),
       btnCancelSettings: $('#btnCancelSettings'), btnSaveSettings: $('#btnSaveSettings'),
       btnQuickTemplate: $('#btnQuickTemplate'),
       quickTemplateOverlay: $('#quickTemplateOverlay'),
@@ -2818,7 +2830,8 @@
     function applyTheme(t) {
       document.documentElement.dataset.theme = t;
       saveSettings({ theme: t });
-      els.btnTheme.textContent = t === 'dark' ? '☀️' : '🌙';
+      if (els.themeDarkBtn) els.themeDarkBtn.classList.toggle('active', t === 'dark');
+      if (els.themeLightBtn) els.themeLightBtn.classList.toggle('active', t === 'light');
       $('meta[name="theme-color"]').content = t === 'dark' ? '#0f172a' : '#f1f5f9';
     }
 
@@ -2982,6 +2995,12 @@
     els.settingsOverlay.addEventListener('touchmove', (e) => {
       if (e.target === els.settingsOverlay) e.preventDefault();
     }, { passive: false });
+    if (els.themeDarkBtn) {
+      els.themeDarkBtn.onclick = () => { applyTheme('dark'); renderCharts(); };
+    }
+    if (els.themeLightBtn) {
+      els.themeLightBtn.onclick = () => { applyTheme('light'); renderCharts(); };
+    }
     els.btnAddTemplate.onclick = () => {
       const t = loadTemplateList();
       t.push({ id: 't' + Date.now(), label: 'มื้อใหม่', calories: 300, protein: 20 });
@@ -2992,7 +3011,6 @@
       t.push({ id: 'e' + Date.now(), label: 'ออกกำลังใหม่', calories: 200, note: '' });
       saveSettings({ exerciseTemplates: t }); renderExerciseTemplateEditor();
     };
-    els.btnTheme.onclick = () => { applyTheme(loadSettings().theme === 'dark' ? 'light' : 'dark'); renderCharts(); };
 
     window.addEventListener('resize', renderCharts);
     document.addEventListener('visibilitychange', () => {
@@ -3071,6 +3089,6 @@
       history.replaceState(null, '', location.pathname + location.search);
     }
   </script>
-  <script src="js/update-watch.js?v=58"></script>
+  <script src="js/update-watch.js?v=59"></script>
 </body>
 </html>
