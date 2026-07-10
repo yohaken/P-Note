@@ -59,7 +59,7 @@ body {
 
 #app {
   position: relative;
-  height: 100dvh;
+  height: 100%;
   max-width: 720px;
   margin: 0 auto;
   overflow: hidden;
@@ -70,7 +70,7 @@ body {
 }
 
 .view {
-  height: 100dvh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -234,7 +234,8 @@ body {
   flex-shrink: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding-bottom: var(--safe-bottom);
+  /* Flush to the physical bottom — no safe-area spacer (was leaving a wide empty band on phones). */
+  padding-bottom: 0;
   z-index: 20;
 }
 
@@ -659,9 +660,16 @@ body.light .note-schedule {
   display: flex;
   gap: 0.35rem;
   align-items: center;
-  padding-top: var(--bar-pad, 0.5rem);
-  padding-bottom: var(--bar-pad, 0.5rem);
+  padding-top: var(--bar-pad, 0.4rem);
+  padding-bottom: var(--bar-pad, 0.4rem);
   padding-right: 0.75rem;
+}
+
+/* Bottom dock: sit chips on the screen edge (no leftover empty band). */
+.bars-dock .sort-bar,
+.bars-dock .tag-filter-bar,
+.bars-dock .priority-filter-bar {
+  padding-bottom: 0;
 }
 
 .tag-filter-bar,
@@ -793,7 +801,7 @@ body.light .priority-badge.priority-urgent {
 .add-fab {
   position: fixed;
   right: calc(1rem + env(safe-area-inset-right, 0px));
-  bottom: calc(7.25rem + var(--safe-bottom));
+  bottom: calc(var(--dock-offset, 3.25rem) + 0.75rem);
   z-index: 36;
   width: 52px;
   height: 52px;

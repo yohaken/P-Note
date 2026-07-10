@@ -1,10 +1,10 @@
-import { loadNotes, saveNotes } from './local.js?v=29';
-import { registerServiceWorker } from './cache.js?v=29';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=29';
-import { initListSortable } from './sortable.js?v=29';
-import { bindComposableInput } from './text-input.js?v=29';
-import { CONFIG } from './config.js?v=29';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=29';
+import { loadNotes, saveNotes } from './local.js?v=30';
+import { registerServiceWorker } from './cache.js?v=30';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=30';
+import { initListSortable } from './sortable.js?v=30';
+import { bindComposableInput } from './text-input.js?v=30';
+import { CONFIG } from './config.js?v=30';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=30';
 import {
   addTag,
   countNotesByTag,
@@ -36,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=29';
+} from './notes.js?v=30';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -44,19 +44,19 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=29';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=29';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=29';
+} from './schedule.js?v=30';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=30';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=30';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=29';
-import { normalizeNotesData } from './notes.js?v=29';
-import { SaveManager } from './sync.js?v=29';
-import { startUpdateWatcher } from './update.js?v=29';
-import { getAppBuild, formatAppBuiltAt } from './version.js?v=29';
+} from './remote.js?v=30';
+import { normalizeNotesData } from './notes.js?v=30';
+import { SaveManager } from './sync.js?v=30';
+import { startUpdateWatcher } from './update.js?v=30';
+import { getAppBuild, formatAppBuiltAt } from './version.js?v=30';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -541,12 +541,20 @@ function reorderNotes(orderedIds) {
   autosave();
 }
 
+function applyDockOffset() {
+  const dock = els.barsBottom;
+  if (!dock) return;
+  const h = Math.ceil(dock.getBoundingClientRect().height || 0);
+  document.documentElement.style.setProperty('--dock-offset', `${Math.max(h, 40)}px`);
+}
+
 function renderNotesList() {
   renderGroupNav();
   renderSortBar();
   renderPriorityFilterBar();
   renderTagFilterBar();
   applyCardDensity();
+  applyDockOffset();
 
   const notes = sortedFilteredNotes();
   els.notesList.innerHTML = '';
