@@ -1,13 +1,13 @@
-import { autoLogin, signOut, startLogin } from './auth.js?v=7';
-import { loadNotes } from './drive.js?v=7';
+import { autoLogin, signOut, startLogin } from './auth.js?v=8';
+import { loadNotes } from './drive.js?v=8';
 import {
   createNote,
   formatDate,
   previewText,
   sortNotes,
   updateNote,
-} from './notes.js?v=7';
-import { SaveManager } from './sync.js?v=7';
+} from './notes.js?v=8';
+import { SaveManager } from './sync.js?v=8';
 
 const state = {
   accessToken: null,
@@ -192,7 +192,7 @@ async function init() {
   els.addNoteBtn.addEventListener('click', openNewNote);
   els.backBtn.addEventListener('click', backToList);
   els.signOutBtn.addEventListener('click', async () => {
-    await signOut(state.accessToken);
+    await signOut();
     state.accessToken = null;
     showView('login');
   });
