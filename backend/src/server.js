@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { corsMiddleware } from './middleware/cors.js';
 import healthRoutes from './routes/health.js';
 import notesRoutes from './routes/notes.js';
+import calorieRoutes from './routes/calorie.js';
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(express.json({ limit: '8mb' }));
 
 app.use('/api', healthRoutes);
 app.use('/api', notesRoutes);
+app.use('/api', calorieRoutes);
 app.get('/health', (_req, res) => {
   res.redirect(307, '/api/health');
 });

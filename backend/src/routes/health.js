@@ -14,9 +14,9 @@ router.get('/health', (_req, res) => {
 
 router.get('/version', (_req, res) => {
   res.json({
-    version: '2.0.0-phase2',
-    features: ['health-check', 'firestore-notes'],
-    upcoming: ['firebase-auth', 'health-calorie'],
+    version: '2.1.0-calorie-firestore',
+    features: ['health-check', 'firestore-notes', 'firestore-calorie'],
+    upcoming: ['firebase-auth'],
   });
 });
 

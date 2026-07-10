@@ -519,6 +519,12 @@
         <button type="button" class="btn-sm" id="btnSettings">⚙️</button>
       </div>
     </div>
+    <div class="cloud-strip" id="dbStrip" data-state="connecting" role="status" aria-live="polite">
+      <span class="cloud-strip-dot" aria-hidden="true"></span>
+      <span class="cloud-strip-label">ฐานข้อมูล</span>
+      <span class="cloud-strip-text" id="dbStripText">กำลังเชื่อม Firestore…</span>
+      <button type="button" class="cloud-strip-action" id="dbStripAction">ซิงก์</button>
+    </div>
     <div class="cloud-strip" id="cloudStrip" data-state="offline" role="status" aria-live="polite">
       <span class="cloud-strip-dot" id="cloudStripDot" aria-hidden="true"></span>
       <span class="cloud-strip-label" id="cloudStripLabel">ออฟไลน์</span>
@@ -791,7 +797,18 @@
         <p class="sheet-scroll-hint">เลื่อนลงเพื่อดูทั้งหมด ↓</p>
       </div>
       <div class="edit-sheet-body" id="settingsScrollBody">
-        <p class="sheet-section-label">☁️ Google Drive</p>
+        <p class="sheet-section-label">🗄️ ฐานข้อมูล (Firestore)</p>
+        <div class="field">
+          <label for="settingsSyncCode">รหัสซิงค์</label>
+          <input type="text" id="settingsSyncCode" placeholder="sp-xxxxxxxx" autocomplete="off" spellcheck="false">
+          <p class="hint">ใช้รหัสเดียวกันบนอีกเครื่องเพื่อแชร์ข้อมูลแคลอรี่ · ไม่ต้องล็อกอิน</p>
+          <div style="display:flex;gap:0.35rem;margin-top:0.35rem;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost" id="btnCopySyncCode" style="flex:1;font-size:0.72rem">คัดลอก</button>
+            <button type="button" class="btn" id="btnApplySyncCode" style="flex:1;font-size:0.72rem">ใช้รหัสนี้</button>
+          </div>
+          <p class="hint" id="settingsDbStatus">สถานะ: —</p>
+        </div>
+        <p class="sheet-section-label">☁️ Google Drive (ทางเลือก)</p>
         <div class="field">
           <label for="settingsGoogleClientId">Google OAuth Client ID</label>
           <input type="text" id="settingsGoogleClientId" placeholder="123456789-xxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
@@ -804,7 +821,7 @@
               <li><strong>เปิด Drive API</strong><br>เมนู ☰ → APIs &amp; Services → <strong>Library</strong> → ค้นหา <em>Google Drive API</em> → กด <strong>Enable</strong></li>
               <li><strong>Test user</strong><br>เมนู ☰ → <strong>Google Auth platform</strong> → แท็บ <strong>Audience</strong> → <strong>Test users</strong> → Add users → ใส่ Gmail</li>
               <li><strong>Scope</strong> (ถ้ามีแท็บ Data access)<br>Google Auth platform → <strong>Data access</strong> → Add or remove scopes → วาง <code>https://www.googleapis.com/auth/drive.file</code> → Add to table → Save<br><em>ไม่เจอแท็บนี้? ข้ามได้ — ลองเชื่อมต่อหลังข้อ 1</em></li>
-              <li><strong>Web Client</strong><br>Google Auth platform → <strong>Clients</strong> → Web client → origins: <code>https://yohaken.github.io</code></li>
+              <li><strong>Web Client</strong><br>Google Auth platform → <strong>Clients</strong> → Web client → origins: <code>https://mypeer-501909.web.app</code></li>
             </ol>
           </details>
           <p class="hint cloud-settings-status" id="settingsCloudStatus">สถานะ: ยังไม่เชื่อมต่อ</p>
@@ -913,6 +930,12 @@
     const SETTINGS_KEY = 'calorieTracker:settings';
     const TEMPLATES_KEY = 'calorieTracker:templates';
     const EXERCISE_TEMPLATES_KEY = 'calorieTracker:exerciseTemplates';
+    const SPACE_ID_KEY = 'calorie_space_id';
+    const SPACE_RE = /^[A-Za-z0-9_-]{6,64}$/;
+    const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:8080'
+      : 'https://p-note-api-cwpgmqlv2q-as.a.run.app';
+    const DB_SYNC_DELAY_MS = 1500;
     const BMR_MULTIPLIER = 22;
     const KCAL_PER_KG = 7700;
     const DEFAULT_PROTEIN_MULT = 1.55;
@@ -1056,6 +1079,13 @@
       settingsBirthDate: $('#settingsBirthDate'), settingsAgeHint: $('#settingsAgeHint'),
       settingsGoogleClientId: $('#settingsGoogleClientId'),
       settingsClientIdHint: $('#settingsClientIdHint'),
+      settingsSyncCode: $('#settingsSyncCode'),
+      settingsDbStatus: $('#settingsDbStatus'),
+      btnCopySyncCode: $('#btnCopySyncCode'),
+      btnApplySyncCode: $('#btnApplySyncCode'),
+      dbStrip: $('#dbStrip'),
+      dbStripText: $('#dbStripText'),
+      dbStripAction: $('#dbStripAction'),
       appVersionTag: $('#appVersionTag'), settingsScrollBody: $('#settingsScrollBody'),
       templateEditor: $('#templateEditor'), btnAddTemplate: $('#btnAddTemplate'),
       exerciseTemplateEditor: $('#exerciseTemplateEditor'), btnAddExTemplate: $('#btnAddExTemplate'),
@@ -1232,6 +1262,7 @@
       next.exerciseTemplates = loadExerciseTemplateList();
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
       scheduleAutoBackup();
+      scheduleDbPush();
     }
 
     function calcAgeFromBirthDate(birthDate, asOfDate) {
@@ -1428,6 +1459,188 @@
         exercises: (data.exercises ?? []).map(migrateExercise),
       }));
       scheduleAutoBackup();
+      scheduleDbPush();
+    }
+
+    /* —— Firestore sync (P-Note style: anonymous space id / sync code) —— */
+    let dbPushTimer = null;
+    let dbOnline = false;
+    let dbSyncing = false;
+
+    function randomSpaceId() {
+      const rand = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().replace(/-/g, '')
+        : Math.random().toString(36).slice(2) + Date.now().toString(36);
+      return 'sp-' + rand.slice(0, 20);
+    }
+
+    function getSpaceId() {
+      let id = localStorage.getItem(SPACE_ID_KEY);
+      if (!id || !SPACE_RE.test(id)) {
+        id = randomSpaceId();
+        localStorage.setItem(SPACE_ID_KEY, id);
+      }
+      return id;
+    }
+
+    function setSpaceId(id) {
+      const trimmed = String(id || '').trim();
+      if (!SPACE_RE.test(trimmed)) throw new Error('รหัสซิงค์ต้องเป็น A-Z a-z 0-9 - _ ยาว 6–64 ตัว');
+      localStorage.setItem(SPACE_ID_KEY, trimmed);
+      return trimmed;
+    }
+
+    function collectCalorieLocalData() {
+      const data = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX)) data[k] = localStorage.getItem(k);
+      }
+      return data;
+    }
+
+    function applyCalorieRemoteData(data) {
+      if (!data || typeof data !== 'object') return 0;
+      let n = 0;
+      for (const [k, v] of Object.entries(data)) {
+        if (!k.startsWith(STORAGE_PREFIX)) continue;
+        localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+        n++;
+      }
+      return n;
+    }
+
+    function localCalorieKeyCount() {
+      let n = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX)) n++;
+      }
+      return n;
+    }
+
+    function setDbStrip(state, text) {
+      if (els.dbStrip) els.dbStrip.dataset.state = state;
+      if (els.dbStripText) els.dbStripText.textContent = text;
+      if (els.settingsDbStatus) {
+        els.settingsDbStatus.textContent = 'สถานะ: ' + text + ' · รหัส ' + getSpaceId();
+      }
+    }
+
+    async function fetchWithTimeout(url, options = {}) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal, mode: 'cors' });
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function calorieApiUrl(spaceId) {
+      return API_BASE_URL + '/api/spaces/' + encodeURIComponent(spaceId) + '/calorie';
+    }
+
+    async function checkDbOnline() {
+      try {
+        const res = await fetchWithTimeout(API_BASE_URL + '/api/db-status');
+        if (!res.ok) return false;
+        const body = await res.json();
+        return Boolean(body.ok);
+      } catch {
+        return false;
+      }
+    }
+
+    async function fetchRemoteCalorie(spaceId) {
+      const res = await fetchWithTimeout(calorieApiUrl(spaceId), {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error('GET ' + res.status);
+      return res.json();
+    }
+
+    async function pushRemoteCalorie(spaceId, data) {
+      const res = await fetchWithTimeout(calorieApiUrl(spaceId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: 6, data }),
+      });
+      if (!res.ok) throw new Error('PUT ' + res.status);
+      return res.json();
+    }
+
+    function scheduleDbPush() {
+      clearTimeout(dbPushTimer);
+      dbPushTimer = setTimeout(() => { pushCalorieNow().catch(() => {}); }, DB_SYNC_DELAY_MS);
+    }
+
+    async function pushCalorieNow() {
+      if (dbSyncing) return;
+      dbSyncing = true;
+      setDbStrip('syncing', 'กำลังบันทึกขึ้น Firestore…');
+      try {
+        dbOnline = await checkDbOnline();
+        if (!dbOnline) {
+          setDbStrip('offline', 'ออฟไลน์ · เก็บในเครื่องไว้ก่อน');
+          return;
+        }
+        const spaceId = getSpaceId();
+        await pushRemoteCalorie(spaceId, collectCalorieLocalData());
+        setDbStrip('online', 'ซิงก์แล้ว · รหัส ' + spaceId.slice(0, 10) + '…');
+      } catch (err) {
+        setDbStrip('error', 'ซิงก์ไม่สำเร็จ · ใช้ข้อมูลในเครื่อง');
+        console.warn('calorie db push', err);
+      } finally {
+        dbSyncing = false;
+      }
+    }
+
+    async function pullOrMigrateCalorie() {
+      setDbStrip('connecting', 'กำลังโหลดจาก Firestore…');
+      try {
+        dbOnline = await checkDbOnline();
+        if (!dbOnline) {
+          setDbStrip('offline', 'ฐานข้อมูลออฟไลน์ · ใช้ข้อมูลในเครื่อง');
+          return;
+        }
+        const spaceId = getSpaceId();
+        const remote = await fetchRemoteCalorie(spaceId);
+        const remoteCount = remote?.data ? Object.keys(remote.data).length : 0;
+        const localCount = localCalorieKeyCount();
+        if (remoteCount > 0) {
+          applyCalorieRemoteData(remote.data);
+          setDbStrip('online', 'โหลดจากคลาวด์แล้ว · ' + remoteCount + ' คีย์');
+          try { refresh(); } catch { /* refresh may need currentDate */ }
+        } else if (localCount > 0) {
+          await pushRemoteCalorie(spaceId, collectCalorieLocalData());
+          setDbStrip('online', 'อัปโหลดข้อมูลเครื่องขึ้นคลาวด์แล้ว');
+        } else {
+          setDbStrip('online', 'พร้อม · รหัส ' + spaceId.slice(0, 10) + '…');
+        }
+      } catch (err) {
+        setDbStrip('error', 'เชื่อมฐานข้อมูลไม่ได้ · ใช้เครื่อง');
+        console.warn('calorie db pull', err);
+      }
+    }
+
+    function fillSyncCodeField() {
+      if (els.settingsSyncCode) els.settingsSyncCode.value = getSpaceId();
+      if (els.settingsDbStatus) {
+        els.settingsDbStatus.textContent = 'สถานะ: ' + (els.dbStripText?.textContent || '—') + ' · รหัส ' + getSpaceId();
+      }
+    }
+
+    async function applySyncCodeFromInput() {
+      try {
+        const next = setSpaceId(els.settingsSyncCode?.value || '');
+        fillSyncCodeField();
+        await pullOrMigrateCalorie();
+        showToast('ใช้รหัสซิงค์ ' + next + ' แล้ว', 'success');
+      } catch (err) {
+        showToast(err.message || 'รหัสไม่ถูกต้อง', 'error');
+      }
     }
 
     function runMigration() {
@@ -2485,6 +2698,7 @@
       els.settingsBirthDate.max = todayStr();
       els.settingsAgeHint.textContent = formatAgeHint(birthDate, todayStr());
       els.settingsGoogleClientId.value = loadSettings().googleClientId || '';
+      fillSyncCodeField();
       updateClientIdHint();
       updateCloudSyncUI();
       if (els.appVersionTag) els.appVersionTag.textContent = '· ' + APP_VERSION;
@@ -3505,6 +3719,20 @@
     updateClientIdHint();
     updateCloudSyncUI();
     initCloudOnLoad();
+    pullOrMigrateCalorie();
+    if (els.btnCopySyncCode) {
+      els.btnCopySyncCode.onclick = async () => {
+        fillSyncCodeField();
+        try {
+          await navigator.clipboard.writeText(getSpaceId());
+          showToast('คัดลอกรหัสซิงค์แล้ว', 'success');
+        } catch {
+          showToast('คัดลอกไม่สำเร็จ', 'error');
+        }
+      };
+    }
+    if (els.btnApplySyncCode) els.btnApplySyncCode.onclick = () => applySyncCodeFromInput();
+    if (els.dbStripAction) els.dbStripAction.onclick = () => pushCalorieNow();
     setChartPeriod(loadSettings().chartPeriodDays || 30);
     els.mealTime.value = nowTimeStr();
     els.exerciseTime.value = nowTimeStr();
