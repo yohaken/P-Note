@@ -519,10 +519,11 @@
       <button type="button" class="cloud-strip-action" id="dbStripAction">ซิงก์</button>
     </div>
     <nav class="page-tabs" id="pageTabs" aria-label="เมนูหลัก">
-      <button type="button" class="page-tab active" data-page="note" id="tab-note">Note</button>
+      <button type="button" class="page-tab active" data-page="calorie" id="tab-calorie">Calorie</button>
+      <button type="button" class="page-tab" data-page="note" id="tab-note">Note</button>
     </nav>
 
-    <div class="page-panel" id="page-note" data-page="note">
+    <div class="page-panel" id="page-calorie" data-page="calorie">
     <p class="reorder-hint">ลาก ⋮⋮ เพื่อจัดลำดับหมวด — ระบบจำไว้</p>
 
     <div id="blocksContainer">
@@ -2845,6 +2846,10 @@
 
 
     function showPage(pageId) {
+      if (pageId === 'note') {
+        window.location.href = './note.html';
+        return;
+      }
       document.querySelectorAll('.page-panel').forEach((el) => {
         el.hidden = el.dataset.page !== pageId;
       });
@@ -2862,7 +2867,7 @@
         });
       }
     }
-    showPage('note');
+    showPage('calorie');
 
     runMigration();
     applyTheme(loadSettings().theme);
