@@ -43,7 +43,11 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: var(--bg);
+  min-height: 100%;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  /* Match dock so any residual bottom strip isn't a black "hole". */
+  background: var(--surface);
   color: var(--text);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
@@ -55,14 +59,20 @@ body {
 body {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: var(--app-height, 100%);
 }
 
 #app {
-  position: relative;
-  height: 100%;
+  position: fixed;
+  top: var(--app-top, 0px);
+  left: 0;
+  right: 0;
+  height: var(--app-height, 100%);
   max-width: 720px;
   margin: 0 auto;
   overflow: hidden;
+  background: var(--bg);
 }
 
 .hello-world-banner {
@@ -70,6 +80,7 @@ body {
 }
 
 .view {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -222,7 +233,8 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding-bottom: 0.4rem;
+  /* Room for absolute bottom dock (ความสำคัญ / แท็ก / …) */
+  padding-bottom: calc(var(--dock-offset, 3.5rem) + 0.5rem);
 }
 
 .bars-zone {
@@ -231,12 +243,16 @@ body {
 }
 
 .bars-zone.bars-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   flex-shrink: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  /* Flush to the physical bottom — no safe-area spacer (was leaving a wide empty band on phones). */
-  padding-bottom: 0;
-  z-index: 20;
+  /* Background paints through the home-indicator zone; chips stay flush above it. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 30;
 }
 
 .bars-zone:empty {
@@ -683,10 +699,14 @@ body.light .note-schedule {
   padding-right: 0.75rem;
 }
 
-/* Bottom dock: sit chips on the screen edge (no leftover empty band). */
+/* Bottom dock chips: no extra empty pad under the last row — safe-area is dock bg only. */
 .bars-dock .sort-bar,
 .bars-dock .tag-filter-bar,
 .bars-dock .priority-filter-bar {
+  padding-bottom: 0;
+}
+
+.bars-dock .bar-body {
   padding-bottom: 0;
 }
 

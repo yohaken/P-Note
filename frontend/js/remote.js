@@ -1,4 +1,4 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=31';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=32';
 
 /**
  * Talks to the backend notes API (Firestore-backed database).
