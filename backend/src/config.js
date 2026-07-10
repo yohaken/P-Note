@@ -5,5 +5,5 @@ export const config = {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
-  gcpProjectId: process.env.GCP_PROJECT_ID || 'mypoer',
+  gcpProjectId: process.env.GCP_PROJECT_ID || 'mypeer-501909',
 };

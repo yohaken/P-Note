@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: mypoer
+  PROJECT_ID: mypeer-501909
   REGION: asia-southeast1
   SERVICE_NAME: p-note-api
   REPOSITORY: p-note
@@ -71,17 +71,10 @@ jobs:
           echo "Cloud Run URL: $URL"
 
       - name: Deploy Firebase Hosting
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        run: |
-          if [ -n "$FIREBASE_TOKEN" ]; then
-            npx firebase-tools@13 deploy --only hosting --project ${{ env.PROJECT_ID }} --non-interactive
-          else
-            echo "Skipping Firebase — add FIREBASE_TOKEN secret to enable"
-          fi
+        run: npx firebase-tools@13 deploy --only hosting --project ${{ env.PROJECT_ID }} --non-interactive
 
       - name: Deployment summary
         run: |
           echo "## Deployment complete" >> $GITHUB_STEP_SUMMARY
           echo "- API: ${{ steps.run-url.outputs.url }}/api/health" >> $GITHUB_STEP_SUMMARY
-          echo "- App: https://p-note.web.app" >> $GITHUB_STEP_SUMMARY
+          echo "- App: https://${{ env.PROJECT_ID }}.web.app" >> $GITHUB_STEP_SUMMARY
