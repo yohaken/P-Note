@@ -1,12 +1,14 @@
-const CACHE_NAME = 'pnote-v18';
+const CACHE_NAME = 'pnote-v19';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
+  './data/notes-import.json',
   './js/cache-bootstrap.js',
   './js/version.js',
   './js/cache.js',
   './js/update.js',
+  './js/import-data.js',
   './js/config.js',
   './js/local.js',
   './js/sync.js',

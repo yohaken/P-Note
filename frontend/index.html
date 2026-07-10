@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="18">
+  <meta name="pnote-build" content="19">
   <meta name="theme-color" content="#1a1a2e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=18"></script>
+  <script src="js/cache-bootstrap.js?v=19"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body>
   <p id="hello-world-banner" class="hello-world-banner" role="status">hello world</p>
@@ -22,7 +22,7 @@
       <header class="topbar">
         <div class="topbar-title">
           <h1>P-Note</h1>
-          <p id="app-version" class="app-version">v18 · โน้ต + ปฏิทิน</p>
+          <p id="app-version" class="app-version">v19 · โน้ต</p>
         </div>
         <div class="topbar-actions">
           <button id="export-btn" class="btn btn-text" type="button">สำรอง</button>
@@ -39,24 +39,15 @@
           <button id="sort-updated-btn" class="sort-chip active" type="button">ล่าสุด</button>
           <button id="sort-schedule-btn" class="sort-chip" type="button">ตามกำหนด</button>
         </div>
-        <section id="schedule-panel" class="schedule-panel" aria-label="ปฏิทินกำหนดการ">
-          <div class="schedule-panel-header">
-            <button id="cal-prev-btn" class="btn btn-text cal-nav" type="button" aria-label="เดือนก่อน">‹</button>
-            <h2 id="cal-month-label" class="schedule-month-label">—</h2>
-            <button id="cal-next-btn" class="btn btn-text cal-nav" type="button" aria-label="เดือนถัดไป">›</button>
-          </div>
-          <div id="cal-weekdays" class="cal-weekdays"></div>
-          <div id="cal-grid" class="cal-grid"></div>
-          <div id="upcoming-schedule" class="upcoming-schedule"></div>
-        </section>
         <p id="sync-status" class="sync-status" aria-live="polite"></p>
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
+          <p class="empty-state-hint">มีไฟล์สำรอง? กด <strong>นำเข้า</strong> หรือ ⚙ → วาง JSON</p>
           <button class="btn btn-primary" type="button" onclick="document.getElementById('add-note-btn').click()">
             สร้างโน้ตแรก
           </button>
         </div>
-        <div id="notes-list" class="notes-list"></div>
+        <div id="notes-list" class="notes-list notes-first"></div>
       </div>
 
       <footer class="bottom-dock">
@@ -115,7 +106,15 @@
         <div class="settings-row">
           <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
           <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
-          <p class="settings-hint">เลื่อนเพื่อย่อการ์ด — เห็นหัวข้อเป็นหลักในภาพรวม (พื้นหลังโปร่งใส)</p>
+          <p class="settings-hint">เลื่อนเพื่อย่อการ์ด — เห็นหัวข้อเป็นหลักในภาพรวม</p>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label" for="import-paste">นำเข้าข้อมูลเดิม (JSON)</label>
+          <textarea id="import-paste" class="import-paste" rows="4" placeholder='วางไฟล์สำรอง JSON ที่นี่ แล้วกดนำเข้า'></textarea>
+          <div class="settings-import-actions">
+            <button id="import-paste-btn" class="btn btn-primary" type="button">นำเข้า</button>
+            <button id="recover-local-btn" class="btn btn-secondary" type="button">กู้คืนในเครื่อง</button>
+          </div>
         </div>
         <button id="close-settings-btn" class="btn btn-secondary settings-close" type="button">ปิด</button>
       </div>
@@ -132,6 +131,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=18"></script>
+  <script type="module" src="js/app.js?v=19"></script>
 </body>
 </html>

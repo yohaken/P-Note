@@ -30,4 +30,5 @@ Personal notes PWA. Static frontend (`frontend/`) synced to Google Drive via Fir
 - **`js/update.js`** polls `index.html` every ~20s (and when the tab becomes visible) for a newer `pnote-build`; shows a brief toast then purges caches and reloads. Works when the PWA shortcut stays open in the background. Manual **↻** FAB bottom-right calls the same refresh path. Polling is disabled on `localhost`.
 - **`js/cache.js`** registers `sw.js?v=N` after bootstrap. Login is disabled for now — no auth modules loaded.
 - Notes live in `localStorage` key `pnote_local_data` (v4 schema: tags, `scheduledAt`, `status` active/done/trash). Export/import JSON via **สำรอง / นำเข้า** in the header.
-- Home page: calendar, upcoming schedule, sort chips, bottom group tabs (**งาน** / **ทำแล้ว** / **ถังขยะ**), tag filter chips fixed above bottom dock. Long-press a note card for compact context menu. Settings (⚙): card density slider (overlay, not page zoom).
+- Home page is **notes-first** (no calendar on list view; schedule field remains in editor). Bottom group tabs + tag filters.
+- On empty storage, app tries **legacy localStorage recovery** and optional `./data/notes-import.json`. Settings ⚙: paste JSON import or **กู้คืนในเครื่อง**.

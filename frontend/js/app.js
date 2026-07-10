@@ -1,7 +1,14 @@
-import { loadNotes, exportNotesBlob, parseNotesImport } from './local.js?v=18';
-import { registerServiceWorker } from './cache.js?v=18';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=18';
-import { CONFIG } from './config.js?v=18';
+import { loadNotes, exportNotesBlob, parseNotesImport, saveNotes } from './local.js?v=19';
+import { registerServiceWorker } from './cache.js?v=19';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=19';
+import { CONFIG } from './config.js?v=19';
+import {
+  hasAnyNotes,
+  importFromText,
+  mergeNotesData,
+  recoverLegacyLocalStorage,
+  tryAutoImport,
+} from './import-data.js?v=19';
 import {
   addTag,
   countNotesByTag,
@@ -25,23 +32,18 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-  activeNotes,
-} from './notes.js?v=18';
+} from './notes.js?v=19';
 import {
-  buildMonthGrid,
   formatScheduleDisplay,
   fromDatetimeLocalValue,
   getScheduleStatus,
-  getUpcomingScheduledNotes,
-  monthLabel,
-  notesOnDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=18';
-import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=18';
-import { SaveManager } from './sync.js?v=18';
-import { forceRefresh, startUpdateWatcher } from './update.js?v=18';
-import { getAppBuild } from './version.js?v=18';
+} from './schedule.js?v=19';
+import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=19';
+import { SaveManager } from './sync.js?v=19';
+import { forceRefresh, startUpdateWatcher } from './update.js?v=19';
+import { getAppBuild } from './version.js?v=19';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -50,9 +52,6 @@ const state = {
   tagFilterId: null,
   listGroup: NOTE_STATUS.ACTIVE,
   sortMode: 'updated',
-  calendarYear: new Date().getFullYear(),
-  calendarMonth: new Date().getMonth(),
-  selectedDateKey: null,
   view: 'list',
   contextNoteId: null,
 };
@@ -75,15 +74,8 @@ const els = {
   appVersion: document.getElementById('app-version'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
   sortBar: document.getElementById('sort-bar'),
-  schedulePanel: document.getElementById('schedule-panel'),
   sortUpdatedBtn: document.getElementById('sort-updated-btn'),
   sortScheduleBtn: document.getElementById('sort-schedule-btn'),
-  calMonthLabel: document.getElementById('cal-month-label'),
-  calWeekdays: document.getElementById('cal-weekdays'),
-  calGrid: document.getElementById('cal-grid'),
-  calPrevBtn: document.getElementById('cal-prev-btn'),
-  calNextBtn: document.getElementById('cal-next-btn'),
-  upcomingSchedule: document.getElementById('upcoming-schedule'),
   groupActiveBtn: document.getElementById('group-active-btn'),
   groupDoneBtn: document.getElementById('group-done-btn'),
   groupTrashBtn: document.getElementById('group-trash-btn'),
@@ -104,6 +96,9 @@ const els = {
   settingsOverlay: document.getElementById('settings-overlay'),
   settingsBackdrop: document.getElementById('settings-backdrop'),
   cardDensitySlider: document.getElementById('card-density-slider'),
+  importPaste: document.getElementById('import-paste'),
+  importPasteBtn: document.getElementById('import-paste-btn'),
+  recoverLocalBtn: document.getElementById('recover-local-btn'),
   closeSettingsBtn: document.getElementById('close-settings-btn'),
   noteContextMenu: document.getElementById('note-context-menu'),
   refreshAppBtn: document.getElementById('refresh-app-btn'),
@@ -185,9 +180,6 @@ function notesForCurrentGroup() {
 function sortedFilteredNotes() {
   let notes = notesForCurrentGroup();
   notes = filterNotesByTag(notes, state.tagFilterId);
-  if (state.selectedDateKey && state.listGroup === NOTE_STATUS.ACTIVE) {
-    notes = notesOnDate(notes, state.selectedDateKey);
-  }
   return state.sortMode === 'schedule' ? sortNotesBySchedule(notes) : sortNotes(notes);
 }
 
@@ -197,7 +189,6 @@ function renderGroupNav() {
   els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
-  els.schedulePanel.hidden = !isActiveGroup;
   els.sortBar.hidden = !isActiveGroup;
   els.addNoteBtn.hidden = !isActiveGroup;
   els.tagFilterBar.hidden = !isActiveGroup;
@@ -206,70 +197,6 @@ function renderGroupNav() {
 function renderSortBar() {
   els.sortUpdatedBtn.classList.toggle('active', state.sortMode === 'updated');
   els.sortScheduleBtn.classList.toggle('active', state.sortMode === 'schedule');
-}
-
-function renderSchedulePanel() {
-  if (state.listGroup !== NOTE_STATUS.ACTIVE) return;
-
-  const visibleNotes = activeNotes(state.notesData.notes);
-  const { year, month, weekdays, cells } = buildMonthGrid(
-    state.calendarYear,
-    state.calendarMonth,
-    visibleNotes,
-  );
-
-  els.calMonthLabel.textContent = monthLabel(year, month);
-  els.calWeekdays.innerHTML = weekdays
-    .map((d) => `<span class="cal-weekday">${d}</span>`)
-    .join('');
-
-  els.calGrid.innerHTML = '';
-  cells.forEach((cell) => {
-    if (cell.empty) {
-      const spacer = document.createElement('span');
-      spacer.className = 'cal-day empty';
-      els.calGrid.appendChild(spacer);
-      return;
-    }
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'cal-day';
-    if (cell.count) btn.classList.add('has-events');
-    if (cell.isToday) btn.classList.add('is-today');
-    if (state.selectedDateKey === cell.dateKey) btn.classList.add('selected');
-    btn.textContent = String(cell.day);
-    if (cell.count) {
-      const dot = document.createElement('span');
-      dot.className = 'cal-day-dot';
-      btn.appendChild(dot);
-    }
-    btn.addEventListener('click', () => {
-      state.selectedDateKey = state.selectedDateKey === cell.dateKey ? null : cell.dateKey;
-      renderNotesList();
-    });
-    els.calGrid.appendChild(btn);
-  });
-
-  const upcoming = getUpcomingScheduledNotes(visibleNotes, 6);
-  if (!upcoming.length) {
-    els.upcomingSchedule.innerHTML = '<p class="upcoming-title">ยังไม่มีกำหนดการถัดไป</p>';
-    return;
-  }
-
-  els.upcomingSchedule.innerHTML = '<p class="upcoming-title">กำหนดการถัดไป</p>';
-  upcoming.forEach((note) => {
-    const status = getScheduleStatus(note.scheduledAt);
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'upcoming-item';
-    item.innerHTML = `
-      <span class="upcoming-when ${status}">${escapeHtml(formatScheduleDisplay(note.scheduledAt))}</span>
-      <span class="upcoming-name">${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</span>
-    `;
-    item.addEventListener('click', () => openEditor(note.id));
-    els.upcomingSchedule.appendChild(item);
-  });
 }
 
 function renderTagFilterBar() {
@@ -393,7 +320,6 @@ function applyNoteAction(noteId, action) {
 function renderNotesList() {
   renderGroupNav();
   renderSortBar();
-  renderSchedulePanel();
   renderTagFilterBar();
   applyCardDensity();
 
@@ -583,8 +509,18 @@ function escapeHtml(value) {
 
 function updateAppVersionLabel() {
   if (els.appVersion) {
-    els.appVersion.textContent = `v${getAppBuild()} · โน้ต + ปฏิทิน`;
+    els.appVersion.textContent = `v${getAppBuild()} · โน้ต`;
   }
+}
+
+function applyImportedData(data, message = 'นำเข้าสำเร็จ') {
+  state.notesData = data;
+  state.tagFilterId = null;
+  state.listGroup = NOTE_STATUS.ACTIVE;
+  saveNotes(state.notesData);
+  autosave();
+  renderNotesList();
+  setStatus(message);
 }
 
 function exportBackup() {
@@ -603,14 +539,14 @@ function importBackup(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const data = parseNotesImport(reader.result);
-      if (!window.confirm('แทนที่โน้ตทั้งหมดด้วยไฟล์สำรอง?')) return;
-      state.notesData = data;
-      state.tagFilterId = null;
-      state.selectedDateKey = null;
-      autosave();
-      renderNotesList();
-      setStatus('นำเข้าสำเร็จ');
+      const incoming = parseNotesImport(reader.result);
+      if (!hasAnyNotes(state.notesData)) {
+        applyImportedData(incoming);
+        return;
+      }
+      const merge = window.confirm('รวมกับโน้ตที่มีอยู่? (ยกเลิก = แทนที่ทั้งหมด)');
+      const data = merge ? mergeNotesData(state.notesData, incoming) : incoming;
+      applyImportedData(data);
     } catch {
       window.alert('ไฟล์ไม่ถูกต้อง');
     }
@@ -618,20 +554,57 @@ function importBackup(file) {
   reader.readAsText(file);
 }
 
+function importFromPaste() {
+  const text = els.importPaste.value.trim();
+  if (!text) {
+    window.alert('วาง JSON ก่อน');
+    return;
+  }
+  try {
+    const merge = hasAnyNotes(state.notesData);
+    const incoming = importFromText(text, state.notesData, { merge: false });
+    const data = merge
+      ? mergeNotesData(state.notesData, incoming)
+      : incoming;
+    applyImportedData(data);
+    els.importPaste.value = '';
+    closeSettings();
+  } catch {
+    window.alert('JSON ไม่ถูกต้อง');
+  }
+}
+
+function recoverLocalData() {
+  const legacy = recoverLegacyLocalStorage();
+  if (!legacy) {
+    window.alert('ไม่พบข้อมูลเก่าในเครื่อง');
+    return;
+  }
+  const data = hasAnyNotes(state.notesData)
+    ? mergeNotesData(state.notesData, legacy.data)
+    : legacy.data;
+  applyImportedData(data, `กู้คืนจาก ${legacy.source}`);
+  closeSettings();
+}
+
 function setListGroup(group) {
   state.listGroup = group;
   state.tagFilterId = null;
-  state.selectedDateKey = null;
   closeContextMenu();
   renderNotesList();
 }
 
-function bootstrapData() {
+async function bootstrapData() {
   setLoading(true, 'กำลังโหลดโน้ต...');
-  state.notesData = loadNotes().data;
+  let data = loadNotes().data;
+  const auto = await tryAutoImport(data);
+  if (auto.imported) {
+    data = auto.data;
+    saveNotes(data);
+  }
+  state.notesData = data;
   state.settings = loadSettings();
   state.tagFilterId = null;
-  state.selectedDateKey = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
 
   saveManager.configure({ onStatus: (message) => setStatus(message) });
@@ -641,13 +614,9 @@ function bootstrapData() {
   showView('list');
   setLoading(false);
   updateAppVersionLabel();
-}
-
-function shiftCalendar(delta) {
-  const d = new Date(state.calendarYear, state.calendarMonth + delta, 1);
-  state.calendarYear = d.getFullYear();
-  state.calendarMonth = d.getMonth();
-  renderSchedulePanel();
+  if (auto.imported) {
+    setStatus(auto.source === 'bundled' ? 'นำเข้าข้อมูลเริ่มต้นแล้ว' : 'กู้คืนข้อมูลเดิมแล้ว');
+  }
 }
 
 async function init() {
@@ -671,6 +640,8 @@ async function init() {
     saveSettings(state.settings);
     applyCardDensity();
   });
+  els.importPasteBtn.addEventListener('click', importFromPaste);
+  els.recoverLocalBtn.addEventListener('click', recoverLocalData);
 
   els.groupActiveBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.ACTIVE));
   els.groupDoneBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.DONE));
@@ -699,8 +670,6 @@ async function init() {
     state.sortMode = 'schedule';
     renderNotesList();
   });
-  els.calPrevBtn.addEventListener('click', () => shiftCalendar(-1));
-  els.calNextBtn.addEventListener('click', () => shiftCalendar(1));
 
   els.tagAddForm.addEventListener('submit', (event) => {
     event.preventDefault();
