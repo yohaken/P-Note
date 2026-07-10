@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="59">
+  <meta name="pnote-build" content="60">
   <meta name="pnote-built" content="2026-07-10T23:59:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=59"></script>
+  <script src="js/cache-bootstrap.js?v=60"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=59">
+  <link rel="stylesheet" href="css/pnote.css?v=60">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -34,6 +34,20 @@
       flex-direction: column-reverse;
       align-items: center;
       gap: 0.5rem;
+      touch-action: manipulation;
+    }
+    .fab-stack.is-fab-armed .fab-pages,
+    .fab-stack.is-fab-armed .fab-action {
+      transform: scale(1.08);
+    }
+    .fab-stack.is-fab-dragging {
+      touch-action: none;
+      opacity: 0.92;
+    }
+    .fab-stack.is-fab-dragging .fab-pages,
+    .fab-stack.is-fab-dragging .fab-action {
+      transform: scale(1.1);
+      cursor: grabbing;
     }
     .fab-pages,
     .fab-action {
@@ -285,7 +299,7 @@
   </div>
 
   <div class="fab-stack" id="fabStack" aria-label="ทางลัด">
-    <button type="button" class="fab-pages" id="fabPages" aria-label="แผ่นงาน" title="แผ่นงาน">▦</button>
+    <button type="button" class="fab-pages" id="fabPages" aria-label="แผ่นงาน" title="แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน · ค้างแล้วลาก = ย้ายตำแหน่ง">▦</button>
     <button type="button" class="fab-action" id="group-nav-btn" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน">☰</button>
     <button type="button" class="fab-action" id="add-note-btn" aria-label="เพิ่มโน้ต" title="เพิ่มโน้ต">+</button>
   </div>
@@ -295,7 +309,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=59"></script>
+  <script src="js/page-nav.js?v=60"></script>
+  <script src="js/fab-drag.js?v=60"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -316,7 +331,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=59"></script>
-  <script src="js/update-watch.js?v=59"></script>
+  <script type="module" src="js/app.js?v=60"></script>
+  <script src="js/update-watch.js?v=60"></script>
 </body>
 </html>

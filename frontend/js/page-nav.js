@@ -174,7 +174,12 @@
       if (overlay) overlay.hidden = true;
     }
 
-    fab.setAttribute('title', 'แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน');
+    function stackGesture() {
+      var stack = fab.closest('.fab-stack');
+      return (stack && stack.dataset.fabGesture) || '';
+    }
+
+    fab.setAttribute('title', 'แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน · ค้างแล้วลาก = ย้ายตำแหน่ง');
     fab.setAttribute('aria-label', 'สลับแผ่นงาน');
 
     fab.addEventListener('pointerdown', function (e) {
@@ -185,7 +190,6 @@
       clearTimeout(timer);
       timer = setTimeout(function () {
         longPress = true;
-        openMenu();
       }, FAB_LONG_MS);
     });
 
@@ -196,8 +200,15 @@
 
     fab.addEventListener('pointerup', function (e) {
       clearPress();
-      if (longPress) {
+      var gest = stackGesture();
+      if (gest === 'drag') {
         longPress = false;
+        return;
+      }
+      // Long-press without drag → page list (fab-drag may set gest=long/armed)
+      if (longPress || gest === 'long' || gest === 'armed') {
+        longPress = false;
+        openMenu();
         return;
       }
       if (Math.abs(e.clientX - startX) > 14 || Math.abs(e.clientY - startY) > 14) return;
