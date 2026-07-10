@@ -1,5 +1,5 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=8';
-import { auth, initFirebase } from './firebase.js?v=8';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=9';
+import { auth, initFirebase } from './firebase.js?v=9';
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -24,8 +24,8 @@ function mapAuthError(error) {
   if (code === 'auth/popup-blocked') {
     return new Error('เปิดหน้าต่างล็อกอินไม่ได้ กรุณาอนุญาต popup');
   }
-  if (code === 'auth/operation-not-allowed') {
-    return new Error('ยังไม่ได้เปิด Google Sign-In ใน Firebase Console');
+  if (code === 'auth/configuration-not-found' || code === 'auth/operation-not-allowed') {
+    return new Error('ยังไม่ได้เปิด Google Sign-In ใน Firebase Console — ดู docs/PHASE2_FIREBASE_AUTH.md');
   }
   return new Error(error?.message || 'การล็อกอินล้มเหลว');
 }
