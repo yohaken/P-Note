@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="63">
-  <meta name="pnote-built" content="2026-07-11T00:30:00+07:00">
+  <meta name="pnote-build" content="64">
+  <meta name="pnote-built" content="2026-07-11T00:40:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=63"></script>
+  <script src="js/cache-bootstrap.js?v=64"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=63">
+  <link rel="stylesheet" href="css/pnote.css?v=64">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -190,6 +190,12 @@
             <div id="priority-filter-bar" class="priority-filter-bar" aria-label="ความสำคัญ"></div>
           </div>
         </div>
+        <div class="movable-bar" data-bar="recurrence" data-bar-name="ทำประจำ">
+          <span class="bar-grip" aria-hidden="true">⠿</span>
+          <div class="bar-body">
+            <div id="recurrence-filter-bar" class="recurrence-filter-bar" aria-label="ทำประจำ"></div>
+          </div>
+        </div>
         <div class="movable-bar" data-bar="tag" data-bar-name="แท็ก">
           <span class="bar-grip" aria-hidden="true">⠿</span>
           <div class="bar-body">
@@ -279,6 +285,10 @@
             <span>ความสำคัญ</span>
             <input id="thickness-priority" type="range" min="0" max="100" value="0" step="1">
           </div>
+          <div class="thickness-row">
+            <span>ทำประจำ</span>
+            <input id="thickness-recurrence" type="range" min="0" max="100" value="0" step="1">
+          </div>
           <button id="reset-bars-btn" class="btn btn-secondary" type="button">รีเซ็ตตำแหน่งแถบ</button>
         </div>
         <div class="settings-row">
@@ -311,8 +321,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=63"></script>
-  <script src="js/fab-drag.js?v=63"></script>
+  <script src="js/page-nav.js?v=64"></script>
+  <script src="js/fab-drag.js?v=64"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -333,7 +343,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=63"></script>
-  <script src="js/update-watch.js?v=63"></script>
+  <script type="module" src="js/app.js?v=64"></script>
+  <script src="js/update-watch.js?v=64"></script>
 </body>
 </html>

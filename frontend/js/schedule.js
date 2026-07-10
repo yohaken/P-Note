@@ -16,11 +16,41 @@ export const RECURRENCE_OPTIONS = [
   { id: 'yearly', label: 'ทุกปี', short: 'ทุกปี' },
 ];
 
+/** List filter chips: all / any recurring / each frequency. */
+export const RECURRENCE_FILTER_OPTIONS = [
+  { id: null, label: 'ทั้งหมด' },
+  { id: 'any', label: 'ทำประจำ' },
+  { id: 'daily', label: 'ทุกวัน' },
+  { id: 'weekly', label: 'ทุกสัปดาห์' },
+  { id: 'monthly', label: 'ทุกเดือน' },
+  { id: 'yearly', label: 'ทุกปี' },
+];
+
 export function normalizeRecurrence(value) {
   if (value === 'daily' || value === 'weekly' || value === 'monthly' || value === 'yearly') {
     return value;
   }
   return null;
+}
+
+export function normalizeRecurrenceFilter(value) {
+  if (value === 'any' || value === 'daily' || value === 'weekly' || value === 'monthly' || value === 'yearly') {
+    return value;
+  }
+  return null;
+}
+
+export function filterNotesByRecurrence(notes, filter) {
+  const f = normalizeRecurrenceFilter(filter);
+  if (!f) return notes;
+  if (f === 'any') {
+    return notes.filter((note) => Boolean(normalizeRecurrence(note.recurrence)));
+  }
+  return notes.filter((note) => normalizeRecurrence(note.recurrence) === f);
+}
+
+export function countNotesByRecurrence(notes, filter) {
+  return filterNotesByRecurrence(notes, filter).length;
 }
 
 export function recurrenceLabel(value, { short = false } = {}) {
