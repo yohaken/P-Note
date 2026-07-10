@@ -73,7 +73,6 @@ const state = {
 
 const saveManager = new SaveManager();
 let statusTimer = null;
-let syncTipTimer = null;
 
 const els = {
   listView: document.getElementById('list-view'),
@@ -116,10 +115,10 @@ const els = {
   noteSchedule: document.getElementById('note-schedule'),
   clearScheduleBtn: document.getElementById('clear-schedule-btn'),
   editorTags: document.getElementById('editor-tags'),
-  syncStatusBtn: document.getElementById('sync-status-btn'),
-  syncStatusTip: document.getElementById('sync-status-tip'),
-  editorSyncStatusBtn: document.getElementById('editor-sync-status-btn'),
-  editorSyncStatusTip: document.getElementById('editor-sync-status-tip'),
+  syncStatusBtn: null,
+  syncStatusTip: null,
+  editorSyncStatusBtn: null,
+  editorSyncStatusTip: null,
   tagModal: document.getElementById('tag-modal'),
   tagAddForm: document.getElementById('tag-add-form'),
   newTagInput: document.getElementById('new-tag-input'),
@@ -153,52 +152,8 @@ function setLoading(visible, message = 'กำลังโหลด...') {
   els.loadingOverlay.querySelector('p').textContent = message;
 }
 
-function classifySyncState(message) {
-  const text = String(message || '').trim();
-  if (!text) return 'idle';
-  if (/กำลัง|ซิงค์|พิมพ์|เชื่อมต่อฐาน|โหลด/.test(text)) return 'busy';
-  if (/ออฟไลน์|ไม่ได้|ไม่สำเร็จ/.test(text)) return 'offline';
-  return 'ok';
-}
-
-function applySyncIcon(btn, message, state) {
-  if (!btn) return;
-  const label = message || 'พร้อม';
-  btn.dataset.state = state;
-  btn.title = label;
-  btn.setAttribute('aria-label', `สถานะซิงค์: ${label}`);
-}
-
-function revealSyncTip(tipEl, message) {
-  if (!tipEl) return;
-  tipEl.textContent = message || 'พร้อม';
-  tipEl.hidden = false;
-  clearTimeout(syncTipTimer);
-  syncTipTimer = setTimeout(() => {
-    tipEl.hidden = true;
-  }, 1800);
-}
-
-function setStatus(message, target = 'both') {
-  const text = String(message || '').trim();
-  const state = classifySyncState(text);
-  const display = text || 'พร้อม';
-  const iconState = !text ? 'idle' : state;
-
-  if (target === 'both' || target === 'list') {
-    applySyncIcon(els.syncStatusBtn, display, iconState);
-  }
-  if (target === 'both' || target === 'editor') {
-    applySyncIcon(els.editorSyncStatusBtn, display, iconState);
-  }
-
-  clearTimeout(statusTimer);
-  if (text === 'บันทึกแล้ว' || text === 'บันทึกในฐานข้อมูลแล้ว') {
-    statusTimer = setTimeout(() => {
-      applySyncIcon(els.syncStatusBtn, 'พร้อม', 'ok');
-      applySyncIcon(els.editorSyncStatusBtn, 'พร้อม', 'ok');
-    }, 2000);
-  }
+function setStatus(_message, _target = 'both') {
+  // Sync status UI removed — keep hook for SaveManager / callers.
 }
 
 function autosave() {
@@ -1016,13 +971,6 @@ async function init() {
   els.settingsBtn.addEventListener('click', openSettings);
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
-
-  const onSyncIconClick = (btn, tip) => {
-    if (!btn) return;
-    revealSyncTip(tip, btn.title || 'พร้อม');
-  };
-  els.syncStatusBtn?.addEventListener('click', () => onSyncIconClick(els.syncStatusBtn, els.syncStatusTip));
-  els.editorSyncStatusBtn?.addEventListener('click', () => onSyncIconClick(els.editorSyncStatusBtn, els.editorSyncStatusTip));
 
   els.openDrawerBtn?.addEventListener('click', toggleDrawer);
   els.drawerBackdrop.addEventListener('click', closeDrawer);
