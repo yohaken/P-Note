@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="44">
-  <meta name="pnote-built" content="2026-07-10T22:42:47+07:00">
-  <script src="js/cache-bootstrap.js?v=44"></script>
+  <meta name="pnote-build" content="45">
+  <meta name="pnote-built" content="2026-07-10T22:46:26+07:00">
+  <script src="js/cache-bootstrap.js?v=45"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -36,9 +36,12 @@
     .top-actions { display: flex; gap: 0.3rem; }
 
     .page-tabs {
-      display: flex; gap: 0.25rem; margin: 0.35rem 0 0.55rem;
+      display: flex; gap: 0.25rem; margin: 0;
       padding: 0.2rem; background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius);
+    }
+    .sortable-block[data-block-id="pages"] .page-tabs {
+      margin-right: 0.15rem;
     }
     .page-tab {
       flex: 1; border: none; background: transparent; color: var(--muted);
@@ -545,15 +548,18 @@
       <span class="cloud-strip-text" id="dbStripText">กำลังเชื่อม Firestore…</span>
       <button type="button" class="cloud-strip-action" id="dbStripAction">ซิงก์</button>
     </div>
-    <nav class="page-tabs" id="pageTabs" aria-label="เมนูหลัก">
-      <button type="button" class="page-tab active" data-page="calorie" id="tab-calorie">Calorie</button>
-      <button type="button" class="page-tab" data-page="note" id="tab-note">Note</button>
-    </nav>
-
     <div class="page-panel" id="page-calorie" data-page="calorie">
     <p class="reorder-hint">ลาก ⋮⋮ เพื่อจัดลำดับหมวด — ระบบจำไว้</p>
 
     <div id="blocksContainer">
+      <div class="sortable-block" data-block-id="pages">
+        <span class="drag-handle" aria-hidden="true">⋮⋮</span>
+        <nav class="page-tabs" id="pageTabs" aria-label="เมนูหลัก">
+          <button type="button" class="page-tab active" data-page="calorie" id="tab-calorie">Calorie</button>
+          <button type="button" class="page-tab" data-page="note" id="tab-note">Note</button>
+        </nav>
+      </div>
+
       <div class="sortable-block" data-block-id="summary">
         <span class="drag-handle" aria-hidden="true">⋮⋮</span>
         <section class="period-summary">
@@ -914,17 +920,17 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const APP_VERSION = 'build-44';
+    const APP_VERSION = 'build-45';
 
     const PERIODS = [
       { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
       { days: 30, label: '30d' }, { days: 90, label: '3m' }, { days: 180, label: '6m' }, { days: 365, label: '12m' },
     ];
 
-    const DEFAULT_BLOCK_ORDER = ['summary', 'date', 'stats', 'meals', 'exercises', 'profile', 'charts'];
+    const DEFAULT_BLOCK_ORDER = ['pages', 'summary', 'date', 'stats', 'meals', 'exercises', 'profile', 'charts'];
 
     const BLOCK_LABELS = {
-      summary: 'สรุปย้อนหลัง', date: 'เลือกวัน', stats: 'สรุปรายวัน',
+      pages: 'สลับแผ่นงาน', summary: 'สรุปย้อนหลัง', date: 'เลือกวัน', stats: 'สรุปรายวัน',
       meals: 'บันทึกการกิน', exercises: 'ออกกำลังกาย', profile: 'ข้อมูลผู้ใช้',
       charts: 'กราฟ',
     };
@@ -1163,7 +1169,11 @@
         const order = Array.isArray(s.sectionOrder) ? s.sectionOrder : [...DEFAULT_BLOCK_ORDER];
         const merged = [...order];
         DEFAULT_BLOCK_ORDER.forEach((id) => { if (!merged.includes(id)) merged.push(id); });
-        return {
+        // New "pages" switcher: prefer top if user never ordered it yet
+        if (!order.includes('pages') && merged.includes('pages')) {
+          merged.splice(merged.indexOf('pages'), 1);
+          merged.unshift('pages');
+        }        return {
           proteinMultiplier: parseFloat(s.proteinMultiplier) || DEFAULT_PROTEIN_MULT,
           theme: s.theme === 'light' ? 'light' : 'dark',
           sectionOrder: merged,
@@ -2920,6 +2930,6 @@
     els.exerciseTime.value = nowTimeStr();
     setDate(todayStr());
   </script>
-  <script src="js/update-watch.js?v=44"></script>
+  <script src="js/update-watch.js?v=45"></script>
 </body>
 </html>
