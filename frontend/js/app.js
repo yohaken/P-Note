@@ -1,10 +1,10 @@
-import { loadNotes, saveNotes } from './local.js?v=28';
-import { registerServiceWorker } from './cache.js?v=28';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=28';
-import { initListSortable } from './sortable.js?v=28';
-import { bindComposableInput } from './text-input.js?v=28';
-import { CONFIG } from './config.js?v=28';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=28';
+import { loadNotes, saveNotes } from './local.js?v=29';
+import { registerServiceWorker } from './cache.js?v=29';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=29';
+import { initListSortable } from './sortable.js?v=29';
+import { bindComposableInput } from './text-input.js?v=29';
+import { CONFIG } from './config.js?v=29';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=29';
 import {
   addTag,
   countNotesByTag,
@@ -36,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=28';
+} from './notes.js?v=29';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -44,19 +44,19 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=28';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=28';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=28';
+} from './schedule.js?v=29';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=29';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=29';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=28';
-import { normalizeNotesData } from './notes.js?v=28';
-import { SaveManager } from './sync.js?v=28';
-import { startUpdateWatcher } from './update.js?v=28';
-import { getAppBuild } from './version.js?v=28';
+} from './remote.js?v=29';
+import { normalizeNotesData } from './notes.js?v=29';
+import { SaveManager } from './sync.js?v=29';
+import { startUpdateWatcher } from './update.js?v=29';
+import { getAppBuild, formatAppBuiltAt } from './version.js?v=29';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -89,6 +89,8 @@ const els = {
   drawer: document.getElementById('group-drawer'),
   drawerBackdrop: document.getElementById('drawer-backdrop'),
   appVersion: document.getElementById('app-version'),
+  appTitle: document.getElementById('app-title'),
+  appBuilt: document.getElementById('app-built'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
   priorityFilterBar: document.getElementById('priority-filter-bar'),
   editorPriority: document.getElementById('editor-priority'),
@@ -292,8 +294,11 @@ function renderGroupNav() {
       : state.listGroup === NOTE_STATUS.TRASH
         ? 'ถังขยะ'
         : 'งาน';
-  const titleEl = els.listView.querySelector('.topbar h1');
-  if (titleEl) titleEl.textContent = groupTitle === 'งาน' ? 'P-Note' : `P-Note · ${groupTitle}`;
+  const build = getAppBuild();
+  const name = groupTitle === 'งาน' ? 'P-Note' : `P-Note · ${groupTitle}`;
+  if (els.appTitle) {
+    els.appTitle.innerHTML = `${escapeHtml(name)} <span class="title-version">v${escapeHtml(build)}</span>`;
+  }
 }
 
 function renderSortBar() {
@@ -756,8 +761,16 @@ function escapeHtml(value) {
 }
 
 function updateAppVersionLabel() {
-  if (els.appVersion) {
-    els.appVersion.textContent = `v${getAppBuild()}`;
+  const build = getAppBuild();
+  const builtLabel = formatAppBuiltAt();
+  if (els.appBuilt) {
+    els.appBuilt.textContent = builtLabel ? `อัปเดต ${builtLabel}` : '';
+  }
+  if (els.appTitle && !els.appTitle.querySelector('.title-version')) {
+    els.appTitle.innerHTML = `P-Note <span class="title-version">v${escapeHtml(build)}</span>`;
+  } else if (els.appTitle) {
+    const ver = els.appTitle.querySelector('.title-version');
+    if (ver) ver.textContent = `v${build}`;
   }
 }
 

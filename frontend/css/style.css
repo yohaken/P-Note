@@ -155,26 +155,48 @@ body {
   min-height: 0;
 }
 
+.topbar-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
 .topbar h1 {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
   color: var(--text);
   letter-spacing: 0;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar h1 .title-version {
+  margin-left: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.app-built {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar-actions {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-}
-
-.app-version {
-  margin: 0;
-  font-size: 0.62rem;
-  font-weight: 400;
-  color: var(--text-muted);
-  order: 99;
 }
 
 .editor-topbar {
