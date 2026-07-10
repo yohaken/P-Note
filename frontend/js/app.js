@@ -1,14 +1,14 @@
-import { loadNotes, exportNotesBlob, parseNotesImport, saveNotes } from './local.js?v=20';
-import { registerServiceWorker } from './cache.js?v=20';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=20';
-import { CONFIG } from './config.js?v=20';
+import { loadNotes, exportNotesBlob, parseNotesImport, saveNotes } from './local.js?v=21';
+import { registerServiceWorker } from './cache.js?v=21';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=21';
+import { CONFIG } from './config.js?v=21';
 import {
   hasAnyNotes,
   importFromText,
   mergeNotesData,
   recoverLegacyLocalStorage,
   tryAutoImport,
-} from './import-data.js?v=20';
+} from './import-data.js?v=21';
 import {
   addTag,
   countNotesByTag,
@@ -32,18 +32,18 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=20';
+} from './notes.js?v=21';
 import {
   formatScheduleDisplay,
   fromDatetimeLocalValue,
   getScheduleStatus,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=20';
-import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=20';
-import { SaveManager } from './sync.js?v=20';
-import { forceRefresh, startUpdateWatcher } from './update.js?v=20';
-import { getAppBuild } from './version.js?v=20';
+} from './schedule.js?v=21';
+import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=21';
+import { SaveManager } from './sync.js?v=21';
+import { forceRefresh, startUpdateWatcher } from './update.js?v=21';
+import { getAppBuild } from './version.js?v=21';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -544,7 +544,7 @@ function escapeHtml(value) {
 
 function updateAppVersionLabel() {
   if (els.appVersion) {
-    els.appVersion.textContent = `v${getAppBuild()} · โน้ต`;
+    els.appVersion.textContent = `v${getAppBuild()} · 2050`;
   }
 }
 
