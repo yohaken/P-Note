@@ -1,27 +1,18 @@
 /**
- * Lock the app shell to the *visible* viewport.
- * On iPhone Safari/PWA, 100vh/100% can leave a black band below the UI;
- * visualViewport.height matches what the user actually sees.
+ * Viewport helpers. Shell uses full inset:0 now; bottom nav is position:fixed
+ * to the real screen edge so we no longer shrink #app to visualViewport height
+ * (that left a black band under the nav on iPhone).
  */
 export function syncViewportHeight() {
-  const vv = window.visualViewport;
-  const height = Math.round(vv?.height ?? window.innerHeight);
-  const top = Math.round(vv?.offsetTop ?? 0);
-  const root = document.documentElement;
-  root.style.setProperty('--app-height', `${height}px`);
-  root.style.setProperty('--app-top', `${top}px`);
+  /* kept as no-op hook for resize listeners */
 }
 
 export function initViewportLock(onChange) {
-  const run = () => {
-    syncViewportHeight();
-    onChange?.();
-  };
+  const run = () => onChange?.();
   run();
   window.addEventListener('resize', run);
   window.addEventListener('orientationchange', run);
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', run);
-    window.visualViewport.addEventListener('scroll', run);
   }
 }

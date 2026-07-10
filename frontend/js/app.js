@@ -1,10 +1,10 @@
-import { loadNotes, saveNotes } from './local.js?v=36';
-import { registerServiceWorker } from './cache.js?v=36';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=36';
-import { initListSortable } from './sortable.js?v=36';
-import { bindComposableInput } from './text-input.js?v=36';
-import { CONFIG } from './config.js?v=36';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=36';
+import { loadNotes, saveNotes } from './local.js?v=37';
+import { registerServiceWorker } from './cache.js?v=37';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=37';
+import { initListSortable } from './sortable.js?v=37';
+import { bindComposableInput } from './text-input.js?v=37';
+import { CONFIG } from './config.js?v=37';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=37';
 import {
   addTag,
   countNotesByTag,
@@ -36,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=36';
+} from './notes.js?v=37';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -44,20 +44,20 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=36';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=36';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=36';
+} from './schedule.js?v=37';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=37';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=37';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=36';
-import { normalizeNotesData } from './notes.js?v=36';
-import { SaveManager } from './sync.js?v=36';
-import { startUpdateWatcher } from './update.js?v=36';
-import { getAppBuild, formatAppBuiltAt } from './version.js?v=36';
-import { initViewportLock } from './viewport.js?v=36';
+} from './remote.js?v=37';
+import { normalizeNotesData } from './notes.js?v=37';
+import { SaveManager } from './sync.js?v=37';
+import { startUpdateWatcher } from './update.js?v=37';
+import { getAppBuild, formatAppBuiltAt } from './version.js?v=37';
+import { initViewportLock } from './viewport.js?v=37';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -145,6 +145,7 @@ function showView(view) {
   state.view = view;
   els.listView.hidden = view !== 'list';
   els.editorView.hidden = view !== 'editor';
+  if (els.bottomNav) els.bottomNav.hidden = view !== 'list';
 }
 
 function setLoading(visible, message = 'กำลังโหลด...') {
