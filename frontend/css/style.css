@@ -32,46 +32,46 @@ body.light {
   --success: #34c759;
 }
 
+/*
+ * Shell — copied from yohaken/cursor-agent calorie-tracker (docs/calorie-tracker).
+ * Document-style page: same --bg on html/body, min-height 100dvh,
+ * safe-area via body padding-bottom (background paints into the inset).
+ * Do NOT use the old P-Note fixed body/#app / fixed bottom-nav model.
+ */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
-}
-
-html,
-body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  background: #1a1a1a;
-  color: var(--text);
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
   font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.4;
+  min-height: 100dvh;
+  height: 100dvh;
+  padding-bottom: var(--safe-bottom);
+  touch-action: manipulation;
   -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
-  touch-action: manipulation;
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  margin-bottom: 0;
-  padding-bottom: 0;
 }
 
 #app {
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   max-width: 720px;
-  min-height: 100vh;
-  min-height: 100dvh;
-  height: 100%;
   margin: 0 auto;
-  margin-bottom: 0;
-  padding: 0;
-  padding-bottom: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -262,31 +262,18 @@ body {
 }
 
 /*
- * Bottom Navigation — fixed to the physical screen bottom.
- * Opaque background fills the home-indicator zone; padding lifts only the buttons.
+ * Bottom nav — in document/flex flow (calorie-tracker style).
+ * Safe-area is on body padding-bottom; nav has no fixed positioning
+ * and no extra bottom pad (body background fills the home-indicator zone).
  */
 .bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
+  flex-shrink: 0;
   width: 100%;
   margin: 0;
   padding: 0;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
-  z-index: 200;
-  background-color: #1a1a1a;
+  z-index: 30;
+  background: var(--bg);
   border-top: 1px solid var(--border);
-  box-sizing: border-box;
-}
-
-body.light .bottom-nav {
-  background-color: #1a1a1a;
-}
-
-/* Keep list content clear of the fixed nav (not on #app) */
-#list-view {
-  margin-bottom: 0;
-  padding-bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px) + 8px);
 }
 
 .bottom-nav-inner {

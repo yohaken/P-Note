@@ -1,5 +1,5 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=40';
-import { auth, initFirebase } from './firebase.js?v=40';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=41';
+import { auth, initFirebase } from './firebase.js?v=41';
 import {
   GoogleAuthProvider,
   getRedirectResult,

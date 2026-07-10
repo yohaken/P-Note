@@ -1,10 +1,9 @@
 /**
- * Viewport helpers. Shell uses full inset:0 now; bottom nav is position:fixed
- * to the real screen edge so we no longer shrink #app to visualViewport height
- * (that left a black band under the nav on iPhone).
+ * Viewport helpers — calorie-tracker shell does not lock to visualViewport.
+ * Kept as a thin resize hook for layout listeners only.
  */
 export function syncViewportHeight() {
-  /* kept as no-op hook for resize listeners */
+  /* no-op: body uses min-height/height 100dvh + padding-bottom safe-area */
 }
 
 export function initViewportLock(onChange) {
