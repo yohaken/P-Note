@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="61">
-  <meta name="pnote-built" content="2026-07-11T00:15:00+07:00">
-  <script src="js/cache-bootstrap.js?v=61"></script>
+  <meta name="pnote-build" content="62">
+  <meta name="pnote-built" content="2026-07-11T00:20:00+07:00">
+  <script src="js/cache-bootstrap.js?v=62"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -64,6 +64,16 @@
     }
     .sortable-block.dragging { opacity: 0.45; z-index: 10; }
     .sortable-block.drag-over { transform: translateY(4px); }
+
+    /* Date bar always stays visible while scrolling */
+    .sortable-block[data-block-id="date"] {
+      position: sticky;
+      top: 0;
+      z-index: 35;
+      background: var(--bg);
+      padding: 0.2rem 0 0.15rem;
+      margin: 0;
+    }
 
     .drag-handle {
       position: absolute; top: 0.45rem; right: 0.45rem;
@@ -161,12 +171,45 @@
       background: var(--surface-2); border: none; color: var(--text);
       width: 32px; height: 32px; border-radius: 8px; font-size: 0.95rem; flex-shrink: 0;
     }
-    .date-display { flex: 1; text-align: center; }
-    .date-display .label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; }
+    .date-display { flex: 1; text-align: center; min-width: 0; }
+    .date-display .label {
+      font-size: 0.78rem; font-weight: 600; color: var(--text);
+      line-height: 1.25; margin-bottom: 0.1rem;
+    }
+    .date-display .label.is-today { color: var(--accent); }
     .date-display input[type="date"] {
       background: transparent; border: none; color: var(--text);
       font-size: 16px; font-weight: 600; text-align: center; width: 100%;
+      color-scheme: dark;
+      min-height: 1.4em;
     }
+    [data-theme="light"] .date-display input[type="date"] { color-scheme: light; }
+    .date-display input[type="date"]::-webkit-calendar-picker-indicator {
+      opacity: 0.55; cursor: pointer;
+    }
+    .date-display input[type="date"]::-webkit-datetime-edit,
+    .date-display input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+    .date-display input[type="date"]::-webkit-datetime-edit-text,
+    .date-display input[type="date"]::-webkit-datetime-edit-month-field,
+    .date-display input[type="date"]::-webkit-datetime-edit-day-field,
+    .date-display input[type="date"]::-webkit-datetime-edit-year-field {
+      color: var(--text);
+    }
+
+    .block-order-list {
+      display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.35rem;
+    }
+    .block-order-row {
+      display: flex; align-items: center; gap: 0.4rem;
+      background: var(--surface-2); border-radius: 10px; padding: 0.4rem 0.5rem;
+    }
+    .block-order-row .ord-label { flex: 1; font-size: 0.82rem; font-weight: 500; min-width: 0; }
+    .block-order-row .ord-btns { display: flex; gap: 0.25rem; flex-shrink: 0; }
+    .block-order-row .ord-btns button {
+      width: 32px; height: 32px; border: none; border-radius: 8px;
+      background: var(--surface); color: var(--text); font-size: 0.85rem; cursor: pointer;
+    }
+    .block-order-row .ord-btns button:disabled { opacity: 0.35; cursor: default; }
 
     .inline-stats {
       display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3rem;
@@ -889,6 +932,12 @@
           </div>
           <p class="hint">สลับธีมมืด / สว่าง</p>
         </div>
+        <p class="sheet-section-label">จัดลำดับกล่อง</p>
+        <div class="field">
+          <div id="blockOrderList" class="block-order-list" aria-label="ลำดับกล่องงาน"></div>
+          <button type="button" class="btn btn-ghost" id="btnResetBlockOrder" style="width:100%;margin-top:0.15rem">รีเซ็ตลำดับเริ่มต้น</button>
+          <p class="hint">หรือลาก ⋮⋮ ที่หน้าหลัก · แถบวันที่ติดด้านบนเสมอ</p>
+        </div>
         <p class="sheet-section-label">🗄️ ฐานข้อมูล (Calorie + Note)</p>
         <div class="field">
           <label for="settingsSyncCode">รหัสซิงค์</label>
@@ -1008,8 +1057,8 @@
 
   <div class="toast error" id="toast"></div>
 
-  <script src="js/page-nav.js?v=61"></script>
-  <script src="js/fab-drag.js?v=61"></script>
+  <script src="js/page-nav.js?v=62"></script>
+  <script src="js/fab-drag.js?v=62"></script>
   <script>
     const STORAGE_PREFIX = 'calorieTracker:';
     const SETTINGS_KEY = 'calorieTracker:settings';
@@ -1027,7 +1076,7 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const APP_VERSION = 'build-59';
+    const APP_VERSION = 'build-62';
 
     const PERIODS = [
       { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
@@ -1097,6 +1146,7 @@
     ];
 
     let currentDate = todayStr();
+    let followToday = true;
     let editingMealId = null;
     let editingExerciseId = null;
     let dragState = null;
@@ -1104,6 +1154,7 @@
     let exHistoryPeriodDays = 7;
     let editingBlockStyleId = 'summary';
     let blockStyleDraft = null;
+    let blockOrderDraft = null;
 
     const $ = (s) => document.querySelector(s);
 
@@ -1157,6 +1208,8 @@
       dbStripText: $('#dbStripText'),
       dbStripAction: $('#dbStripAction'),
       appVersionTag: $('#appVersionTag'), settingsScrollBody: $('#settingsScrollBody'),
+      blockOrderList: $('#blockOrderList'),
+      btnResetBlockOrder: $('#btnResetBlockOrder'),
       templateEditor: $('#templateEditor'), btnAddTemplate: $('#btnAddTemplate'),
       exerciseTemplateEditor: $('#exerciseTemplateEditor'), btnAddExTemplate: $('#btnAddExTemplate'),
       btnSettings: $('#btnSettings'),
@@ -1195,8 +1248,11 @@
       return localDateStr(x);
     }
     function formatDateLabel(d) {
-      if (d === todayStr()) return 'วันนี้';
-      return new Date(d + 'T12:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
+      const pretty = new Date(d + 'T12:00:00').toLocaleDateString('th-TH', {
+        weekday: 'short', day: 'numeric', month: 'short',
+      });
+      if (d === todayStr()) return 'วันนี้ · ' + pretty;
+      return pretty;
     }
     function formatDateShort(d) {
       const [y, m, day] = d.split('-');
@@ -1663,6 +1719,7 @@
         const localCount = localCalorieKeyCount();
         if (remoteCount > 0) {
           applyCalorieRemoteData(remote.data);
+          applyBlockOrder();
           setDbStrip('online', 'โหลดจากคลาวด์แล้ว · ' + remoteCount + ' คีย์');
           try { refresh(); } catch { /* refresh may need currentDate */ }
         } else if (localCount > 0) {
@@ -2464,13 +2521,77 @@
       return templates;
     }
 
-    function applyBlockOrder() {
-      const order = loadSettings().sectionOrder || DEFAULT_BLOCK_ORDER;
-      order.forEach((id) => {
+    function applyBlockOrder(order) {
+      const list = Array.isArray(order) && order.length
+        ? order
+        : (loadSettings().sectionOrder || DEFAULT_BLOCK_ORDER);
+      const merged = list.filter((id) => id !== 'pages');
+      DEFAULT_BLOCK_ORDER.forEach((id) => { if (!merged.includes(id)) merged.push(id); });
+      merged.forEach((id) => {
         const el = els.blocksContainer.querySelector('[data-block-id="' + id + '"]');
         if (el) els.blocksContainer.appendChild(el);
       });
       applyBlockStyles();
+    }
+
+    function normalizeBlockOrder(order) {
+      const merged = (Array.isArray(order) ? order : []).filter((id) => DEFAULT_BLOCK_ORDER.includes(id));
+      DEFAULT_BLOCK_ORDER.forEach((id) => { if (!merged.includes(id)) merged.push(id); });
+      return merged;
+    }
+
+    function renderBlockOrderEditor() {
+      if (!els.blockOrderList) return;
+      const order = normalizeBlockOrder(blockOrderDraft || loadSettings().sectionOrder);
+      blockOrderDraft = order.slice();
+      els.blockOrderList.innerHTML = '';
+      order.forEach((id, index) => {
+        const row = document.createElement('div');
+        row.className = 'block-order-row';
+        row.dataset.blockId = id;
+
+        const label = document.createElement('span');
+        label.className = 'ord-label';
+        label.textContent = (index + 1) + '. ' + (BLOCK_LABELS[id] || id);
+
+        const btns = document.createElement('div');
+        btns.className = 'ord-btns';
+
+        const up = document.createElement('button');
+        up.type = 'button';
+        up.textContent = '↑';
+        up.title = 'เลื่อนขึ้น';
+        up.disabled = index === 0;
+        up.addEventListener('click', () => moveBlockOrder(index, -1));
+
+        const down = document.createElement('button');
+        down.type = 'button';
+        down.textContent = '↓';
+        down.title = 'เลื่อนลง';
+        down.disabled = index === order.length - 1;
+        down.addEventListener('click', () => moveBlockOrder(index, 1));
+
+        btns.append(up, down);
+        row.append(label, btns);
+        els.blockOrderList.appendChild(row);
+      });
+    }
+
+    function moveBlockOrder(index, delta) {
+      if (!blockOrderDraft) return;
+      const next = index + delta;
+      if (next < 0 || next >= blockOrderDraft.length) return;
+      const arr = blockOrderDraft.slice();
+      const tmp = arr[index];
+      arr[index] = arr[next];
+      arr[next] = tmp;
+      blockOrderDraft = arr;
+      renderBlockOrderEditor();
+    }
+
+    function resetBlockOrderDraft() {
+      blockOrderDraft = [...DEFAULT_BLOCK_ORDER];
+      renderBlockOrderEditor();
     }
 
     function populateBlockStylePicker() {
@@ -2597,7 +2718,7 @@
 
     function refresh() {
       const today = todayStr();
-      if (els.dateLabel.textContent === 'วันนี้' && currentDate !== today) {
+      if (followToday && currentDate !== today) {
         setDate(today);
         return;
       }
@@ -2626,10 +2747,13 @@
 
     function setDate(d) {
       currentDate = d;
+      followToday = d === todayStr();
       els.datePicker.value = d;
       const start = getProgramStartDate();
       const beforeStart = start && d < start;
-      els.dateLabel.textContent = beforeStart ? 'ก่อนเริ่มโปรแกรม' : formatDateLabel(d);
+      const label = beforeStart ? 'ก่อนเริ่มโปรแกรม' : formatDateLabel(d);
+      els.dateLabel.textContent = label;
+      els.dateLabel.classList.toggle('is-today', !beforeStart && followToday);
       els.btnNextDay.disabled = d >= todayStr();
       els.btnPrevDay.disabled = start ? shiftDate(d, -1) < start : false;
       els.mealTime.value = nowTimeStr();
@@ -2796,11 +2920,14 @@
       populateBlockStylePicker();
       editingBlockStyleId = els.blockStylePicker.value;
       renderBlockStyleFields(editingBlockStyleId);
+      blockOrderDraft = normalizeBlockOrder(loadSettings().sectionOrder);
+      renderBlockOrderEditor();
       els.settingsOverlay.classList.add('open');
       if (els.settingsScrollBody) els.settingsScrollBody.scrollTop = 0;
     }
     function closeSettings() {
       blockStyleDraft = null;
+      blockOrderDraft = null;
       els.settingsOverlay.classList.remove('open');
     }
     function saveAllSettings() {
@@ -2827,6 +2954,7 @@
       }
       flushBlockStyleDraft();
       partial.blockStyles = blockStyleDraft || {};
+      if (blockOrderDraft) partial.sectionOrder = normalizeBlockOrder(blockOrderDraft);
       const birthDate = els.settingsBirthDate.value;
       if (birthDate && birthDate > todayStr()) {
         showToast('วันเกิดต้องไม่เกินวันนี้', 'error');
@@ -2838,7 +2966,9 @@
       };
       if (birthDate) partial.profile.age = String(calcAgeFromBirthDate(birthDate, todayStr()) || '');
       saveSettings(partial);
+      if (partial.sectionOrder) applyBlockOrder(partial.sectionOrder);
       blockStyleDraft = null;
+      blockOrderDraft = null;
       closeSettings(); refresh();
     }
 
@@ -2991,6 +3121,7 @@
     };
 
     els.btnResetBlockStyle.onclick = resetBlockStyle;
+    if (els.btnResetBlockOrder) els.btnResetBlockOrder.onclick = resetBlockOrderDraft;
     els.blockStylePicker.onchange = () => {
       flushBlockStyleDraft();
       renderBlockStyleFields(els.blockStylePicker.value);
@@ -3031,8 +3162,8 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') return;
       const today = todayStr();
-      if (currentDate === today) refresh();
-      else if (els.dateLabel.textContent === 'วันนี้') setDate(today);
+      if (followToday || currentDate === today) setDate(today);
+      else refresh();
     });
 
 
@@ -3104,6 +3235,6 @@
       history.replaceState(null, '', location.pathname + location.search);
     }
   </script>
-  <script src="js/update-watch.js?v=61"></script>
+  <script src="js/update-watch.js?v=62"></script>
 </body>
 </html>
