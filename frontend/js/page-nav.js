@@ -61,7 +61,7 @@
   function isIgnoredTarget(el) {
     if (!el || !el.closest) return true;
     return !!el.closest(
-      'input, textarea, select, [contenteditable="true"], .drag-handle, .fab-pages, .fab-action, .fab-stack, .pages-menu-overlay, .edit-overlay, .settings-overlay, .modal, .drawer, .confirm-pop-overlay, .topbar, .topbar-actions, .btn-mini, #manage-tags-btn, #settings-btn'
+      'input, textarea, select, [contenteditable="true"], .drag-handle, .fab-pages, .fab-action, .fab-stack, .pages-menu-overlay, .edit-overlay, .settings-overlay, .modal, .drawer, .confirm-pop-overlay, .note-center-overlay, .topbar, .topbar-actions, .btn-mini, #manage-tags-btn, #settings-btn'
     );
   }
 

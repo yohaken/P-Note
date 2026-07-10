@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=46';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=68';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -151,7 +151,12 @@ const els = {
   applySyncCodeBtn: null,
   gotoCalorieSettingsBtn: document.getElementById('goto-calorie-settings-btn'),
   closeSettingsBtn: document.getElementById('close-settings-btn'),
+  noteContextOverlay: document.getElementById('note-context-overlay'),
   noteContextMenu: document.getElementById('note-context-menu'),
+  noteConfirmOverlay: document.getElementById('note-confirm-overlay'),
+  noteConfirmBody: document.getElementById('note-confirm-body'),
+  noteConfirmCancel: document.getElementById('note-confirm-cancel'),
+  noteConfirmOk: document.getElementById('note-confirm-ok'),
   loadingOverlay: document.getElementById('loading-overlay'),
 };
 
@@ -551,8 +556,48 @@ function emptyMessageForGroup() {
 }
 
 function closeContextMenu() {
-  els.noteContextMenu.hidden = true;
+  if (els.noteContextOverlay) els.noteContextOverlay.hidden = true;
+  if (els.noteContextMenu) els.noteContextMenu.hidden = true;
   state.contextNoteId = null;
+}
+
+let confirmResolver = null;
+
+function closeConfirm() {
+  if (els.noteConfirmOverlay) els.noteConfirmOverlay.hidden = true;
+  if (els.noteConfirmOk) {
+    els.noteConfirmOk.classList.remove('danger');
+    els.noteConfirmOk.textContent = 'ตกลง';
+  }
+}
+
+/** Centered confirm — same place as the long-press menu. */
+function showConfirm(message, { okLabel = 'ตกลง', danger = false } = {}) {
+  return new Promise((resolve) => {
+    if (confirmResolver) {
+      confirmResolver(false);
+      confirmResolver = null;
+    }
+    closeContextMenu();
+    if (!els.noteConfirmOverlay || !els.noteConfirmBody) {
+      resolve(window.confirm(message));
+      return;
+    }
+    confirmResolver = resolve;
+    els.noteConfirmBody.textContent = message;
+    if (els.noteConfirmOk) {
+      els.noteConfirmOk.textContent = okLabel;
+      els.noteConfirmOk.classList.toggle('danger', Boolean(danger));
+    }
+    els.noteConfirmOverlay.hidden = false;
+  });
+}
+
+function finishConfirm(ok) {
+  const resolve = confirmResolver;
+  confirmResolver = null;
+  closeConfirm();
+  if (resolve) resolve(Boolean(ok));
 }
 
 function contextMenuActions(note) {
@@ -579,7 +624,7 @@ function contextMenuActions(note) {
   ];
 }
 
-function openContextMenu(noteId, clientX, clientY) {
+function openContextMenu(noteId) {
   const note = getNoteById(noteId);
   if (!note) return;
 
@@ -597,10 +642,11 @@ function openContextMenu(noteId, clientX, clientY) {
     els.noteContextMenu.appendChild(btn);
   });
 
-  positionContextMenu(els.noteContextMenu, clientX, clientY);
+  if (els.noteContextOverlay) els.noteContextOverlay.hidden = false;
+  positionContextMenu(els.noteContextMenu);
 }
 
-function applyNoteAction(noteId, action) {
+async function applyNoteAction(noteId, action) {
   const note = getNoteById(noteId);
   if (!note) return;
 
@@ -614,7 +660,8 @@ function applyNoteAction(noteId, action) {
   else if (action === 'restore') {
     updated = state.listGroup === NOTE_STATUS.TRASH ? restoreNoteFromTrash(note) : markNoteActive(note);
   } else if (action === 'purge') {
-    if (!window.confirm('ลบโน้ตนี้ถาวร?')) return;
+    const ok = await showConfirm('ลบโน้ตนี้ถาวร?', { okLabel: 'ลบถาวร', danger: true });
+    if (!ok) return;
     commitData(purgeNote(noteId, state.notesData));
     setStatus('ลบถาวรแล้ว');
     return;
@@ -728,7 +775,7 @@ function renderNotesList() {
       attachNoteCardInteractions(item, {
         noteId: note.id,
         onTap: () => openEditor(note.id),
-        onLongPress: ({ clientX, clientY }) => openContextMenu(note.id, clientX, clientY),
+        onLongPress: () => openContextMenu(note.id),
       });
     }
 
@@ -829,10 +876,9 @@ function renderTagManager() {
     del.type = 'button';
     del.className = 'tag-delete-btn';
     del.textContent = '✕';
-    del.addEventListener('click', () => {
-      if (window.confirm(`ลบแท็ก "${tag.name}"?`)) {
-        commitData(deleteTag(state.notesData, tag.id));
-      }
+    del.addEventListener('click', async () => {
+      const ok = await showConfirm(`ลบแท็ก "${tag.name}"?`, { okLabel: 'ลบ', danger: true });
+      if (ok) commitData(deleteTag(state.notesData, tag.id));
     });
 
     row.append(color, name, count, del);
@@ -1056,7 +1102,12 @@ function initSwipeBack() {
         mode = 'drawer';
         return;
       }
-      if (!els.settingsOverlay.hidden || !els.tagModal.hidden || !els.noteContextMenu.hidden) {
+      if (
+        !els.settingsOverlay.hidden ||
+        !els.tagModal.hidden ||
+        (els.noteContextOverlay && !els.noteContextOverlay.hidden) ||
+        (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden)
+      ) {
         tracking = startX <= 36;
         mode = 'edge';
         return;
@@ -1098,6 +1149,8 @@ function initSwipeBack() {
         if (dx > 70 && dy < 55) {
           if (!els.settingsOverlay.hidden) closeSettings();
           else if (!els.tagModal.hidden) closeTagManager();
+          else if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) finishConfirm(false);
+          else if (els.noteContextOverlay && !els.noteContextOverlay.hidden) closeContextMenu();
           else if (!els.noteContextMenu.hidden) closeContextMenu();
         }
         return;
@@ -1177,10 +1230,26 @@ async function init() {
   els.groupTrashBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.TRASH));
 
   document.addEventListener('pointerdown', (event) => {
-    if (!els.noteContextMenu.hidden && !els.noteContextMenu.contains(event.target)) {
+    if (
+      els.noteContextOverlay &&
+      !els.noteContextOverlay.hidden &&
+      event.target === els.noteContextOverlay
+    ) {
       closeContextMenu();
     }
   });
+
+  if (els.noteConfirmCancel) {
+    els.noteConfirmCancel.addEventListener('click', () => finishConfirm(false));
+  }
+  if (els.noteConfirmOk) {
+    els.noteConfirmOk.addEventListener('click', () => finishConfirm(true));
+  }
+  if (els.noteConfirmOverlay) {
+    els.noteConfirmOverlay.addEventListener('click', (event) => {
+      if (event.target === els.noteConfirmOverlay) finishConfirm(false);
+    });
+  }
 
   els.manageTagsBtn.addEventListener('click', openTagManager);
   els.backBtn.addEventListener('click', backToList);
@@ -1215,7 +1284,8 @@ async function init() {
       backToList();
       return;
     }
-    if (!window.confirm('ย้ายโน้ตไปถังขยะ?')) return;
+    const ok = await showConfirm('ย้ายโน้ตไปถังขยะ?', { okLabel: 'ย้ายไปถังขยะ', danger: true });
+    if (!ok) return;
     state.notesData = updateNoteInData(state.notesData, moveNoteToTrash(note));
     state.draftNoteId = null;
     await saveManager.saveNow(() => state.notesData);
