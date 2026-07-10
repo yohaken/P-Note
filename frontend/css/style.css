@@ -42,34 +42,36 @@ html,
 body {
   margin: 0;
   padding: 0;
-  min-height: 100%;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
   min-height: 100dvh;
-  min-height: -webkit-fill-available;
   background: #1a1a1a;
   color: var(--text);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
-  /* Document-style shell (like calorie-tracker): no position:fixed on body */
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
 }
 
 body {
-  width: 100%;
-  height: 100%;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
+  margin: 0;
+  padding: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 #app {
   width: 100%;
   max-width: 720px;
+  min-height: 100vh;
   min-height: 100dvh;
-  min-height: -webkit-fill-available;
-  height: 100dvh;
   height: 100%;
   margin: 0 auto;
+  margin-bottom: 0;
+  padding: 0;
+  padding-bottom: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -260,24 +262,31 @@ body {
 }
 
 /*
- * Bottom Navigation — in-flow flex footer (calorie-style shell).
- * Fills to the column bottom; safe-area padding lifts only the buttons.
+ * Bottom Navigation — fixed to the physical screen bottom.
+ * Opaque background fills the home-indicator zone; padding lifts only the buttons.
  */
 .bottom-nav {
-  flex-shrink: 0;
+  position: fixed;
+  bottom: 0;
+  left: 0;
   width: 100%;
   margin: 0;
   padding: 0;
-  padding-bottom: constant(safe-area-inset-bottom);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  z-index: 30;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  z-index: 200;
   background-color: #1a1a1a;
   border-top: 1px solid var(--border);
   box-sizing: border-box;
 }
 
 body.light .bottom-nav {
-  background-color: var(--bg);
+  background-color: #1a1a1a;
+}
+
+/* Keep list content clear of the fixed nav (not on #app) */
+#list-view {
+  margin-bottom: 0;
+  padding-bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px) + 8px);
 }
 
 .bottom-nav-inner {
