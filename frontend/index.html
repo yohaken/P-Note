@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="16">
+  <meta name="pnote-build" content="17">
   <meta name="theme-color" content="#1a1a2e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=16"></script>
+  <script src="js/cache-bootstrap.js?v=17"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=16">
+  <link rel="stylesheet" href="css/style.css?v=17">
 </head>
 <body>
   <p id="hello-world-banner" class="hello-world-banner" role="status">hello world</p>
@@ -22,39 +22,51 @@
       <header class="topbar">
         <div class="topbar-title">
           <h1>P-Note</h1>
-          <p id="app-version" class="app-version">v16 · โน้ต + ปฏิทิน</p>
+          <p id="app-version" class="app-version">v17 · โน้ต + ปฏิทิน</p>
         </div>
         <div class="topbar-actions">
           <button id="export-btn" class="btn btn-text" type="button">สำรอง</button>
           <button id="import-btn" class="btn btn-text" type="button">นำเข้า</button>
           <input id="import-input" type="file" accept="application/json,.json" hidden>
           <button id="manage-tags-btn" class="btn btn-text" type="button">แท็ก</button>
+          <button id="settings-btn" class="btn btn-icon btn-ghost" type="button" aria-label="ตั้งค่า">⚙</button>
           <button id="add-note-btn" class="btn btn-icon" type="button" aria-label="เพิ่มโน้ต">+</button>
         </div>
       </header>
-      <div id="sort-bar" class="sort-bar" aria-label="จัดเรียงโน้ต">
-        <button id="sort-updated-btn" class="sort-chip active" type="button">ล่าสุด</button>
-        <button id="sort-schedule-btn" class="sort-chip" type="button">ตามกำหนด</button>
-      </div>
-      <section id="schedule-panel" class="schedule-panel" aria-label="ปฏิทินกำหนดการ">
-        <div class="schedule-panel-header">
-          <button id="cal-prev-btn" class="btn btn-text cal-nav" type="button" aria-label="เดือนก่อน">‹</button>
-          <h2 id="cal-month-label" class="schedule-month-label">—</h2>
-          <button id="cal-next-btn" class="btn btn-text cal-nav" type="button" aria-label="เดือนถัดไป">›</button>
+
+      <div class="list-scroll">
+        <div id="sort-bar" class="sort-bar" aria-label="จัดเรียงโน้ต">
+          <button id="sort-updated-btn" class="sort-chip active" type="button">ล่าสุด</button>
+          <button id="sort-schedule-btn" class="sort-chip" type="button">ตามกำหนด</button>
         </div>
-        <div id="cal-weekdays" class="cal-weekdays"></div>
-        <div id="cal-grid" class="cal-grid"></div>
-        <div id="upcoming-schedule" class="upcoming-schedule"></div>
-      </section>
-      <div id="tag-filter-bar" class="tag-filter-bar" aria-label="กรองตามแท็ก"></div>
-      <p id="sync-status" class="sync-status" aria-live="polite"></p>
-      <div id="empty-state" class="empty-state" hidden>
-        <p>ยังไม่มีโน้ต</p>
-        <button class="btn btn-primary" type="button" onclick="document.getElementById('add-note-btn').click()">
-          สร้างโน้ตแรก
-        </button>
+        <section id="schedule-panel" class="schedule-panel" aria-label="ปฏิทินกำหนดการ">
+          <div class="schedule-panel-header">
+            <button id="cal-prev-btn" class="btn btn-text cal-nav" type="button" aria-label="เดือนก่อน">‹</button>
+            <h2 id="cal-month-label" class="schedule-month-label">—</h2>
+            <button id="cal-next-btn" class="btn btn-text cal-nav" type="button" aria-label="เดือนถัดไป">›</button>
+          </div>
+          <div id="cal-weekdays" class="cal-weekdays"></div>
+          <div id="cal-grid" class="cal-grid"></div>
+          <div id="upcoming-schedule" class="upcoming-schedule"></div>
+        </section>
+        <p id="sync-status" class="sync-status" aria-live="polite"></p>
+        <div id="empty-state" class="empty-state" hidden>
+          <p id="empty-state-text">ยังไม่มีโน้ต</p>
+          <button class="btn btn-primary" type="button" onclick="document.getElementById('add-note-btn').click()">
+            สร้างโน้ตแรก
+          </button>
+        </div>
+        <div id="notes-list" class="notes-list"></div>
       </div>
-      <div id="notes-list" class="notes-list"></div>
+
+      <footer class="bottom-dock">
+        <nav class="group-nav" aria-label="กลุ่มโน้ต">
+          <button id="group-active-btn" class="group-tab active" type="button">งาน</button>
+          <button id="group-done-btn" class="group-tab" type="button">ทำแล้ว</button>
+          <button id="group-trash-btn" class="group-tab" type="button">ถังขยะ</button>
+        </nav>
+        <div id="tag-filter-bar" class="tag-filter-bar bottom" aria-label="กรองตามแท็ก"></div>
+      </footer>
     </section>
 
     <section id="editor-view" class="view" hidden>
@@ -77,7 +89,7 @@
         <textarea id="note-content" class="note-content" placeholder="พิมพ์โน้ตของคุณ..."></textarea>
       </div>
       <footer class="editor-footer">
-        <button id="delete-btn" class="btn btn-danger" type="button">ลบโน้ต</button>
+        <button id="delete-btn" class="btn btn-danger" type="button">ย้ายไปถังขยะ</button>
       </footer>
     </section>
 
@@ -96,12 +108,27 @@
       </div>
     </div>
 
+    <div id="settings-overlay" class="settings-overlay" hidden>
+      <div id="settings-backdrop" class="settings-backdrop"></div>
+      <div class="settings-panel" role="dialog" aria-labelledby="settings-title">
+        <h2 id="settings-title">ตั้งค่า</h2>
+        <div class="settings-row">
+          <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
+          <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
+          <p class="settings-hint">เลื่อนเพื่อย่อการ์ด — เห็นหัวข้อเป็นหลักในภาพรวม (พื้นหลังโปร่งใส)</p>
+        </div>
+        <button id="close-settings-btn" class="btn btn-secondary settings-close" type="button">ปิด</button>
+      </div>
+    </div>
+
+    <div id="note-context-menu" class="context-menu" hidden role="menu"></div>
+
     <div id="loading-overlay" class="loading-overlay">
       <div class="spinner"></div>
       <p>กำลังโหลด...</p>
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=16"></script>
+  <script type="module" src="js/app.js?v=17"></script>
 </body>
 </html>

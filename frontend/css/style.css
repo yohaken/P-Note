@@ -156,6 +156,12 @@ body {
   place-items: center;
 }
 
+.btn-ghost {
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.15rem;
+}
+
 .btn-large {
   width: calc(100% - 3rem);
   margin: 0 1.5rem 2rem;
@@ -213,11 +219,58 @@ body {
   min-height: auto;
 }
 
+#list-view {
+  padding-bottom: 0;
+}
+
+.list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.5rem;
+}
+
+.bottom-dock {
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: var(--safe-bottom);
+  z-index: 20;
+}
+
+.group-nav {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem 0.35rem;
+}
+
+.group-tab {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.55rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.group-tab.active {
+  color: #fff;
+  background: var(--primary);
+}
+
+.tag-filter-bar.bottom {
+  padding: 0.35rem 1rem 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
 .notes-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem 2rem;
+  gap: calc(0.75rem - var(--card-density, 0) * 0.55rem);
+  padding: 0.75rem 1rem 1rem;
 }
 
 .note-card {
@@ -225,22 +278,173 @@ body {
   text-align: left;
   background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius);
-  padding: 1rem 1.1rem;
+  border-radius: calc(var(--radius) - var(--card-density, 0) * 6px);
+  padding:
+    calc(1rem - var(--card-density, 0) * 0.62rem)
+    calc(1.1rem - var(--card-density, 0) * 0.35rem);
   color: inherit;
   cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 .note-card h3 {
-  margin: 0 0 0.35rem;
-  font-size: 1.05rem;
+  margin: 0 0 calc(0.35rem - var(--card-density, 0) * 0.28rem);
+  font-size: calc(1.05rem - var(--card-density, 0) * 0.24rem);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .note-card p {
-  margin: 0 0 0.5rem;
+  margin: 0 0 calc(0.5rem - var(--card-density, 0) * 0.42rem);
   color: var(--text-muted);
-  font-size: 0.9rem;
-  line-height: 1.4;
+  font-size: calc(0.9rem - var(--card-density, 0) * 0.16rem);
+  line-height: 1.35;
+  max-height: calc(3.8em * (1 - var(--card-density, 0) * 0.92));
+  overflow: hidden;
+  opacity: calc(1 - var(--card-density, 0) * 0.75);
+}
+
+.note-card .tag-chips,
+.note-card time {
+  opacity: calc(1 - var(--card-density, 0) * 0.95);
+  max-height: calc(2.5rem * (1 - var(--card-density, 0)));
+  overflow: hidden;
+}
+
+.note-card .schedule-badge {
+  transform: scale(calc(1 - var(--card-density, 0) * 0.12));
+  transform-origin: left center;
+}
+
+.note-card.done-card {
+  opacity: 0.82;
+}
+
+.note-card.done-card h3 {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+}
+
+.note-card.trash-card {
+  opacity: 0.7;
+}
+
+/* Context menu (long-press) */
+.context-menu {
+  position: fixed;
+  z-index: 150;
+  min-width: 148px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 0.35rem;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.context-menu[hidden] {
+  display: none !important;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.context-menu-item:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.context-menu-item.danger {
+  color: var(--danger);
+}
+
+/* Settings overlay */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem 1rem calc(1rem + var(--safe-bottom));
+}
+
+.settings-overlay[hidden] {
+  display: none !important;
+}
+
+.settings-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 8, 18, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.settings-panel {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.25rem 1rem;
+  box-shadow: 0 -4px 40px rgba(0, 0, 0, 0.35);
+}
+
+.settings-panel h2 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.settings-label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.settings-row input[type='range'] {
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+.settings-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.settings-close {
+  width: 100%;
+  margin-top: 1.25rem;
+}
+
+#schedule-panel[hidden] {
+  display: none !important;
+}
+
+#sort-bar[hidden] {
+  display: none !important;
+}
+
+#add-note-btn[hidden] {
+  display: none !important;
 }
 
 .note-card time {

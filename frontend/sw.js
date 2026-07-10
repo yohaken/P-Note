@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pnote-v16';
+const CACHE_NAME = 'pnote-v17';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,8 @@ const ASSETS = [
   './js/sync.js',
   './js/notes.js',
   './js/schedule.js',
+  './js/settings.js',
+  './js/context-menu.js',
   './js/app.js',
   './manifest.json',
   './icons/icon-192.png',

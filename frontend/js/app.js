@@ -1,21 +1,31 @@
-import { loadNotes, exportNotesBlob, parseNotesImport } from './local.js?v=16';
-import { registerServiceWorker } from './cache.js?v=16';
+import { loadNotes, exportNotesBlob, parseNotesImport } from './local.js?v=17';
+import { registerServiceWorker } from './cache.js?v=17';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=17';
 import {
   addTag,
   countNotesByTag,
   createNote,
   deleteTag,
+  filterNotesByStatus,
   filterNotesByTag,
   formatDate,
   getTagsForNote,
+  markNoteActive,
+  markNoteDone,
+  moveNoteToTrash,
+  NOTE_STATUS,
   previewText,
+  purgeNote,
   renameTag,
+  restoreNoteFromTrash,
   safeTagColor,
   setTagColor,
   sortNotes,
   toggleNoteTag,
   updateNote,
-} from './notes.js?v=16';
+  updateNoteInData,
+  activeNotes,
+} from './notes.js?v=17';
 import {
   buildMonthGrid,
   formatScheduleDisplay,
@@ -26,19 +36,23 @@ import {
   notesOnDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=16';
-import { SaveManager } from './sync.js?v=16';
-import { getAppBuild } from './version.js?v=16';
+} from './schedule.js?v=17';
+import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=17';
+import { SaveManager } from './sync.js?v=17';
+import { getAppBuild } from './version.js?v=17';
 
 const state = {
-  notesData: { version: 3, updatedAt: '', tags: [], notes: [] },
+  notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
+  settings: loadSettings(),
   activeNoteId: null,
   tagFilterId: null,
+  listGroup: NOTE_STATUS.ACTIVE,
   sortMode: 'updated',
   calendarYear: new Date().getFullYear(),
   calendarMonth: new Date().getMonth(),
   selectedDateKey: null,
   view: 'list',
+  contextNoteId: null,
 };
 
 const saveManager = new SaveManager();
@@ -49,13 +63,17 @@ const els = {
   editorView: document.getElementById('editor-view'),
   notesList: document.getElementById('notes-list'),
   emptyState: document.getElementById('empty-state'),
+  emptyStateText: document.getElementById('empty-state-text'),
   addNoteBtn: document.getElementById('add-note-btn'),
+  settingsBtn: document.getElementById('settings-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
   exportBtn: document.getElementById('export-btn'),
   importBtn: document.getElementById('import-btn'),
   importInput: document.getElementById('import-input'),
   appVersion: document.getElementById('app-version'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
+  sortBar: document.getElementById('sort-bar'),
+  schedulePanel: document.getElementById('schedule-panel'),
   sortUpdatedBtn: document.getElementById('sort-updated-btn'),
   sortScheduleBtn: document.getElementById('sort-schedule-btn'),
   calMonthLabel: document.getElementById('cal-month-label'),
@@ -64,6 +82,9 @@ const els = {
   calPrevBtn: document.getElementById('cal-prev-btn'),
   calNextBtn: document.getElementById('cal-next-btn'),
   upcomingSchedule: document.getElementById('upcoming-schedule'),
+  groupActiveBtn: document.getElementById('group-active-btn'),
+  groupDoneBtn: document.getElementById('group-done-btn'),
+  groupTrashBtn: document.getElementById('group-trash-btn'),
   backBtn: document.getElementById('back-btn'),
   deleteBtn: document.getElementById('delete-btn'),
   noteTitle: document.getElementById('note-title'),
@@ -78,6 +99,11 @@ const els = {
   newTagInput: document.getElementById('new-tag-input'),
   tagManagerList: document.getElementById('tag-manager-list'),
   closeTagModalBtn: document.getElementById('close-tag-modal-btn'),
+  settingsOverlay: document.getElementById('settings-overlay'),
+  settingsBackdrop: document.getElementById('settings-backdrop'),
+  cardDensitySlider: document.getElementById('card-density-slider'),
+  closeSettingsBtn: document.getElementById('close-settings-btn'),
+  noteContextMenu: document.getElementById('note-context-menu'),
   loadingOverlay: document.getElementById('loading-overlay'),
 };
 
@@ -112,8 +138,20 @@ function autosave() {
   saveManager.scheduleSave(state.notesData);
 }
 
+function applyCardDensity() {
+  const unit = densityToCssUnit(state.settings.cardDensity);
+  els.listView.style.setProperty('--card-density', String(unit));
+  if (els.cardDensitySlider) {
+    els.cardDensitySlider.value = String(state.settings.cardDensity);
+  }
+}
+
 function getActiveNote() {
   return state.notesData.notes.find((note) => note.id === state.activeNoteId) || null;
+}
+
+function getNoteById(noteId) {
+  return state.notesData.notes.find((note) => note.id === noteId) || null;
 }
 
 function persistLocalChanges() {
@@ -126,9 +164,7 @@ function persistLocalChanges() {
     scheduledAt: fromDatetimeLocalValue(els.noteSchedule.value),
   });
 
-  state.notesData.notes = state.notesData.notes.map((item) =>
-    item.id === updated.id ? updated : item,
-  );
+  state.notesData = updateNoteInData(state.notesData, updated);
 }
 
 function commitData(newData) {
@@ -139,12 +175,29 @@ function commitData(newData) {
   renderTagManager();
 }
 
+function notesForCurrentGroup() {
+  return filterNotesByStatus(state.notesData.notes, state.listGroup);
+}
+
 function sortedFilteredNotes() {
-  let notes = filterNotesByTag(state.notesData.notes, state.tagFilterId);
-  if (state.selectedDateKey) {
+  let notes = notesForCurrentGroup();
+  notes = filterNotesByTag(notes, state.tagFilterId);
+  if (state.selectedDateKey && state.listGroup === NOTE_STATUS.ACTIVE) {
     notes = notesOnDate(notes, state.selectedDateKey);
   }
   return state.sortMode === 'schedule' ? sortNotesBySchedule(notes) : sortNotes(notes);
+}
+
+function renderGroupNav() {
+  els.groupActiveBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.ACTIVE);
+  els.groupDoneBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.DONE);
+  els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
+
+  const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
+  els.schedulePanel.hidden = !isActiveGroup;
+  els.sortBar.hidden = !isActiveGroup;
+  els.addNoteBtn.hidden = !isActiveGroup;
+  els.tagFilterBar.hidden = !isActiveGroup;
 }
 
 function renderSortBar() {
@@ -153,10 +206,13 @@ function renderSortBar() {
 }
 
 function renderSchedulePanel() {
+  if (state.listGroup !== NOTE_STATUS.ACTIVE) return;
+
+  const visibleNotes = activeNotes(state.notesData.notes);
   const { year, month, weekdays, cells } = buildMonthGrid(
     state.calendarYear,
     state.calendarMonth,
-    state.notesData.notes,
+    visibleNotes,
   );
 
   els.calMonthLabel.textContent = monthLabel(year, month);
@@ -192,7 +248,7 @@ function renderSchedulePanel() {
     els.calGrid.appendChild(btn);
   });
 
-  const upcoming = getUpcomingScheduledNotes(state.notesData.notes, 6);
+  const upcoming = getUpcomingScheduledNotes(visibleNotes, 6);
   if (!upcoming.length) {
     els.upcomingSchedule.innerHTML = '<p class="upcoming-title">ยังไม่มีกำหนดการถัดไป</p>';
     return;
@@ -214,6 +270,8 @@ function renderSchedulePanel() {
 }
 
 function renderTagFilterBar() {
+  if (state.listGroup !== NOTE_STATUS.ACTIVE) return;
+
   const tags = state.notesData.tags || [];
   els.tagFilterBar.innerHTML = '';
   if (!tags.length) return;
@@ -244,17 +302,97 @@ function renderTagFilterBar() {
 }
 
 function scheduleBadgeHtml(note) {
-  if (!note.scheduledAt) return '';
+  if (!note.scheduledAt || state.listGroup !== NOTE_STATUS.ACTIVE) return '';
   const status = getScheduleStatus(note.scheduledAt);
   const label =
     status === 'overdue' ? 'เลยกำหนด' : status === 'today' ? 'วันนี้' : formatScheduleDisplay(note.scheduledAt);
   return `<span class="schedule-badge ${status}">📅 ${escapeHtml(label)}</span>`;
 }
 
+function emptyMessageForGroup() {
+  if (state.listGroup === NOTE_STATUS.DONE) return 'ยังไม่มีโน้ตที่ทำแล้ว';
+  if (state.listGroup === NOTE_STATUS.TRASH) return 'ถังขยะว่าง';
+  return 'ยังไม่มีโน้ต';
+}
+
+function closeContextMenu() {
+  els.noteContextMenu.hidden = true;
+  state.contextNoteId = null;
+}
+
+function contextMenuActions(note) {
+  if (state.listGroup === NOTE_STATUS.ACTIVE) {
+    return [
+      { id: 'done', label: 'ทำแล้ว', action: () => applyNoteAction(note.id, 'done') },
+      { id: 'trash', label: 'ลบ', danger: true, action: () => applyNoteAction(note.id, 'trash') },
+    ];
+  }
+  if (state.listGroup === NOTE_STATUS.DONE) {
+    return [
+      { id: 'restore', label: 'คืนเป็นงาน', action: () => applyNoteAction(note.id, 'restore') },
+      { id: 'trash', label: 'ลบ', danger: true, action: () => applyNoteAction(note.id, 'trash') },
+    ];
+  }
+  return [
+    { id: 'restore', label: 'กู้คืน', action: () => applyNoteAction(note.id, 'restore') },
+    {
+      id: 'purge',
+      label: 'ลบถาวร',
+      danger: true,
+      action: () => applyNoteAction(note.id, 'purge'),
+    },
+  ];
+}
+
+function openContextMenu(noteId, clientX, clientY) {
+  const note = getNoteById(noteId);
+  if (!note) return;
+
+  state.contextNoteId = noteId;
+  els.noteContextMenu.innerHTML = '';
+  contextMenuActions(note).forEach((item) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `context-menu-item${item.danger ? ' danger' : ''}`;
+    btn.textContent = item.label;
+    btn.addEventListener('click', () => {
+      closeContextMenu();
+      item.action();
+    });
+    els.noteContextMenu.appendChild(btn);
+  });
+
+  positionContextMenu(els.noteContextMenu, clientX, clientY);
+}
+
+function applyNoteAction(noteId, action) {
+  const note = getNoteById(noteId);
+  if (!note) return;
+
+  let updated = note;
+  if (action === 'done') updated = markNoteDone(note);
+  else if (action === 'trash') updated = moveNoteToTrash(note);
+  else if (action === 'restore') {
+    updated = state.listGroup === NOTE_STATUS.TRASH ? restoreNoteFromTrash(note) : markNoteActive(note);
+  } else if (action === 'purge') {
+    if (!window.confirm('ลบโน้ตนี้ถาวร?')) return;
+    commitData(purgeNote(noteId, state.notesData));
+    setStatus('ลบถาวรแล้ว');
+    return;
+  }
+
+  state.notesData = updateNoteInData(state.notesData, updated);
+  autosave();
+  renderNotesList();
+  setStatus(action === 'done' ? 'ย้ายไปทำแล้ว' : action === 'trash' ? 'ย้ายไปถังขยะ' : 'กู้คืนแล้ว');
+}
+
 function renderNotesList() {
+  renderGroupNav();
   renderSortBar();
   renderSchedulePanel();
   renderTagFilterBar();
+  applyCardDensity();
 
   const notes = sortedFilteredNotes();
   els.notesList.innerHTML = '';
@@ -263,6 +401,8 @@ function renderNotesList() {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'note-card';
+    if (state.listGroup === NOTE_STATUS.DONE) item.classList.add('done-card');
+    if (state.listGroup === NOTE_STATUS.TRASH) item.classList.add('trash-card');
 
     const tags = getTagsForNote(note, state.notesData.tags || []);
     const chipsHtml = tags.length
@@ -274,18 +414,33 @@ function renderNotesList() {
           .join('')}</div>`
       : '';
 
+    const metaTime =
+      state.listGroup === NOTE_STATUS.DONE && note.completedAt
+        ? `ทำแล้ว ${escapeHtml(formatDate(note.completedAt))}`
+        : state.listGroup === NOTE_STATUS.TRASH && note.deletedAt
+          ? `ลบ ${escapeHtml(formatDate(note.deletedAt))}`
+          : `แก้ไข ${escapeHtml(formatDate(note.updatedAt))}`;
+
     item.innerHTML = `
       ${scheduleBadgeHtml(note)}
       <h3>${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
       <p>${escapeHtml(previewText(note))}</p>
       ${chipsHtml}
-      <time>แก้ไข ${escapeHtml(formatDate(note.updatedAt))}</time>
+      <time>${metaTime}</time>
     `;
-    item.addEventListener('click', () => openEditor(note.id));
+
+    attachNoteCardInteractions(item, {
+      noteId: note.id,
+      onTap: () => openEditor(note.id),
+      onLongPress: ({ clientX, clientY }) => openContextMenu(note.id, clientX, clientY),
+    });
+
     els.notesList.appendChild(item);
   });
 
+  els.emptyStateText.textContent = emptyMessageForGroup();
   els.emptyState.hidden = notes.length > 0;
+  els.emptyState.querySelector('.btn-primary').hidden = state.listGroup !== NOTE_STATUS.ACTIVE;
 }
 
 function renderEditorTags() {
@@ -317,10 +472,7 @@ function toggleActiveNoteTag(tagId) {
   if (!note) return;
 
   const updated = toggleNoteTag(note, tagId);
-  state.notesData = {
-    ...state.notesData,
-    notes: state.notesData.notes.map((item) => (item.id === updated.id ? updated : item)),
-  };
+  state.notesData = updateNoteInData(state.notesData, updated);
   autosave();
   renderEditorTags();
 }
@@ -334,6 +486,15 @@ function openTagManager() {
 
 function closeTagManager() {
   els.tagModal.hidden = true;
+}
+
+function openSettings() {
+  els.settingsOverlay.hidden = false;
+  els.cardDensitySlider.value = String(state.settings.cardDensity);
+}
+
+function closeSettings() {
+  els.settingsOverlay.hidden = true;
 }
 
 function renderTagManager() {
@@ -381,7 +542,7 @@ function renderTagManager() {
 }
 
 function openEditor(noteId) {
-  const note = state.notesData.notes.find((item) => item.id === noteId);
+  const note = getNoteById(noteId);
   if (!note) return;
 
   state.activeNoteId = noteId;
@@ -454,14 +615,25 @@ function importBackup(file) {
   reader.readAsText(file);
 }
 
+function setListGroup(group) {
+  state.listGroup = group;
+  state.tagFilterId = null;
+  state.selectedDateKey = null;
+  closeContextMenu();
+  renderNotesList();
+}
+
 function bootstrapData() {
   setLoading(true, 'กำลังโหลดโน้ต...');
   state.notesData = loadNotes().data;
+  state.settings = loadSettings();
   state.tagFilterId = null;
   state.selectedDateKey = null;
+  state.listGroup = NOTE_STATUS.ACTIVE;
 
   saveManager.configure({ onStatus: (message) => setStatus(message) });
 
+  applyCardDensity();
   renderNotesList();
   showView('list');
   setLoading(false);
@@ -479,6 +651,25 @@ async function init() {
   registerServiceWorker();
 
   els.addNoteBtn.addEventListener('click', openNewNote);
+  els.settingsBtn.addEventListener('click', openSettings);
+  els.closeSettingsBtn.addEventListener('click', closeSettings);
+  els.settingsBackdrop.addEventListener('click', closeSettings);
+  els.cardDensitySlider.addEventListener('input', () => {
+    state.settings.cardDensity = Number(els.cardDensitySlider.value);
+    saveSettings(state.settings);
+    applyCardDensity();
+  });
+
+  els.groupActiveBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.ACTIVE));
+  els.groupDoneBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.DONE));
+  els.groupTrashBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.TRASH));
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!els.noteContextMenu.hidden && !els.noteContextMenu.contains(event.target)) {
+      closeContextMenu();
+    }
+  });
+
   els.manageTagsBtn.addEventListener('click', openTagManager);
   els.exportBtn.addEventListener('click', exportBackup);
   els.importBtn.addEventListener('click', () => els.importInput.click());
@@ -513,8 +704,8 @@ async function init() {
 
   els.deleteBtn.addEventListener('click', async () => {
     const note = getActiveNote();
-    if (!note || !window.confirm('ลบโน้ตนี้?')) return;
-    state.notesData.notes = state.notesData.notes.filter((item) => item.id !== note.id);
+    if (!note || !window.confirm('ย้ายโน้ตไปถังขยะ?')) return;
+    state.notesData = updateNoteInData(state.notesData, moveNoteToTrash(note));
     await saveManager.saveNow(state.notesData);
     backToList();
   });

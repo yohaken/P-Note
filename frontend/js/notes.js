@@ -19,6 +19,80 @@ export function safeTagColor(color) {
     : TAG_PALETTE[0];
 }
 
+export const NOTE_STATUS = {
+  ACTIVE: 'active',
+  DONE: 'done',
+  TRASH: 'trash',
+};
+
+export function noteStatus(note) {
+  return note.status || NOTE_STATUS.ACTIVE;
+}
+
+export function isActiveNote(note) {
+  return noteStatus(note) === NOTE_STATUS.ACTIVE;
+}
+
+export function filterNotesByStatus(notes, status) {
+  return notes.filter((note) => noteStatus(note) === status);
+}
+
+export function activeNotes(notes) {
+  return filterNotesByStatus(notes, NOTE_STATUS.ACTIVE);
+}
+
+export function markNoteDone(note) {
+  const now = new Date().toISOString();
+  return {
+    ...note,
+    status: NOTE_STATUS.DONE,
+    completedAt: now,
+    updatedAt: now,
+  };
+}
+
+export function markNoteActive(note) {
+  return {
+    ...note,
+    status: NOTE_STATUS.ACTIVE,
+    completedAt: null,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function moveNoteToTrash(note) {
+  const now = new Date().toISOString();
+  return {
+    ...note,
+    status: NOTE_STATUS.TRASH,
+    deletedAt: now,
+    updatedAt: now,
+  };
+}
+
+export function restoreNoteFromTrash(note) {
+  return {
+    ...note,
+    status: NOTE_STATUS.ACTIVE,
+    deletedAt: null,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function purgeNote(noteId, data) {
+  return {
+    ...data,
+    notes: data.notes.filter((note) => note.id !== noteId),
+  };
+}
+
+export function updateNoteInData(data, updatedNote) {
+  return {
+    ...data,
+    notes: data.notes.map((note) => (note.id === updatedNote.id ? updatedNote : note)),
+  };
+}
+
 export function createNote(title = '', content = '') {
   const now = new Date().toISOString();
   return {
@@ -27,6 +101,9 @@ export function createNote(title = '', content = '') {
     content,
     tagIds: [],
     scheduledAt: null,
+    status: NOTE_STATUS.ACTIVE,
+    completedAt: null,
+    deletedAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -105,11 +182,16 @@ export function normalizeNotesData(data) {
           ? note.tagIds.filter((id) => tagIds.has(id))
           : [],
         scheduledAt: note.scheduledAt || null,
+        status: [NOTE_STATUS.ACTIVE, NOTE_STATUS.DONE, NOTE_STATUS.TRASH].includes(note.status)
+          ? note.status
+          : NOTE_STATUS.ACTIVE,
+        completedAt: note.completedAt || null,
+        deletedAt: note.deletedAt || null,
       }))
     : [];
 
   return {
-    version: 3,
+    version: 4,
     updatedAt: base.updatedAt || new Date().toISOString(),
     tags,
     notes,
@@ -190,7 +272,8 @@ export function filterNotesByTag(notes, tagId) {
 
 export function countNotesByTag(notes, tagId) {
   return notes.reduce(
-    (total, note) => total + ((note.tagIds || []).includes(tagId) ? 1 : 0),
+    (total, note) =>
+      total + (isActiveNote(note) && (note.tagIds || []).includes(tagId) ? 1 : 0),
     0,
   );
 }

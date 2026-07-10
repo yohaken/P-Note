@@ -1,11 +1,11 @@
-import { STORAGE_KEYS } from './config.js?v=16';
-import { normalizeNotesData } from './notes.js?v=16';
+import { STORAGE_KEYS } from './config.js?v=17';
+import { normalizeNotesData } from './notes.js?v=17';
 
 export const LOCAL_DATA_KEY = STORAGE_KEYS.LOCAL_DATA;
 
 function emptyPayload() {
   return normalizeNotesData({
-    version: 3,
+    version: 4,
     updatedAt: new Date().toISOString(),
     tags: [],
     notes: [],

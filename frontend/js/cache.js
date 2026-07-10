@@ -1,4 +1,4 @@
-import { cacheName, getAppBuild } from './version.js?v=16';
+import { cacheName, getAppBuild } from './version.js?v=17';
 
 /** Register SW for offline use (after cache-bootstrap ensured the active build). */
 export function registerServiceWorker() {
