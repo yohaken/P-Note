@@ -16,4 +16,5 @@ export const STORAGE_KEYS = {
   ACTIVE_BUILD: 'pnote_active_build',
   LOCAL_DATA: 'pnote_local_data',
   SETTINGS: 'pnote_settings',
+  SPACE_ID: 'pnote_space_id',
 };

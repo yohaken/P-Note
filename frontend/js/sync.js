@@ -1,5 +1,5 @@
-import { CONFIG } from './config.js?v=21';
-import { saveNotes } from './local.js?v=21';
+import { CONFIG } from './config.js?v=22';
+import { saveNotes } from './local.js?v=22';
 
 export class SaveManager {
   constructor() {
@@ -8,8 +8,11 @@ export class SaveManager {
     this._typingStatusActive = false;
   }
 
-  configure({ onStatus }) {
+  configure({ onStatus, remotePush }) {
     this.onStatus = onStatus || this.onStatus;
+    if (remotePush !== undefined) {
+      this.remotePush = remotePush;
+    }
   }
 
   resolveData(getNotesData) {
@@ -44,6 +47,16 @@ export class SaveManager {
     this.onStatus('กำลังบันทึก...');
     saveNotes(notesData);
     this._typingStatusActive = false;
-    this.onStatus('บันทึกแล้ว');
+
+    if (typeof this.remotePush === 'function') {
+      try {
+        await this.remotePush(notesData);
+        this.onStatus('บันทึกในฐานข้อมูลแล้ว');
+      } catch {
+        this.onStatus('บันทึกในเครื่อง (ออฟไลน์)');
+      }
+    } else {
+      this.onStatus('บันทึกแล้ว');
+    }
   }
 }

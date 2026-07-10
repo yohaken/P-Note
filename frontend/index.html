@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="21">
+  <meta name="pnote-build" content="22">
   <meta name="theme-color" content="#020408">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,11 +12,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-  <script src="js/cache-bootstrap.js?v=21"></script>
+  <script src="js/cache-bootstrap.js?v=22"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/style.css?v=22">
 </head>
 <body class="theme-2050">
   <p id="hello-world-banner" class="hello-world-banner" role="status">hello world</p>
@@ -25,7 +25,7 @@
       <header class="topbar">
         <div class="topbar-title">
           <h1>P-Note</h1>
-          <p id="app-version" class="app-version">v21 · 2050</p>
+          <p id="app-version" class="app-version">v22 · 2050</p>
         </div>
         <div class="topbar-actions">
           <button id="export-btn" class="btn btn-text" type="button">สำรอง</button>
@@ -112,6 +112,18 @@
           <p class="settings-hint">เลื่อนเพื่อย่อการ์ด — เห็นหัวข้อเป็นหลักในภาพรวม</p>
         </div>
         <div class="settings-row">
+          <label class="settings-label" for="sync-code-value">รหัสซิงค์ (ใช้ข้ามอุปกรณ์ · ไม่ต้องล็อกอิน)</label>
+          <div class="sync-code-row">
+            <input id="sync-code-value" class="sync-code-input" type="text" readonly>
+            <button id="copy-sync-code-btn" class="btn btn-secondary" type="button">คัดลอก</button>
+          </div>
+          <div class="sync-code-row">
+            <input id="sync-code-input" class="sync-code-input" type="text" placeholder="วางรหัสจากอีกเครื่อง" autocomplete="off">
+            <button id="apply-sync-code-btn" class="btn btn-primary" type="button">ใช้รหัสนี้</button>
+          </div>
+          <p class="settings-hint">ข้อมูลเก็บในฐานข้อมูลบนเซิร์ฟเวอร์ (Firestore) ใช้รหัสเดียวกันบนอีกเครื่องเพื่อเห็นโน้ตชุดเดียวกัน</p>
+        </div>
+        <div class="settings-row">
           <label class="settings-label" for="import-paste">นำเข้าข้อมูลเดิม (JSON)</label>
           <textarea id="import-paste" class="import-paste" rows="4" placeholder='วางไฟล์สำรอง JSON ที่นี่ แล้วกดนำเข้า'></textarea>
           <div class="settings-import-actions">
@@ -134,6 +146,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=21"></script>
+  <script type="module" src="js/app.js?v=22"></script>
 </body>
 </html>

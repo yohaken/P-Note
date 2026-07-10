@@ -1,14 +1,14 @@
-import { loadNotes, exportNotesBlob, parseNotesImport, saveNotes } from './local.js?v=21';
-import { registerServiceWorker } from './cache.js?v=21';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=21';
-import { CONFIG } from './config.js?v=21';
+import { loadNotes, exportNotesBlob, parseNotesImport, saveNotes } from './local.js?v=22';
+import { registerServiceWorker } from './cache.js?v=22';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=22';
+import { CONFIG } from './config.js?v=22';
 import {
   hasAnyNotes,
   importFromText,
   mergeNotesData,
   recoverLegacyLocalStorage,
   tryAutoImport,
-} from './import-data.js?v=21';
+} from './import-data.js?v=22';
 import {
   addTag,
   countNotesByTag,
@@ -32,18 +32,25 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=21';
+} from './notes.js?v=22';
 import {
   formatScheduleDisplay,
   fromDatetimeLocalValue,
   getScheduleStatus,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=21';
-import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=21';
-import { SaveManager } from './sync.js?v=21';
-import { forceRefresh, startUpdateWatcher } from './update.js?v=21';
-import { getAppBuild } from './version.js?v=21';
+} from './schedule.js?v=22';
+import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=22';
+import {
+  fetchRemoteNotes,
+  getSpaceId,
+  pushRemoteNotes,
+  setSpaceId,
+} from './remote.js?v=22';
+import { normalizeNotesData } from './notes.js?v=22';
+import { SaveManager } from './sync.js?v=22';
+import { forceRefresh, startUpdateWatcher } from './update.js?v=22';
+import { getAppBuild } from './version.js?v=22';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -53,6 +60,8 @@ const state = {
   listGroup: NOTE_STATUS.ACTIVE,
   sortMode: 'updated',
   view: 'list',
+  spaceId: null,
+  online: false,
   contextNoteId: null,
 };
 
@@ -96,6 +105,10 @@ const els = {
   settingsOverlay: document.getElementById('settings-overlay'),
   settingsBackdrop: document.getElementById('settings-backdrop'),
   cardDensitySlider: document.getElementById('card-density-slider'),
+  syncCodeValue: document.getElementById('sync-code-value'),
+  syncCodeInput: document.getElementById('sync-code-input'),
+  copySyncCodeBtn: document.getElementById('copy-sync-code-btn'),
+  applySyncCodeBtn: document.getElementById('apply-sync-code-btn'),
   importPaste: document.getElementById('import-paste'),
   importPasteBtn: document.getElementById('import-paste-btn'),
   recoverLocalBtn: document.getElementById('recover-local-btn'),
@@ -124,7 +137,7 @@ function setStatus(message, target = 'both') {
     els.editorSyncStatus.textContent = message;
   }
   clearTimeout(statusTimer);
-  if (message === 'บันทึกแล้ว') {
+  if (message === 'บันทึกแล้ว' || message === 'บันทึกในฐานข้อมูลแล้ว') {
     statusTimer = setTimeout(() => {
       els.syncStatus.textContent = '';
       els.editorSyncStatus.textContent = '';
@@ -452,6 +465,7 @@ function closeTagManager() {
 function openSettings() {
   els.settingsOverlay.hidden = false;
   els.cardDensitySlider.value = String(state.settings.cardDensity);
+  renderSyncCode();
 }
 
 function closeSettings() {
@@ -629,28 +643,103 @@ function setListGroup(group) {
   renderNotesList();
 }
 
-async function bootstrapData() {
-  setLoading(true, 'กำลังโหลดโน้ต...');
-  let data = loadNotes().data;
-  const auto = await tryAutoImport(data);
-  if (auto.imported) {
-    data = auto.data;
-    saveNotes(data);
+async function loadSpaceData(spaceId, localData) {
+  // Returns { data, online, migrated }
+  let remote = null;
+  try {
+    remote = normalizeNotesData(await fetchRemoteNotes(spaceId));
+  } catch {
+    remote = null;
   }
-  state.notesData = data;
+
+  if (!remote) {
+    // Offline: fall back to local cache + legacy auto-import.
+    const auto = await tryAutoImport(localData);
+    return { data: auto.data, online: false, migrated: false, autoSource: auto.imported ? auto.source : null };
+  }
+
+  const remoteHas = hasAnyNotes(remote);
+  const localHas = hasAnyNotes(localData);
+
+  if (!remoteHas && localHas) {
+    // First move of existing on-device notes into the database.
+    const merged = normalizeNotesData(localData);
+    try {
+      await pushRemoteNotes(spaceId, merged);
+      return { data: merged, online: true, migrated: true };
+    } catch {
+      return { data: merged, online: false, migrated: false };
+    }
+  }
+
+  return { data: remote, online: true, migrated: false };
+}
+
+async function bootstrapData() {
+  setLoading(true, 'กำลังเชื่อมต่อฐานข้อมูล...');
+  state.spaceId = getSpaceId();
   state.settings = loadSettings();
   state.tagFilterId = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
 
-  saveManager.configure({ onStatus: (message) => setStatus(message) });
+  const localData = loadNotes().data;
+  const result = await loadSpaceData(state.spaceId, localData);
+
+  state.notesData = result.data;
+  state.online = result.online;
+  saveNotes(state.notesData);
+
+  saveManager.configure({
+    onStatus: (message) => setStatus(message),
+    remotePush: (data) => pushRemoteNotes(state.spaceId, data),
+  });
 
   applyCardDensity();
   renderNotesList();
   showView('list');
   setLoading(false);
   updateAppVersionLabel();
-  if (auto.imported) {
-    setStatus(auto.source === 'bundled' ? 'นำเข้าข้อมูลเริ่มต้นแล้ว' : 'กู้คืนข้อมูลเดิมแล้ว');
+
+  if (result.migrated) {
+    setStatus('ย้ายโน้ตเข้าฐานข้อมูลแล้ว');
+  } else if (!result.online) {
+    setStatus(result.autoSource ? 'โหมดออฟไลน์ (กู้คืนข้อมูลเดิม)' : 'โหมดออฟไลน์ (เก็บในเครื่อง)');
+  } else {
+    setStatus('เชื่อมฐานข้อมูลแล้ว');
+  }
+}
+
+async function applySyncCode(code) {
+  let normalized;
+  try {
+    normalized = setSpaceId(code);
+  } catch (error) {
+    window.alert(error.message);
+    return;
+  }
+  state.spaceId = normalized;
+  setLoading(true, 'กำลังซิงค์...');
+  try {
+    const remote = normalizeNotesData(await fetchRemoteNotes(normalized));
+    state.notesData = remote;
+    state.online = true;
+    saveNotes(state.notesData);
+    setStatus('สลับพื้นที่ซิงค์แล้ว');
+  } catch {
+    state.online = false;
+    setStatus('เชื่อมต่อไม่ได้ — เก็บในเครื่อง');
+  }
+  state.tagFilterId = null;
+  state.listGroup = NOTE_STATUS.ACTIVE;
+  renderNotesList();
+  renderSyncCode();
+  setLoading(false);
+  closeSettings();
+}
+
+function renderSyncCode() {
+  if (els.syncCodeValue) {
+    els.syncCodeValue.value = state.spaceId || getSpaceId();
   }
 }
 
@@ -677,6 +766,18 @@ async function init() {
   });
   els.importPasteBtn.addEventListener('click', importFromPaste);
   els.recoverLocalBtn.addEventListener('click', recoverLocalData);
+  els.copySyncCodeBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(els.syncCodeValue.value);
+      setStatus('คัดลอกรหัสแล้ว');
+    } catch {
+      els.syncCodeValue.select();
+    }
+  });
+  els.applySyncCodeBtn.addEventListener('click', () => {
+    const code = els.syncCodeInput.value.trim();
+    if (code) applySyncCode(code);
+  });
 
   els.groupActiveBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.ACTIVE));
   els.groupDoneBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.DONE));

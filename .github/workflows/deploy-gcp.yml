@@ -42,6 +42,15 @@ jobs:
             --location=${{ env.REGION }} \
             --description="P-Note Docker images"
 
+      - name: Ensure Firestore database (Native mode)
+        run: |
+          gcloud services enable firestore.googleapis.com --project ${{ env.PROJECT_ID }} || true
+          gcloud firestore databases describe --project ${{ env.PROJECT_ID }} 2>/dev/null || \
+          gcloud firestore databases create \
+            --project ${{ env.PROJECT_ID }} \
+            --location=${{ env.REGION }} \
+            --type=firestore-native || true
+
       - name: Build and push backend image
         run: |
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/api:${{ github.sha }}"

@@ -1,6 +1,6 @@
 # P-Note
 
-Personal notes PWA. Static frontend (`frontend/`) synced to Google Drive via Firebase Auth, plus a small Express API (`backend/`) deployed to Cloud Run.
+Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/`) on Cloud Run. Notes are stored server-side in **Firestore** (a cloud database) keyed by an anonymous per-device "space id" — no login yet. localStorage is only an offline cache.
 
 ## Cursor Cloud specific instructions
 
@@ -8,7 +8,7 @@ Personal notes PWA. Static frontend (`frontend/`) synced to Google Drive via Fir
 
 | Service | Location | Run command | Notes |
 |---|---|---|---|
-| Backend API | `backend/` | `cd backend && npm run dev` | Express, `node --watch`, listens on `:8080`. Health: `GET /api/health`, also `GET /api/version`. Uses `.env` (copy from `backend/.env.example`); all vars have sensible defaults so it runs without `.env`. |
+| Backend API | `backend/` | `cd backend && npm run dev` | Express, `node --watch`, `:8080`. Endpoints: `GET /api/health`, `/api/version`, `/api/db-status`, `GET/PUT /api/spaces/:spaceId/notes` (Firestore). For local dev, start the Firestore emulator and run with `FIRESTORE_EMULATOR_HOST=127.0.0.1:8090` — no GCP credentials needed. Emulator: `npx firebase-tools@13 emulators:start --only firestore --project mypeer-501909` (Java required; a minimal `firebase.json` with `emulators.firestore.port` is enough, e.g. in a scratch dir). |
 | Frontend PWA | `frontend/` | serve statically on port 5000, e.g. `python3 -m http.server 5000` (run from `frontend/`) | No build step — plain static ES modules. |
 
 ### Non-obvious caveats
@@ -29,6 +29,7 @@ Personal notes PWA. Static frontend (`frontend/`) synced to Google Drive via Fir
 - **`js/cache-bootstrap.js`** runs before modules: if `localStorage.pnote_active_build !== meta build`, it unregisters all service workers, deletes all Cache Storage, saves the new build id, and reloads once. This is the permanent in-app cache flush (not a one-off hack).
 - **`js/update.js`** polls `index.html` every ~20s (and when the tab becomes visible) for a newer `pnote-build`; shows a brief toast then purges caches and reloads. Works when the PWA shortcut stays open in the background. Manual **↻** FAB bottom-right calls the same refresh path. Polling is disabled on `localhost`.
 - **`js/cache.js`** registers `sw.js?v=N` after bootstrap. Login is disabled for now — no auth modules loaded.
-- Notes live in `localStorage` key `pnote_local_data` (v4 schema: tags, `scheduledAt`, `status` active/done/trash). Export/import JSON via **สำรอง / นำเข้า** in the header.
+- Notes are stored in **Firestore** (`spaces/{spaceId}` doc holds the v4 payload). `frontend/js/remote.js` handles the anonymous `pnote_space_id` (sync code, settable in Settings ⚙ to share a space across devices — no login). `localStorage` (`pnote_local_data`) is only an offline cache; on load the app fetches remote, and migrates existing local notes into the DB when the remote space is empty. Export/import JSON via **สำรอง / นำเข้า** still works.
+- Production Firestore must exist in project `mypeer-501909` (Native mode). The deploy workflow best-effort-creates it; if the DB is missing or the Cloud Run SA lacks `roles/datastore.user`, `/api/db-status` returns 503 and the app runs offline (localStorage only).
 - Home page is **notes-first** (no calendar on list view; schedule field remains in editor). Bottom group tabs + tag filters.
 - On empty storage, app tries **legacy localStorage recovery** and optional `./data/notes-import.json`. Settings ⚙: paste JSON import or **กู้คืนในเครื่อง**.

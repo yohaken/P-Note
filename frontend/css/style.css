@@ -606,6 +606,36 @@ body.theme-2050::before {
   outline: none;
 }
 
+.sync-code-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.sync-code-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-family: ui-monospace, monospace;
+  padding: 0.6rem 0.7rem;
+  outline: none;
+}
+
+.sync-code-input:focus {
+  border-color: rgba(0, 229, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.12);
+}
+
+.sync-code-row .btn {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.85rem;
+}
+
 .settings-import-actions {
   display: flex;
   gap: 0.5rem;

@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from './config.js?v=21';
+import { STORAGE_KEYS } from './config.js?v=22';
 
 const DEFAULTS = {
   cardDensity: 0,
