@@ -25,6 +25,45 @@ export const NOTE_STATUS = {
   TRASH: 'trash',
 };
 
+/** Eisenhower-style priority for filtering. */
+export const NOTE_PRIORITY = {
+  NORMAL: 'normal',
+  IMPORTANT: 'important',
+  URGENT: 'urgent',
+  CRITICAL: 'critical',
+};
+
+export const PRIORITY_OPTIONS = [
+  { id: NOTE_PRIORITY.CRITICAL, label: 'สำคัญเร่งด่วน', short: 'สำคัญ+ด่วน' },
+  { id: NOTE_PRIORITY.IMPORTANT, label: 'สำคัญ', short: 'สำคัญ' },
+  { id: NOTE_PRIORITY.URGENT, label: 'เร่งด่วน', short: 'เร่งด่วน' },
+  { id: NOTE_PRIORITY.NORMAL, label: 'ทั่วไป', short: 'ทั่วไป' },
+];
+
+export function notePriority(note) {
+  const value = note?.priority;
+  return Object.values(NOTE_PRIORITY).includes(value) ? value : NOTE_PRIORITY.NORMAL;
+}
+
+export function priorityLabel(priority, { short = false } = {}) {
+  const opt = PRIORITY_OPTIONS.find((o) => o.id === priority);
+  if (!opt) return short ? 'ทั่วไป' : 'ทั่วไป';
+  return short ? opt.short : opt.label;
+}
+
+export function filterNotesByPriority(notes, priority) {
+  if (!priority) return notes;
+  return notes.filter((note) => notePriority(note) === priority);
+}
+
+export function countNotesByPriority(notes, priority) {
+  return notes.reduce(
+    (total, note) =>
+      total + (isActiveNote(note) && notePriority(note) === priority ? 1 : 0),
+    0,
+  );
+}
+
 export function noteStatus(note) {
   return note.status || NOTE_STATUS.ACTIVE;
 }
@@ -101,6 +140,7 @@ export function createNote(title = '', content = '') {
     content,
     tagIds: [],
     scheduledAt: null,
+    priority: NOTE_PRIORITY.NORMAL,
     status: NOTE_STATUS.ACTIVE,
     completedAt: null,
     deletedAt: null,
@@ -120,7 +160,7 @@ export function createTag(name, color) {
   };
 }
 
-export function updateNote(note, { title, content, scheduledAt }) {
+export function updateNote(note, { title, content, scheduledAt, priority }) {
   const next = {
     ...note,
     title: title !== undefined ? title.trim() : note.title,
@@ -129,6 +169,11 @@ export function updateNote(note, { title, content, scheduledAt }) {
   };
   if (scheduledAt !== undefined) {
     next.scheduledAt = scheduledAt || null;
+  }
+  if (priority !== undefined) {
+    next.priority = Object.values(NOTE_PRIORITY).includes(priority)
+      ? priority
+      : NOTE_PRIORITY.NORMAL;
   }
   return next;
 }
@@ -202,6 +247,9 @@ export function normalizeNotesData(data) {
           ? note.tagIds.filter((id) => tagIds.has(id))
           : [],
         scheduledAt: note.scheduledAt || null,
+        priority: Object.values(NOTE_PRIORITY).includes(note.priority)
+          ? note.priority
+          : NOTE_PRIORITY.NORMAL,
         status: [NOTE_STATUS.ACTIVE, NOTE_STATUS.DONE, NOTE_STATUS.TRASH].includes(note.status)
           ? note.status
           : NOTE_STATUS.ACTIVE,

@@ -1,14 +1,15 @@
 /**
- * Draggable layout bars (group tabs / sort / tag filter).
+ * Draggable layout bars (sort / tag / priority filter).
  * Each bar lives in either the top zone (under the header) or the bottom dock.
  * The user drags the ⠿ grip up/down to move a whole bar between zones; the
  * chosen layout is persisted so it survives app updates.
  */
 
-const BAR_IDS = ['sort', 'tag'];
+const BAR_IDS = ['sort', 'tag', 'priority'];
 
 export const DEFAULT_BAR_LAYOUT = [
   { bar: 'sort', zone: 'top' },
+  { bar: 'priority', zone: 'bottom' },
   { bar: 'tag', zone: 'bottom' },
 ];
 

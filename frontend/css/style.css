@@ -239,7 +239,8 @@ body {
 
 .movable-bar > .sort-bar,
 .movable-bar > .group-nav,
-.movable-bar > .tag-filter-bar {
+.movable-bar > .tag-filter-bar,
+.movable-bar > .priority-filter-bar {
   flex: 1;
   min-width: 0;
 }
@@ -628,9 +629,10 @@ body.light .note-schedule {
   color: var(--accent);
 }
 
-/* Bars: sort / tag / group — equal text size */
+/* Bars: sort / tag / priority / group — equal text size */
 .sort-bar,
 .tag-filter-bar,
+.priority-filter-bar,
 .group-nav {
   display: flex;
   gap: 0.35rem;
@@ -640,17 +642,20 @@ body.light .note-schedule {
   padding-right: 0.75rem;
 }
 
-.tag-filter-bar {
+.tag-filter-bar,
+.priority-filter-bar {
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.tag-filter-bar::-webkit-scrollbar {
+.tag-filter-bar::-webkit-scrollbar,
+.priority-filter-bar::-webkit-scrollbar {
   display: none;
 }
 
 .sort-chip,
 .tag-filter-chip,
+.priority-chip,
 .group-tab {
   font-size: 0.85rem;
   font-weight: 500;
@@ -663,16 +668,94 @@ body.light .note-schedule {
   white-space: nowrap;
 }
 
-.tag-filter-chip {
+.tag-filter-chip,
+.priority-chip {
   --tag: var(--text-muted);
   flex: 0 0 auto;
 }
 
 .sort-chip.active,
 .tag-filter-chip.active,
+.priority-chip.active,
 .group-tab.active {
   color: #fff;
   background: var(--accent);
+}
+
+.priority-chip.priority-critical.active {
+  background: #ef4444;
+}
+
+.priority-chip.priority-important.active {
+  background: #f59e0b;
+}
+
+.priority-chip.priority-urgent.active {
+  background: #06b6d4;
+}
+
+.priority-chip.priority-normal.active {
+  background: var(--text-muted);
+}
+
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.card-badges:empty {
+  display: none;
+}
+
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.priority-badge.priority-critical {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.priority-badge.priority-important {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.22);
+}
+
+.priority-badge.priority-urgent {
+  color: #a5f3fc;
+  background: rgba(6, 182, 212, 0.22);
+}
+
+body.light .priority-badge.priority-critical {
+  color: #b91c1c;
+}
+
+body.light .priority-badge.priority-important {
+  color: #b45309;
+}
+
+body.light .priority-badge.priority-urgent {
+  color: #0e7490;
+}
+
+.priority-field {
+  margin: 0.35rem 0 0.6rem;
+}
+
+.editor-priority {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
 }
 
 .group-nav {
@@ -688,7 +771,7 @@ body.light .note-schedule {
 .add-fab {
   position: fixed;
   right: calc(1rem + env(safe-area-inset-right, 0px));
-  bottom: calc(4.5rem + var(--safe-bottom));
+  bottom: calc(7.25rem + var(--safe-bottom));
   z-index: 36;
   width: 52px;
   height: 52px;

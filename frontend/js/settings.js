@@ -1,11 +1,11 @@
-import { STORAGE_KEYS } from './config.js?v=27';
-import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=27';
+import { STORAGE_KEYS } from './config.js?v=28';
+import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=28';
 
 const DEFAULTS = {
   theme: 'dark',
   cardDensity: 0,
   sortMode: 'updated',
-  barThickness: { sort: 0, tag: 0 },
+  barThickness: { sort: 0, tag: 0, priority: 0 },
 };
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
@@ -34,6 +34,7 @@ export function loadSettings() {
       barThickness: {
         sort: clampPct(bt.sort),
         tag: clampPct(bt.tag),
+        priority: clampPct(bt.priority),
       },
       barLayout: normalizeLayout(parsed.barLayout),
     };

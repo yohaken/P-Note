@@ -1,15 +1,17 @@
-import { loadNotes, saveNotes } from './local.js?v=27';
-import { registerServiceWorker } from './cache.js?v=27';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=27';
-import { initListSortable } from './sortable.js?v=27';
-import { bindComposableInput } from './text-input.js?v=27';
-import { CONFIG } from './config.js?v=27';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=27';
+import { loadNotes, saveNotes } from './local.js?v=28';
+import { registerServiceWorker } from './cache.js?v=28';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=28';
+import { initListSortable } from './sortable.js?v=28';
+import { bindComposableInput } from './text-input.js?v=28';
+import { CONFIG } from './config.js?v=28';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=28';
 import {
   addTag,
   countNotesByTag,
+  countNotesByPriority,
   createNote,
   deleteTag,
+  filterNotesByPriority,
   filterNotesByStatus,
   filterNotesByTag,
   formatDate,
@@ -17,8 +19,12 @@ import {
   markNoteActive,
   markNoteDone,
   moveNoteToTrash,
+  NOTE_PRIORITY,
   NOTE_STATUS,
+  notePriority,
   previewText,
+  PRIORITY_OPTIONS,
+  priorityLabel,
   purgeNote,
   renameTag,
   restoreNoteFromTrash,
@@ -30,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=27';
+} from './notes.js?v=28';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -38,25 +44,26 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=27';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=27';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=27';
+} from './schedule.js?v=28';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=28';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=28';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=27';
-import { normalizeNotesData } from './notes.js?v=27';
-import { SaveManager } from './sync.js?v=27';
-import { startUpdateWatcher } from './update.js?v=27';
-import { getAppBuild } from './version.js?v=27';
+} from './remote.js?v=28';
+import { normalizeNotesData } from './notes.js?v=28';
+import { SaveManager } from './sync.js?v=28';
+import { startUpdateWatcher } from './update.js?v=28';
+import { getAppBuild } from './version.js?v=28';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
   settings: loadSettings(),
   activeNoteId: null,
   tagFilterId: null,
+  priorityFilter: null,
   listGroup: NOTE_STATUS.ACTIVE,
   sortMode: 'updated',
   view: 'list',
@@ -83,11 +90,14 @@ const els = {
   drawerBackdrop: document.getElementById('drawer-backdrop'),
   appVersion: document.getElementById('app-version'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
+  priorityFilterBar: document.getElementById('priority-filter-bar'),
+  editorPriority: document.getElementById('editor-priority'),
   sortBar: document.getElementById('sort-bar'),
   barsTop: document.getElementById('bars-top'),
   barsBottom: document.getElementById('bars-bottom'),
   sortWrap: document.querySelector('.movable-bar[data-bar="sort"]'),
   tagWrap: document.querySelector('.movable-bar[data-bar="tag"]'),
+  priorityWrap: document.querySelector('.movable-bar[data-bar="priority"]'),
   resetBarsBtn: document.getElementById('reset-bars-btn'),
   sortUpdatedBtn: document.getElementById('sort-updated-btn'),
   sortScheduleBtn: document.getElementById('sort-schedule-btn'),
@@ -116,6 +126,7 @@ const els = {
   themeLightBtn: document.getElementById('theme-light-btn'),
   thicknessSort: document.getElementById('thickness-sort'),
   thicknessTag: document.getElementById('thickness-tag'),
+  thicknessPriority: document.getElementById('thickness-priority'),
   syncCodeValue: document.getElementById('sync-code-value'),
   syncCodeInput: document.getElementById('sync-code-input'),
   copySyncCodeBtn: document.getElementById('copy-sync-code-btn'),
@@ -194,14 +205,17 @@ function barWrapper(bar) {
 }
 
 function applyBarThickness() {
-  const bt = state.settings.barThickness || { sort: 0, tag: 0 };
-  ['sort', 'tag'].forEach((bar) => {
+  const bt = state.settings.barThickness || { sort: 0, tag: 0, priority: 0 };
+  ['sort', 'tag', 'priority'].forEach((bar) => {
     const wrap = barWrapper(bar);
-    const inner = wrap ? wrap.querySelector('.sort-bar, .tag-filter-bar') : null;
+    const inner = wrap
+      ? wrap.querySelector('.sort-bar, .tag-filter-bar, .priority-filter-bar')
+      : null;
     if (inner) inner.style.setProperty('--bar-pad', thicknessToPadRem(bt[bar] || 0));
   });
   if (els.thicknessSort) els.thicknessSort.value = String(bt.sort || 0);
   if (els.thicknessTag) els.thicknessTag.value = String(bt.tag || 0);
+  if (els.thicknessPriority) els.thicknessPriority.value = String(bt.priority || 0);
 }
 
 function openDrawer() {
@@ -253,6 +267,7 @@ function notesForCurrentGroup() {
 
 function sortedFilteredNotes() {
   let notes = notesForCurrentGroup();
+  notes = filterNotesByPriority(notes, state.priorityFilter);
   notes = filterNotesByTag(notes, state.tagFilterId);
   if (state.sortMode === 'schedule') return sortNotesBySchedule(notes);
   if (state.sortMode === 'manual') return sortNotesManual(notes);
@@ -267,6 +282,7 @@ function renderGroupNav() {
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
   const hasTags = (state.notesData.tags || []).length > 0;
   if (els.sortWrap) els.sortWrap.hidden = !isActiveGroup;
+  if (els.priorityWrap) els.priorityWrap.hidden = !isActiveGroup;
   if (els.tagWrap) els.tagWrap.hidden = !isActiveGroup || !hasTags;
   els.addNoteBtn.hidden = !isActiveGroup;
 
@@ -295,6 +311,68 @@ function setSortMode(mode) {
   state.settings.sortMode = mode;
   saveSettings(state.settings);
   renderNotesList();
+}
+
+function renderPriorityFilterBar() {
+  if (state.listGroup !== NOTE_STATUS.ACTIVE || !els.priorityFilterBar) return;
+
+  els.priorityFilterBar.innerHTML = '';
+
+  const allChip = document.createElement('button');
+  allChip.type = 'button';
+  allChip.className = `priority-chip${state.priorityFilter ? '' : ' active'}`;
+  allChip.textContent = 'ทั้งหมด';
+  allChip.addEventListener('click', () => {
+    state.priorityFilter = null;
+    renderNotesList();
+  });
+  els.priorityFilterBar.appendChild(allChip);
+
+  PRIORITY_OPTIONS.forEach((opt) => {
+    const active = state.priorityFilter === opt.id;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `priority-chip priority-${opt.id}${active ? ' active' : ''}`;
+    const count = countNotesByPriority(state.notesData.notes, opt.id);
+    chip.textContent = count ? `${opt.short} (${count})` : opt.short;
+    chip.addEventListener('click', () => {
+      state.priorityFilter = active ? null : opt.id;
+      renderNotesList();
+    });
+    els.priorityFilterBar.appendChild(chip);
+  });
+}
+
+function priorityBadgeHtml(note) {
+  const priority = notePriority(note);
+  if (priority === NOTE_PRIORITY.NORMAL || state.listGroup !== NOTE_STATUS.ACTIVE) return '';
+  return `<span class="priority-badge priority-${priority}">${escapeHtml(priorityLabel(priority, { short: true }))}</span>`;
+}
+
+function renderEditorPriority() {
+  if (!els.editorPriority) return;
+  els.editorPriority.innerHTML = '';
+  const note = getActiveNote();
+  if (!note) return;
+
+  const current = notePriority(note);
+  PRIORITY_OPTIONS.forEach((opt) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `priority-chip priority-${opt.id}${current === opt.id ? ' active' : ''}`;
+    chip.textContent = opt.label;
+    chip.addEventListener('click', () => setActiveNotePriority(opt.id));
+    els.editorPriority.appendChild(chip);
+  });
+}
+
+function setActiveNotePriority(priority) {
+  const note = getActiveNote();
+  if (!note) return;
+  const updated = updateNote(note, { priority });
+  state.notesData = updateNoteInData(state.notesData, updated);
+  autosave();
+  renderEditorPriority();
 }
 
 function renderTagFilterBar() {
@@ -461,6 +539,7 @@ function reorderNotes(orderedIds) {
 function renderNotesList() {
   renderGroupNav();
   renderSortBar();
+  renderPriorityFilterBar();
   renderTagFilterBar();
   applyCardDensity();
 
@@ -497,7 +576,7 @@ function renderNotesList() {
 
     item.innerHTML = `
       ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
-      ${scheduleBadgeHtml(note)}
+      <div class="card-badges">${priorityBadgeHtml(note)}${scheduleBadgeHtml(note)}</div>
       <h3>${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
       <p>${escapeHtml(previewText(note))}</p>
       ${chipsHtml}
@@ -635,6 +714,7 @@ function openEditor(noteId) {
   setStatus('');
   showView('editor');
   renderEditorTags();
+  renderEditorPriority();
 }
 
 function openNewNote() {
@@ -693,6 +773,7 @@ function reapplyBarLayout() {
 function setListGroup(group) {
   state.listGroup = group;
   state.tagFilterId = null;
+  state.priorityFilter = null;
   closeContextMenu();
   closeDrawer();
   renderNotesList();
@@ -735,6 +816,7 @@ async function bootstrapData() {
   state.spaceId = getSpaceId();
   state.settings = loadSettings();
   state.tagFilterId = null;
+  state.priorityFilter = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
 
   const localData = loadNotes().data;
@@ -789,6 +871,7 @@ async function applySyncCode(code) {
     setStatus('เชื่อมต่อไม่ได้ — เก็บในเครื่อง');
   }
   state.tagFilterId = null;
+  state.priorityFilter = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
   renderNotesList();
   renderSyncCode();
@@ -904,6 +987,11 @@ async function init() {
   });
   els.thicknessTag.addEventListener('input', () => {
     state.settings.barThickness.tag = Number(els.thicknessTag.value);
+    saveSettings(state.settings);
+    applyBarThickness();
+  });
+  els.thicknessPriority.addEventListener('input', () => {
+    state.settings.barThickness.priority = Number(els.thicknessPriority.value);
     saveSettings(state.settings);
     applyBarThickness();
   });

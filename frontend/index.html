@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="pnote-build" content="27">
+  <meta name="pnote-build" content="28">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=27"></script>
+  <script src="js/cache-bootstrap.js?v=28"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=27">
+  <link rel="stylesheet" href="css/style.css?v=28">
 </head>
 <body>
   <div id="app">
@@ -24,7 +24,7 @@
         <div class="topbar-actions">
           <button id="manage-tags-btn" class="btn btn-mini" type="button">แท็ก</button>
           <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">⚙</button>
-          <span id="app-version" class="app-version">v27</span>
+          <span id="app-version" class="app-version">v28</span>
         </div>
       </header>
 
@@ -56,6 +56,10 @@
             <button id="sort-manual-btn" class="sort-chip" type="button">อิสระ</button>
           </div>
         </div>
+        <div class="movable-bar" data-bar="priority">
+          <span class="bar-grip" aria-hidden="true">⠿</span>
+          <div id="priority-filter-bar" class="priority-filter-bar" aria-label="กรองตามความสำคัญ"></div>
+        </div>
         <div class="movable-bar" data-bar="tag">
           <span class="bar-grip" aria-hidden="true">⠿</span>
           <div id="tag-filter-bar" class="tag-filter-bar" aria-label="กรองตามแท็ก"></div>
@@ -76,6 +80,10 @@
             <input id="note-schedule" class="note-schedule" type="datetime-local">
             <button id="clear-schedule-btn" class="btn btn-text" type="button">ล้าง</button>
           </div>
+        </div>
+        <div class="priority-field">
+          <span class="schedule-label">ความสำคัญ</span>
+          <div id="editor-priority" class="editor-priority" aria-label="ระดับความสำคัญ"></div>
         </div>
         <div id="editor-tags" class="editor-tags" aria-label="แท็กของโน้ต"></div>
         <textarea id="note-content" class="note-content" placeholder="พิมพ์โน้ตของคุณ..."></textarea>
@@ -134,6 +142,10 @@
             <span>แท็ก</span>
             <input id="thickness-tag" type="range" min="0" max="100" value="0" step="5">
           </div>
+          <div class="thickness-row">
+            <span>ความสำคัญ</span>
+            <input id="thickness-priority" type="range" min="0" max="100" value="0" step="5">
+          </div>
           <button id="reset-bars-btn" class="btn btn-secondary" type="button">รีเซ็ตตำแหน่งแถบ</button>
         </div>
         <div class="settings-row">
@@ -162,6 +174,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=27"></script>
+  <script type="module" src="js/app.js?v=28"></script>
 </body>
 </html>
