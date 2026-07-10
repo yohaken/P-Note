@@ -5,14 +5,32 @@ const DEFAULTS = {
   theme: 'dark',
   cardDensity: 0,
   sortMode: 'updated',
+  tagFilterId: null,
+  priorityFilter: null,
+  recurrenceFilter: null,
   barThickness: { sort: 0, tag: 0, priority: 0, recurrence: 0 },
 };
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
+const PRIORITY_FILTERS = ['normal', 'important', 'urgent', 'critical'];
+const RECURRENCE_FILTERS = ['any', 'daily', 'weekly', 'monthly', 'yearly'];
 
 function clampPct(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : fallback;
+}
+
+function normalizeTagFilterId(value) {
+  if (value == null || value === '') return null;
+  return String(value);
+}
+
+function normalizePriorityFilter(value) {
+  return PRIORITY_FILTERS.includes(value) ? value : null;
+}
+
+function normalizeRecurrenceFilterSetting(value) {
+  return RECURRENCE_FILTERS.includes(value) ? value : null;
 }
 
 export function loadSettings() {
@@ -31,6 +49,9 @@ export function loadSettings() {
       theme: parsed.theme === 'light' ? 'light' : 'dark',
       cardDensity: clampPct(parsed.cardDensity),
       sortMode: SORT_MODES.includes(parsed.sortMode) ? parsed.sortMode : 'updated',
+      tagFilterId: normalizeTagFilterId(parsed.tagFilterId),
+      priorityFilter: normalizePriorityFilter(parsed.priorityFilter),
+      recurrenceFilter: normalizeRecurrenceFilterSetting(parsed.recurrenceFilter),
       barThickness: {
         sort: clampPct(bt.sort),
         tag: clampPct(bt.tag),
