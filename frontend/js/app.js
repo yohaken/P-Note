@@ -897,46 +897,49 @@ async function applySyncCode(code) {
   closeSettings();
 }
 
-// Left-edge swipe: editor = back; overlays close. Full-page swipe is PageNav.
-function handleEdgeSwipeRight() {
-  if (!els.settingsOverlay.hidden) {
-    closeSettings();
-    return;
-  }
-  if (!els.tagModal.hidden) {
-    closeTagManager();
-    return;
-  }
-  if (!els.noteContextMenu.hidden) {
-    closeContextMenu();
-    return;
-  }
-  if (state.view === 'editor') {
-    backToList();
-  }
-}
-
+// Editor: swipe left OR right → save & leave editor (then PageNav works on list).
+// Overlays/drawer: keep close gestures. List page swipe is PageNav.
 function initSwipeBack() {
   let startX = 0;
   let startY = 0;
   let tracking = false;
+  let mode = null; // 'editor' | 'edge' | 'drawer'
 
   document.addEventListener(
     'touchstart',
     (event) => {
       if (event.touches.length !== 1) {
         tracking = false;
-        return;
-      }
-      // Only edge-swipe for in-note chrome (editor back / close overlays)
-      if (state.view !== 'editor' && els.settingsOverlay.hidden && els.tagModal.hidden && !isDrawerOpen()) {
-        tracking = false;
+        mode = null;
         return;
       }
       const t = event.touches[0];
       startX = t.clientX;
       startY = t.clientY;
-      tracking = startX <= 36;
+
+      if (isDrawerOpen()) {
+        tracking = true;
+        mode = 'drawer';
+        return;
+      }
+      if (!els.settingsOverlay.hidden || !els.tagModal.hidden || !els.noteContextMenu.hidden) {
+        tracking = startX <= 36;
+        mode = 'edge';
+        return;
+      }
+      if (state.view === 'editor') {
+        const target = event.target;
+        if (target && target.closest && target.closest('input[type="datetime-local"], input[type="color"]')) {
+          tracking = false;
+          mode = null;
+          return;
+        }
+        tracking = true;
+        mode = 'editor';
+        return;
+      }
+      tracking = false;
+      mode = null;
     },
     { passive: true },
   );
@@ -944,18 +947,32 @@ function initSwipeBack() {
   document.addEventListener(
     'touchend',
     (event) => {
+      if (!tracking) return;
+      tracking = false;
       const t = event.changedTouches[0];
       const dx = t.clientX - startX;
       const dy = Math.abs(t.clientY - startY);
-      if (isDrawerOpen() && dx < -60 && dy < 55) {
-        closeDrawer();
-        tracking = false;
+      const absDx = Math.abs(dx);
+      const currentMode = mode;
+      mode = null;
+
+      if (currentMode === 'drawer') {
+        if (dx < -60 && dy < 55) closeDrawer();
         return;
       }
-      if (!tracking) return;
-      tracking = false;
-      if (dx > 70 && dy < 55) {
-        handleEdgeSwipeRight();
+      if (currentMode === 'edge') {
+        if (dx > 70 && dy < 55) {
+          if (!els.settingsOverlay.hidden) closeSettings();
+          else if (!els.tagModal.hidden) closeTagManager();
+          else if (!els.noteContextMenu.hidden) closeContextMenu();
+        }
+        return;
+      }
+      if (currentMode === 'editor') {
+        // Swipe either direction to leave editor (saves via backToList)
+        if (absDx > 64 && absDx > dy * 1.15) {
+          backToList();
+        }
       }
     },
     { passive: true },
