@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="pnote-build" content="37">
-  <meta name="pnote-built" content="2026-07-10T20:19:11+07:00">
+  <meta name="pnote-build" content="38">
+  <meta name="pnote-built" content="2026-07-10T20:52:06+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=37"></script>
+  <script src="js/cache-bootstrap.js?v=38"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=37">
+  <link rel="stylesheet" href="css/style.css?v=38">
 </head>
 <body>
   <div id="app">
@@ -22,7 +22,7 @@
       <header class="topbar topbar-thin">
         <button id="open-drawer-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="กลุ่มงาน">☰</button>
         <div class="topbar-title">
-          <h1 id="app-title">P-Note <span class="title-version">v37</span></h1>
+          <h1 id="app-title">P-Note <span class="title-version">v38</span></h1>
           <p id="app-built" class="app-built">อัปเดต —</p>
         </div>
         <div class="topbar-actions">
@@ -47,6 +47,26 @@
 
       <!-- Filters (movable) sit above the bottom nav -->
       <div id="bars-bottom" class="bars-zone bars-filters" aria-label="ตัวกรอง"></div>
+
+      <!-- Bottom nav in document/flex flow (calorie-style) — not position:fixed -->
+      <nav id="bottom-nav" class="bottom-nav" aria-label="เมนูหลัก">
+        <div class="bottom-nav-inner">
+          <button id="add-note-btn" class="bottom-nav-item" type="button" aria-label="เพิ่มโน้ต">
+            <span class="bottom-nav-icon" aria-hidden="true">+</span>
+            <span class="bottom-nav-label">เพิ่ม</span>
+          </button>
+          <button
+            id="health-mode-btn"
+            class="bottom-nav-item"
+            type="button"
+            aria-label="โหมดสุขภาพ"
+            title="โหมดสุขภาพ (เร็วๆ นี้)"
+          >
+            <span class="bottom-nav-icon" aria-hidden="true">♡</span>
+            <span class="bottom-nav-label">สุขภาพ</span>
+          </button>
+        </div>
+      </nav>
 
       <!-- Named bars: กำหนดเวลา / ความสำคัญ / แท็ก · กลุ่มงาน = drawer · สุขภาพ = bottom nav -->
       <div id="movable-bars" hidden>
@@ -77,26 +97,6 @@
         </div>
       </div>
     </section>
-
-    <!-- Fixed to the real screen bottom (outside views so position:fixed isn't clipped) -->
-    <nav id="bottom-nav" class="bottom-nav" aria-label="เมนูหลัก">
-      <div class="bottom-nav-inner">
-        <button id="add-note-btn" class="bottom-nav-item" type="button" aria-label="เพิ่มโน้ต">
-          <span class="bottom-nav-icon" aria-hidden="true">+</span>
-          <span class="bottom-nav-label">เพิ่ม</span>
-        </button>
-        <button
-          id="health-mode-btn"
-          class="bottom-nav-item"
-          type="button"
-          aria-label="โหมดสุขภาพ"
-          title="โหมดสุขภาพ (เร็วๆ นี้)"
-        >
-          <span class="bottom-nav-icon" aria-hidden="true">♡</span>
-          <span class="bottom-nav-label">สุขภาพ</span>
-        </button>
-      </div>
-    </nav>
 
     <section id="editor-view" class="view" hidden>
       <header class="topbar topbar-thin editor-topbar">
@@ -205,6 +205,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=37"></script>
+  <script type="module" src="js/app.js?v=38"></script>
 </body>
 </html>

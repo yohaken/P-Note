@@ -42,7 +42,6 @@ html,
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
   min-height: 100%;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
@@ -50,36 +49,29 @@ body {
   color: var(--text);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
+  /* Document-style shell (like calorie-tracker): no position:fixed on body */
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
 }
 
 body {
-  position: fixed;
-  inset: 0;
   width: 100%;
   height: 100%;
-  margin: 0;
-  padding: 0;
-  padding-bottom: 0;
-  margin-bottom: 0;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
 }
 
 #app {
-  position: fixed;
-  inset: 0;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
   width: 100%;
   max-width: 720px;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  height: 100dvh;
   height: 100%;
   margin: 0 auto;
-  margin-bottom: 0;
-  padding: 0;
-  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: var(--bg);
 }
@@ -89,8 +81,9 @@ body {
 }
 
 .view {
-  position: relative;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -267,19 +260,17 @@ body {
 }
 
 /*
- * Bottom Navigation — fixed to the real screen bottom (not #app box).
- * Background paints through the Home Indicator; padding lifts only the buttons.
+ * Bottom Navigation — in-flow flex footer (calorie-style shell).
+ * Fills to the column bottom; safe-area padding lifts only the buttons.
  */
 .bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
+  flex-shrink: 0;
   width: 100%;
   margin: 0;
   padding: 0;
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  z-index: 200;
+  z-index: 30;
   background-color: #1a1a1a;
   border-top: 1px solid var(--border);
   box-sizing: border-box;
@@ -287,12 +278,6 @@ body {
 
 body.light .bottom-nav {
   background-color: var(--bg);
-}
-
-/* Content clearance only — do NOT pad body/#app */
-#list-view {
-  margin-bottom: 0;
-  padding-bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
 }
 
 .bottom-nav-inner {
@@ -715,9 +700,12 @@ body.light .note-schedule {
 }
 
 .editor-footer {
-  padding: 0.4rem 0.9rem calc(0.8rem + var(--safe-bottom));
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-start;
+  padding: 0.4rem 0.9rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .trash-mini-btn {
