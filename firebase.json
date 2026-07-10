@@ -7,10 +7,11 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "rewrites": [
+    "redirects": [
       {
         "source": "/",
-        "destination": "/note.html"
+        "destination": "/note.html",
+        "type": 302
       }
     ],
     "headers": [
