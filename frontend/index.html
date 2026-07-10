@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="pnote-build" content="30">
-  <meta name="pnote-built" content="2026-07-10T18:52:12+07:00">
+  <meta name="pnote-build" content="31">
+  <meta name="pnote-built" content="2026-07-10T18:56:05+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=30"></script>
+  <script src="js/cache-bootstrap.js?v=31"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=30">
+  <link rel="stylesheet" href="css/style.css?v=31">
 </head>
 <body>
   <div id="app">
     <section id="list-view" class="view" hidden>
       <header class="topbar topbar-thin">
-        <button id="open-drawer-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="กลุ่ม">☰</button>
+        <button id="open-drawer-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="กลุ่มงาน">☰</button>
         <div class="topbar-title">
-          <h1 id="app-title">P-Note <span class="title-version">v30</span></h1>
+          <h1 id="app-title">P-Note <span class="title-version">v31</span></h1>
           <p id="app-built" class="app-built">อัปเดต —</p>
         </div>
         <div class="topbar-actions">
@@ -49,23 +49,33 @@
 
       <div id="bars-bottom" class="bars-zone bars-dock" aria-label="แถบด้านล่าง"></div>
 
-      <!-- Movable bars: JS relocates these wrappers into #bars-top / #bars-bottom per saved layout -->
+      <!-- Named bars (call them by these Thai names in chat):
+           กำหนดเวลา = sort, ความสำคัญ = priority, แท็ก = tag, กลุ่มงาน = left drawer -->
       <div id="movable-bars" hidden>
-        <div class="movable-bar" data-bar="sort">
+        <div class="movable-bar" data-bar="sort" data-bar-name="กำหนดเวลา">
           <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div id="sort-bar" class="sort-bar" aria-label="จัดเรียงโน้ต">
-            <button id="sort-updated-btn" class="sort-chip active" type="button">ล่าสุด</button>
-            <button id="sort-schedule-btn" class="sort-chip" type="button">ตามกำหนด</button>
-            <button id="sort-manual-btn" class="sort-chip" type="button">อิสระ</button>
+          <div class="bar-body">
+            <span class="bar-label">กำหนดเวลา</span>
+            <div id="sort-bar" class="sort-bar" aria-label="กำหนดเวลา">
+              <button id="sort-updated-btn" class="sort-chip active" type="button">ล่าสุด</button>
+              <button id="sort-schedule-btn" class="sort-chip" type="button">ตามกำหนด</button>
+              <button id="sort-manual-btn" class="sort-chip" type="button">อิสระ</button>
+            </div>
           </div>
         </div>
-        <div class="movable-bar" data-bar="priority">
+        <div class="movable-bar" data-bar="priority" data-bar-name="ความสำคัญ">
           <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div id="priority-filter-bar" class="priority-filter-bar" aria-label="กรองตามความสำคัญ"></div>
+          <div class="bar-body">
+            <span class="bar-label">ความสำคัญ</span>
+            <div id="priority-filter-bar" class="priority-filter-bar" aria-label="ความสำคัญ"></div>
+          </div>
         </div>
-        <div class="movable-bar" data-bar="tag">
+        <div class="movable-bar" data-bar="tag" data-bar-name="แท็ก">
           <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div id="tag-filter-bar" class="tag-filter-bar" aria-label="กรองตามแท็ก"></div>
+          <div class="bar-body">
+            <span class="bar-label">แท็ก</span>
+            <div id="tag-filter-bar" class="tag-filter-bar" aria-label="แท็ก"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -96,10 +106,10 @@
       </footer>
     </section>
 
-    <!-- Left drawer: note groups (Apple Notes style) -->
+    <!-- กลุ่มงาน: left drawer (งาน / ทำแล้ว / ถังขยะ) -->
     <div id="drawer-backdrop" class="drawer-backdrop"></div>
-    <aside id="group-drawer" class="drawer" aria-label="กลุ่มโน้ต">
-      <h2>กลุ่ม</h2>
+    <aside id="group-drawer" class="drawer" aria-label="กลุ่มงาน">
+      <h2>กลุ่มงาน</h2>
       <button id="group-active-btn" class="drawer-item active" type="button">📋 งาน</button>
       <button id="group-done-btn" class="drawer-item" type="button">✓ ทำแล้ว</button>
       <button id="group-trash-btn" class="drawer-item" type="button">🗑 ถังขยะ</button>
@@ -138,7 +148,7 @@
         <div class="settings-row">
           <span class="settings-label">ความบางของแถบ (ปรับแยกแต่ละแถบ)</span>
           <div class="thickness-row">
-            <span>จัดเรียง</span>
+            <span>กำหนดเวลา</span>
             <input id="thickness-sort" type="range" min="0" max="100" value="0" step="5">
           </div>
           <div class="thickness-row">
@@ -177,6 +187,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=30"></script>
+  <script type="module" src="js/app.js?v=31"></script>
 </body>
 </html>

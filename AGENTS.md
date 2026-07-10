@@ -31,5 +31,12 @@ Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/
 - **`js/cache.js`** registers `sw.js?v=N` after bootstrap. Login is disabled for now — no auth modules loaded.
 - Notes are stored in **Firestore** (`spaces/{spaceId}` doc holds the v4 payload). `frontend/js/remote.js` handles the anonymous `pnote_space_id` (sync code, settable in Settings ⚙ to share a space across devices — no login). `localStorage` (`pnote_local_data`) is only an offline cache; on load the app fetches remote, and migrates existing local notes into the DB when the remote space is empty. Export/import JSON via **สำรอง / นำเข้า** still works.
 - Production Firestore must exist in project `mypeer-501909` (Native mode). The deploy workflow best-effort-creates it; if the DB is missing or the Cloud Run SA lacks `roles/datastore.user`, `/api/db-status` returns 503 and the app runs offline (localStorage only).
-- Home page is **notes-first** (no calendar on list view; schedule field remains in editor). Bottom group tabs + tag filters.
+- Home page is **notes-first** (no calendar on list view; schedule field remains in editor).
+- **Bar names (use these Thai names when talking with the user):**
+  | ชื่อเรียก | คืออะไร | ที่อยู่ |
+  |---|---|---|
+  | **กำหนดเวลา** | จัดเรียง: ล่าสุด / ตามกำหนด / อิสระ | movable bar `data-bar="sort"` |
+  | **ความสำคัญ** | กรอง: สำคัญเร่งด่วน / สำคัญ / เร่งด่วน / ทั่วไป | movable bar `data-bar="priority"` |
+  | **แท็ก** | กรองตามแท็ก | movable bar `data-bar="tag"` |
+  | **กลุ่มงาน** | งาน / ทำแล้ว / ถังขยะ | left drawer ☰ |
 - On empty storage, app tries **legacy localStorage recovery** and optional `./data/notes-import.json`. Settings ⚙: paste JSON import or **กู้คืนในเครื่อง**.
