@@ -84,7 +84,7 @@ const els = {
   addNoteBtn: document.getElementById('add-note-btn'),
   settingsBtn: document.getElementById('settings-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
-  openDrawerBtn: document.getElementById('open-drawer-btn'),
+  openDrawerBtn: document.getElementById('group-nav-btn'),
   drawer: document.getElementById('group-drawer'),
   drawerBackdrop: document.getElementById('drawer-backdrop'),
   appVersion: document.getElementById('app-version'),
@@ -98,6 +98,7 @@ const els = {
   barsBottom: document.getElementById('bars-bottom'),
   bottomNav: document.getElementById('bottom-nav'),
   healthModeBtn: document.getElementById('health-mode-btn'),
+  groupNavBtn: document.getElementById('group-nav-btn'),
   sortWrap: document.querySelector('.movable-bar[data-bar="sort"]'),
   tagWrap: document.querySelector('.movable-bar[data-bar="tag"]'),
   priorityWrap: document.querySelector('.movable-bar[data-bar="priority"]'),
@@ -258,15 +259,22 @@ function applyBarThickness() {
 function openDrawer() {
   els.drawer.classList.add('open');
   els.drawerBackdrop.classList.add('open');
+  els.groupNavBtn?.classList.add('active');
 }
 
 function closeDrawer() {
   els.drawer.classList.remove('open');
   els.drawerBackdrop.classList.remove('open');
+  els.groupNavBtn?.classList.remove('active');
 }
 
 function isDrawerOpen() {
   return els.drawer.classList.contains('open');
+}
+
+function toggleDrawer() {
+  if (isDrawerOpen()) closeDrawer();
+  else openDrawer();
 }
 
 function getActiveNote() {
@@ -939,7 +947,7 @@ function renderSyncCode() {
   }
 }
 
-// Left-edge swipe right: in editor = go back; on list = open the group drawer.
+// Left-edge swipe right: editor = back; overlays close. Group drawer is bottom-nav only.
 function handleEdgeSwipeRight() {
   if (!els.settingsOverlay.hidden) {
     closeSettings();
@@ -955,10 +963,6 @@ function handleEdgeSwipeRight() {
   }
   if (state.view === 'editor') {
     backToList();
-    return;
-  }
-  if (!isDrawerOpen()) {
-    openDrawer();
   }
 }
 
@@ -1020,7 +1024,7 @@ async function init() {
   els.syncStatusBtn?.addEventListener('click', () => onSyncIconClick(els.syncStatusBtn, els.syncStatusTip));
   els.editorSyncStatusBtn?.addEventListener('click', () => onSyncIconClick(els.editorSyncStatusBtn, els.editorSyncStatusTip));
 
-  els.openDrawerBtn.addEventListener('click', openDrawer);
+  els.openDrawerBtn?.addEventListener('click', toggleDrawer);
   els.drawerBackdrop.addEventListener('click', closeDrawer);
 
   const setTheme = (theme) => {
