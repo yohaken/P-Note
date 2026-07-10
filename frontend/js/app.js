@@ -1,14 +1,14 @@
-import { loadNotes, exportNotesBlob, parseNotesImport, saveNotes } from './local.js?v=19';
-import { registerServiceWorker } from './cache.js?v=19';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=19';
-import { CONFIG } from './config.js?v=19';
+import { loadNotes, exportNotesBlob, parseNotesImport, saveNotes } from './local.js?v=20';
+import { registerServiceWorker } from './cache.js?v=20';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=20';
+import { CONFIG } from './config.js?v=20';
 import {
   hasAnyNotes,
   importFromText,
   mergeNotesData,
   recoverLegacyLocalStorage,
   tryAutoImport,
-} from './import-data.js?v=19';
+} from './import-data.js?v=20';
 import {
   addTag,
   countNotesByTag,
@@ -32,18 +32,18 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=19';
+} from './notes.js?v=20';
 import {
   formatScheduleDisplay,
   fromDatetimeLocalValue,
   getScheduleStatus,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=19';
-import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=19';
-import { SaveManager } from './sync.js?v=19';
-import { forceRefresh, startUpdateWatcher } from './update.js?v=19';
-import { getAppBuild } from './version.js?v=19';
+} from './schedule.js?v=20';
+import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=20';
+import { SaveManager } from './sync.js?v=20';
+import { forceRefresh, startUpdateWatcher } from './update.js?v=20';
+import { getAppBuild } from './version.js?v=20';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -133,7 +133,39 @@ function setStatus(message, target = 'both') {
 }
 
 function autosave() {
-  saveManager.scheduleSave(state.notesData);
+  saveManager.scheduleSave(() => state.notesData);
+}
+
+let editorComposing = false;
+let editorSyncTimer = null;
+
+function flushEditorToState() {
+  persistLocalChanges();
+  autosave();
+}
+
+function scheduleEditorSync() {
+  clearTimeout(editorSyncTimer);
+  editorSyncTimer = setTimeout(flushEditorToState, CONFIG.EDITOR_SYNC_DELAY_MS);
+}
+
+function bindEditorField(el) {
+  el.addEventListener('compositionstart', () => {
+    editorComposing = true;
+  });
+  el.addEventListener('compositionend', () => {
+    editorComposing = false;
+    scheduleEditorSync();
+  });
+  el.addEventListener('input', (event) => {
+    if (editorComposing || event.isComposing) return;
+    scheduleEditorSync();
+  });
+  el.addEventListener('blur', () => {
+    if (state.view !== 'editor' || !state.activeNoteId) return;
+    clearTimeout(editorSyncTimer);
+    flushEditorToState();
+  });
 }
 
 function applyCardDensity() {
@@ -475,6 +507,8 @@ function openEditor(noteId) {
   if (!note) return;
 
   state.activeNoteId = noteId;
+  editorComposing = false;
+  clearTimeout(editorSyncTimer);
   els.noteTitle.value = note.title;
   els.noteContent.value = note.content;
   els.noteSchedule.value = toDatetimeLocalValue(note.scheduledAt);
@@ -492,8 +526,9 @@ function openNewNote() {
 }
 
 function backToList() {
+  clearTimeout(editorSyncTimer);
   persistLocalChanges();
-  autosave();
+  saveManager.saveNow(() => state.notesData);
   state.activeNoteId = null;
   renderNotesList();
   showView('list');
@@ -691,17 +726,17 @@ async function init() {
     backToList();
   });
 
-  const handleEditorInput = () => {
-    persistLocalChanges();
-    autosave();
+  const handleScheduleChange = () => {
+    clearTimeout(editorSyncTimer);
+    flushEditorToState();
   };
 
-  els.noteTitle.addEventListener('input', handleEditorInput);
-  els.noteContent.addEventListener('input', handleEditorInput);
-  els.noteSchedule.addEventListener('change', handleEditorInput);
+  bindEditorField(els.noteTitle);
+  bindEditorField(els.noteContent);
+  els.noteSchedule.addEventListener('change', handleScheduleChange);
   els.clearScheduleBtn.addEventListener('click', () => {
     els.noteSchedule.value = '';
-    handleEditorInput();
+    handleScheduleChange();
   });
 
   bootstrapData();
