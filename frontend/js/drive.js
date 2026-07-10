@@ -1,4 +1,4 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=9';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=11';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
@@ -17,6 +17,11 @@ async function driveRequest(accessToken, url, options = {}) {
   });
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      // Token expired/revoked — drop it so the next load re-authenticates.
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRY);
+    }
     const error = await response.json().catch(() => ({}));
     throw new Error(error.error?.message || `Drive API error (${response.status})`);
   }
@@ -84,8 +89,9 @@ async function findNotesFile(accessToken, folderId) {
 
 function emptyNotesPayload() {
   return {
-    version: 1,
+    version: 2,
     updatedAt: new Date().toISOString(),
+    tags: [],
     notes: [],
   };
 }

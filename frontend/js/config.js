@@ -14,4 +14,6 @@ export const STORAGE_KEYS = {
   FILE_ID: 'pnote_file_id',
   FOLDER_ID: 'pnote_folder_id',
   MODIFIED_TIME: 'pnote_modified_time',
+  ACCESS_TOKEN: 'pnote_access_token',
+  TOKEN_EXPIRY: 'pnote_token_expiry',
 };

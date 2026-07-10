@@ -1,11 +1,43 @@
+export const TAG_PALETTE = [
+  '#6c63ff',
+  '#22c55e',
+  '#f59e0b',
+  '#ef4444',
+  '#06b6d4',
+  '#ec4899',
+  '#a855f7',
+  '#84cc16',
+];
+
+export function pickTagColor(index = 0) {
+  return TAG_PALETTE[Math.abs(index) % TAG_PALETTE.length];
+}
+
+export function safeTagColor(color) {
+  return typeof color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(color)
+    ? color
+    : TAG_PALETTE[0];
+}
+
 export function createNote(title = '', content = '') {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     title: title.trim(),
     content,
+    tagIds: [],
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+export function createTag(name, color) {
+  const now = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    name: name.trim(),
+    color: safeTagColor(color),
+    createdAt: now,
   };
 }
 
@@ -41,4 +73,118 @@ export function formatDate(iso) {
   } catch {
     return '';
   }
+}
+
+// Upgrades any older payload (v1: no tags/tagIds) to the current v2 shape.
+// Idempotent — safe to run on already-migrated data.
+export function normalizeNotesData(data) {
+  const base = data && typeof data === 'object' ? data : {};
+
+  const tags = Array.isArray(base.tags)
+    ? base.tags
+        .filter((tag) => tag && typeof tag === 'object' && tag.id)
+        .map((tag) => ({
+          id: String(tag.id),
+          name: typeof tag.name === 'string' ? tag.name : '',
+          color: safeTagColor(tag.color),
+          createdAt: tag.createdAt || new Date().toISOString(),
+        }))
+    : [];
+
+  const tagIds = new Set(tags.map((tag) => tag.id));
+
+  const notes = Array.isArray(base.notes)
+    ? base.notes.map((note) => ({
+        ...note,
+        tagIds: Array.isArray(note.tagIds)
+          ? note.tagIds.filter((id) => tagIds.has(id))
+          : [],
+      }))
+    : [];
+
+  return {
+    version: 2,
+    updatedAt: base.updatedAt || new Date().toISOString(),
+    tags,
+    notes,
+  };
+}
+
+export function addTag(data, name, color) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) {
+    return { data, tag: null };
+  }
+
+  const existing = data.tags.find(
+    (tag) => tag.name.toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (existing) {
+    return { data, tag: existing };
+  }
+
+  const tag = createTag(trimmed, color || pickTagColor(data.tags.length));
+  return { data: { ...data, tags: [...data.tags, tag] }, tag };
+}
+
+export function renameTag(data, tagId, name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) {
+    return data;
+  }
+  return {
+    ...data,
+    tags: data.tags.map((tag) =>
+      tag.id === tagId ? { ...tag, name: trimmed } : tag,
+    ),
+  };
+}
+
+export function setTagColor(data, tagId, color) {
+  return {
+    ...data,
+    tags: data.tags.map((tag) =>
+      tag.id === tagId ? { ...tag, color: safeTagColor(color) } : tag,
+    ),
+  };
+}
+
+export function deleteTag(data, tagId) {
+  return {
+    ...data,
+    tags: data.tags.filter((tag) => tag.id !== tagId),
+    notes: data.notes.map((note) => ({
+      ...note,
+      tagIds: (note.tagIds || []).filter((id) => id !== tagId),
+    })),
+  };
+}
+
+export function toggleNoteTag(note, tagId) {
+  const tagIds = note.tagIds || [];
+  const hasTag = tagIds.includes(tagId);
+  return {
+    ...note,
+    tagIds: hasTag ? tagIds.filter((id) => id !== tagId) : [...tagIds, tagId],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function getTagsForNote(note, tags) {
+  const ids = note.tagIds || [];
+  return tags.filter((tag) => ids.includes(tag.id));
+}
+
+export function filterNotesByTag(notes, tagId) {
+  if (!tagId) {
+    return notes;
+  }
+  return notes.filter((note) => (note.tagIds || []).includes(tagId));
+}
+
+export function countNotesByTag(notes, tagId) {
+  return notes.reduce(
+    (total, note) => total + ((note.tagIds || []).includes(tagId) ? 1 : 0),
+    0,
+  );
 }

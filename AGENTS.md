@@ -1,0 +1,36 @@
+# P-Note
+
+Personal notes PWA. Static frontend (`frontend/`) synced to Google Drive via Firebase Auth, plus a small Express API (`backend/`) deployed to Cloud Run.
+
+## Cursor Cloud specific instructions
+
+### Services
+
+| Service | Location | Run command | Notes |
+|---|---|---|---|
+| Backend API | `backend/` | `cd backend && npm run dev` | Express, `node --watch`, listens on `:8080`. Health: `GET /api/health`, also `GET /api/version`. Uses `.env` (copy from `backend/.env.example`); all vars have sensible defaults so it runs without `.env`. |
+| Frontend PWA | `frontend/` | serve statically on port 5000, e.g. `python3 -m http.server 5000` (run from `frontend/`) | No build step — plain static ES modules. |
+
+### Non-obvious caveats
+
+- The frontend MUST be accessed via the `localhost` hostname. `frontend/js/config.js` only points the app at the local backend (`http://localhost:8080`) when `location.hostname === 'localhost'`; otherwise it targets the deployed Cloud Run URL. Port `5000` is already in the backend's allowed CORS origins.
+- Firebase config falls back to a hardcoded config in `frontend/js/firebase.js` when `/__/firebase/init.json` 404s (i.e. when not served by Firebase Hosting), so local static serving works.
+- The full note-taking flow requires a real Google sign-in (Firebase Auth + `drive.file` scope) restricted to the emails in `frontend/js/config.js` (`ALLOWED_EMAILS`). Clicking "Sign in with Google" launches the real Google OAuth popup, but completing login/notes sync needs a real allowed Google account — it cannot be exercised headlessly without credentials.
+
+### Lint / test / build
+
+- No linter and no unit-test framework are configured. `backend/package.json` only has `start`/`dev`; there is no `npm test`.
+- The only automated tests are Playwright scripts: `scripts/test-hello-world.mjs` (verifies the "hello world" banner across visitor states) and `scripts/test-login-flow.mjs` (verifies the Google sign-in popup loads). They default to the deployed site; set `TEST_URL=http://localhost:5000/` to run against the local frontend. They need Playwright installed with a Chromium browser; because `scripts/` has no `package.json`, Node resolves `playwright` from a parent `node_modules`.
+- The frontend "build" for production is just `firebase deploy --only hosting`; there is nothing to compile locally.
+
+### Frontend caching gotcha
+
+- The PWA registers a service worker (`frontend/sw.js`) that caches all assets. When you change any file in `frontend/js/` or `frontend/css/`, you MUST bump the cache-busting `?v=N` query used in `frontend/index.html` and the `./js/*.js?v=N` import statements, AND bump `CACHE_NAME` in `frontend/sw.js`. Otherwise browsers (and the deployed site) keep serving stale JS/CSS even after deploy. During local testing, a hard refresh (Ctrl+Shift+R) forces fresh assets.
+- Notes data on Drive is versioned (`my_notes.json`, currently `version: 2`). `normalizeNotesData()` in `frontend/js/notes.js` migrates older payloads forward and is idempotent — run it on any loaded payload.
+
+### Mobile login
+
+- Production must use **`signInWithRedirect` on mobile** (iPhone/Android/PWA) — popup-only auth fails on many phones. Desktop keeps popup with redirect fallback when blocked.
+- `frontend/js/firebase.js` sets `authDomain` to `window.location.hostname` on Firebase Hosting (e.g. `mypeer-501909.web.app`) so `/__/auth/handler` is same-origin; using `*.firebaseapp.com` while the app runs on `*.web.app` breaks sign-in on Safari/modern mobile browsers.
+- Local static dev (`localhost`) has no `/__/auth` handler — mobile emulation on localhost still uses popup; test redirect flow on the deployed Hosting URL.
+- `autoLogin()` reuses a cached Drive token (~55 min) and does **not** auto-open popup/redirect when the token expires (requires tapping "Sign in with Google" again).
