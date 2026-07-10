@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="51">
-  <meta name="pnote-built" content="2026-07-10T23:14:00+07:00">
-  <script src="js/cache-bootstrap.js?v=51"></script>
+  <meta name="pnote-build" content="52">
+  <meta name="pnote-built" content="2026-07-10T23:16:00+07:00">
+  <script src="js/cache-bootstrap.js?v=52"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -531,6 +531,89 @@
       transform: translateX(-50%) translateY(0);
     }
     .update-toast[hidden]:not(.visible) { display: none; }
+
+    /* Floating page switcher (Calorie home) */
+    .fab-pages {
+      position: fixed;
+      right: max(0.85rem, env(safe-area-inset-right, 0px));
+      bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+      z-index: 55;
+      width: 3rem;
+      height: 3rem;
+      border: none;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 1.05rem;
+      font-weight: 700;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .fab-pages:active { transform: scale(0.96); opacity: 0.9; }
+    .pages-menu-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 1rem;
+      padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    }
+    .pages-menu-overlay[hidden] { display: none !important; }
+    .pages-menu {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 0.75rem 0.65rem 0.55rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .pages-menu-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0 0.35rem 0.45rem;
+    }
+    .pages-menu-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      border: none;
+      background: var(--bg);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 0.7rem 0.75rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+      margin-bottom: 0.3rem;
+    }
+    .pages-menu-item:last-child { margin-bottom: 0; }
+    .pages-menu-item:active { opacity: 0.85; }
+    .pages-menu-item .pm-icon {
+      width: 1.6rem;
+      text-align: center;
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+    .pages-menu-item .pm-sub {
+      margin-left: auto;
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
   </style>
 </head>
 <body>
@@ -546,13 +629,6 @@
     <p class="reorder-hint">ลาก ⋮⋮ เพื่อจัดลำดับหมวด — ระบบจำไว้</p>
 
     <div id="blocksContainer">
-      <div class="sortable-block" data-block-id="pages">
-        <span class="drag-handle" aria-hidden="true">⋮⋮</span>
-        <nav class="page-tabs" id="pageTabs" aria-label="เมนูหลัก">
-          <button type="button" class="page-tab" data-page="note" id="tab-note">Note →</button>
-        </nav>
-      </div>
-
       <div class="sortable-block" data-block-id="summary">
         <span class="drag-handle" aria-hidden="true">⋮⋮</span>
         <section class="period-summary">
@@ -895,6 +971,18 @@
     </div>
   </div>
 
+  <button type="button" class="fab-pages" id="fabPages" aria-label="แผ่นงาน" title="แผ่นงาน">▦</button>
+  <div class="pages-menu-overlay" id="pagesMenuOverlay" hidden>
+    <div class="pages-menu" role="menu" aria-label="แผ่นงาน">
+      <p class="pages-menu-title">แผ่นงาน</p>
+      <button type="button" class="pages-menu-item" data-page="note" role="menuitem">
+        <span class="pm-icon" aria-hidden="true">📝</span>
+        <span>Note</span>
+        <span class="pm-sub">โน้ต</span>
+      </button>
+    </div>
+  </div>
+
   <div class="toast error" id="toast"></div>
 
   <script>
@@ -914,17 +1002,17 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const APP_VERSION = 'build-51';
+    const APP_VERSION = 'build-52';
 
     const PERIODS = [
       { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
       { days: 30, label: '30d' }, { days: 90, label: '3m' }, { days: 180, label: '6m' }, { days: 365, label: '12m' },
     ];
 
-    const DEFAULT_BLOCK_ORDER = ['pages', 'summary', 'date', 'stats', 'meals', 'exercises', 'profile', 'charts'];
+    const DEFAULT_BLOCK_ORDER = ['summary', 'date', 'stats', 'meals', 'exercises', 'profile', 'charts'];
 
     const BLOCK_LABELS = {
-      pages: 'สลับแผ่นงาน', summary: 'สรุปย้อนหลัง', date: 'เลือกวัน', stats: 'สรุปรายวัน',
+      summary: 'สรุปย้อนหลัง', date: 'เลือกวัน', stats: 'สรุปรายวัน',
       meals: 'บันทึกการกิน', exercises: 'ออกกำลังกาย', profile: 'ข้อมูลผู้ใช้',
       charts: 'กราฟ',
     };
@@ -996,7 +1084,8 @@
 
     const els = {
       blocksContainer: $('#blocksContainer'),
-      pageTabs: $('#pageTabs'),
+      fabPages: $('#fabPages'),
+      pagesMenuOverlay: $('#pagesMenuOverlay'),
       periodGrid: $('#periodGrid'),
       datePicker: $('#datePicker'), dateLabel: $('#dateLabel'),
       btnPrevDay: $('#btnPrevDay'), btnNextDay: $('#btnNextDay'),
@@ -1161,13 +1250,9 @@
         if (!raw) return defaultSettings();
         const s = JSON.parse(raw);
         const order = Array.isArray(s.sectionOrder) ? s.sectionOrder : [...DEFAULT_BLOCK_ORDER];
-        const merged = [...order];
+        const merged = order.filter((id) => id !== 'pages');
         DEFAULT_BLOCK_ORDER.forEach((id) => { if (!merged.includes(id)) merged.push(id); });
-        // New "pages" switcher: prefer top if user never ordered it yet
-        if (!order.includes('pages') && merged.includes('pages')) {
-          merged.splice(merged.indexOf('pages'), 1);
-          merged.unshift('pages');
-        }        return {
+        return {
           proteinMultiplier: parseFloat(s.proteinMultiplier) || DEFAULT_PROTEIN_MULT,
           theme: s.theme === 'light' ? 'light' : 'dark',
           sectionOrder: merged,
@@ -2879,29 +2964,24 @@
     });
 
 
-    function showPage(pageId) {
-      if (pageId === 'note') {
-        window.location.href = './note.html';
-        return;
-      }
-      document.querySelectorAll('.page-panel').forEach((el) => {
-        el.hidden = el.dataset.page !== pageId;
-      });
-      document.querySelectorAll('.page-tab').forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.page === pageId);
+    function openPagesMenu() {
+      if (els.pagesMenuOverlay) els.pagesMenuOverlay.hidden = false;
+    }
+    function closePagesMenu() {
+      if (els.pagesMenuOverlay) els.pagesMenuOverlay.hidden = true;
+    }
+    function goPage(pageId) {
+      closePagesMenu();
+      if (pageId === 'note') window.location.href = './note.html';
+    }
+    if (els.fabPages) els.fabPages.onclick = () => openPagesMenu();
+    if (els.pagesMenuOverlay) {
+      els.pagesMenuOverlay.addEventListener('click', (e) => {
+        if (e.target === els.pagesMenuOverlay) closePagesMenu();
+        const item = e.target.closest('.pages-menu-item');
+        if (item) goPage(item.dataset.page);
       });
     }
-    if (els.pageTabs || $('#pageTabs')) {
-      const tabs = $('#pageTabs');
-      if (tabs) {
-        tabs.addEventListener('click', (e) => {
-          const btn = e.target.closest('.page-tab');
-          if (!btn) return;
-          showPage(btn.dataset.page);
-        });
-      }
-    }
-    showPage('calorie');
 
     runMigration();
     applyTheme(loadSettings().theme);
@@ -2932,6 +3012,6 @@
       history.replaceState(null, '', location.pathname + location.search);
     }
   </script>
-  <script src="js/update-watch.js?v=51"></script>
+  <script src="js/update-watch.js?v=52"></script>
 </body>
 </html>
