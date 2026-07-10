@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="pnote-build" content="33">
-  <meta name="pnote-built" content="2026-07-10T19:17:11+07:00">
+  <meta name="pnote-build" content="34">
+  <meta name="pnote-built" content="2026-07-10T19:25:46+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=33"></script>
+  <script src="js/cache-bootstrap.js?v=34"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=33">
+  <link rel="stylesheet" href="css/style.css?v=34">
 </head>
 <body>
   <div id="app">
@@ -22,7 +22,7 @@
       <header class="topbar topbar-thin">
         <button id="open-drawer-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="กลุ่มงาน">☰</button>
         <div class="topbar-title">
-          <h1 id="app-title">P-Note <span class="title-version">v33</span></h1>
+          <h1 id="app-title">P-Note <span class="title-version">v34</span></h1>
           <p id="app-built" class="app-built">อัปเดต —</p>
         </div>
         <div class="topbar-actions">
@@ -37,7 +37,7 @@
         <p id="sync-status" class="sync-status" aria-live="polite"></p>
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
-          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะปุ่ม + มุมขวาล่างเพื่อเพิ่มโน้ต</p>
+          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ「เพิ่ม」ที่แถบล่างเพื่อสร้างโน้ต</p>
           <button class="btn btn-primary" type="button" onclick="document.getElementById('add-note-btn').click()">
             สร้างโน้ตแรก
           </button>
@@ -45,21 +45,30 @@
         <div id="notes-list" class="notes-list notes-first"></div>
       </div>
 
-      <button id="add-note-btn" class="add-fab" type="button" aria-label="เพิ่มโน้ต">+</button>
+      <!-- Filters (movable) sit above the bottom nav -->
+      <div id="bars-bottom" class="bars-zone bars-filters" aria-label="ตัวกรอง"></div>
 
-      <!-- Bottom dock: filter bars + สุขภาพ (pinned to screen edge with safe-area padding) -->
-      <footer id="bottom-dock" class="bottom-dock" aria-label="แถบด้านล่าง">
-        <div id="bars-bottom" class="bars-zone bars-dock-stack" aria-label="ตัวกรอง"></div>
-        <button
-          id="health-mode-btn"
-          class="health-mode-btn"
-          type="button"
-          aria-label="โหมดสุขภาพ"
-          title="โหมดสุขภาพ (เร็วๆ นี้)"
-        >สุขภาพ</button>
-      </footer>
+      <!-- Bottom Navigation — full width, fills to screen edge; content padded above Home Indicator -->
+      <nav id="bottom-nav" class="bottom-nav" aria-label="เมนูหลัก">
+        <div class="bottom-nav-inner">
+          <button id="add-note-btn" class="bottom-nav-item" type="button" aria-label="เพิ่มโน้ต">
+            <span class="bottom-nav-icon" aria-hidden="true">+</span>
+            <span class="bottom-nav-label">เพิ่ม</span>
+          </button>
+          <button
+            id="health-mode-btn"
+            class="bottom-nav-item"
+            type="button"
+            aria-label="โหมดสุขภาพ"
+            title="โหมดสุขภาพ (เร็วๆ นี้)"
+          >
+            <span class="bottom-nav-icon" aria-hidden="true">♡</span>
+            <span class="bottom-nav-label">สุขภาพ</span>
+          </button>
+        </div>
+      </nav>
 
-      <!-- Named bars: กำหนดเวลา / ความสำคัญ / แท็ก · กลุ่มงาน = left drawer · สุขภาพ = dock right -->
+      <!-- Named bars: กำหนดเวลา / ความสำคัญ / แท็ก · กลุ่มงาน = drawer · สุขภาพ = bottom nav -->
       <div id="movable-bars" hidden>
         <div class="movable-bar" data-bar="sort" data-bar-name="กำหนดเวลา">
           <span class="bar-grip" aria-hidden="true">⠿</span>
@@ -196,6 +205,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=33"></script>
+  <script type="module" src="js/app.js?v=34"></script>
 </body>
 </html>

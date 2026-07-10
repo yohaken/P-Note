@@ -233,8 +233,7 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  /* Room for absolute bottom dock (filters + สุขภาพ) */
-  padding-bottom: calc(var(--dock-offset, 3.5rem) + 0.5rem);
+  padding-bottom: 0.5rem;
 }
 
 .bars-zone {
@@ -242,32 +241,10 @@ body {
   flex-direction: column;
 }
 
-/* Full-bleed bottom dock — extends into iPhone home-indicator zone via safe-area padding */
-.bottom-dock {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 30;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  gap: 0.45rem;
+.bars-filters {
+  flex-shrink: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding-top: 0.2rem;
-  padding-left: 0.35rem;
-  padding-right: 0.45rem;
-  /* Push content above Home Indicator; background still fills to the physical edge */
-  padding-bottom: calc(0.2rem + constant(safe-area-inset-bottom)); /* iOS 11.0–11.2 */
-  padding-bottom: calc(0.2rem + env(safe-area-inset-bottom, 0px));
-}
-
-.bars-dock-stack {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
 }
 
 .bars-zone:empty {
@@ -280,32 +257,85 @@ body {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-/* สุขภาพ — placeholder mode switch (UI only for now) */
-.health-mode-btn {
-  flex: 0 0 auto;
-  align-self: center;
-  margin-bottom: 0.15rem;
+/*
+ * Bottom Navigation Bar — full width, app/black fill to the physical bottom.
+ * padding-bottom: env(safe-area-inset-bottom) lifts tappable labels above the
+ * Home Indicator while the background still paints edge-to-edge.
+ */
+.bottom-nav {
+  flex-shrink: 0;
+  width: 100%;
+  background: #000000;
+  border-top: 1px solid var(--border);
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 30;
+}
+
+body.light .bottom-nav {
+  background: var(--bg);
+}
+
+.bottom-nav-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 100%;
+  min-height: 3.35rem;
+}
+
+.bottom-nav-item {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12rem;
+  margin: 0;
   border: none;
-  border-radius: 999px;
-  padding: 0.45rem 0.85rem;
+  border-radius: 0;
+  padding: 0.45rem 0.35rem 0.4rem;
+  background: transparent;
+  color: var(--text-muted);
   font-family: var(--font);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: #fff;
-  background: #0a3d73;
   cursor: pointer;
-  white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-.health-mode-btn:active {
-  opacity: 0.85;
+.bottom-nav-item:active {
+  background: rgba(255, 255, 255, 0.06);
 }
 
-body.light .health-mode-btn {
-  background: #0b4f96;
+body.light .bottom-nav-item:active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.bottom-nav-item[hidden] {
+  display: none !important;
+}
+
+.bottom-nav-icon {
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text);
+}
+
+.bottom-nav-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+#health-mode-btn .bottom-nav-icon,
+#health-mode-btn .bottom-nav-label {
+  color: #7eb6ff;
+}
+
+body.light #health-mode-btn .bottom-nav-icon,
+body.light #health-mode-btn .bottom-nav-label {
+  color: #0a4d8c;
 }
 
 .movable-bar {
@@ -742,15 +772,11 @@ body.light .note-schedule {
   padding-right: 0.75rem;
 }
 
-/* Bottom dock chips: no extra empty pad under the last row — safe-area is dock bg only. */
-.bottom-dock .sort-bar,
-.bottom-dock .tag-filter-bar,
-.bottom-dock .priority-filter-bar {
-  padding-bottom: 0;
-}
-
-.bottom-dock .bar-body {
-  padding-bottom: 0;
+/* Filter chips in the stack above bottom nav */
+.bars-filters .sort-bar,
+.bars-filters .tag-filter-bar,
+.bars-filters .priority-filter-bar {
+  padding-bottom: 0.25rem;
 }
 
 .tag-filter-bar,
@@ -878,34 +904,7 @@ body.light .priority-badge.priority-urgent {
   text-align: center;
 }
 
-/* Add FAB (flat) */
-.add-fab {
-  position: fixed;
-  right: calc(1rem + env(safe-area-inset-right, 0px));
-  bottom: calc(var(--dock-offset, 3.25rem) + 0.75rem);
-  z-index: 36;
-  width: 52px;
-  height: 52px;
-  border: none;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 1.9rem;
-  font-weight: 400;
-  line-height: 1;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-}
-
-.add-fab:active {
-  opacity: 0.8;
-}
-
-.add-fab[hidden] {
-  display: none !important;
-}
+/* (FAB removed — add note lives in .bottom-nav) */
 
 /* Modal / settings */
 .modal {
