@@ -1,7 +1,6 @@
 /**
- * Shared page navigation: swipe sideways + FAB switcher.
+ * Shared page navigation: FAB switcher only (no swipe between pages).
  * Order: Note (home) → Calorie (more pages later).
- * Swipe right → next · Swipe left → previous.
  * FAB: short tap → cycle next · long-press → page list.
  */
 (function (global) {
@@ -66,57 +65,10 @@
   }
 
   /**
-   * @param {{ current: string, canNavigate?: () => boolean }} opts
+   * Page swipe disabled — kept as no-op so older callers do not break.
    */
-  function initSwipe(opts) {
-    var current = opts && opts.current;
-    if (!current) return;
-    var canNavigate = typeof opts.canNavigate === 'function' ? opts.canNavigate : function () { return true; };
-
-    var startX = 0;
-    var startY = 0;
-    var startAt = 0;
-    var tracking = false;
-
-    document.addEventListener(
-      'touchstart',
-      function (event) {
-        if (event.touches.length !== 1) {
-          tracking = false;
-          return;
-        }
-        if (!canNavigate() || isIgnoredTarget(event.target)) {
-          tracking = false;
-          return;
-        }
-        var t = event.touches[0];
-        startX = t.clientX;
-        startY = t.clientY;
-        startAt = Date.now();
-        tracking = true;
-      },
-      { passive: true }
-    );
-
-    document.addEventListener(
-      'touchend',
-      function (event) {
-        if (!tracking) return;
-        tracking = false;
-        if (!canNavigate()) return;
-        var t = event.changedTouches[0];
-        var dx = t.clientX - startX;
-        var dy = Math.abs(t.clientY - startY);
-        var dt = Date.now() - startAt;
-        if (dt > MAX_DURATION_MS) return;
-        if (Math.abs(dx) < MIN_DX) return;
-        if (Math.abs(dx) < dy * 1.25) return;
-
-        if (dx > 0) goNext(current);
-        else goPrev(current);
-      },
-      { passive: true }
-    );
+  function initSwipe() {
+    /* intentionally empty */
   }
 
   function fillPagesMenu(overlay, currentId) {
@@ -179,7 +131,7 @@
       return (stack && stack.dataset.fabGesture) || '';
     }
 
-    fab.setAttribute('title', 'แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน · ค้างแล้วลาก = ย้ายตำแหน่ง');
+    fab.setAttribute('title', 'แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน');
     fab.setAttribute('aria-label', 'สลับแผ่นงาน');
 
     fab.addEventListener('pointerdown', function (e) {
