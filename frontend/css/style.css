@@ -164,6 +164,19 @@ body {
   font-size: 1.25rem;
 }
 
+.topbar-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.hello-world {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
