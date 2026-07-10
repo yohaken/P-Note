@@ -31,6 +31,21 @@
     .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
     .top-bar h1 { font-size: 1.1rem; font-weight: 700; }
     .top-actions { display: flex; gap: 0.3rem; }
+
+    .page-tabs {
+      display: flex; gap: 0.25rem; margin: 0.35rem 0 0.55rem;
+      padding: 0.2rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .page-tab {
+      flex: 1; border: none; background: transparent; color: var(--muted);
+      font-size: 0.82rem; font-weight: 600; padding: 0.45rem 0.5rem;
+      border-radius: 8px; cursor: pointer; font-family: inherit;
+    }
+    .page-tab.active {
+      background: var(--surface-2); color: var(--text);
+    }
+    .page-panel[hidden] { display: none !important; }
     .btn-sm {
       background: var(--surface); border: 1px solid var(--surface-2); color: var(--muted);
       border-radius: 8px; padding: 0.3rem 0.5rem; font-size: 0.72rem; cursor: pointer;
@@ -485,7 +500,6 @@
     .toast.show { transform: translateX(-50%) translateY(0); }
     .toast.error { background: var(--danger); color: #fff; }
     .toast.success { background: var(--success); color: #0f172a; }
-    input[type="file"] { display: none; }
     .reorder-hint { font-size: 0.58rem; color: var(--muted); text-align: center; margin-bottom: 0.35rem; }
   </style>
 </head>
@@ -504,6 +518,11 @@
       <span class="cloud-strip-text" id="dbStripText">กำลังเชื่อม Firestore…</span>
       <button type="button" class="cloud-strip-action" id="dbStripAction">ซิงก์</button>
     </div>
+    <nav class="page-tabs" id="pageTabs" aria-label="เมนูหลัก">
+      <button type="button" class="page-tab active" data-page="note" id="tab-note">Note</button>
+    </nav>
+
+    <div class="page-panel" id="page-note" data-page="note">
     <p class="reorder-hint">ลาก ⋮⋮ เพื่อจัดลำดับหมวด — ระบบจำไว้</p>
 
     <div id="blocksContainer">
@@ -669,25 +688,7 @@
         </section>
       </div>
 
-      <div class="sortable-block" data-block-id="data">
-        <span class="drag-handle">⋮⋮</span>
-        <section class="section" id="dataSection">
-          <div class="section-toggle" id="toggleData">
-            <div class="section-title" style="margin:0">สำรองไฟล์ในเครื่อง</div>
-            <span class="chevron">▼</span>
-          </div>
-          <div class="section-body" style="margin-top:0.5rem">
-            <p class="hint" style="margin-bottom:0.35rem">ซิงก์ข้ามเครื่องใช้รหัสซิงค์ด้านบน (Firestore) · ส่วนนี้เป็นไฟล์ JSON ในเครื่องเท่านั้น</p>
-            <p class="hint" id="autoBackupStatus" style="margin-bottom:0.4rem">สำรองอัตโนมัติ: ปิด — ตั้งไฟล์ครั้งเดียว ทับไฟล์เดิมทุกครั้งที่มีการเปลี่ยนแปลง</p>
-            <div class="data-actions">
-              <button type="button" class="btn btn-ghost" id="btnAutoBackup">📁 ตั้งไฟล์สำรอง</button>
-              <button type="button" class="btn btn-ghost" id="btnExport">Export</button>
-              <button type="button" class="btn btn-ghost" id="btnImport">Import</button>
-              <input type="file" id="importFile" accept=".json">
-            </div>
-          </div>
-        </section>
-      </div>
+    </div>
     </div>
   </div>
 
@@ -885,8 +886,6 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const BACKUP_FILENAME = 'calorie-tracker-backup.json';
-    const BACKUP_HANDLE_DB = 'calorieTrackerBackup';
     const APP_VERSION = '2026.07.09-gcp-guide';
 
     const PERIODS = [
@@ -894,12 +893,12 @@
       { days: 30, label: '30d' }, { days: 90, label: '3m' }, { days: 180, label: '6m' }, { days: 365, label: '12m' },
     ];
 
-    const DEFAULT_BLOCK_ORDER = ['summary', 'date', 'stats', 'meals', 'exercises', 'profile', 'charts', 'data'];
+    const DEFAULT_BLOCK_ORDER = ['summary', 'date', 'stats', 'meals', 'exercises', 'profile', 'charts'];
 
     const BLOCK_LABELS = {
       summary: 'สรุปย้อนหลัง', date: 'เลือกวัน', stats: 'สรุปรายวัน',
       meals: 'บันทึกการกิน', exercises: 'ออกกำลังกาย', profile: 'ข้อมูลผู้ใช้',
-      charts: 'กราฟ', data: 'สำรองไฟล์ในเครื่อง',
+      charts: 'กราฟ',
     };
 
     const BLOCK_STYLE_COMMON = [
@@ -943,8 +942,6 @@
     };
 
     let chartPeriodDays = 30;
-    let backupFileHandle = null;
-    let backupDebounceTimer = null;
 
     const DEFAULT_TEMPLATES = [
       { id: 't1', label: 'ไข่ 2ฟอง', calories: 140, protein: 12 },
@@ -971,6 +968,7 @@
 
     const els = {
       blocksContainer: $('#blocksContainer'),
+      pageTabs: $('#pageTabs'),
       periodGrid: $('#periodGrid'),
       datePicker: $('#datePicker'), dateLabel: $('#dateLabel'),
       btnPrevDay: $('#btnPrevDay'), btnNextDay: $('#btnNextDay'),
@@ -1021,8 +1019,6 @@
       exerciseTemplateEditor: $('#exerciseTemplateEditor'), btnAddExTemplate: $('#btnAddExTemplate'),
       btnSettings: $('#btnSettings'), btnTheme: $('#btnTheme'),
       btnCancelSettings: $('#btnCancelSettings'), btnSaveSettings: $('#btnSaveSettings'),
-      btnExport: $('#btnExport'), btnImport: $('#btnImport'), importFile: $('#importFile'),
-      btnAutoBackup: $('#btnAutoBackup'), autoBackupStatus: $('#autoBackupStatus'),
       btnQuickTemplate: $('#btnQuickTemplate'),
       quickTemplateOverlay: $('#quickTemplateOverlay'),
       quickTemplateName: $('#quickTemplateName'), quickTemplateVal: $('#quickTemplateVal'),
@@ -1172,7 +1168,6 @@
       next.templates = loadTemplateList();
       next.exerciseTemplates = loadExerciseTemplateList();
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-      scheduleAutoBackup();
       scheduleDbPush();
     }
 
@@ -1369,7 +1364,6 @@
         meals: data.meals ?? [],
         exercises: (data.exercises ?? []).map(migrateExercise),
       }));
-      scheduleAutoBackup();
       scheduleDbPush();
     }
 
@@ -2669,131 +2663,6 @@
       $('meta[name="theme-color"]').content = t === 'dark' ? '#0f172a' : '#f1f5f9';
     }
 
-    function buildExportPayload() {
-      const payload = { version: 6, exportedAt: new Date().toISOString(), data: {} };
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k?.startsWith(STORAGE_PREFIX)) payload.data[k] = localStorage.getItem(k);
-      }
-      return payload;
-    }
-
-    function buildExportJson(compact) {
-      const payload = buildExportPayload();
-      return compact ? JSON.stringify(payload) : JSON.stringify(payload, null, 2);
-    }
-
-    function openBackupDB() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open(BACKUP_HANDLE_DB, 1);
-        req.onupgradeneeded = () => req.result.createObjectStore('handles');
-        req.onerror = () => reject(req.error);
-        req.onsuccess = () => resolve(req.result);
-      });
-    }
-
-    async function storeBackupHandle(handle) {
-      const db = await openBackupDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction('handles', 'readwrite');
-        tx.objectStore('handles').put(handle, 'backup');
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-
-    async function loadStoredBackupHandle() {
-      if (!('showSaveFilePicker' in window)) return null;
-      try {
-        const db = await openBackupDB();
-        const handle = await new Promise((resolve, reject) => {
-          const tx = db.transaction('handles');
-          const req = tx.objectStore('handles').get('backup');
-          req.onsuccess = () => resolve(req.result || null);
-          req.onerror = () => reject(req.error);
-        });
-        if (!handle) return null;
-        let perm = await handle.queryPermission({ mode: 'writable' });
-        if (perm !== 'granted') perm = await handle.requestPermission({ mode: 'writable' });
-        return perm === 'granted' ? handle : null;
-      } catch { return null; }
-    }
-
-    async function writeBackupToHandle(handle) {
-      const writable = await handle.createWritable();
-      await writable.write(JSON.stringify(buildExportPayload(), null, 2));
-      await writable.close();
-    }
-
-    function updateAutoBackupStatus() {
-      if (!els.autoBackupStatus) return;
-      if (backupFileHandle) {
-        els.autoBackupStatus.textContent = 'สำรองอัตโนมัติ: เปิด — ทับ ' + BACKUP_FILENAME + ' ทุกครั้งที่เปลี่ยนข้อมูล';
-        els.autoBackupStatus.style.color = 'var(--success)';
-      } else {
-        els.autoBackupStatus.textContent = 'สำรองอัตโนมัติ: ปิด — ตั้งไฟล์ครั้งเดียว ทับไฟล์เดิมทุกครั้งที่มีการเปลี่ยนแปลง';
-        els.autoBackupStatus.style.color = '';
-      }
-    }
-
-    function scheduleAutoBackup() {
-      clearTimeout(backupDebounceTimer);
-      if (!backupFileHandle) return;
-      backupDebounceTimer = setTimeout(async () => {
-        try {
-          await writeBackupToHandle(backupFileHandle);
-        } catch {
-          backupFileHandle = null;
-          updateAutoBackupStatus();
-          showToast('สำรองอัตโนมัติล้มเหลว — ตั้งไฟล์ใหม่', 'error');
-        }
-      }, 1200);
-    }
-
-    async function setupAutoBackup() {
-      if (!('showSaveFilePicker' in window)) {
-        showToast('ใช้ Chrome/Edge บนเดสก์ท็อปเพื่อสำรองอัตโนมัติ', 'error');
-        return;
-      }
-      try {
-        const handle = await window.showSaveFilePicker({
-          suggestedName: BACKUP_FILENAME,
-          types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }],
-        });
-        backupFileHandle = handle;
-        await storeBackupHandle(handle);
-        await writeBackupToHandle(handle);
-        updateAutoBackupStatus();
-        showToast('ตั้งสำรองอัตโนมัติแล้ว — ทับไฟล์เดิมทุกครั้ง', 'success');
-      } catch { /* cancelled */ }
-    }
-
-    async function initAutoBackup() {
-      backupFileHandle = await loadStoredBackupHandle();
-      updateAutoBackupStatus();
-    }
-
-    function exportData() {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([buildExportJson(false)], { type: 'application/json' }));
-      a.download = BACKUP_FILENAME;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast('Export สำเร็จ', 'success');
-    }
-
-    function importData(file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const payload = JSON.parse(reader.result);
-          const n = applyImportPayload(payload);
-          showToast('Import ' + n + ' รายการ', 'success');
-        } catch { showToast('ไฟล์ไม่ถูกต้อง', 'error'); }
-      };
-      reader.readAsText(file);
-    }
-
     let toastTimer;
     function showToast(msg, type) {
       els.toast.textContent = msg;
@@ -2965,11 +2834,6 @@
       saveSettings({ exerciseTemplates: t }); renderExerciseTemplateEditor();
     };
     els.btnTheme.onclick = () => { applyTheme(loadSettings().theme === 'dark' ? 'light' : 'dark'); renderCharts(); };
-    els.btnExport.onclick = exportData;
-    els.btnAutoBackup.onclick = setupAutoBackup;
-    els.btnImport.onclick = () => els.importFile.click();
-    els.importFile.onchange = (e) => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; };
-    $('#toggleData').onclick = () => $('#dataSection').classList.toggle('collapsed');
 
     window.addEventListener('resize', renderCharts);
     document.addEventListener('visibilitychange', () => {
@@ -2979,11 +2843,31 @@
       else if (els.dateLabel.textContent === 'วันนี้') setDate(today);
     });
 
+
+    function showPage(pageId) {
+      document.querySelectorAll('.page-panel').forEach((el) => {
+        el.hidden = el.dataset.page !== pageId;
+      });
+      document.querySelectorAll('.page-tab').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.page === pageId);
+      });
+    }
+    if (els.pageTabs || $('#pageTabs')) {
+      const tabs = $('#pageTabs');
+      if (tabs) {
+        tabs.addEventListener('click', (e) => {
+          const btn = e.target.closest('.page-tab');
+          if (!btn) return;
+          showPage(btn.dataset.page);
+        });
+      }
+    }
+    showPage('note');
+
     runMigration();
     applyTheme(loadSettings().theme);
     applyBlockOrder();
     initDragReorder();
-    initAutoBackup();
     updateClientIdHint();
     pullOrMigrateCalorie();
     if (els.btnCopySyncCode) {
