@@ -352,18 +352,24 @@ body.bars-dragging .list-scroll {
 
 .note-card .drag-hint {
   position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 1.6rem;
+  display: grid;
+  place-items: center;
   color: var(--text-muted);
-  font-size: 0.8rem;
-  opacity: 0.5;
+  font-size: 0.95rem;
+  opacity: 0.55;
+  cursor: grab;
+  touch-action: none;
 }
 
 .notes-list.manual-sort .note-card h3,
 .notes-list.manual-sort .note-card p,
 .notes-list.manual-sort .note-card time,
 .notes-list.manual-sort .note-card .tag-chips {
-  padding-left: 1.1rem;
+  padding-left: 1.7rem;
 }
 
 .card-actions {

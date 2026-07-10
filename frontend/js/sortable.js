@@ -61,7 +61,14 @@ export function initListSortable(listEl, { onTap, onReorder, isEnabled }) {
     startY = event.clientY;
     dragging = false;
     clearTimer();
-    pressTimer = setTimeout(beginDrag, LONG_PRESS_MS);
+    if (event.target.closest('.drag-hint')) {
+      // Grabbing the grip starts the drag immediately (standard drag area).
+      event.preventDefault();
+      beginDrag();
+    } else {
+      // Anywhere else: long-press then drag.
+      pressTimer = setTimeout(beginDrag, LONG_PRESS_MS);
+    }
   };
 
   const onMove = (event) => {
