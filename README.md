@@ -51,7 +51,8 @@ P-Note/
 
 ### เริ่มต้น
 
-อ่านคู่มือตั้งค่า: **[docs/PHASE1_SETUP.md](docs/PHASE1_SETUP.md)**
+- ตั้งค่า Google Cloud: **[docs/PHASE1_SETUP.md](docs/PHASE1_SETUP.md)**
+- **เชื่อม API อัตโนมัติ:** **[docs/GOOGLE_API_AUTOMATION.md](docs/GOOGLE_API_AUTOMATION.md)** ← อ่านนี้เพื่อให้ deploy อัตโนมัติ
 
 ### รัน Backend ในเครื่อง
 
