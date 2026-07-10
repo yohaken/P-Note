@@ -43,6 +43,29 @@ export function getScheduleStatus(scheduledAt) {
   return 'upcoming';
 }
 
+export function relativeDayLabel(iso) {
+  if (!iso) return '';
+  const today = startOfDay().getTime();
+  const day = startOfDay(new Date(iso)).getTime();
+  const diff = Math.round((day - today) / 86400000);
+  if (diff === 0) return 'วันนี้';
+  if (diff === 1) return 'พรุ่งนี้';
+  if (diff === -1) return 'เมื่อวาน';
+  if (diff > 1) return `อีก ${diff} วัน`;
+  return `เลย ${Math.abs(diff)} วัน`;
+}
+
+export function shortDate(iso) {
+  try {
+    return new Intl.DateTimeFormat('th-TH', {
+      day: 'numeric',
+      month: 'short',
+    }).format(new Date(iso));
+  } catch {
+    return '';
+  }
+}
+
 export function formatScheduleDisplay(iso) {
   try {
     return new Intl.DateTimeFormat('th-TH', {

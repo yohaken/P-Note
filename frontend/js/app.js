@@ -1,14 +1,9 @@
-import { loadNotes, exportNotesBlob, parseNotesImport, saveNotes } from './local.js?v=22';
-import { registerServiceWorker } from './cache.js?v=22';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=22';
-import { CONFIG } from './config.js?v=22';
-import {
-  hasAnyNotes,
-  importFromText,
-  mergeNotesData,
-  recoverLegacyLocalStorage,
-  tryAutoImport,
-} from './import-data.js?v=22';
+import { loadNotes, saveNotes } from './local.js?v=23';
+import { registerServiceWorker } from './cache.js?v=23';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=23';
+import { bindComposableInput } from './text-input.js?v=23';
+import { CONFIG } from './config.js?v=23';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=23';
 import {
   addTag,
   countNotesByTag,
@@ -32,25 +27,26 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=22';
+} from './notes.js?v=23';
 import {
-  formatScheduleDisplay,
   fromDatetimeLocalValue,
   getScheduleStatus,
+  relativeDayLabel,
+  shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=22';
-import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=22';
+} from './schedule.js?v=23';
+import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=23';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=22';
-import { normalizeNotesData } from './notes.js?v=22';
-import { SaveManager } from './sync.js?v=22';
-import { forceRefresh, startUpdateWatcher } from './update.js?v=22';
-import { getAppBuild } from './version.js?v=22';
+} from './remote.js?v=23';
+import { normalizeNotesData } from './notes.js?v=23';
+import { SaveManager } from './sync.js?v=23';
+import { forceRefresh, startUpdateWatcher } from './update.js?v=23';
+import { getAppBuild } from './version.js?v=23';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -77,9 +73,6 @@ const els = {
   addNoteBtn: document.getElementById('add-note-btn'),
   settingsBtn: document.getElementById('settings-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
-  exportBtn: document.getElementById('export-btn'),
-  importBtn: document.getElementById('import-btn'),
-  importInput: document.getElementById('import-input'),
   appVersion: document.getElementById('app-version'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
   sortBar: document.getElementById('sort-bar'),
@@ -109,9 +102,6 @@ const els = {
   syncCodeInput: document.getElementById('sync-code-input'),
   copySyncCodeBtn: document.getElementById('copy-sync-code-btn'),
   applySyncCodeBtn: document.getElementById('apply-sync-code-btn'),
-  importPaste: document.getElementById('import-paste'),
-  importPasteBtn: document.getElementById('import-paste-btn'),
-  recoverLocalBtn: document.getElementById('recover-local-btn'),
   closeSettingsBtn: document.getElementById('close-settings-btn'),
   noteContextMenu: document.getElementById('note-context-menu'),
   refreshAppBtn: document.getElementById('refresh-app-btn'),
@@ -149,36 +139,10 @@ function autosave() {
   saveManager.scheduleSave(() => state.notesData);
 }
 
-let editorComposing = false;
-let editorSyncTimer = null;
-
 function flushEditorToState() {
+  if (state.view !== 'editor' || !state.activeNoteId) return;
   persistLocalChanges();
   autosave();
-}
-
-function scheduleEditorSync() {
-  clearTimeout(editorSyncTimer);
-  editorSyncTimer = setTimeout(flushEditorToState, CONFIG.EDITOR_SYNC_DELAY_MS);
-}
-
-function bindEditorField(el) {
-  el.addEventListener('compositionstart', () => {
-    editorComposing = true;
-  });
-  el.addEventListener('compositionend', () => {
-    editorComposing = false;
-    scheduleEditorSync();
-  });
-  el.addEventListener('input', (event) => {
-    if (editorComposing || event.isComposing) return;
-    scheduleEditorSync();
-  });
-  el.addEventListener('blur', () => {
-    if (state.view !== 'editor' || !state.activeNoteId) return;
-    clearTimeout(editorSyncTimer);
-    flushEditorToState();
-  });
 }
 
 function applyCardDensity() {
@@ -279,9 +243,9 @@ function renderTagFilterBar() {
 function scheduleBadgeHtml(note) {
   if (!note.scheduledAt || state.listGroup !== NOTE_STATUS.ACTIVE) return '';
   const status = getScheduleStatus(note.scheduledAt);
-  const label =
-    status === 'overdue' ? 'เลยกำหนด' : status === 'today' ? 'วันนี้' : formatScheduleDisplay(note.scheduledAt);
-  return `<span class="schedule-badge ${status}">📅 ${escapeHtml(label)}</span>`;
+  const rel = relativeDayLabel(note.scheduledAt);
+  const date = shortDate(note.scheduledAt);
+  return `<span class="schedule-badge ${status}">📅 ${escapeHtml(rel)} · ${escapeHtml(date)}</span>`;
 }
 
 function emptyMessageForGroup() {
@@ -521,8 +485,6 @@ function openEditor(noteId) {
   if (!note) return;
 
   state.activeNoteId = noteId;
-  editorComposing = false;
-  clearTimeout(editorSyncTimer);
   els.noteTitle.value = note.title;
   els.noteContent.value = note.content;
   els.noteSchedule.value = toDatetimeLocalValue(note.scheduledAt);
@@ -540,7 +502,6 @@ function openNewNote() {
 }
 
 function backToList() {
-  clearTimeout(editorSyncTimer);
   persistLocalChanges();
   saveManager.saveNow(() => state.notesData);
   state.activeNoteId = null;
@@ -560,80 +521,6 @@ function updateAppVersionLabel() {
   if (els.appVersion) {
     els.appVersion.textContent = `v${getAppBuild()} · 2050`;
   }
-}
-
-function applyImportedData(data, message = 'นำเข้าสำเร็จ') {
-  state.notesData = data;
-  state.tagFilterId = null;
-  state.listGroup = NOTE_STATUS.ACTIVE;
-  saveNotes(state.notesData);
-  autosave();
-  renderNotesList();
-  setStatus(message);
-}
-
-function exportBackup() {
-  const blob = exportNotesBlob(state.notesData);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `pnote-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-  setStatus('ส่งออกไฟล์แล้ว');
-}
-
-function importBackup(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const incoming = parseNotesImport(reader.result);
-      if (!hasAnyNotes(state.notesData)) {
-        applyImportedData(incoming);
-        return;
-      }
-      const merge = window.confirm('รวมกับโน้ตที่มีอยู่? (ยกเลิก = แทนที่ทั้งหมด)');
-      const data = merge ? mergeNotesData(state.notesData, incoming) : incoming;
-      applyImportedData(data);
-    } catch {
-      window.alert('ไฟล์ไม่ถูกต้อง');
-    }
-  };
-  reader.readAsText(file);
-}
-
-function importFromPaste() {
-  const text = els.importPaste.value.trim();
-  if (!text) {
-    window.alert('วาง JSON ก่อน');
-    return;
-  }
-  try {
-    const merge = hasAnyNotes(state.notesData);
-    const incoming = importFromText(text, state.notesData, { merge: false });
-    const data = merge
-      ? mergeNotesData(state.notesData, incoming)
-      : incoming;
-    applyImportedData(data);
-    els.importPaste.value = '';
-    closeSettings();
-  } catch {
-    window.alert('JSON ไม่ถูกต้อง');
-  }
-}
-
-function recoverLocalData() {
-  const legacy = recoverLegacyLocalStorage();
-  if (!legacy) {
-    window.alert('ไม่พบข้อมูลเก่าในเครื่อง');
-    return;
-  }
-  const data = hasAnyNotes(state.notesData)
-    ? mergeNotesData(state.notesData, legacy.data)
-    : legacy.data;
-  applyImportedData(data, `กู้คืนจาก ${legacy.source}`);
-  closeSettings();
 }
 
 function setListGroup(group) {
@@ -743,6 +630,62 @@ function renderSyncCode() {
   }
 }
 
+// Swipe from the left edge to the right = go back (like modern mobile apps).
+function handleBackGesture() {
+  if (!els.settingsOverlay.hidden) {
+    closeSettings();
+    return;
+  }
+  if (!els.tagModal.hidden) {
+    closeTagManager();
+    return;
+  }
+  if (!els.noteContextMenu.hidden) {
+    closeContextMenu();
+    return;
+  }
+  if (state.view === 'editor') {
+    backToList();
+  }
+}
+
+function initSwipeBack() {
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+
+  document.addEventListener(
+    'touchstart',
+    (event) => {
+      if (event.touches.length !== 1) {
+        tracking = false;
+        return;
+      }
+      const t = event.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+      // Only start from the left edge to avoid hijacking scroll/text selection.
+      tracking = startX <= 36;
+    },
+    { passive: true },
+  );
+
+  document.addEventListener(
+    'touchend',
+    (event) => {
+      if (!tracking) return;
+      tracking = false;
+      const t = event.changedTouches[0];
+      const dx = t.clientX - startX;
+      const dy = Math.abs(t.clientY - startY);
+      if (dx > 70 && dy < 55) {
+        handleBackGesture();
+      }
+    },
+    { passive: true },
+  );
+}
+
 async function init() {
   registerServiceWorker();
 
@@ -764,8 +707,6 @@ async function init() {
     saveSettings(state.settings);
     applyCardDensity();
   });
-  els.importPasteBtn.addEventListener('click', importFromPaste);
-  els.recoverLocalBtn.addEventListener('click', recoverLocalData);
   els.copySyncCodeBtn.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(els.syncCodeValue.value);
@@ -790,12 +731,6 @@ async function init() {
   });
 
   els.manageTagsBtn.addEventListener('click', openTagManager);
-  els.exportBtn.addEventListener('click', exportBackup);
-  els.importBtn.addEventListener('click', () => els.importInput.click());
-  els.importInput.addEventListener('change', () => {
-    importBackup(els.importInput.files?.[0]);
-    els.importInput.value = '';
-  });
   els.backBtn.addEventListener('click', backToList);
 
   els.sortUpdatedBtn.addEventListener('click', () => {
@@ -827,19 +762,15 @@ async function init() {
     backToList();
   });
 
-  const handleScheduleChange = () => {
-    clearTimeout(editorSyncTimer);
-    flushEditorToState();
-  };
-
-  bindEditorField(els.noteTitle);
-  bindEditorField(els.noteContent);
-  els.noteSchedule.addEventListener('change', handleScheduleChange);
+  bindComposableInput(els.noteTitle, { onCommit: flushEditorToState });
+  bindComposableInput(els.noteContent, { onCommit: flushEditorToState });
+  els.noteSchedule.addEventListener('change', flushEditorToState);
   els.clearScheduleBtn.addEventListener('click', () => {
     els.noteSchedule.value = '';
-    handleScheduleChange();
+    flushEditorToState();
   });
 
+  initSwipeBack();
   bootstrapData();
 }
 

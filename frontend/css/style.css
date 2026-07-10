@@ -556,19 +556,69 @@ body.theme-2050::before {
 .refresh-fab {
   position: fixed;
   right: calc(1rem + env(safe-area-inset-right, 0px));
-  bottom: calc(5.25rem + var(--safe-bottom));
+  bottom: calc(5.5rem + var(--safe-bottom));
   z-index: 35;
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   border: 1px solid var(--glass-border);
   border-radius: 50%;
   background: var(--glass);
   backdrop-filter: blur(16px);
   color: var(--primary);
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
   box-shadow: var(--glow-cyan);
+}
+
+/* Floating add-note button, bottom-right above the refresh button */
+.add-fab {
+  position: fixed;
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+  bottom: calc(9rem + var(--safe-bottom));
+  z-index: 36;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--primary), #0099ff);
+  color: #020408;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--glow-cyan), 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s, box-shadow 0.2s;
+}
+
+.add-fab:active {
+  transform: scale(0.92);
+}
+
+.add-fab[hidden] {
+  display: none !important;
+}
+
+/* Small red trash icon in the editor footer (left, intentional press) */
+.trash-mini-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 61, 110, 0.5);
+  background: rgba(255, 61, 110, 0.1);
+  color: var(--danger);
+  font-size: 1rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.trash-mini-btn:active {
+  transform: scale(0.9);
 }
 
 .refresh-fab:active {
@@ -732,9 +782,9 @@ body.theme-2050::before {
 }
 
 .editor-footer {
-  padding: 0.75rem 1rem 1.5rem;
+  padding: 0.5rem 1rem calc(1rem + var(--safe-bottom));
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .error-text {

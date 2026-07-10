@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="22">
+  <meta name="pnote-build" content="23">
   <meta name="theme-color" content="#020408">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,11 +12,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-  <script src="js/cache-bootstrap.js?v=22"></script>
+  <script src="js/cache-bootstrap.js?v=23"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=22">
+  <link rel="stylesheet" href="css/style.css?v=23">
 </head>
 <body class="theme-2050">
   <p id="hello-world-banner" class="hello-world-banner" role="status">hello world</p>
@@ -25,15 +25,11 @@
       <header class="topbar">
         <div class="topbar-title">
           <h1>P-Note</h1>
-          <p id="app-version" class="app-version">v22 · 2050</p>
+          <p id="app-version" class="app-version">v23 · 2050</p>
         </div>
         <div class="topbar-actions">
-          <button id="export-btn" class="btn btn-text" type="button">สำรอง</button>
-          <button id="import-btn" class="btn btn-text" type="button">นำเข้า</button>
-          <input id="import-input" type="file" accept="application/json,.json" hidden>
           <button id="manage-tags-btn" class="btn btn-text" type="button">แท็ก</button>
           <button id="settings-btn" class="btn btn-icon btn-ghost" type="button" aria-label="ตั้งค่า">⚙</button>
-          <button id="add-note-btn" class="btn btn-icon" type="button" aria-label="เพิ่มโน้ต">+</button>
         </div>
       </header>
 
@@ -45,13 +41,15 @@
         <p id="sync-status" class="sync-status" aria-live="polite"></p>
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
-          <p class="empty-state-hint">มีไฟล์สำรอง? กด <strong>นำเข้า</strong> หรือ ⚙ → วาง JSON</p>
+          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะปุ่ม + มุมขวาล่างเพื่อเพิ่มโน้ต</p>
           <button class="btn btn-primary" type="button" onclick="document.getElementById('add-note-btn').click()">
             สร้างโน้ตแรก
           </button>
         </div>
         <div id="notes-list" class="notes-list notes-first"></div>
       </div>
+
+      <button id="add-note-btn" class="add-fab" type="button" aria-label="เพิ่มโน้ต">+</button>
 
       <footer class="bottom-dock">
         <nav class="group-nav" aria-label="กลุ่มโน้ต">
@@ -83,7 +81,7 @@
         <textarea id="note-content" class="note-content" placeholder="พิมพ์โน้ตของคุณ..."></textarea>
       </div>
       <footer class="editor-footer">
-        <button id="delete-btn" class="btn btn-danger" type="button">ย้ายไปถังขยะ</button>
+        <button id="delete-btn" class="trash-mini-btn" type="button" aria-label="ย้ายโน้ตไปถังขยะ" title="ย้ายไปถังขยะ">🗑</button>
       </footer>
     </section>
 
@@ -123,14 +121,6 @@
           </div>
           <p class="settings-hint">ข้อมูลเก็บในฐานข้อมูลบนเซิร์ฟเวอร์ (Firestore) ใช้รหัสเดียวกันบนอีกเครื่องเพื่อเห็นโน้ตชุดเดียวกัน</p>
         </div>
-        <div class="settings-row">
-          <label class="settings-label" for="import-paste">นำเข้าข้อมูลเดิม (JSON)</label>
-          <textarea id="import-paste" class="import-paste" rows="4" placeholder='วางไฟล์สำรอง JSON ที่นี่ แล้วกดนำเข้า'></textarea>
-          <div class="settings-import-actions">
-            <button id="import-paste-btn" class="btn btn-primary" type="button">นำเข้า</button>
-            <button id="recover-local-btn" class="btn btn-secondary" type="button">กู้คืนในเครื่อง</button>
-          </div>
-        </div>
         <button id="close-settings-btn" class="btn btn-secondary settings-close" type="button">ปิด</button>
       </div>
     </div>
@@ -146,6 +136,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=22"></script>
+  <script type="module" src="js/app.js?v=23"></script>
 </body>
 </html>
