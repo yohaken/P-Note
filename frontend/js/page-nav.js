@@ -1,17 +1,18 @@
 /**
- * Shared page navigation: swipe sideways + helpers.
+ * Shared page navigation: swipe sideways + FAB switcher.
  * Order: Calorie (home) → Note (more pages later).
  * Swipe right → next · Swipe left → previous.
+ * FAB: short tap → cycle next · long-press → page list.
  */
 (function (global) {
   var PAGES = [
-    { id: 'calorie', url: './index.html', label: 'Calorie', sub: 'แคลอรี่' },
-    { id: 'note', url: './note.html', label: 'Note', sub: 'โน้ต' },
+    { id: 'calorie', url: './index.html', label: 'Calorie', sub: 'แคลอรี่', icon: '🔥' },
+    { id: 'note', url: './note.html', label: 'Note', sub: 'โน้ต', icon: '📝' },
   ];
 
-  var EDGE_IGNORE_MS = 450;
   var MIN_DX = 72;
   var MAX_DURATION_MS = 700;
+  var FAB_LONG_MS = 420;
 
   function findIndex(id) {
     for (var i = 0; i < PAGES.length; i++) {
@@ -29,7 +30,8 @@
       }
     }
     if (!page) return;
-    if (location.pathname.split('/').pop() === page.url.replace('./', '')) return;
+    var file = location.pathname.split('/').pop() || '';
+    if (file === page.url.replace('./', '')) return;
     location.href = page.url;
   }
 
@@ -44,6 +46,15 @@
     var idx = findIndex(currentId);
     if (idx <= 0) return false;
     goTo(PAGES[idx - 1].id);
+    return true;
+  }
+
+  /** Cycle to next page (wraps when more than one page). */
+  function goCycle(currentId) {
+    if (PAGES.length < 2) return false;
+    var idx = findIndex(currentId);
+    if (idx < 0) return false;
+    goTo(PAGES[(idx + 1) % PAGES.length].id);
     return true;
   }
 
@@ -108,11 +119,127 @@
     );
   }
 
+  function fillPagesMenu(overlay, currentId) {
+    if (!overlay) return;
+    var menu = overlay.querySelector('.pages-menu');
+    if (!menu) return;
+    var titleText = 'แผ่นงาน';
+    var oldTitle = menu.querySelector('.pages-menu-title');
+    if (oldTitle) titleText = oldTitle.textContent || titleText;
+    menu.innerHTML = '';
+    var title = document.createElement('p');
+    title.className = 'pages-menu-title';
+    title.textContent = titleText;
+    menu.appendChild(title);
+    PAGES.forEach(function (page) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pages-menu-item';
+      btn.dataset.page = page.id;
+      btn.setAttribute('role', 'menuitem');
+      if (page.id === currentId) btn.setAttribute('aria-current', 'page');
+      btn.innerHTML =
+        '<span class="pm-icon" aria-hidden="true">' +
+        (page.icon || '•') +
+        '</span><span>' +
+        page.label +
+        '</span><span class="pm-sub">' +
+        (page.id === currentId ? 'หน้านี้' : page.sub || '') +
+        '</span>';
+      menu.appendChild(btn);
+    });
+  }
+
+  /**
+   * Short tap → cycle next page. Long-press → show page list.
+   * @param {{ fab: HTMLElement, overlay: HTMLElement, current: string }} opts
+   */
+  function bindFab(opts) {
+    var fab = opts && opts.fab;
+    var overlay = opts && opts.overlay;
+    var current = opts && opts.current;
+    if (!fab || !current) return;
+
+    var timer = null;
+    var longPress = false;
+    var startX = 0;
+    var startY = 0;
+
+    function openMenu() {
+      fillPagesMenu(overlay, current);
+      if (overlay) overlay.hidden = false;
+    }
+
+    function closeMenu() {
+      if (overlay) overlay.hidden = true;
+    }
+
+    fab.setAttribute('title', 'แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน');
+    fab.setAttribute('aria-label', 'สลับแผ่นงาน');
+
+    fab.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      longPress = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        longPress = true;
+        openMenu();
+      }, FAB_LONG_MS);
+    });
+
+    function clearPress() {
+      clearTimeout(timer);
+      timer = null;
+    }
+
+    fab.addEventListener('pointerup', function (e) {
+      clearPress();
+      if (longPress) {
+        longPress = false;
+        return;
+      }
+      if (Math.abs(e.clientX - startX) > 14 || Math.abs(e.clientY - startY) > 14) return;
+      goCycle(current);
+    });
+
+    fab.addEventListener('pointercancel', function () {
+      clearPress();
+      longPress = false;
+    });
+
+    fab.addEventListener('pointerleave', function (e) {
+      if (e.pointerType === 'mouse') clearPress();
+    });
+
+    fab.addEventListener('contextmenu', function (e) {
+      e.preventDefault();
+    });
+
+    if (overlay) {
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) {
+          closeMenu();
+          return;
+        }
+        var item = e.target.closest('.pages-menu-item');
+        if (!item) return;
+        closeMenu();
+        if (item.dataset.page && item.dataset.page !== current) goTo(item.dataset.page);
+      });
+    }
+
+    return { openMenu: openMenu, closeMenu: closeMenu };
+  }
+
   global.PageNav = {
     PAGES: PAGES,
     goTo: goTo,
     goNext: goNext,
     goPrev: goPrev,
+    goCycle: goCycle,
     initSwipe: initSwipe,
+    bindFab: bindFab,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
