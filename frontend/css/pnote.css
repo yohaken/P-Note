@@ -204,25 +204,94 @@ body {
 }
 
 .topbar-actions {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.35rem;
 }
 
 .editor-topbar {
+  position: relative;
   gap: 0.5rem;
 }
 
-.sync-status {
-  min-height: 1.1rem;
-  padding: 0.15rem 0.9rem 0.3rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
+.editor-topbar-spacer {
+  flex: 1;
+  min-width: 0;
 }
 
-.sync-status.inline {
+.sync-status-btn {
+  position: relative;
+  width: 1.85rem;
+  height: 1.85rem;
   padding: 0;
-  min-height: auto;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sync-status-glyph {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 0 0 2px rgba(152, 152, 159, 0.22);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.sync-status-btn[data-state="ok"] .sync-status-glyph {
+  background: var(--success);
+  box-shadow: 0 0 0 2px rgba(48, 209, 88, 0.28);
+}
+
+.sync-status-btn[data-state="busy"] .sync-status-glyph {
+  background: #f5c542;
+  box-shadow: 0 0 0 2px rgba(245, 197, 66, 0.3);
+  animation: sync-pulse 1s ease-in-out infinite;
+}
+
+.sync-status-btn[data-state="offline"] .sync-status-glyph {
+  background: var(--danger);
+  box-shadow: 0 0 0 2px rgba(255, 69, 58, 0.28);
+}
+
+.sync-status-btn[data-state="idle"] .sync-status-glyph {
+  background: var(--text-muted);
+  opacity: 0.7;
+}
+
+@keyframes sync-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.72); opacity: 0.55; }
+}
+
+.sync-status-tip {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 40;
+  max-width: min(70vw, 220px);
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.sync-status-tip[hidden] {
+  display: none !important;
+}
+
+/* legacy text strip removed */
+.sync-status {
+  display: none;
 }
 
 /* Scroll + zones — document scroll (calorie); list grows with content */
