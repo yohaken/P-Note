@@ -39,4 +39,5 @@ Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/
   | **ความสำคัญ** | กรอง: สำคัญเร่งด่วน / สำคัญ / เร่งด่วน / ทั่วไป | movable bar `data-bar="priority"` |
   | **แท็ก** | กรองตามแท็ก | movable bar `data-bar="tag"` |
   | **กลุ่มงาน** | งาน / ทำแล้ว / ถังขยะ | left drawer ☰ |
+  | **สุขภาพ** | ปุ่มโหมดสุขภาพ (UI only) | `#health-mode-btn` ขวาสุดของ bottom dock |
 - On empty storage, app tries **legacy localStorage recovery** and optional `./data/notes-import.json`. Settings ⚙: paste JSON import or **กู้คืนในเครื่อง**.

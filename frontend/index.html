@@ -2,19 +2,19 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-  <meta name="pnote-build" content="32">
-  <meta name="pnote-built" content="2026-07-10T18:58:14+07:00">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="pnote-build" content="33">
+  <meta name="pnote-built" content="2026-07-10T19:17:11+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=32"></script>
+  <script src="js/cache-bootstrap.js?v=33"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=32">
+  <link rel="stylesheet" href="css/style.css?v=33">
 </head>
 <body>
   <div id="app">
@@ -22,7 +22,7 @@
       <header class="topbar topbar-thin">
         <button id="open-drawer-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="กลุ่มงาน">☰</button>
         <div class="topbar-title">
-          <h1 id="app-title">P-Note <span class="title-version">v32</span></h1>
+          <h1 id="app-title">P-Note <span class="title-version">v33</span></h1>
           <p id="app-built" class="app-built">อัปเดต —</p>
         </div>
         <div class="topbar-actions">
@@ -47,10 +47,19 @@
 
       <button id="add-note-btn" class="add-fab" type="button" aria-label="เพิ่มโน้ต">+</button>
 
-      <div id="bars-bottom" class="bars-zone bars-dock" aria-label="แถบด้านล่าง"></div>
+      <!-- Bottom dock: filter bars + สุขภาพ (pinned to screen edge with safe-area padding) -->
+      <footer id="bottom-dock" class="bottom-dock" aria-label="แถบด้านล่าง">
+        <div id="bars-bottom" class="bars-zone bars-dock-stack" aria-label="ตัวกรอง"></div>
+        <button
+          id="health-mode-btn"
+          class="health-mode-btn"
+          type="button"
+          aria-label="โหมดสุขภาพ"
+          title="โหมดสุขภาพ (เร็วๆ นี้)"
+        >สุขภาพ</button>
+      </footer>
 
-      <!-- Named bars (call them by these Thai names in chat):
-           กำหนดเวลา = sort, ความสำคัญ = priority, แท็ก = tag, กลุ่มงาน = left drawer -->
+      <!-- Named bars: กำหนดเวลา / ความสำคัญ / แท็ก · กลุ่มงาน = left drawer · สุขภาพ = dock right -->
       <div id="movable-bars" hidden>
         <div class="movable-bar" data-bar="sort" data-bar-name="กำหนดเวลา">
           <span class="bar-grip" aria-hidden="true">⠿</span>
@@ -187,6 +196,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=32"></script>
+  <script type="module" src="js/app.js?v=33"></script>
 </body>
 </html>

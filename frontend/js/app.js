@@ -1,10 +1,10 @@
-import { loadNotes, saveNotes } from './local.js?v=32';
-import { registerServiceWorker } from './cache.js?v=32';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=32';
-import { initListSortable } from './sortable.js?v=32';
-import { bindComposableInput } from './text-input.js?v=32';
-import { CONFIG } from './config.js?v=32';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=32';
+import { loadNotes, saveNotes } from './local.js?v=33';
+import { registerServiceWorker } from './cache.js?v=33';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=33';
+import { initListSortable } from './sortable.js?v=33';
+import { bindComposableInput } from './text-input.js?v=33';
+import { CONFIG } from './config.js?v=33';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=33';
 import {
   addTag,
   countNotesByTag,
@@ -36,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=32';
+} from './notes.js?v=33';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -44,20 +44,20 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=32';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=32';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=32';
+} from './schedule.js?v=33';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=33';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=33';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=32';
-import { normalizeNotesData } from './notes.js?v=32';
-import { SaveManager } from './sync.js?v=32';
-import { startUpdateWatcher } from './update.js?v=32';
-import { getAppBuild, formatAppBuiltAt } from './version.js?v=32';
-import { initViewportLock } from './viewport.js?v=32';
+} from './remote.js?v=33';
+import { normalizeNotesData } from './notes.js?v=33';
+import { SaveManager } from './sync.js?v=33';
+import { startUpdateWatcher } from './update.js?v=33';
+import { getAppBuild, formatAppBuiltAt } from './version.js?v=33';
+import { initViewportLock } from './viewport.js?v=33';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -98,6 +98,8 @@ const els = {
   sortBar: document.getElementById('sort-bar'),
   barsTop: document.getElementById('bars-top'),
   barsBottom: document.getElementById('bars-bottom'),
+  bottomDock: document.getElementById('bottom-dock'),
+  healthModeBtn: document.getElementById('health-mode-btn'),
   sortWrap: document.querySelector('.movable-bar[data-bar="sort"]'),
   tagWrap: document.querySelector('.movable-bar[data-bar="tag"]'),
   priorityWrap: document.querySelector('.movable-bar[data-bar="priority"]'),
@@ -543,7 +545,7 @@ function reorderNotes(orderedIds) {
 }
 
 function applyDockOffset() {
-  const dock = els.barsBottom;
+  const dock = els.bottomDock || els.barsBottom;
   if (!dock) return;
   // Include safe-area so list/FAB clear the painted dock fully.
   const h = Math.ceil(dock.getBoundingClientRect().height || 0);

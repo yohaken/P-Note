@@ -233,7 +233,7 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  /* Room for absolute bottom dock (ความสำคัญ / แท็ก / …) */
+  /* Room for absolute bottom dock (filters + สุขภาพ) */
   padding-bottom: calc(var(--dock-offset, 3.5rem) + 0.5rem);
 }
 
@@ -242,17 +242,32 @@ body {
   flex-direction: column;
 }
 
-.bars-zone.bars-dock {
+/* Full-bleed bottom dock — extends into iPhone home-indicator zone via safe-area padding */
+.bottom-dock {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  flex-shrink: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 0.45rem;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  /* Background paints through the home-indicator zone; chips stay flush above it. */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  z-index: 30;
+  padding-top: 0.2rem;
+  padding-left: 0.35rem;
+  padding-right: 0.45rem;
+  /* Push content above Home Indicator; background still fills to the physical edge */
+  padding-bottom: calc(0.2rem + constant(safe-area-inset-bottom)); /* iOS 11.0–11.2 */
+  padding-bottom: calc(0.2rem + env(safe-area-inset-bottom, 0px));
+}
+
+.bars-dock-stack {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .bars-zone:empty {
@@ -263,6 +278,34 @@ body {
   outline: 2px dashed var(--accent);
   outline-offset: -3px;
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* สุขภาพ — placeholder mode switch (UI only for now) */
+.health-mode-btn {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-bottom: 0.15rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: #0a3d73;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.health-mode-btn:active {
+  opacity: 0.85;
+}
+
+body.light .health-mode-btn {
+  background: #0b4f96;
 }
 
 .movable-bar {
@@ -700,13 +743,13 @@ body.light .note-schedule {
 }
 
 /* Bottom dock chips: no extra empty pad under the last row — safe-area is dock bg only. */
-.bars-dock .sort-bar,
-.bars-dock .tag-filter-bar,
-.bars-dock .priority-filter-bar {
+.bottom-dock .sort-bar,
+.bottom-dock .tag-filter-bar,
+.bottom-dock .priority-filter-bar {
   padding-bottom: 0;
 }
 
-.bars-dock .bar-body {
+.bottom-dock .bar-body {
   padding-bottom: 0;
 }
 
