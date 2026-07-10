@@ -1,5 +1,5 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=9';
-import { auth, initFirebase } from './firebase.js?v=9';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=10';
+import { auth, initFirebase } from './firebase.js?v=10';
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -8,6 +8,23 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
 
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+// Google OAuth access tokens live ~1h; refresh a little early to be safe.
+const TOKEN_TTL_MS = 55 * 60 * 1000;
+
+function cacheAccessToken(token) {
+  localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
+  localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRY, String(Date.now() + TOKEN_TTL_MS));
+}
+
+function getCachedAccessToken() {
+  const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+  const expiry = Number(localStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRY) || 0);
+  if (token && expiry > Date.now()) {
+    return token;
+  }
+  return null;
+}
 
 function googleProvider() {
   const provider = new GoogleAuthProvider();
@@ -61,6 +78,7 @@ async function getDriveAccessToken() {
   }
 
   await verifyEmail(result.user.email);
+  cacheAccessToken(accessToken);
   return accessToken;
 }
 
@@ -82,6 +100,13 @@ export async function autoLogin() {
 
   try {
     await verifyEmail(user.email);
+
+    // Already signed in with a still-valid Drive token → skip the popup.
+    const cachedToken = getCachedAccessToken();
+    if (cachedToken) {
+      return cachedToken;
+    }
+
     return getDriveAccessToken();
   } catch (error) {
     if (error.message.includes('Access Denied')) {
