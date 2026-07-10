@@ -145,7 +145,7 @@ body {
   color: var(--text);
 }
 
-/* Thin top bar — sticky like calorie document chrome */
+/* Ultra-thin app title bar — flush to top */
 .topbar {
   position: sticky;
   top: 0;
@@ -153,11 +153,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  background: var(--surface);
+  gap: 0.35rem;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
-  padding: 0.25rem 0.6rem;
-  padding-top: calc(0.25rem + var(--safe-top));
+  padding: 0.08rem 0.45rem;
+  padding-top: max(0.08rem, var(--safe-top));
+  min-height: 0;
 }
 
 .topbar-thin {
@@ -168,50 +169,64 @@ body {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.25rem;
 }
 
 .topbar h1 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.68rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-muted);
   letter-spacing: 0;
-  line-height: 1.15;
+  line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .topbar h1 .title-version {
-  margin-left: 0.3rem;
-  font-size: 0.78rem;
+  margin-left: 0.2rem;
+  font-size: 0.55rem;
   font-weight: 500;
   color: var(--text-muted);
+  opacity: 0.85;
 }
 
 .app-built {
-  margin: 0;
-  font-size: 0.62rem;
-  font-weight: 400;
-  color: var(--text-muted);
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: none;
 }
 
 .topbar-actions {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.2rem;
+}
+
+.topbar-actions .btn-mini {
+  font-size: 0.62rem;
+  padding: 0.12rem 0.35rem;
+  min-height: 0;
+  line-height: 1.1;
+}
+
+.topbar-actions .btn-mini-icon {
+  width: 1.45rem;
+  height: 1.45rem;
+  padding: 0;
+  font-size: 0.75rem;
 }
 
 .editor-topbar {
   position: relative;
-  gap: 0.5rem;
+  gap: 0.35rem;
+}
+
+.editor-topbar .btn-mini {
+  font-size: 0.62rem;
+  padding: 0.12rem 0.4rem;
 }
 
 .editor-topbar-spacer {
