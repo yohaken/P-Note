@@ -40,11 +40,14 @@ body {
   color: var(--text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 body.theme-2050 {
-  padding-top: var(--safe-top);
-  padding-bottom: var(--safe-bottom);
+  position: fixed;
+  inset: 0;
   background-color: var(--bg);
   background-image:
     radial-gradient(ellipse 130% 90% at 0% -20%, rgba(0, 229, 255, 0.14) 0%, transparent 55%),
@@ -71,9 +74,10 @@ body.theme-2050::before {
 #app {
   position: relative;
   z-index: 1;
-  min-height: 100dvh;
+  height: 100dvh;
   max-width: 640px;
   margin: 0 auto;
+  overflow: hidden;
 }
 
 .hello-world-banner {
@@ -97,9 +101,10 @@ body.theme-2050::before {
 }
 
 .view {
-  min-height: 100dvh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .view[hidden] {
@@ -234,10 +239,17 @@ body.theme-2050::before {
   z-index: 10;
 }
 
+/* Ultra-thin header: small title left, small actions + tiny version right */
+.topbar-thin {
+  padding: 0.2rem 0.6rem;
+  padding-top: calc(0.2rem + var(--safe-top));
+  min-height: 0;
+}
+
 .topbar h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   background: linear-gradient(90deg, var(--text) 0%, var(--primary) 100%);
@@ -247,13 +259,115 @@ body.theme-2050::before {
 }
 
 .app-version {
-  margin: 0;
-  font-size: 0.72rem;
+  margin: 0 0 0 0.15rem;
+  font-size: 0.62rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  opacity: 0.75;
+  order: 99;
+}
+
+.btn-mini {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.82rem;
+  border-radius: 8px;
+}
+
+.btn-mini:hover {
   color: var(--primary);
-  opacity: 0.85;
+}
+
+.btn-mini-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 1rem;
+  border: 1px solid var(--glass-border);
+}
+
+/* Draggable layout bars */
+.bars-zone {
+  display: flex;
+  flex-direction: column;
+}
+
+.bars-zone.bars-dock {
+  flex-shrink: 0;
+  background: var(--glass);
+  border-top: 1px solid var(--glass-border);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  padding-bottom: var(--safe-bottom);
+  z-index: 20;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.bars-zone:empty {
+  display: none;
+}
+
+.bars-zone.drop-target {
+  outline: 2px dashed rgba(0, 229, 255, 0.5);
+  outline-offset: -3px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.movable-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-left: 0.25rem;
+}
+
+.movable-bar[hidden] {
+  display: none !important;
+}
+
+.movable-bar > .sort-bar,
+.movable-bar > .group-nav,
+.movable-bar > .tag-filter-bar {
+  flex: 1;
+  min-width: 0;
+}
+
+.bar-grip {
+  flex: 0 0 auto;
+  width: 22px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: grab;
+  touch-action: none;
+  opacity: 0.55;
+  user-select: none;
+}
+
+.bar-grip:active {
+  cursor: grabbing;
+}
+
+.movable-bar.dragging {
+  position: relative;
+  z-index: 60;
+  opacity: 0.95;
+  box-shadow: var(--glow-cyan), 0 8px 24px rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  background: var(--surface-solid);
+}
+
+body.bars-dragging {
+  cursor: grabbing;
+}
+
+body.bars-dragging .list-scroll {
+  overflow: hidden;
 }
 
 .topbar-actions {
@@ -284,8 +398,10 @@ body.theme-2050::before {
 
 .list-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding-bottom: 0.5rem;
 }
 

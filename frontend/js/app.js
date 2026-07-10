@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes } from './local.js?v=23';
-import { registerServiceWorker } from './cache.js?v=23';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=23';
-import { bindComposableInput } from './text-input.js?v=23';
-import { CONFIG } from './config.js?v=23';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=23';
+import { loadNotes, saveNotes } from './local.js?v=24';
+import { registerServiceWorker } from './cache.js?v=24';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=24';
+import { bindComposableInput } from './text-input.js?v=24';
+import { CONFIG } from './config.js?v=24';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=24';
 import {
   addTag,
   countNotesByTag,
@@ -27,7 +27,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=23';
+} from './notes.js?v=24';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -35,18 +35,19 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=23';
-import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=23';
+} from './schedule.js?v=24';
+import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=24';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=24';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=23';
-import { normalizeNotesData } from './notes.js?v=23';
-import { SaveManager } from './sync.js?v=23';
-import { forceRefresh, startUpdateWatcher } from './update.js?v=23';
-import { getAppBuild } from './version.js?v=23';
+} from './remote.js?v=24';
+import { normalizeNotesData } from './notes.js?v=24';
+import { SaveManager } from './sync.js?v=24';
+import { forceRefresh, startUpdateWatcher } from './update.js?v=24';
+import { getAppBuild } from './version.js?v=24';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -76,6 +77,11 @@ const els = {
   appVersion: document.getElementById('app-version'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
   sortBar: document.getElementById('sort-bar'),
+  barsTop: document.getElementById('bars-top'),
+  barsBottom: document.getElementById('bars-bottom'),
+  sortWrap: document.querySelector('.movable-bar[data-bar="sort"]'),
+  tagWrap: document.querySelector('.movable-bar[data-bar="tag"]'),
+  resetBarsBtn: document.getElementById('reset-bars-btn'),
   sortUpdatedBtn: document.getElementById('sort-updated-btn'),
   sortScheduleBtn: document.getElementById('sort-schedule-btn'),
   groupActiveBtn: document.getElementById('group-active-btn'),
@@ -198,9 +204,10 @@ function renderGroupNav() {
   els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
-  els.sortBar.hidden = !isActiveGroup;
+  const hasTags = (state.notesData.tags || []).length > 0;
+  if (els.sortWrap) els.sortWrap.hidden = !isActiveGroup;
+  if (els.tagWrap) els.tagWrap.hidden = !isActiveGroup || !hasTags;
   els.addNoteBtn.hidden = !isActiveGroup;
-  els.tagFilterBar.hidden = !isActiveGroup;
 }
 
 function renderSortBar() {
@@ -519,8 +526,17 @@ function escapeHtml(value) {
 
 function updateAppVersionLabel() {
   if (els.appVersion) {
-    els.appVersion.textContent = `v${getAppBuild()} · 2050`;
+    els.appVersion.textContent = `v${getAppBuild()}`;
   }
+}
+
+function persistBarLayout(layout) {
+  state.settings.barLayout = layout;
+  saveSettings(state.settings);
+}
+
+function reapplyBarLayout() {
+  applyBarLayout(state.settings.barLayout || DEFAULT_BAR_LAYOUT, els.barsTop, els.barsBottom);
 }
 
 function setListGroup(group) {
@@ -582,6 +598,7 @@ async function bootstrapData() {
   });
 
   applyCardDensity();
+  reapplyBarLayout();
   renderNotesList();
   showView('list');
   setLoading(false);
@@ -707,6 +724,13 @@ async function init() {
     saveSettings(state.settings);
     applyCardDensity();
   });
+  els.resetBarsBtn.addEventListener('click', () => {
+    state.settings.barLayout = [...DEFAULT_BAR_LAYOUT];
+    saveSettings(state.settings);
+    reapplyBarLayout();
+    renderNotesList();
+    setStatus('รีเซ็ตตำแหน่งแถบแล้ว');
+  });
   els.copySyncCodeBtn.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(els.syncCodeValue.value);
@@ -770,7 +794,19 @@ async function init() {
     flushEditorToState();
   });
 
+  // Block iOS pinch/gesture zoom so the fixed layout never overflows its edges.
+  document.addEventListener('gesturestart', (event) => event.preventDefault());
+  document.addEventListener('gesturechange', (event) => event.preventDefault());
+
   initSwipeBack();
+  initBarDrag({
+    topZone: els.barsTop,
+    bottomZone: els.barsBottom,
+    onChange: (layout) => {
+      persistBarLayout(layout);
+      renderNotesList();
+    },
+  });
   bootstrapData();
 }
 
