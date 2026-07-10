@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes } from './local.js?v=25';
-import { registerServiceWorker } from './cache.js?v=25';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=25';
-import { bindComposableInput } from './text-input.js?v=25';
-import { CONFIG } from './config.js?v=25';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=25';
+import { loadNotes, saveNotes } from './local.js?v=26';
+import { registerServiceWorker } from './cache.js?v=26';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=26';
+import { bindComposableInput } from './text-input.js?v=26';
+import { CONFIG } from './config.js?v=26';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=26';
 import {
   addTag,
   countNotesByTag,
@@ -27,7 +27,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=25';
+} from './notes.js?v=26';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -35,19 +35,19 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=25';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=25';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=25';
+} from './schedule.js?v=26';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=26';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=26';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=25';
-import { normalizeNotesData } from './notes.js?v=25';
-import { SaveManager } from './sync.js?v=25';
-import { startUpdateWatcher } from './update.js?v=25';
-import { getAppBuild } from './version.js?v=25';
+} from './remote.js?v=26';
+import { normalizeNotesData } from './notes.js?v=26';
+import { SaveManager } from './sync.js?v=26';
+import { startUpdateWatcher } from './update.js?v=26';
+import { getAppBuild } from './version.js?v=26';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -60,6 +60,7 @@ const state = {
   spaceId: null,
   online: false,
   contextNoteId: null,
+  draftNoteId: null,
 };
 
 const saveManager = new SaveManager();
@@ -151,9 +152,19 @@ function autosave() {
   saveManager.scheduleSave(() => state.notesData);
 }
 
+function noteIsEmpty(note) {
+  return !(note.title || '').trim() && !(note.content || '').trim();
+}
+
 function flushEditorToState() {
   if (state.view !== 'editor' || !state.activeNoteId) return;
   persistLocalChanges();
+  const note = getActiveNote();
+  // A brand-new note is not persisted until it actually has a title/content.
+  if (note && state.draftNoteId === note.id) {
+    if (noteIsEmpty(note)) return;
+    state.draftNoteId = null;
+  }
   autosave();
 }
 
@@ -558,14 +569,28 @@ function openEditor(noteId) {
 function openNewNote() {
   const note = createNote();
   state.notesData.notes.unshift(note);
+  state.draftNoteId = note.id;
   openEditor(note.id);
-  autosave();
-  renderNotesList();
+}
+
+function discardDraftIfEmpty() {
+  const note = getActiveNote();
+  if (note && state.draftNoteId === note.id && noteIsEmpty(note)) {
+    state.notesData.notes = state.notesData.notes.filter((n) => n.id !== note.id);
+    state.draftNoteId = null;
+    return true;
+  }
+  return false;
 }
 
 function backToList() {
   persistLocalChanges();
-  saveManager.saveNow(() => state.notesData);
+  if (discardDraftIfEmpty()) {
+    setStatus('');
+  } else {
+    state.draftNoteId = null;
+    saveManager.saveNow(() => state.notesData);
+  }
   state.activeNoteId = null;
   renderNotesList();
   showView('list');
@@ -866,9 +891,16 @@ async function init() {
 
   els.deleteBtn.addEventListener('click', async () => {
     const note = getActiveNote();
-    if (!note || !window.confirm('ย้ายโน้ตไปถังขยะ?')) return;
+    if (!note) return;
+    // Discard an empty new note silently (nothing to trash).
+    if (state.draftNoteId === note.id && noteIsEmpty(note)) {
+      backToList();
+      return;
+    }
+    if (!window.confirm('ย้ายโน้ตไปถังขยะ?')) return;
     state.notesData = updateNoteInData(state.notesData, moveNoteToTrash(note));
-    await saveManager.saveNow(state.notesData);
+    state.draftNoteId = null;
+    await saveManager.saveNow(() => state.notesData);
     backToList();
   });
 
