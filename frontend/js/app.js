@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes } from './local.js?v=24';
-import { registerServiceWorker } from './cache.js?v=24';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=24';
-import { bindComposableInput } from './text-input.js?v=24';
-import { CONFIG } from './config.js?v=24';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=24';
+import { loadNotes, saveNotes } from './local.js?v=25';
+import { registerServiceWorker } from './cache.js?v=25';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=25';
+import { bindComposableInput } from './text-input.js?v=25';
+import { CONFIG } from './config.js?v=25';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=25';
 import {
   addTag,
   countNotesByTag,
@@ -27,7 +27,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=24';
+} from './notes.js?v=25';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -35,19 +35,19 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=24';
-import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=24';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=24';
+} from './schedule.js?v=25';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=25';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=25';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=24';
-import { normalizeNotesData } from './notes.js?v=24';
-import { SaveManager } from './sync.js?v=24';
-import { forceRefresh, startUpdateWatcher } from './update.js?v=24';
-import { getAppBuild } from './version.js?v=24';
+} from './remote.js?v=25';
+import { normalizeNotesData } from './notes.js?v=25';
+import { SaveManager } from './sync.js?v=25';
+import { startUpdateWatcher } from './update.js?v=25';
+import { getAppBuild } from './version.js?v=25';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -74,6 +74,9 @@ const els = {
   addNoteBtn: document.getElementById('add-note-btn'),
   settingsBtn: document.getElementById('settings-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
+  openDrawerBtn: document.getElementById('open-drawer-btn'),
+  drawer: document.getElementById('group-drawer'),
+  drawerBackdrop: document.getElementById('drawer-backdrop'),
   appVersion: document.getElementById('app-version'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
   sortBar: document.getElementById('sort-bar'),
@@ -104,13 +107,16 @@ const els = {
   settingsOverlay: document.getElementById('settings-overlay'),
   settingsBackdrop: document.getElementById('settings-backdrop'),
   cardDensitySlider: document.getElementById('card-density-slider'),
+  themeDarkBtn: document.getElementById('theme-dark-btn'),
+  themeLightBtn: document.getElementById('theme-light-btn'),
+  thicknessSort: document.getElementById('thickness-sort'),
+  thicknessTag: document.getElementById('thickness-tag'),
   syncCodeValue: document.getElementById('sync-code-value'),
   syncCodeInput: document.getElementById('sync-code-input'),
   copySyncCodeBtn: document.getElementById('copy-sync-code-btn'),
   applySyncCodeBtn: document.getElementById('apply-sync-code-btn'),
   closeSettingsBtn: document.getElementById('close-settings-btn'),
   noteContextMenu: document.getElementById('note-context-menu'),
-  refreshAppBtn: document.getElementById('refresh-app-btn'),
   loadingOverlay: document.getElementById('loading-overlay'),
 };
 
@@ -157,6 +163,44 @@ function applyCardDensity() {
   if (els.cardDensitySlider) {
     els.cardDensitySlider.value = String(state.settings.cardDensity);
   }
+}
+
+function applyTheme() {
+  const light = state.settings.theme === 'light';
+  document.body.classList.toggle('light', light);
+  els.themeDarkBtn?.classList.toggle('active', !light);
+  els.themeLightBtn?.classList.toggle('active', light);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', light ? '#f2f2f7' : '#000000');
+}
+
+function barWrapper(bar) {
+  return document.querySelector(`.movable-bar[data-bar="${bar}"]`);
+}
+
+function applyBarThickness() {
+  const bt = state.settings.barThickness || { sort: 0, tag: 0 };
+  ['sort', 'tag'].forEach((bar) => {
+    const wrap = barWrapper(bar);
+    const inner = wrap ? wrap.querySelector('.sort-bar, .tag-filter-bar') : null;
+    if (inner) inner.style.setProperty('--bar-pad', thicknessToPadRem(bt[bar] || 0));
+  });
+  if (els.thicknessSort) els.thicknessSort.value = String(bt.sort || 0);
+  if (els.thicknessTag) els.thicknessTag.value = String(bt.tag || 0);
+}
+
+function openDrawer() {
+  els.drawer.classList.add('open');
+  els.drawerBackdrop.classList.add('open');
+}
+
+function closeDrawer() {
+  els.drawer.classList.remove('open');
+  els.drawerBackdrop.classList.remove('open');
+}
+
+function isDrawerOpen() {
+  return els.drawer.classList.contains('open');
 }
 
 function getActiveNote() {
@@ -208,6 +252,15 @@ function renderGroupNav() {
   if (els.sortWrap) els.sortWrap.hidden = !isActiveGroup;
   if (els.tagWrap) els.tagWrap.hidden = !isActiveGroup || !hasTags;
   els.addNoteBtn.hidden = !isActiveGroup;
+
+  const groupTitle =
+    state.listGroup === NOTE_STATUS.DONE
+      ? 'ทำแล้ว'
+      : state.listGroup === NOTE_STATUS.TRASH
+        ? 'ถังขยะ'
+        : 'งาน';
+  const titleEl = els.listView.querySelector('.topbar h1');
+  if (titleEl) titleEl.textContent = groupTitle === 'งาน' ? 'P-Note' : `P-Note · ${groupTitle}`;
 }
 
 function renderSortBar() {
@@ -436,6 +489,8 @@ function closeTagManager() {
 function openSettings() {
   els.settingsOverlay.hidden = false;
   els.cardDensitySlider.value = String(state.settings.cardDensity);
+  applyTheme();
+  applyBarThickness();
   renderSyncCode();
 }
 
@@ -543,6 +598,7 @@ function setListGroup(group) {
   state.listGroup = group;
   state.tagFilterId = null;
   closeContextMenu();
+  closeDrawer();
   renderNotesList();
 }
 
@@ -597,8 +653,10 @@ async function bootstrapData() {
     remotePush: (data) => pushRemoteNotes(state.spaceId, data),
   });
 
+  applyTheme();
   applyCardDensity();
   reapplyBarLayout();
+  applyBarThickness();
   renderNotesList();
   showView('list');
   setLoading(false);
@@ -647,8 +705,8 @@ function renderSyncCode() {
   }
 }
 
-// Swipe from the left edge to the right = go back (like modern mobile apps).
-function handleBackGesture() {
+// Left-edge swipe right: in editor = go back; on list = open the group drawer.
+function handleEdgeSwipeRight() {
   if (!els.settingsOverlay.hidden) {
     closeSettings();
     return;
@@ -663,6 +721,10 @@ function handleBackGesture() {
   }
   if (state.view === 'editor') {
     backToList();
+    return;
+  }
+  if (!isDrawerOpen()) {
+    openDrawer();
   }
 }
 
@@ -681,7 +743,6 @@ function initSwipeBack() {
       const t = event.touches[0];
       startX = t.clientX;
       startY = t.clientY;
-      // Only start from the left edge to avoid hijacking scroll/text selection.
       tracking = startX <= 36;
     },
     { passive: true },
@@ -690,13 +751,19 @@ function initSwipeBack() {
   document.addEventListener(
     'touchend',
     (event) => {
-      if (!tracking) return;
-      tracking = false;
       const t = event.changedTouches[0];
       const dx = t.clientX - startX;
       const dy = Math.abs(t.clientY - startY);
+      // Swipe left (right-to-left) closes an open drawer.
+      if (isDrawerOpen() && dx < -60 && dy < 55) {
+        closeDrawer();
+        tracking = false;
+        return;
+      }
+      if (!tracking) return;
+      tracking = false;
       if (dx > 70 && dy < 55) {
-        handleBackGesture();
+        handleEdgeSwipeRight();
       }
     },
     { passive: true },
@@ -704,6 +771,7 @@ function initSwipeBack() {
 }
 
 async function init() {
+  applyTheme();
   registerServiceWorker();
 
   startUpdateWatcher({
@@ -711,18 +779,36 @@ async function init() {
     intervalMs: CONFIG.UPDATE_CHECK_MS,
   });
 
-  els.refreshAppBtn.addEventListener('click', () => {
-    forceRefresh();
-  });
-
   els.addNoteBtn.addEventListener('click', openNewNote);
   els.settingsBtn.addEventListener('click', openSettings);
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
+
+  els.openDrawerBtn.addEventListener('click', openDrawer);
+  els.drawerBackdrop.addEventListener('click', closeDrawer);
+
+  const setTheme = (theme) => {
+    state.settings.theme = theme;
+    saveSettings(state.settings);
+    applyTheme();
+  };
+  els.themeDarkBtn.addEventListener('click', () => setTheme('dark'));
+  els.themeLightBtn.addEventListener('click', () => setTheme('light'));
+
   els.cardDensitySlider.addEventListener('input', () => {
     state.settings.cardDensity = Number(els.cardDensitySlider.value);
     saveSettings(state.settings);
     applyCardDensity();
+  });
+  els.thicknessSort.addEventListener('input', () => {
+    state.settings.barThickness.sort = Number(els.thicknessSort.value);
+    saveSettings(state.settings);
+    applyBarThickness();
+  });
+  els.thicknessTag.addEventListener('input', () => {
+    state.settings.barThickness.tag = Number(els.thicknessTag.value);
+    saveSettings(state.settings);
+    applyBarThickness();
   });
   els.resetBarsBtn.addEventListener('click', () => {
     state.settings.barLayout = [...DEFAULT_BAR_LAYOUT];

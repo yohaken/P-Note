@@ -3,31 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="pnote-build" content="24">
-  <meta name="theme-color" content="#020408">
+  <meta name="pnote-build" content="25">
+  <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
-  <script src="js/cache-bootstrap.js?v=24"></script>
+  <script src="js/cache-bootstrap.js?v=25"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=24">
+  <link rel="stylesheet" href="css/style.css?v=25">
 </head>
-<body class="theme-2050">
-  <p id="hello-world-banner" class="hello-world-banner" role="status">hello world</p>
+<body>
   <div id="app">
     <section id="list-view" class="view" hidden>
       <header class="topbar topbar-thin">
+        <button id="open-drawer-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="กลุ่ม">☰</button>
         <h1>P-Note</h1>
         <div class="topbar-actions">
           <button id="manage-tags-btn" class="btn btn-mini" type="button">แท็ก</button>
           <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">⚙</button>
-          <span id="app-version" class="app-version">v24</span>
+          <span id="app-version" class="app-version">v25</span>
         </div>
       </header>
 
@@ -51,14 +48,6 @@
 
       <!-- Movable bars: JS relocates these wrappers into #bars-top / #bars-bottom per saved layout -->
       <div id="movable-bars" hidden>
-        <div class="movable-bar" data-bar="group">
-          <span class="bar-grip" aria-hidden="true">⠿</span>
-          <nav id="group-nav" class="group-nav" aria-label="กลุ่มโน้ต">
-            <button id="group-active-btn" class="group-tab active" type="button">งาน</button>
-            <button id="group-done-btn" class="group-tab" type="button">ทำแล้ว</button>
-            <button id="group-trash-btn" class="group-tab" type="button">ถังขยะ</button>
-          </nav>
-        </div>
         <div class="movable-bar" data-bar="sort">
           <span class="bar-grip" aria-hidden="true">⠿</span>
           <div id="sort-bar" class="sort-bar" aria-label="จัดเรียงโน้ต">
@@ -95,6 +84,15 @@
       </footer>
     </section>
 
+    <!-- Left drawer: note groups (Apple Notes style) -->
+    <div id="drawer-backdrop" class="drawer-backdrop"></div>
+    <aside id="group-drawer" class="drawer" aria-label="กลุ่มโน้ต">
+      <h2>กลุ่ม</h2>
+      <button id="group-active-btn" class="drawer-item active" type="button">📋 งาน</button>
+      <button id="group-done-btn" class="drawer-item" type="button">✓ ทำแล้ว</button>
+      <button id="group-trash-btn" class="drawer-item" type="button">🗑 ถังขยะ</button>
+    </aside>
+
     <div id="tag-modal" class="modal" hidden>
       <div class="modal-card">
         <h2>จัดการแท็ก</h2>
@@ -115,12 +113,26 @@
       <div class="settings-panel" role="dialog" aria-labelledby="settings-title">
         <h2 id="settings-title">ตั้งค่า</h2>
         <div class="settings-row">
-          <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
-          <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
-          <p class="settings-hint">เลื่อนเพื่อย่อการ์ด — เห็นหัวข้อเป็นหลักในภาพรวม</p>
+          <span class="settings-label">ธีม</span>
+          <div class="segmented" id="theme-segmented">
+            <button id="theme-dark-btn" type="button" class="active">มืด</button>
+            <button id="theme-light-btn" type="button">สว่าง</button>
+          </div>
         </div>
         <div class="settings-row">
-          <span class="settings-label">ตำแหน่งแถบ (ลากที่จุด ⠿ เพื่อย้ายบน/ล่าง)</span>
+          <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
+          <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">ความบางของแถบ (ปรับแยกแต่ละแถบ)</span>
+          <div class="thickness-row">
+            <span>จัดเรียง</span>
+            <input id="thickness-sort" type="range" min="0" max="100" value="0" step="5">
+          </div>
+          <div class="thickness-row">
+            <span>แท็ก</span>
+            <input id="thickness-tag" type="range" min="0" max="100" value="0" step="5">
+          </div>
           <button id="reset-bars-btn" class="btn btn-secondary" type="button">รีเซ็ตตำแหน่งแถบ</button>
         </div>
         <div class="settings-row">
@@ -133,7 +145,7 @@
             <input id="sync-code-input" class="sync-code-input" type="text" placeholder="วางรหัสจากอีกเครื่อง" autocomplete="off">
             <button id="apply-sync-code-btn" class="btn btn-primary" type="button">ใช้รหัสนี้</button>
           </div>
-          <p class="settings-hint">ข้อมูลเก็บในฐานข้อมูลบนเซิร์ฟเวอร์ (Firestore) ใช้รหัสเดียวกันบนอีกเครื่องเพื่อเห็นโน้ตชุดเดียวกัน</p>
+          <p class="settings-hint">ข้อมูลเก็บในฐานข้อมูลบนเซิร์ฟเวอร์ ใช้รหัสเดียวกันบนอีกเครื่องเพื่อเห็นโน้ตชุดเดียวกัน</p>
         </div>
         <button id="close-settings-btn" class="btn btn-secondary settings-close" type="button">ปิด</button>
       </div>
@@ -142,7 +154,6 @@
     <div id="note-context-menu" class="context-menu" hidden role="menu"></div>
 
     <div id="update-toast" class="update-toast" hidden role="status" aria-live="polite"></div>
-    <button id="refresh-app-btn" class="refresh-fab" type="button" aria-label="รีเฟรชแอป" title="รีเฟรชแอป">↻</button>
 
     <div id="loading-overlay" class="loading-overlay">
       <div class="spinner"></div>
@@ -150,6 +161,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=24"></script>
+  <script type="module" src="js/app.js?v=25"></script>
 </body>
 </html>
