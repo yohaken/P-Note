@@ -33,10 +33,10 @@ body.light {
 }
 
 /*
- * Shell — copied from yohaken/cursor-agent calorie-tracker (docs/calorie-tracker).
- * Document-style page: same --bg on html/body, min-height 100dvh,
- * safe-area via body padding-bottom (background paints into the inset).
- * Do NOT use the old P-Note fixed body/#app / fixed bottom-nav model.
+ * Shell — EXACT calorie-tracker body model (yohaken/cursor-agent).
+ * Rules that calorie does NOT have are forbidden here:
+ *   no height:100dvh, no overflow:hidden, no display:flex on body.
+ * Safe-area is body padding only; background paints into the inset.
  */
 *,
 *::before,
@@ -56,25 +56,17 @@ body {
   color: var(--text);
   line-height: 1.4;
   min-height: 100dvh;
-  height: 100dvh;
-  padding-bottom: var(--safe-bottom);
+  padding-bottom: calc(1rem + var(--safe-bottom));
   touch-action: manipulation;
   -webkit-font-smoothing: antialiased;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  overscroll-behavior: none;
 }
 
 #app {
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
   max-width: 720px;
   margin: 0 auto;
+  min-height: calc(100dvh - 1rem - var(--safe-bottom));
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   background: var(--bg);
 }
 
@@ -84,11 +76,10 @@ body {
 
 .view {
   flex: 1 1 auto;
-  min-height: 0;
   width: 100%;
+  min-height: calc(100dvh - 1rem - var(--safe-bottom));
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .view[hidden] {
@@ -154,8 +145,11 @@ body {
   color: var(--text);
 }
 
-/* Thin top bar with plain text title */
+/* Thin top bar — sticky like calorie document chrome */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -230,13 +224,9 @@ body {
   min-height: auto;
 }
 
-/* Scroll + zones */
+/* Scroll + zones — document scroll (calorie); list grows with content */
 .list-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  flex: 1 1 auto;
   padding-bottom: 0.5rem;
 }
 
@@ -247,6 +237,9 @@ body {
 
 .bars-filters {
   flex-shrink: 0;
+  position: sticky;
+  bottom: 3.35rem;
+  z-index: 40;
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
@@ -262,16 +255,17 @@ body {
 }
 
 /*
- * Bottom nav — in document/flex flow (calorie-tracker style).
- * Safe-area is on body padding-bottom; nav has no fixed positioning
- * and no extra bottom pad (body background fills the home-indicator zone).
+ * Bottom nav — in-flow + sticky (calorie has no nav; body padding owns safe-area).
  */
 .bottom-nav {
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 45;
   width: 100%;
   margin: 0;
+  margin-top: auto;
   padding: 0;
-  z-index: 30;
   background: var(--bg);
   border-top: 1px solid var(--border);
 }
@@ -614,15 +608,13 @@ body.reordering-active .list-scroll {
   line-height: 1.45;
 }
 
-/* Editor */
+/* Editor — scrolls with document like calorie sheets' body content */
 .editor-body {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   padding: 0.6rem 0.75rem;
   gap: 0.6rem;
-  overflow-y: auto;
 }
 
 .note-title,

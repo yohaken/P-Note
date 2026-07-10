@@ -1,10 +1,10 @@
-import { loadNotes, saveNotes } from './local.js?v=41';
-import { registerServiceWorker } from './cache.js?v=41';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=41';
-import { initListSortable } from './sortable.js?v=41';
-import { bindComposableInput } from './text-input.js?v=41';
-import { CONFIG } from './config.js?v=41';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=41';
+import { loadNotes, saveNotes } from './local.js?v=42';
+import { registerServiceWorker } from './cache.js?v=42';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=42';
+import { initListSortable } from './sortable.js?v=42';
+import { bindComposableInput } from './text-input.js?v=42';
+import { CONFIG } from './config.js?v=42';
+import { hasAnyNotes, tryAutoImport } from './import-data.js?v=42';
 import {
   addTag,
   countNotesByTag,
@@ -36,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=41';
+} from './notes.js?v=42';
 import {
   fromDatetimeLocalValue,
   getScheduleStatus,
@@ -44,19 +44,19 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=41';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=41';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=41';
+} from './schedule.js?v=42';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessToPadRem } from './settings.js?v=42';
+import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=42';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=41';
-import { normalizeNotesData } from './notes.js?v=41';
-import { SaveManager } from './sync.js?v=41';
-import { startUpdateWatcher } from './update.js?v=41';
-import { getAppBuild, formatAppBuiltAt } from './version.js?v=41';
+} from './remote.js?v=42';
+import { normalizeNotesData } from './notes.js?v=42';
+import { SaveManager } from './sync.js?v=42';
+import { startUpdateWatcher } from './update.js?v=42';
+import { getAppBuild, formatAppBuiltAt } from './version.js?v=42';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
