@@ -11,10 +11,13 @@ export const CONFIG = {
     : 'https://p-note-api-cwpgmqlv2q-as.a.run.app',
 };
 
-/** Bump <meta name="pnote-build"> in index.html when releasing; cache-bootstrap clears stale SW. */
+/** Bump <meta name="pnote-build"> when releasing; cache-bootstrap clears stale SW. */
 export const STORAGE_KEYS = {
   ACTIVE_BUILD: 'pnote_active_build',
   LOCAL_DATA: 'pnote_local_data',
   SETTINGS: 'pnote_settings',
+  /** Shared sync code for Calorie + Note (one DB space). */
   SPACE_ID: 'pnote_space_id',
+  /** Legacy calorie-only key — migrated into SPACE_ID. */
+  LEGACY_CALORIE_SPACE_ID: 'calorie_space_id',
 };

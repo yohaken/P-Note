@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="50">
-  <meta name="pnote-built" content="2026-07-10T23:04:00+07:00">
-  <script src="js/cache-bootstrap.js?v=50"></script>
+  <meta name="pnote-build" content="51">
+  <meta name="pnote-built" content="2026-07-10T23:14:00+07:00">
+  <script src="js/cache-bootstrap.js?v=51"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -549,8 +549,7 @@
       <div class="sortable-block" data-block-id="pages">
         <span class="drag-handle" aria-hidden="true">⋮⋮</span>
         <nav class="page-tabs" id="pageTabs" aria-label="เมนูหลัก">
-          <button type="button" class="page-tab active" data-page="calorie" id="tab-calorie">Calorie</button>
-          <button type="button" class="page-tab" data-page="note" id="tab-note">Note</button>
+          <button type="button" class="page-tab" data-page="note" id="tab-note">Note →</button>
         </nav>
       </div>
 
@@ -789,11 +788,11 @@
         <p class="sheet-scroll-hint">เลื่อนลงเพื่อดูทั้งหมด ↓</p>
       </div>
       <div class="edit-sheet-body" id="settingsScrollBody">
-        <p class="sheet-section-label">🗄️ ฐานข้อมูล (Firestore)</p>
+        <p class="sheet-section-label">🗄️ ฐานข้อมูล (Calorie + Note)</p>
         <div class="field">
           <label for="settingsSyncCode">รหัสซิงค์</label>
           <input type="text" id="settingsSyncCode" placeholder="sp-xxxxxxxx" autocomplete="off" spellcheck="false">
-          <p class="hint">ใช้รหัสเดียวกันบนอีกเครื่องเพื่อแชร์ข้อมูลแคลอรี่ · ไม่ต้องล็อกอิน</p>
+          <p class="hint">รหัสเดียวใช้ร่วมกันทั้งแคลอรี่และโน้ต · ตั้งที่นี่ครั้งเดียว · ไม่ต้องล็อกอิน</p>
           <div style="display:flex;gap:0.35rem;margin-top:0.35rem;flex-wrap:wrap">
             <button type="button" class="btn btn-ghost" id="btnCopySyncCode" style="flex:1;font-size:0.72rem">คัดลอก</button>
             <button type="button" class="btn" id="btnApplySyncCode" style="flex:1;font-size:0.72rem">ใช้รหัสนี้</button>
@@ -903,7 +902,8 @@
     const SETTINGS_KEY = 'calorieTracker:settings';
     const TEMPLATES_KEY = 'calorieTracker:templates';
     const EXERCISE_TEMPLATES_KEY = 'calorieTracker:exerciseTemplates';
-    const SPACE_ID_KEY = 'calorie_space_id';
+    const SPACE_ID_KEY = 'pnote_space_id';
+    const LEGACY_SPACE_ID_KEY = 'calorie_space_id';
     const SPACE_RE = /^[A-Za-z0-9_-]{6,64}$/;
     const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://localhost:8080'
@@ -914,7 +914,7 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const APP_VERSION = 'build-50';
+    const APP_VERSION = 'build-51';
 
     const PERIODS = [
       { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
@@ -1411,20 +1411,24 @@
       return 'sp-' + rand.slice(0, 20);
     }
 
-    function getSpaceId() {
-      let id = localStorage.getItem(SPACE_ID_KEY);
-      if (!id || !SPACE_RE.test(id)) {
-        id = randomSpaceId();
-        localStorage.setItem(SPACE_ID_KEY, id);
-      }
+    function persistSpaceId(id) {
+      localStorage.setItem(SPACE_ID_KEY, id);
+      localStorage.setItem(LEGACY_SPACE_ID_KEY, id);
       return id;
+    }
+
+    function getSpaceId() {
+      const primary = localStorage.getItem(SPACE_ID_KEY);
+      if (primary && SPACE_RE.test(primary)) return persistSpaceId(primary);
+      const legacy = localStorage.getItem(LEGACY_SPACE_ID_KEY);
+      if (legacy && SPACE_RE.test(legacy)) return persistSpaceId(legacy);
+      return persistSpaceId(randomSpaceId());
     }
 
     function setSpaceId(id) {
       const trimmed = String(id || '').trim();
       if (!SPACE_RE.test(trimmed)) throw new Error('รหัสซิงค์ต้องเป็น A-Z a-z 0-9 - _ ยาว 6–64 ตัว');
-      localStorage.setItem(SPACE_ID_KEY, trimmed);
-      return trimmed;
+      return persistSpaceId(trimmed);
     }
 
     function collectCalorieLocalData() {
@@ -2922,7 +2926,12 @@
     els.mealTime.value = nowTimeStr();
     els.exerciseTime.value = nowTimeStr();
     setDate(todayStr());
+
+    if (location.hash === '#settings') {
+      openSettings();
+      history.replaceState(null, '', location.pathname + location.search);
+    }
   </script>
-  <script src="js/update-watch.js?v=50"></script>
+  <script src="js/update-watch.js?v=51"></script>
 </body>
 </html>

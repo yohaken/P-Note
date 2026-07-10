@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="50">
-  <meta name="pnote-built" content="2026-07-10T23:04:00+07:00">
+  <meta name="pnote-build" content="51">
+  <meta name="pnote-built" content="2026-07-10T23:14:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=50"></script>
+  <script src="js/cache-bootstrap.js?v=51"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=50">
+  <link rel="stylesheet" href="css/pnote.css?v=51">
   <style>
     /* Page switcher pinned under P-Note content */
     .shell-page-tabs {
@@ -231,16 +231,11 @@
           <button id="reset-bars-btn" class="btn btn-secondary" type="button">รีเซ็ตตำแหน่งแถบ</button>
         </div>
         <div class="settings-row">
-          <label class="settings-label" for="sync-code-value">รหัสซิงค์ (ใช้ข้ามอุปกรณ์ · ไม่ต้องล็อกอิน)</label>
-          <div class="sync-code-row">
-            <input id="sync-code-value" class="sync-code-input" type="text" readonly>
-            <button id="copy-sync-code-btn" class="btn btn-secondary" type="button">คัดลอก</button>
-          </div>
-          <div class="sync-code-row">
-            <input id="sync-code-input" class="sync-code-input" type="text" placeholder="วางรหัสจากอีกเครื่อง" autocomplete="off">
-            <button id="apply-sync-code-btn" class="btn btn-primary" type="button">ใช้รหัสนี้</button>
-          </div>
-          <p class="settings-hint">ข้อมูลเก็บในฐานข้อมูลบนเซิร์ฟเวอร์ ใช้รหัสเดียวกันบนอีกเครื่องเพื่อเห็นโน้ตชุดเดียวกัน</p>
+          <span class="settings-label">ฐานข้อมูล / รหัสซิงค์</span>
+          <p class="settings-hint">
+            Calorie กับ Note ใช้รหัสซิงค์ก้อนเดียวกัน — ตั้งค่าที่หน้าแรก (Calorie) → ตั้งค่า ครั้งเดียวจบ
+          </p>
+          <button id="goto-calorie-settings-btn" class="btn btn-primary" type="button">ไปตั้งค่าที่ Calorie</button>
         </div>
         <button id="close-settings-btn" class="btn btn-secondary settings-close" type="button">ปิด</button>
       </div>
@@ -254,8 +249,7 @@
     </div>
 
     <nav class="shell-page-tabs" id="pageTabs" aria-label="สลับแผ่นงาน">
-      <button type="button" class="shell-page-tab" data-page="calorie" id="tab-calorie">Calorie</button>
-      <button type="button" class="shell-page-tab active" data-page="note" id="tab-note">Note</button>
+      <button type="button" class="shell-page-tab" data-page="calorie" id="tab-calorie">← Calorie</button>
     </nav>
   </div>
 
@@ -266,7 +260,7 @@
       if (btn.dataset.page === 'calorie') location.href = './index.html';
     });
   </script>
-  <script type="module" src="js/app.js?v=50"></script>
-  <script src="js/update-watch.js?v=50"></script>
+  <script type="module" src="js/app.js?v=51"></script>
+  <script src="js/update-watch.js?v=51"></script>
 </body>
 </html>

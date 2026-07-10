@@ -2,7 +2,7 @@ import { loadNotes, saveNotes } from './local.js?v=46';
 import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=46';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
-import { CONFIG } from './config.js?v=46';
+import { CONFIG } from './config.js?v=51';
 import { hasAnyNotes, tryAutoImport } from './import-data.js?v=46';
 import {
   addTag,
@@ -51,7 +51,7 @@ import {
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=46';
+} from './remote.js?v=51';
 import { normalizeNotesData } from './notes.js?v=46';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
@@ -132,10 +132,11 @@ const els = {
   thicknessSort: document.getElementById('thickness-sort'),
   thicknessTag: document.getElementById('thickness-tag'),
   thicknessPriority: document.getElementById('thickness-priority'),
-  syncCodeValue: document.getElementById('sync-code-value'),
-  syncCodeInput: document.getElementById('sync-code-input'),
-  copySyncCodeBtn: document.getElementById('copy-sync-code-btn'),
-  applySyncCodeBtn: document.getElementById('apply-sync-code-btn'),
+  syncCodeValue: null,
+  syncCodeInput: null,
+  copySyncCodeBtn: null,
+  applySyncCodeBtn: null,
+  gotoCalorieSettingsBtn: document.getElementById('goto-calorie-settings-btn'),
   closeSettingsBtn: document.getElementById('close-settings-btn'),
   noteContextMenu: document.getElementById('note-context-menu'),
   loadingOverlay: document.getElementById('loading-overlay'),
@@ -658,7 +659,6 @@ function openSettings() {
   els.cardDensitySlider.value = String(state.settings.cardDensity);
   applyTheme();
   applyBarThickness();
-  renderSyncCode();
 }
 
 function closeSettings() {
@@ -891,15 +891,8 @@ async function applySyncCode(code) {
   state.priorityFilter = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
   renderNotesList();
-  renderSyncCode();
   setLoading(false);
   closeSettings();
-}
-
-function renderSyncCode() {
-  if (els.syncCodeValue) {
-    els.syncCodeValue.value = state.spaceId || getSpaceId();
-  }
 }
 
 // Left-edge swipe right: editor = back; overlays close. Group drawer is bottom-nav only.
@@ -1010,17 +1003,8 @@ async function init() {
     renderNotesList();
     setStatus('รีเซ็ตตำแหน่งแถบแล้ว');
   });
-  els.copySyncCodeBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(els.syncCodeValue.value);
-      setStatus('คัดลอกรหัสแล้ว');
-    } catch {
-      els.syncCodeValue.select();
-    }
-  });
-  els.applySyncCodeBtn.addEventListener('click', () => {
-    const code = els.syncCodeInput.value.trim();
-    if (code) applySyncCode(code);
+  els.gotoCalorieSettingsBtn?.addEventListener('click', () => {
+    window.location.href = './index.html#settings';
   });
 
   els.groupActiveBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.ACTIVE));
