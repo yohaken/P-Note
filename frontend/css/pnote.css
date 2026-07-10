@@ -1410,17 +1410,22 @@ body.light .priority-badge.priority-urgent {
   color: #fff;
 }
 
-/* Context menu + confirm — always centered on screen */
+/* Context menu + confirm — true viewport center */
 .note-center-overlay {
   position: fixed;
   inset: 0;
-  z-index: 150;
+  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem;
+  padding: max(1rem, env(safe-area-inset-top, 0px))
+    max(1rem, env(safe-area-inset-right, 0px))
+    max(1rem, env(safe-area-inset-bottom, 0px))
+    max(1rem, env(safe-area-inset-left, 0px));
+  margin: 0;
   background: rgba(0, 0, 0, 0.45);
   -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
 }
 
 .note-center-overlay[hidden] {
@@ -1428,11 +1433,15 @@ body.light .priority-badge.priority-urgent {
 }
 
 .context-menu {
-  position: relative;
-  left: auto;
-  top: auto;
-  transform: none;
+  position: static;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
   z-index: 1;
+  flex: 0 0 auto;
+  margin: 0;
   min-width: min(220px, 80vw);
   max-width: min(320px, 92vw);
   background: var(--surface-2);
@@ -1469,6 +1478,12 @@ body.light .priority-badge.priority-urgent {
 }
 
 .note-confirm-pop {
+  position: static;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  flex: 0 0 auto;
+  margin: 0;
   width: min(320px, 92vw);
   background: var(--surface-2);
   border: 1px solid var(--border-strong);
