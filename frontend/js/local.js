@@ -1,5 +1,5 @@
-import { STORAGE_KEYS } from './config.js?v=38';
-import { normalizeNotesData } from './notes.js?v=38';
+import { STORAGE_KEYS } from './config.js?v=39';
+import { normalizeNotesData } from './notes.js?v=39';
 
 export const LOCAL_DATA_KEY = STORAGE_KEYS.LOCAL_DATA;
 
