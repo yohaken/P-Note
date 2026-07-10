@@ -17,17 +17,12 @@ let app = null;
 export let auth = null;
 
 /**
- * authDomain must match the host serving the app (same-origin /__/auth/handler).
- * Using firebaseapp.com while the app runs on *.web.app breaks sign-in on Safari
- * and modern mobile browsers (third-party cookie restrictions).
+ * Keep authDomain on the Firebase default domain — its /__/auth/handler redirect URI
+ * is pre-registered in the Google OAuth client. Using *.web.app here without registering
+ * https://<site>.web.app/__/auth/handler breaks ALL sign-in (redirect_uri_mismatch).
  */
-export function resolveAuthDomain() {
-  const host = window.location.hostname;
-  if (host === 'localhost' || host === '127.0.0.1') {
-    // Static dev server has no /__/auth handler — use Firebase-hosted auth domain.
-    return PROJECT_DEFAULTS.authDomain;
-  }
-  return host;
+export function resolveAuthDomain(config) {
+  return config.authDomain || PROJECT_DEFAULTS.authDomain;
 }
 
 async function loadFirebaseConfig() {
@@ -40,7 +35,7 @@ async function loadFirebaseConfig() {
   } catch {
     // Local dev or non-Firebase hosting.
   }
-  return { ...config, authDomain: resolveAuthDomain() };
+  return { ...config, authDomain: resolveAuthDomain(config) };
 }
 
 export async function initFirebase() {

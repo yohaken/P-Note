@@ -22,7 +22,11 @@
 - **มือถือ / PWA:** ใช้ redirect ไปหน้า Google แล้วกลับมา (`signInWithRedirect`) — popup มักถูกบล็อกบน iOS/Android
 - **Session ยาว:** Firebase session เก็บใน localStorage; token Drive แคช ~55 นาที — ถ้าหมดอายุต้องกด "Sign in with Google" อีกครั้ง (ไม่เด้ง popup เองตอนเปิดแอป)
 
-เสร็จแล้ว — เปิด https://mypeer-501909.web.app/ กด **Sign in with Google**
+เสร็จแล้ว — เปิดลิงก์ตรงนี้ (อย่าใช้ p-note.web.app — โดเมนนั้นไม่ได้เชื่อมแล้ว):
+
+**https://mypeer-501909.web.app/**
+
+หรือ **https://mypeer-501909.firebaseapp.com/** (โฮสต์เดียวกัน)
 
 ## โครงสร้างหลัง Phase 2
 
