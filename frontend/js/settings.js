@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from './config.js?v=46';
+import { STORAGE_KEYS } from './config.js?v=51';
 import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=46';
 
 const DEFAULTS = {

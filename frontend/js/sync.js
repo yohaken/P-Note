@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=46';
+import { CONFIG } from './config.js?v=51';
 import { saveNotes } from './local.js?v=46';
 
 export class SaveManager {

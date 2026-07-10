@@ -1,9 +1,8 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=46';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=51';
 
 /**
  * Talks to the backend notes API (Firestore-backed database).
- * No login yet — each device gets an anonymous "space id" (sync code).
- * The same code entered on another device shares the same data.
+ * Sync code is shared with Calorie (one space id for the whole app).
  * localStorage is kept only as an offline cache/fallback.
  */
 
@@ -18,13 +17,22 @@ function randomSpaceId() {
   return `sp-${rand.slice(0, 20)}`;
 }
 
-export function getSpaceId() {
-  let id = localStorage.getItem(STORAGE_KEYS.SPACE_ID);
-  if (!id || !SPACE_RE.test(id)) {
-    id = randomSpaceId();
-    localStorage.setItem(STORAGE_KEYS.SPACE_ID, id);
-  }
+function persistSpaceId(id) {
+  localStorage.setItem(STORAGE_KEYS.SPACE_ID, id);
+  localStorage.setItem(STORAGE_KEYS.LEGACY_CALORIE_SPACE_ID, id);
   return id;
+}
+
+export function getSpaceId() {
+  const primary = localStorage.getItem(STORAGE_KEYS.SPACE_ID);
+  if (primary && SPACE_RE.test(primary)) {
+    return persistSpaceId(primary);
+  }
+  const legacy = localStorage.getItem(STORAGE_KEYS.LEGACY_CALORIE_SPACE_ID);
+  if (legacy && SPACE_RE.test(legacy)) {
+    return persistSpaceId(legacy);
+  }
+  return persistSpaceId(randomSpaceId());
 }
 
 export function setSpaceId(id) {
@@ -32,8 +40,7 @@ export function setSpaceId(id) {
   if (!SPACE_RE.test(trimmed)) {
     throw new Error('รหัสซิงค์ต้องเป็น A-Z a-z 0-9 - _ ยาว 6-64 ตัว');
   }
-  localStorage.setItem(STORAGE_KEYS.SPACE_ID, trimmed);
-  return trimmed;
+  return persistSpaceId(trimmed);
 }
 
 function apiUrl(spaceId) {
