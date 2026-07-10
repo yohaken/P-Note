@@ -28,4 +28,5 @@ Personal notes PWA. Static frontend (`frontend/`) synced to Google Drive via Fir
 - **Single bump point:** `<meta name="pnote-build" content="N">` in `frontend/index.html` — also update `?v=N` on `cache-bootstrap.js`, `app.js`, `css/style.css`, all `./js/*.js?v=N` imports, and `CACHE_NAME` in `frontend/sw.js` (`pnote-vN`).
 - **`js/cache-bootstrap.js`** runs before modules: if `localStorage.pnote_active_build !== meta build`, it unregisters all service workers, deletes all Cache Storage, saves the new build id, and reloads once. This is the permanent in-app cache flush (not a one-off hack).
 - **`js/cache.js`** registers `sw.js?v=N` after bootstrap. Login is disabled for now — no auth modules loaded.
-- Notes live in `localStorage` key `pnote_local_data` (v2 schema with tags). Export/import JSON via **สำรอง / นำเข้า** in the header.
+- Notes live in `localStorage` key `pnote_local_data` (v3 schema: tags + `scheduledAt` per note). Export/import JSON via **สำรอง / นำเข้า** in the header.
+- Home page shows a month calendar, upcoming schedule list, and sort chips (**ล่าสุด** / **ตามกำหนด**). Editor autosaves title, content, tags, and schedule — no save button.

@@ -1,5 +1,5 @@
-import { loadNotes, exportNotesBlob, parseNotesImport } from './local.js?v=15';
-import { registerServiceWorker } from './cache.js?v=15';
+import { loadNotes, exportNotesBlob, parseNotesImport } from './local.js?v=16';
+import { registerServiceWorker } from './cache.js?v=16';
 import {
   addTag,
   countNotesByTag,
@@ -15,14 +15,29 @@ import {
   sortNotes,
   toggleNoteTag,
   updateNote,
-} from './notes.js?v=15';
-import { SaveManager } from './sync.js?v=15';
-import { getAppBuild } from './version.js?v=15';
+} from './notes.js?v=16';
+import {
+  buildMonthGrid,
+  formatScheduleDisplay,
+  fromDatetimeLocalValue,
+  getScheduleStatus,
+  getUpcomingScheduledNotes,
+  monthLabel,
+  notesOnDate,
+  sortNotesBySchedule,
+  toDatetimeLocalValue,
+} from './schedule.js?v=16';
+import { SaveManager } from './sync.js?v=16';
+import { getAppBuild } from './version.js?v=16';
 
 const state = {
-  notesData: { version: 2, updatedAt: '', tags: [], notes: [] },
+  notesData: { version: 3, updatedAt: '', tags: [], notes: [] },
   activeNoteId: null,
   tagFilterId: null,
+  sortMode: 'updated',
+  calendarYear: new Date().getFullYear(),
+  calendarMonth: new Date().getMonth(),
+  selectedDateKey: null,
   view: 'list',
 };
 
@@ -30,7 +45,6 @@ const saveManager = new SaveManager();
 let statusTimer = null;
 
 const els = {
-  app: document.getElementById('app'),
   listView: document.getElementById('list-view'),
   editorView: document.getElementById('editor-view'),
   notesList: document.getElementById('notes-list'),
@@ -42,11 +56,20 @@ const els = {
   importInput: document.getElementById('import-input'),
   appVersion: document.getElementById('app-version'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
+  sortUpdatedBtn: document.getElementById('sort-updated-btn'),
+  sortScheduleBtn: document.getElementById('sort-schedule-btn'),
+  calMonthLabel: document.getElementById('cal-month-label'),
+  calWeekdays: document.getElementById('cal-weekdays'),
+  calGrid: document.getElementById('cal-grid'),
+  calPrevBtn: document.getElementById('cal-prev-btn'),
+  calNextBtn: document.getElementById('cal-next-btn'),
+  upcomingSchedule: document.getElementById('upcoming-schedule'),
   backBtn: document.getElementById('back-btn'),
-  saveBtn: document.getElementById('save-btn'),
   deleteBtn: document.getElementById('delete-btn'),
   noteTitle: document.getElementById('note-title'),
   noteContent: document.getElementById('note-content'),
+  noteSchedule: document.getElementById('note-schedule'),
+  clearScheduleBtn: document.getElementById('clear-schedule-btn'),
   editorTags: document.getElementById('editor-tags'),
   syncStatus: document.getElementById('sync-status'),
   editorSyncStatus: document.getElementById('editor-sync-status'),
@@ -76,7 +99,6 @@ function setStatus(message, target = 'both') {
   if (target === 'both' || target === 'editor') {
     els.editorSyncStatus.textContent = message;
   }
-
   clearTimeout(statusTimer);
   if (message === 'บันทึกแล้ว') {
     statusTimer = setTimeout(() => {
@@ -84,6 +106,10 @@ function setStatus(message, target = 'both') {
       els.editorSyncStatus.textContent = '';
     }, 2000);
   }
+}
+
+function autosave() {
+  saveManager.scheduleSave(state.notesData);
 }
 
 function getActiveNote() {
@@ -97,6 +123,7 @@ function persistLocalChanges() {
   const updated = updateNote(note, {
     title: els.noteTitle.value,
     content: els.noteContent.value,
+    scheduledAt: fromDatetimeLocalValue(els.noteSchedule.value),
   });
 
   state.notesData.notes = state.notesData.notes.map((item) =>
@@ -104,13 +131,86 @@ function persistLocalChanges() {
   );
 }
 
-// Replaces the whole payload, persists it, and refreshes tag-aware views.
 function commitData(newData) {
   state.notesData = newData;
-  saveManager.saveNow(state.notesData);
+  autosave();
   renderNotesList();
   renderEditorTags();
   renderTagManager();
+}
+
+function sortedFilteredNotes() {
+  let notes = filterNotesByTag(state.notesData.notes, state.tagFilterId);
+  if (state.selectedDateKey) {
+    notes = notesOnDate(notes, state.selectedDateKey);
+  }
+  return state.sortMode === 'schedule' ? sortNotesBySchedule(notes) : sortNotes(notes);
+}
+
+function renderSortBar() {
+  els.sortUpdatedBtn.classList.toggle('active', state.sortMode === 'updated');
+  els.sortScheduleBtn.classList.toggle('active', state.sortMode === 'schedule');
+}
+
+function renderSchedulePanel() {
+  const { year, month, weekdays, cells } = buildMonthGrid(
+    state.calendarYear,
+    state.calendarMonth,
+    state.notesData.notes,
+  );
+
+  els.calMonthLabel.textContent = monthLabel(year, month);
+  els.calWeekdays.innerHTML = weekdays
+    .map((d) => `<span class="cal-weekday">${d}</span>`)
+    .join('');
+
+  els.calGrid.innerHTML = '';
+  cells.forEach((cell) => {
+    if (cell.empty) {
+      const spacer = document.createElement('span');
+      spacer.className = 'cal-day empty';
+      els.calGrid.appendChild(spacer);
+      return;
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cal-day';
+    if (cell.count) btn.classList.add('has-events');
+    if (cell.isToday) btn.classList.add('is-today');
+    if (state.selectedDateKey === cell.dateKey) btn.classList.add('selected');
+    btn.textContent = String(cell.day);
+    if (cell.count) {
+      const dot = document.createElement('span');
+      dot.className = 'cal-day-dot';
+      btn.appendChild(dot);
+    }
+    btn.addEventListener('click', () => {
+      state.selectedDateKey = state.selectedDateKey === cell.dateKey ? null : cell.dateKey;
+      renderNotesList();
+    });
+    els.calGrid.appendChild(btn);
+  });
+
+  const upcoming = getUpcomingScheduledNotes(state.notesData.notes, 6);
+  if (!upcoming.length) {
+    els.upcomingSchedule.innerHTML = '<p class="upcoming-title">ยังไม่มีกำหนดการถัดไป</p>';
+    return;
+  }
+
+  els.upcomingSchedule.innerHTML = '<p class="upcoming-title">กำหนดการถัดไป</p>';
+  upcoming.forEach((note) => {
+    const status = getScheduleStatus(note.scheduledAt);
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'upcoming-item';
+    item.innerHTML = `
+      <span class="upcoming-when ${status}">${escapeHtml(formatScheduleDisplay(note.scheduledAt))}</span>
+      <span class="upcoming-name">${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</span>
+    `;
+    item.addEventListener('click', () => openEditor(note.id));
+    els.upcomingSchedule.appendChild(item);
+  });
 }
 
 function renderTagFilterBar() {
@@ -143,11 +243,20 @@ function renderTagFilterBar() {
   });
 }
 
+function scheduleBadgeHtml(note) {
+  if (!note.scheduledAt) return '';
+  const status = getScheduleStatus(note.scheduledAt);
+  const label =
+    status === 'overdue' ? 'เลยกำหนด' : status === 'today' ? 'วันนี้' : formatScheduleDisplay(note.scheduledAt);
+  return `<span class="schedule-badge ${status}">📅 ${escapeHtml(label)}</span>`;
+}
+
 function renderNotesList() {
+  renderSortBar();
+  renderSchedulePanel();
   renderTagFilterBar();
 
-  const filtered = filterNotesByTag(state.notesData.notes, state.tagFilterId);
-  const notes = sortNotes(filtered);
+  const notes = sortedFilteredNotes();
   els.notesList.innerHTML = '';
 
   notes.forEach((note) => {
@@ -166,10 +275,11 @@ function renderNotesList() {
       : '';
 
     item.innerHTML = `
+      ${scheduleBadgeHtml(note)}
       <h3>${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
       <p>${escapeHtml(previewText(note))}</p>
       ${chipsHtml}
-      <time>${escapeHtml(formatDate(note.updatedAt))}</time>
+      <time>แก้ไข ${escapeHtml(formatDate(note.updatedAt))}</time>
     `;
     item.addEventListener('click', () => openEditor(note.id));
     els.notesList.appendChild(item);
@@ -183,8 +293,7 @@ function renderEditorTags() {
   els.editorTags.innerHTML = '';
   if (!note) return;
 
-  const tags = state.notesData.tags || [];
-  tags.forEach((tag) => {
+  (state.notesData.tags || []).forEach((tag) => {
     const selected = (note.tagIds || []).includes(tag.id);
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -210,11 +319,9 @@ function toggleActiveNoteTag(tagId) {
   const updated = toggleNoteTag(note, tagId);
   state.notesData = {
     ...state.notesData,
-    notes: state.notesData.notes.map((item) =>
-      item.id === updated.id ? updated : item,
-    ),
+    notes: state.notesData.notes.map((item) => (item.id === updated.id ? updated : item)),
   };
-  saveManager.saveNow(state.notesData);
+  autosave();
   renderEditorTags();
 }
 
@@ -230,10 +337,8 @@ function closeTagManager() {
 }
 
 function renderTagManager() {
-  const tags = state.notesData.tags || [];
   els.tagManagerList.innerHTML = '';
-
-  tags.forEach((tag) => {
+  (state.notesData.tags || []).forEach((tag) => {
     const row = document.createElement('div');
     row.className = 'tag-manager-row';
 
@@ -241,7 +346,6 @@ function renderTagManager() {
     color.type = 'color';
     color.className = 'tag-color-input';
     color.value = safeTagColor(tag.color);
-    color.setAttribute('aria-label', 'สีแท็ก');
     color.addEventListener('change', () => {
       commitData(setTagColor(state.notesData, tag.id, color.value));
     });
@@ -253,11 +357,8 @@ function renderTagManager() {
     name.maxLength = 40;
     name.addEventListener('change', () => {
       const value = name.value.trim();
-      if (value) {
-        commitData(renameTag(state.notesData, tag.id, value));
-      } else {
-        name.value = tag.name;
-      }
+      if (value) commitData(renameTag(state.notesData, tag.id, value));
+      else name.value = tag.name;
     });
 
     const count = document.createElement('span');
@@ -267,10 +368,9 @@ function renderTagManager() {
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'tag-delete-btn';
-    del.setAttribute('aria-label', 'ลบแท็ก');
     del.textContent = '✕';
     del.addEventListener('click', () => {
-      if (window.confirm(`ลบแท็ก "${tag.name}"? โน้ตจะไม่ถูกลบ`)) {
+      if (window.confirm(`ลบแท็ก "${tag.name}"?`)) {
         commitData(deleteTag(state.notesData, tag.id));
       }
     });
@@ -287,6 +387,7 @@ function openEditor(noteId) {
   state.activeNoteId = noteId;
   els.noteTitle.value = note.title;
   els.noteContent.value = note.content;
+  els.noteSchedule.value = toDatetimeLocalValue(note.scheduledAt);
   setStatus('');
   showView('editor');
   renderEditorTags();
@@ -296,11 +397,13 @@ function openNewNote() {
   const note = createNote();
   state.notesData.notes.unshift(note);
   openEditor(note.id);
-  saveManager.saveNow(state.notesData).then(() => renderNotesList());
+  autosave();
+  renderNotesList();
 }
 
 function backToList() {
   persistLocalChanges();
+  autosave();
   state.activeNoteId = null;
   renderNotesList();
   showView('list');
@@ -316,7 +419,7 @@ function escapeHtml(value) {
 
 function updateAppVersionLabel() {
   if (els.appVersion) {
-    els.appVersion.textContent = `v${getAppBuild()} · เก็บในเครื่อง`;
+    els.appVersion.textContent = `v${getAppBuild()} · โน้ต + ปฏิทิน`;
   }
 }
 
@@ -337,12 +440,11 @@ function importBackup(file) {
   reader.onload = () => {
     try {
       const data = parseNotesImport(reader.result);
-      if (!window.confirm('แทนที่โน้ตทั้งหมดด้วยไฟล์สำรอง?')) {
-        return;
-      }
+      if (!window.confirm('แทนที่โน้ตทั้งหมดด้วยไฟล์สำรอง?')) return;
       state.notesData = data;
       state.tagFilterId = null;
-      saveManager.saveNow(state.notesData);
+      state.selectedDateKey = null;
+      autosave();
       renderNotesList();
       setStatus('นำเข้าสำเร็จ');
     } catch {
@@ -354,18 +456,23 @@ function importBackup(file) {
 
 function bootstrapData() {
   setLoading(true, 'กำลังโหลดโน้ต...');
-  const { data } = loadNotes();
-  state.notesData = data;
+  state.notesData = loadNotes().data;
   state.tagFilterId = null;
+  state.selectedDateKey = null;
 
-  saveManager.configure({
-    onStatus: (message) => setStatus(message),
-  });
+  saveManager.configure({ onStatus: (message) => setStatus(message) });
 
   renderNotesList();
   showView('list');
   setLoading(false);
   updateAppVersionLabel();
+}
+
+function shiftCalendar(delta) {
+  const d = new Date(state.calendarYear, state.calendarMonth + delta, 1);
+  state.calendarYear = d.getFullYear();
+  state.calendarMonth = d.getMonth();
+  renderSchedulePanel();
 }
 
 async function init() {
@@ -381,44 +488,49 @@ async function init() {
   });
   els.backBtn.addEventListener('click', backToList);
 
+  els.sortUpdatedBtn.addEventListener('click', () => {
+    state.sortMode = 'updated';
+    renderNotesList();
+  });
+  els.sortScheduleBtn.addEventListener('click', () => {
+    state.sortMode = 'schedule';
+    renderNotesList();
+  });
+  els.calPrevBtn.addEventListener('click', () => shiftCalendar(-1));
+  els.calNextBtn.addEventListener('click', () => shiftCalendar(1));
+
   els.tagAddForm.addEventListener('submit', (event) => {
     event.preventDefault();
     const { data, tag } = addTag(state.notesData, els.newTagInput.value);
-    if (tag) {
-      commitData(data);
-    }
+    if (tag) commitData(data);
     els.newTagInput.value = '';
     els.newTagInput.focus();
   });
   els.closeTagModalBtn.addEventListener('click', closeTagManager);
   els.tagModal.addEventListener('click', (event) => {
-    if (event.target === els.tagModal) {
-      closeTagManager();
-    }
-  });
-
-  els.saveBtn.addEventListener('click', () => {
-    persistLocalChanges();
-    saveManager.saveNow(state.notesData);
+    if (event.target === els.tagModal) closeTagManager();
   });
 
   els.deleteBtn.addEventListener('click', async () => {
     const note = getActiveNote();
-    if (!note) return;
-    if (!window.confirm('ลบโน้ตนี้?')) return;
-
+    if (!note || !window.confirm('ลบโน้ตนี้?')) return;
     state.notesData.notes = state.notesData.notes.filter((item) => item.id !== note.id);
     await saveManager.saveNow(state.notesData);
     backToList();
   });
 
-  const handleInput = () => {
+  const handleEditorInput = () => {
     persistLocalChanges();
-    saveManager.scheduleSave(state.notesData);
+    autosave();
   };
 
-  els.noteTitle.addEventListener('input', handleInput);
-  els.noteContent.addEventListener('input', handleInput);
+  els.noteTitle.addEventListener('input', handleEditorInput);
+  els.noteContent.addEventListener('input', handleEditorInput);
+  els.noteSchedule.addEventListener('change', handleEditorInput);
+  els.clearScheduleBtn.addEventListener('click', () => {
+    els.noteSchedule.value = '';
+    handleEditorInput();
+  });
 
   bootstrapData();
 }

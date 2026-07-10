@@ -26,6 +26,7 @@ export function createNote(title = '', content = '') {
     title: title.trim(),
     content,
     tagIds: [],
+    scheduledAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -41,13 +42,17 @@ export function createTag(name, color) {
   };
 }
 
-export function updateNote(note, { title, content }) {
-  return {
+export function updateNote(note, { title, content, scheduledAt }) {
+  const next = {
     ...note,
     title: title !== undefined ? title.trim() : note.title,
     content: content !== undefined ? content : note.content,
     updatedAt: new Date().toISOString(),
   };
+  if (scheduledAt !== undefined) {
+    next.scheduledAt = scheduledAt || null;
+  }
+  return next;
 }
 
 export function sortNotes(notes) {
@@ -99,11 +104,12 @@ export function normalizeNotesData(data) {
         tagIds: Array.isArray(note.tagIds)
           ? note.tagIds.filter((id) => tagIds.has(id))
           : [],
+        scheduledAt: note.scheduledAt || null,
       }))
     : [];
 
   return {
-    version: 2,
+    version: 3,
     updatedAt: base.updatedAt || new Date().toISOString(),
     tags,
     notes,

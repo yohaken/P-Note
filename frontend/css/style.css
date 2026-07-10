@@ -571,6 +571,229 @@ body {
   padding: 0.6rem 1rem;
 }
 
+/* Sort + schedule calendar */
+.sort-bar {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0 1rem 0.5rem;
+}
+
+.sort-chip {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.sort-chip.active {
+  color: #fff;
+  background: var(--primary);
+}
+
+.schedule-panel {
+  margin: 0 1rem 0.75rem;
+  padding: 0.85rem;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius);
+}
+
+.schedule-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.schedule-month-label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.cal-nav {
+  font-size: 1.25rem;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.2rem;
+  margin-bottom: 0.35rem;
+}
+
+.cal-weekday {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  min-height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+}
+
+.cal-day.empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cal-day.has-events {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 15%, var(--surface-2));
+}
+
+.cal-day.is-today {
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.cal-day.selected {
+  background: var(--primary);
+  color: #fff;
+}
+
+.cal-day-dot {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.85;
+}
+
+.upcoming-schedule {
+  margin-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 0.75rem;
+}
+
+.upcoming-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.upcoming-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0.45rem 0;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.upcoming-item:last-child {
+  border-bottom: none;
+}
+
+.upcoming-when {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 4.5rem;
+  color: var(--primary);
+}
+
+.upcoming-when.overdue {
+  color: var(--danger);
+}
+
+.upcoming-when.today {
+  color: #22c55e;
+}
+
+.upcoming-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.schedule-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  margin: 0 0 0.4rem;
+}
+
+.schedule-badge.overdue {
+  color: #fecaca;
+  background: color-mix(in srgb, var(--danger) 25%, transparent);
+}
+
+.schedule-badge.today {
+  color: #bbf7d0;
+  background: color-mix(in srgb, #22c55e 25%, transparent);
+}
+
+.schedule-badge.upcoming {
+  color: #c4b5fd;
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.schedule-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.schedule-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.schedule-input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.note-schedule {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.95rem;
+  padding: 0.65rem 0.75rem;
+  color-scheme: dark;
+}
+
 @media (min-width: 640px) {
   .notes-list {
     padding-inline: 1.5rem;

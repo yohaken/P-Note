@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="15">
+  <meta name="pnote-build" content="16">
   <meta name="theme-color" content="#1a1a2e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=15"></script>
+  <script src="js/cache-bootstrap.js?v=16"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
   <p id="hello-world-banner" class="hello-world-banner" role="status">hello world</p>
@@ -22,7 +22,7 @@
       <header class="topbar">
         <div class="topbar-title">
           <h1>P-Note</h1>
-          <p id="app-version" class="app-version">v15 · เก็บในเครื่อง</p>
+          <p id="app-version" class="app-version">v16 · โน้ต + ปฏิทิน</p>
         </div>
         <div class="topbar-actions">
           <button id="export-btn" class="btn btn-text" type="button">สำรอง</button>
@@ -32,6 +32,20 @@
           <button id="add-note-btn" class="btn btn-icon" type="button" aria-label="เพิ่มโน้ต">+</button>
         </div>
       </header>
+      <div id="sort-bar" class="sort-bar" aria-label="จัดเรียงโน้ต">
+        <button id="sort-updated-btn" class="sort-chip active" type="button">ล่าสุด</button>
+        <button id="sort-schedule-btn" class="sort-chip" type="button">ตามกำหนด</button>
+      </div>
+      <section id="schedule-panel" class="schedule-panel" aria-label="ปฏิทินกำหนดการ">
+        <div class="schedule-panel-header">
+          <button id="cal-prev-btn" class="btn btn-text cal-nav" type="button" aria-label="เดือนก่อน">‹</button>
+          <h2 id="cal-month-label" class="schedule-month-label">—</h2>
+          <button id="cal-next-btn" class="btn btn-text cal-nav" type="button" aria-label="เดือนถัดไป">›</button>
+        </div>
+        <div id="cal-weekdays" class="cal-weekdays"></div>
+        <div id="cal-grid" class="cal-grid"></div>
+        <div id="upcoming-schedule" class="upcoming-schedule"></div>
+      </section>
       <div id="tag-filter-bar" class="tag-filter-bar" aria-label="กรองตามแท็ก"></div>
       <p id="sync-status" class="sync-status" aria-live="polite"></p>
       <div id="empty-state" class="empty-state" hidden>
@@ -48,11 +62,17 @@
         <button id="back-btn" class="btn btn-text" type="button">← กลับ</button>
         <div class="topbar-actions">
           <span id="editor-sync-status" class="sync-status inline" aria-live="polite"></span>
-          <button id="save-btn" class="btn btn-primary" type="button">บันทึก</button>
         </div>
       </header>
       <div class="editor-body">
         <input id="note-title" class="note-title" type="text" placeholder="หัวข้อโน้ต" autocomplete="off">
+        <div class="schedule-field">
+          <label class="schedule-label" for="note-schedule">กำหนดการ</label>
+          <div class="schedule-input-row">
+            <input id="note-schedule" class="note-schedule" type="datetime-local">
+            <button id="clear-schedule-btn" class="btn btn-text" type="button">ล้าง</button>
+          </div>
+        </div>
         <div id="editor-tags" class="editor-tags" aria-label="แท็กของโน้ต"></div>
         <textarea id="note-content" class="note-content" placeholder="พิมพ์โน้ตของคุณ..."></textarea>
       </div>
@@ -82,6 +102,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=15"></script>
+  <script type="module" src="js/app.js?v=16"></script>
 </body>
 </html>
