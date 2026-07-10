@@ -140,6 +140,7 @@ export function createNote(title = '', content = '') {
     content,
     tagIds: [],
     scheduledAt: null,
+    recurrence: null,
     priority: NOTE_PRIORITY.NORMAL,
     status: NOTE_STATUS.ACTIVE,
     completedAt: null,
@@ -160,7 +161,7 @@ export function createTag(name, color) {
   };
 }
 
-export function updateNote(note, { title, content, scheduledAt, priority }) {
+export function updateNote(note, { title, content, scheduledAt, recurrence, priority }) {
   const next = {
     ...note,
     title: title !== undefined ? title.trim() : note.title,
@@ -169,6 +170,10 @@ export function updateNote(note, { title, content, scheduledAt, priority }) {
   };
   if (scheduledAt !== undefined) {
     next.scheduledAt = scheduledAt || null;
+  }
+  if (recurrence !== undefined) {
+    const allowed = ['daily', 'weekly', 'monthly', 'yearly'];
+    next.recurrence = allowed.includes(recurrence) ? recurrence : null;
   }
   if (priority !== undefined) {
     next.priority = Object.values(NOTE_PRIORITY).includes(priority)
@@ -251,6 +256,9 @@ export function normalizeNotesData(data) {
           ? note.tagIds.filter((id) => tagIds.has(id))
           : [],
         scheduledAt: note.scheduledAt || null,
+        recurrence: ['daily', 'weekly', 'monthly', 'yearly'].includes(note.recurrence)
+          ? note.recurrence
+          : null,
         priority: Object.values(NOTE_PRIORITY).includes(note.priority)
           ? note.priority
           : NOTE_PRIORITY.NORMAL,

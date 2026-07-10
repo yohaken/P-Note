@@ -1,5 +1,90 @@
 /** Schedule / calendar helpers for notes. */
 
+export const RECURRENCE = {
+  NONE: null,
+  DAILY: 'daily',
+  WEEKLY: 'weekly',
+  MONTHLY: 'monthly',
+  YEARLY: 'yearly',
+};
+
+export const RECURRENCE_OPTIONS = [
+  { id: null, label: 'ไม่ทำซ้ำ', short: '' },
+  { id: 'daily', label: 'ทุกวัน', short: 'ทุกวัน' },
+  { id: 'weekly', label: 'ทุกสัปดาห์', short: 'ทุกสัปดาห์' },
+  { id: 'monthly', label: 'ทุกเดือน', short: 'ทุกเดือน' },
+  { id: 'yearly', label: 'ทุกปี', short: 'ทุกปี' },
+];
+
+export function normalizeRecurrence(value) {
+  if (value === 'daily' || value === 'weekly' || value === 'monthly' || value === 'yearly') {
+    return value;
+  }
+  return null;
+}
+
+export function recurrenceLabel(value, { short = false } = {}) {
+  const opt = RECURRENCE_OPTIONS.find((o) => o.id === normalizeRecurrence(value));
+  if (!opt || !opt.id) return '';
+  return short ? opt.short : opt.label;
+}
+
+/** Advance scheduledAt by one recurrence step. */
+export function nextOccurrenceIso(iso, freq) {
+  const recurrence = normalizeRecurrence(freq);
+  if (!recurrence) return iso || null;
+  const d = new Date(iso || Date.now());
+  if (Number.isNaN(d.getTime())) return null;
+  if (recurrence === 'daily') d.setDate(d.getDate() + 1);
+  else if (recurrence === 'weekly') d.setDate(d.getDate() + 7);
+  else if (recurrence === 'monthly') d.setMonth(d.getMonth() + 1);
+  else if (recurrence === 'yearly') d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString();
+}
+
+/** Next occurrence on or after today (keeps time-of-day from the base). */
+export function nextUpcomingOccurrenceIso(iso, freq) {
+  const recurrence = normalizeRecurrence(freq);
+  if (!recurrence) return iso || null;
+  let next = iso || new Date().toISOString();
+  const today = startOfDay().getTime();
+  let guard = 0;
+  while (startOfDay(new Date(next)).getTime() < today && guard < 4000) {
+    next = nextOccurrenceIso(next, recurrence);
+    guard += 1;
+  }
+  return next;
+}
+
+/**
+ * Complete a note: recurring → advance schedule and stay active; else mark done.
+ * @param {object} note
+ * @param {(n: object) => object} markDone
+ */
+export function completeOrAdvanceNote(note, markDone) {
+  const recurrence = normalizeRecurrence(note.recurrence);
+  if (!recurrence) {
+    return { note: markDone(note), advanced: false };
+  }
+  const base = note.scheduledAt || new Date().toISOString();
+  let next = nextOccurrenceIso(base, recurrence);
+  const today = startOfDay().getTime();
+  let guard = 0;
+  while (next && startOfDay(new Date(next)).getTime() < today && guard < 4000) {
+    next = nextOccurrenceIso(next, recurrence);
+    guard += 1;
+  }
+  return {
+    note: {
+      ...note,
+      scheduledAt: next,
+      completedAt: null,
+      updatedAt: new Date().toISOString(),
+    },
+    advanced: true,
+  };
+}
+
 export function startOfDay(date = new Date()) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }

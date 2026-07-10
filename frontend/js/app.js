@@ -35,15 +35,19 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=46';
+} from './notes.js?v=61';
 import {
+  completeOrAdvanceNote,
   fromDatetimeLocalValue,
   getScheduleStatus,
+  normalizeRecurrence,
+  recurrenceLabel,
+  RECURRENCE_OPTIONS,
   relativeDayLabel,
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=46';
+} from './schedule.js?v=61';
 import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=56';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=46';
 import {
@@ -52,7 +56,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=46';
+import { normalizeNotesData } from './notes.js?v=61';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -113,6 +117,7 @@ const els = {
   noteTitle: document.getElementById('note-title'),
   noteContent: document.getElementById('note-content'),
   noteSchedule: document.getElementById('note-schedule'),
+  editorRecurrence: document.getElementById('editor-recurrence'),
   clearScheduleBtn: document.getElementById('clear-schedule-btn'),
   editorTags: document.getElementById('editor-tags'),
   syncStatusBtn: null,
@@ -258,6 +263,7 @@ function persistLocalChanges() {
     title: els.noteTitle.value,
     content: els.noteContent.value,
     scheduledAt: fromDatetimeLocalValue(els.noteSchedule.value),
+    recurrence: normalizeRecurrence(note.recurrence),
   });
 
   state.notesData = updateNoteInData(state.notesData, updated);
@@ -388,6 +394,40 @@ function setActiveNotePriority(priority) {
   renderEditorPriority();
 }
 
+function renderEditorRecurrence() {
+  if (!els.editorRecurrence) return;
+  els.editorRecurrence.innerHTML = '';
+  const note = getActiveNote();
+  if (!note) return;
+
+  const current = normalizeRecurrence(note.recurrence);
+  RECURRENCE_OPTIONS.forEach((opt) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `recurrence-chip${current === opt.id ? ' active' : ''}`;
+    chip.textContent = opt.label;
+    chip.addEventListener('click', () => setActiveNoteRecurrence(opt.id));
+    els.editorRecurrence.appendChild(chip);
+  });
+}
+
+function setActiveNoteRecurrence(recurrence) {
+  const note = getActiveNote();
+  if (!note) return;
+  const nextRecurrence = normalizeRecurrence(recurrence);
+  const patch = { recurrence: nextRecurrence };
+  // Choosing a repeat without a date → default to now so กำหนดวันที่ is set.
+  if (nextRecurrence && !fromDatetimeLocalValue(els.noteSchedule.value) && !note.scheduledAt) {
+    const nowLocal = toDatetimeLocalValue(new Date().toISOString());
+    els.noteSchedule.value = nowLocal;
+    patch.scheduledAt = fromDatetimeLocalValue(nowLocal);
+  }
+  const updated = updateNote(note, patch);
+  state.notesData = updateNoteInData(state.notesData, updated);
+  autosave();
+  renderEditorRecurrence();
+}
+
 function renderTagFilterBar() {
   if (state.listGroup !== NOTE_STATUS.ACTIVE) return;
 
@@ -421,11 +461,17 @@ function renderTagFilterBar() {
 }
 
 function scheduleBadgeHtml(note) {
-  if (!note.scheduledAt || state.listGroup !== NOTE_STATUS.ACTIVE) return '';
+  if (state.listGroup !== NOTE_STATUS.ACTIVE) return '';
+  const recur = recurrenceLabel(note.recurrence, { short: true });
+  if (!note.scheduledAt && !recur) return '';
+  if (!note.scheduledAt) {
+    return `<span class="schedule-badge upcoming">🔁 ${escapeHtml(recur)}</span>`;
+  }
   const status = getScheduleStatus(note.scheduledAt);
   const rel = relativeDayLabel(note.scheduledAt);
   const date = shortDate(note.scheduledAt);
-  return `<span class="schedule-badge ${status}">📅 ${escapeHtml(rel)} · ${escapeHtml(date)}</span>`;
+  const prefix = recur ? `🔁 ${escapeHtml(recur)} · ` : '📅 ';
+  return `<span class="schedule-badge ${status}">${prefix}${escapeHtml(rel)} · ${escapeHtml(date)}</span>`;
 }
 
 function emptyMessageForGroup() {
@@ -489,8 +535,12 @@ function applyNoteAction(noteId, action) {
   if (!note) return;
 
   let updated = note;
-  if (action === 'done') updated = markNoteDone(note);
-  else if (action === 'trash') updated = moveNoteToTrash(note);
+  let advanced = false;
+  if (action === 'done') {
+    const result = completeOrAdvanceNote(note, markNoteDone);
+    updated = result.note;
+    advanced = result.advanced;
+  } else if (action === 'trash') updated = moveNoteToTrash(note);
   else if (action === 'restore') {
     updated = state.listGroup === NOTE_STATUS.TRASH ? restoreNoteFromTrash(note) : markNoteActive(note);
   } else if (action === 'purge') {
@@ -503,7 +553,8 @@ function applyNoteAction(noteId, action) {
   state.notesData = updateNoteInData(state.notesData, updated);
   autosave();
   renderNotesList();
-  setStatus(action === 'done' ? 'ย้ายไปทำแล้ว' : action === 'trash' ? 'ย้ายไปถังขยะ' : 'กู้คืนแล้ว');
+  const doneMsg = advanced ? 'เลื่อนไปรอบถัดไป' : 'ย้ายไปทำแล้ว';
+  setStatus(action === 'done' ? doneMsg : action === 'trash' ? 'ย้ายไปถังขยะ' : 'กู้คืนแล้ว');
 }
 
 function cardActionsFor(note) {
@@ -730,6 +781,7 @@ function openEditor(noteId) {
   showView('editor');
   renderEditorTags();
   renderEditorPriority();
+  renderEditorRecurrence();
 }
 
 function openNewNote() {
@@ -1092,6 +1144,11 @@ async function init() {
   els.noteSchedule.addEventListener('change', flushEditorToState);
   els.clearScheduleBtn.addEventListener('click', () => {
     els.noteSchedule.value = '';
+    const note = getActiveNote();
+    if (note) {
+      const updated = updateNote(note, { scheduledAt: null });
+      state.notesData = updateNoteInData(state.notesData, updated);
+    }
     flushEditorToState();
   });
 
