@@ -3290,17 +3290,6 @@
         if (item) goPage(item.dataset.page);
       });
     }
-    if (window.PageNav) {
-      window.PageNav.initSwipe({
-        current: 'calorie',
-        canNavigate: () => {
-          if (els.pagesMenuOverlay && !els.pagesMenuOverlay.hidden) return false;
-          if (document.querySelector('.edit-overlay.open')) return false;
-          if (document.querySelector('.confirm-pop-overlay.open')) return false;
-          return true;
-        },
-      });
-    }
 
     runMigration();
     applyTheme(loadSettings().theme);
