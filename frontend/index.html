@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="57">
-  <meta name="pnote-built" content="2026-07-10T23:40:00+07:00">
-  <script src="js/cache-bootstrap.js?v=57"></script>
+  <meta name="pnote-build" content="58">
+  <meta name="pnote-built" content="2026-07-10T23:48:00+07:00">
+  <script src="js/cache-bootstrap.js?v=58"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -324,7 +324,7 @@
     }
     .chart-goal-tag { font-size: 0.5rem; color: var(--success); font-weight: 600; }
     .chart-canvas {
-      width: 100%; height: 52px; border-radius: 6px; background: var(--bg); display: block;
+      width: 100%; height: 64px; border-radius: 6px; background: var(--bg); display: block;
     }
 
     .info-body { font-size: 0.78rem; line-height: 1.55; color: var(--text); }
@@ -984,7 +984,7 @@
 
   <div class="toast error" id="toast"></div>
 
-  <script src="js/page-nav.js?v=57"></script>
+  <script src="js/page-nav.js?v=58"></script>
   <script>
     const STORAGE_PREFIX = 'calorieTracker:';
     const SETTINGS_KEY = 'calorieTracker:settings';
@@ -1002,7 +1002,7 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const APP_VERSION = 'build-57';
+    const APP_VERSION = 'build-58';
 
     const PERIODS = [
       { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
@@ -1766,7 +1766,7 @@
       return { text: '—', cls: 'neutral' };
     }
     function formatBal(t) {
-      if (!t) return { text: '—', cls: 'neutral' };
+      if (t == null || Number.isNaN(t)) return { text: '—', cls: 'neutral' };
       const r = Math.round(t);
       if (r < 0) return { text: '↓' + Math.abs(r), cls: 'good' };
       if (r > 0) return { text: '↑' + r, cls: 'bad' };
@@ -1980,8 +1980,9 @@
       const w = canvas.clientWidth, h = canvas.clientHeight;
       if (!w || !h) return;
       canvas.width = w * dpr; canvas.height = h * dpr; ctx.scale(dpr, dpr); ctx.clearRect(0, 0, w, h);
+      const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#94a3b8';
       if (points.length < 1) {
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
+        ctx.fillStyle = muted;
         ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
         ctx.fillText('ไม่มีข้อมูล', w / 2, h / 2); return;
       }
@@ -1992,31 +1993,69 @@
         min = Math.min(min, opts.goal);
         max = Math.max(max, opts.goal);
       }
-      const range = max - min || 1, pad = 5;
+      const range = max - min || 1;
+      const leftPad = 30;
+      const pad = 4;
+      const plotL = leftPad;
+      const plotR = w - pad;
+      const plotT = pad + 2;
+      const plotB = h - pad;
       const color = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
+
+      function yOf(v) {
+        return plotB - ((v - min) / range) * (plotB - plotT);
+      }
+      function formatTick(v) {
+        const a = Math.abs(v);
+        if (a >= 100) return String(Math.round(v));
+        if (a >= 10) return String(Math.round(v * 10) / 10);
+        return String(Math.round(v * 100) / 100);
+      }
+
+      // Y-axis scale labels (max / mid / min)
+      const ticks = [max, (min + max) / 2, min];
+      ctx.fillStyle = muted;
+      ctx.font = '8px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      const seen = {};
+      ticks.forEach((v) => {
+        const label = formatTick(v);
+        if (seen[label]) return;
+        seen[label] = true;
+        const y = yOf(v);
+        ctx.fillText(label, plotL - 4, y);
+        ctx.strokeStyle = 'rgba(148,163,184,0.22)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(plotL, y);
+        ctx.lineTo(plotR, y);
+        ctx.stroke();
+      });
+
       if (opts.goal != null && !isNaN(opts.goal)) {
-        const gy = h - pad - ((opts.goal - min) / range) * (h - pad * 2);
+        const gy = yOf(opts.goal);
         ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--success').trim();
         ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
-        ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(w - pad, gy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(plotL, gy); ctx.lineTo(plotR, gy); ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--success').trim();
-        ctx.font = '8px sans-serif'; ctx.textAlign = 'right';
-        ctx.fillText('เป้า ' + opts.goal, w - pad, gy - 2);
+        ctx.font = '8px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+        ctx.fillText('เป้า ' + opts.goal, plotR, gy - 1);
       }
       if (opts.zeroLine && min < 0 && max > 0) {
-        const zy = h - pad - ((0 - min) / range) * (h - pad * 2);
+        const zy = yOf(0);
         ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
-        ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(pad, zy); ctx.lineTo(w - pad, zy); ctx.stroke();
+        ctx.lineWidth = 0.75; ctx.beginPath(); ctx.moveTo(plotL, zy); ctx.lineTo(plotR, zy); ctx.stroke();
       }
       if (points.length < 2) {
-        const x = w / 2, y = h - pad - ((vals[0] - min) / range) * (h - pad * 2);
+        const x = (plotL + plotR) / 2, y = yOf(vals[0]);
         ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill(); return;
       }
       ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
       points.forEach((p, i) => {
-        const x = pad + (i / (points.length - 1)) * (w - pad * 2);
-        const y = h - pad - ((p.v - min) / range) * (h - pad * 2);
+        const x = plotL + (i / (points.length - 1)) * (plotR - plotL);
+        const y = yOf(p.v);
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       });
       ctx.stroke();
@@ -3032,6 +3071,6 @@
       history.replaceState(null, '', location.pathname + location.search);
     }
   </script>
-  <script src="js/update-watch.js?v=57"></script>
+  <script src="js/update-watch.js?v=58"></script>
 </body>
 </html>

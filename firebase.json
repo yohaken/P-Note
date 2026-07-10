@@ -9,8 +9,8 @@
     ],
     "rewrites": [
       {
-        "source": "**",
-        "destination": "/index.html"
+        "source": "/",
+        "destination": "/note.html"
       }
     ],
     "headers": [

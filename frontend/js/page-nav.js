@@ -1,13 +1,13 @@
 /**
  * Shared page navigation: swipe sideways + FAB switcher.
- * Order: Calorie (home) → Note (more pages later).
+ * Order: Note (home) → Calorie (more pages later).
  * Swipe right → next · Swipe left → previous.
  * FAB: short tap → cycle next · long-press → page list.
  */
 (function (global) {
   var PAGES = [
-    { id: 'calorie', url: './index.html', label: 'Calorie', sub: 'แคลอรี่', icon: '🔥' },
     { id: 'note', url: './note.html', label: 'Note', sub: 'โน้ต', icon: '📝' },
+    { id: 'calorie', url: './index.html', label: 'Calorie', sub: 'แคลอรี่', icon: '🔥' },
   ];
 
   var MIN_DX = 72;
