@@ -3,58 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="52">
-  <meta name="pnote-built" content="2026-07-10T23:16:00+07:00">
+  <meta name="pnote-build" content="53">
+  <meta name="pnote-built" content="2026-07-10T23:22:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=52"></script>
+  <script src="js/cache-bootstrap.js?v=53"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=52">
+  <link rel="stylesheet" href="css/pnote.css?v=53">
   <style>
-    /* Page switcher pinned under P-Note content */
-    .shell-page-tabs {
-      display: flex;
-      gap: 0.25rem;
-      margin: 0;
-      padding: 0.35rem 0.65rem calc(0.4rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
-      background: var(--bg, #000);
-      border-top: 1px solid var(--border, rgba(255,255,255,0.12));
-      max-width: 720px;
-      width: 100%;
-      box-sizing: border-box;
-      margin-left: auto;
-      margin-right: auto;
-      flex-shrink: 0;
-      position: sticky;
-      bottom: 0;
-      z-index: 46;
-    }
-    .shell-page-tab {
-      flex: 1;
-      border: none;
-      background: var(--surface, #1c1c1e);
-      color: var(--text-muted, #98989f);
-      font-size: 0.82rem;
-      font-weight: 600;
-      padding: 0.5rem 0.5rem;
-      border-radius: 10px;
-      cursor: pointer;
-      font-family: inherit;
-      border: 1px solid var(--border, rgba(255,255,255,0.12));
-    }
-    .shell-page-tab.active {
-      background: var(--surface-2, #2c2c2e);
-      color: var(--text, #fff);
-    }
-    body.light .shell-page-tab {
-      background: var(--surface);
-      border-color: var(--border);
-    }
     .title-version {
       font-size: 0.55rem;
       font-weight: 500;
@@ -63,10 +24,84 @@
       vertical-align: baseline;
     }
     .app-built { display: none !important; }
-    /* Bottom nav sits above the Calorie/Note switcher */
-    .bottom-nav {
-      bottom: 3.55rem;
+
+    .fab-pages {
+      position: fixed;
+      right: max(0.85rem, env(safe-area-inset-right, 0px));
+      bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+      z-index: 55;
+      width: 3rem;
+      height: 3rem;
+      border: none;
+      border-radius: 999px;
+      background: var(--surface-2, #2c2c2e);
+      color: var(--text, #fff);
+      font-size: 1.05rem;
+      font-weight: 700;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
     }
+    .fab-pages:active { transform: scale(0.96); opacity: 0.9; }
+    .pages-menu-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 1rem;
+      padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    }
+    .pages-menu-overlay[hidden] { display: none !important; }
+    .pages-menu {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface, #1c1c1e);
+      border-radius: 12px;
+      padding: 0.75rem 0.65rem 0.55rem;
+      border: 1px solid var(--border, rgba(255,255,255,0.12));
+    }
+    .pages-menu-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--text-muted, #98989f);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0 0.35rem 0.45rem;
+    }
+    .pages-menu-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      border: none;
+      background: var(--bg, #000);
+      color: var(--text, #fff);
+      border-radius: 10px;
+      padding: 0.7rem 0.75rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+      margin-bottom: 0.3rem;
+    }
+    .pages-menu-item:last-child { margin-bottom: 0; }
+    .pages-menu-item .pm-icon { width: 1.6rem; text-align: center; font-size: 1rem; }
+    .pages-menu-item .pm-sub {
+      margin-left: auto;
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--text-muted, #98989f);
+    }
+    body.light .fab-pages,
+    body.light .pages-menu { background: var(--surface); color: var(--text); }
+    body.light .pages-menu-item { background: var(--bg); color: var(--text); }
   </style>
 </head>
 <body>
@@ -247,20 +282,54 @@
       <div class="spinner"></div>
       <p>กำลังโหลด...</p>
     </div>
-
-    <nav class="shell-page-tabs" id="pageTabs" aria-label="สลับแผ่นงาน">
-      <button type="button" class="shell-page-tab" data-page="calorie" id="tab-calorie">← Calorie</button>
-    </nav>
   </div>
 
+  <button type="button" class="fab-pages" id="fabPages" aria-label="แผ่นงาน" title="แผ่นงาน">▦</button>
+  <div class="pages-menu-overlay" id="pagesMenuOverlay" hidden>
+    <div class="pages-menu" role="menu" aria-label="แผ่นงาน">
+      <p class="pages-menu-title">แผ่นงาน</p>
+      <button type="button" class="pages-menu-item" data-page="calorie" role="menuitem">
+        <span class="pm-icon" aria-hidden="true">🔥</span>
+        <span>Calorie</span>
+        <span class="pm-sub">แคลอรี่</span>
+      </button>
+    </div>
+  </div>
+
+  <script src="js/page-nav.js?v=53"></script>
   <script>
-    document.getElementById('pageTabs')?.addEventListener('click', (e) => {
-      const btn = e.target.closest('.shell-page-tab');
-      if (!btn) return;
-      if (btn.dataset.page === 'calorie') location.href = './index.html';
-    });
+    (function () {
+      var fab = document.getElementById('fabPages');
+      var overlay = document.getElementById('pagesMenuOverlay');
+      function openMenu() { if (overlay) overlay.hidden = false; }
+      function closeMenu() { if (overlay) overlay.hidden = true; }
+      if (fab) fab.onclick = openMenu;
+      if (overlay) {
+        overlay.addEventListener('click', function (e) {
+          if (e.target === overlay) closeMenu();
+          var item = e.target.closest('.pages-menu-item');
+          if (item && window.PageNav) {
+            closeMenu();
+            window.PageNav.goTo(item.dataset.page);
+          }
+        });
+      }
+      if (window.PageNav) {
+        window.PageNav.initSwipe({
+          current: 'note',
+          canNavigate: function () {
+            if (document.querySelector('.settings-overlay:not([hidden])')) return false;
+            if (document.querySelector('.modal:not([hidden])')) return false;
+            if (document.querySelector('.drawer.open')) return false;
+            if (document.querySelector('#editor-view:not([hidden])')) return false;
+            if (overlay && !overlay.hidden) return false;
+            return true;
+          },
+        });
+      }
+    })();
   </script>
-  <script type="module" src="js/app.js?v=52"></script>
-  <script src="js/update-watch.js?v=52"></script>
+  <script type="module" src="js/app.js?v=53"></script>
+  <script src="js/update-watch.js?v=53"></script>
 </body>
 </html>
