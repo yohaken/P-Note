@@ -1,12 +1,15 @@
 /**
- * Long-press + drag to reposition .fab-stack; persist left/top in localStorage.
+ * Long-press + drag to reposition .fab-stack; persist left/top + direction in localStorage.
  * Shared across Note + Calorie pages.
  */
 (function (global) {
   var KEY = 'pnote_fab_pos';
+  var DIR_KEY = 'pnote_fab_dir';
   var LONG_MS = 420;
   var MOVE_PX = 10;
   var PAD = 8;
+  var DIR_VERTICAL = 'vertical';
+  var DIR_HORIZONTAL = 'horizontal';
 
   function load() {
     try {
@@ -21,6 +24,20 @@
   function save(left, top) {
     try {
       localStorage.setItem(KEY, JSON.stringify({ left: left, top: top }));
+    } catch (e) {}
+  }
+
+  function getDirection() {
+    try {
+      var d = localStorage.getItem(DIR_KEY);
+      if (d === DIR_HORIZONTAL) return DIR_HORIZONTAL;
+    } catch (e) {}
+    return DIR_VERTICAL;
+  }
+
+  function saveDirection(dir) {
+    try {
+      localStorage.setItem(DIR_KEY, dir === DIR_HORIZONTAL ? DIR_HORIZONTAL : DIR_VERTICAL);
     } catch (e) {}
   }
 
@@ -45,6 +62,37 @@
     return c;
   }
 
+  function reclampSaved(stack) {
+    var pos = load();
+    if (!pos) return;
+    requestAnimationFrame(function () {
+      apply(stack, pos.left, pos.top);
+    });
+  }
+
+  function applyDirection(stack, dir) {
+    if (!stack) return getDirection();
+    var d = dir === DIR_HORIZONTAL ? DIR_HORIZONTAL : DIR_VERTICAL;
+    stack.classList.toggle('fab-dir-horizontal', d === DIR_HORIZONTAL);
+    stack.classList.toggle('fab-dir-vertical', d === DIR_VERTICAL);
+    stack.dataset.fabDir = d;
+    return d;
+  }
+
+  function setDirection(dir, stack) {
+    var d = dir === DIR_HORIZONTAL ? DIR_HORIZONTAL : DIR_VERTICAL;
+    saveDirection(d);
+    var el = stack || document.getElementById('fabStack');
+    if (el) {
+      applyDirection(el, d);
+      reclampSaved(el);
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('pnote-fab-dir', { detail: { dir: d } }));
+    } catch (e) {}
+    return d;
+  }
+
   function setGesture(stack, v) {
     if (v) stack.dataset.fabGesture = v;
     else delete stack.dataset.fabGesture;
@@ -53,6 +101,8 @@
   function init(stack) {
     if (!stack || stack.dataset.fabDragInit === '1') return;
     stack.dataset.fabDragInit = '1';
+
+    applyDirection(stack, getDirection());
 
     var saved = load();
     if (saved) {
@@ -194,6 +244,20 @@
       if (!pos) return;
       apply(stack, pos.left, pos.top);
     });
+
+    window.addEventListener('storage', function (e) {
+      if (e.key === DIR_KEY) {
+        applyDirection(stack, getDirection());
+        reclampSaved(stack);
+      } else if (e.key === KEY && e.newValue) {
+        try {
+          var p = JSON.parse(e.newValue);
+          if (typeof p.left === 'number' && typeof p.top === 'number') {
+            apply(stack, p.left, p.top);
+          }
+        } catch (err) {}
+      }
+    });
   }
 
   function autoInit() {
@@ -207,5 +271,12 @@
     autoInit();
   }
 
-  global.FabDrag = { init: init, KEY: KEY };
+  global.FabDrag = {
+    init: init,
+    KEY: KEY,
+    DIR_KEY: DIR_KEY,
+    getDirection: getDirection,
+    setDirection: setDirection,
+    applyDirection: applyDirection,
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
