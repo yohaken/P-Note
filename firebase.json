@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "mypeer-501909",
     "public": "frontend",
     "ignore": [
       "firebase.json",

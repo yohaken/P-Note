@@ -15,7 +15,7 @@ export const CONFIG = {
   // Backend API (Phase 2+)
   API_BASE_URL: window.location.hostname === 'localhost'
     ? 'http://localhost:8080'
-    : 'https://p-note-api-PLACEHOLDER.run.app',
+    : 'https://p-note-api-cwpgmqlv2q-as.a.run.app',
 };
 
 export const STORAGE_KEYS = {
