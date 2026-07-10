@@ -1,4 +1,4 @@
-import { loadNotes } from './local.js?v=13';
+import { loadNotes } from './local.js?v=14';
 import {
   addTag,
   countNotesByTag,
@@ -14,8 +14,8 @@ import {
   sortNotes,
   toggleNoteTag,
   updateNote,
-} from './notes.js?v=13';
-import { SaveManager } from './sync.js?v=13';
+} from './notes.js?v=14';
+import { SaveManager } from './sync.js?v=14';
 
 const state = {
   notesData: { version: 2, updatedAt: '', tags: [], notes: [] },

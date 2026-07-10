@@ -8,10 +8,34 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
+  <script>
+    // ล้าง Service Worker / cache เก่า (เวอร์ชันมี login) แล้ว reload ครั้งเดียว
+    (function () {
+      var MARKER = 'pnote_cache_cleared_v14';
+      if (localStorage.getItem(MARKER) === '1') return;
+      localStorage.setItem(MARKER, '1');
+      var done = Promise.resolve();
+      if ('serviceWorker' in navigator) {
+        done = done.then(function () {
+          return navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+          });
+        });
+      }
+      if (window.caches) {
+        done = done.then(function () {
+          return caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+          });
+        });
+      }
+      done.then(function () { location.reload(); });
+    })();
+  </script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=14">
 </head>
 <body>
   <p id="hello-world-banner" class="hello-world-banner" role="status">hello world</p>
@@ -77,6 +101,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=13"></script>
+  <script type="module" src="js/app.js?v=14"></script>
 </body>
 </html>

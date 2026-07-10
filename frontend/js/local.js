@@ -1,4 +1,4 @@
-import { normalizeNotesData } from './notes.js?v=13';
+import { normalizeNotesData } from './notes.js?v=14';
 
 const LOCAL_DATA_KEY = 'pnote_local_data';
 
