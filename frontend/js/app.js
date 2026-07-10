@@ -895,7 +895,7 @@ async function applySyncCode(code) {
   closeSettings();
 }
 
-// Left-edge swipe right: editor = back; overlays close. Group drawer is bottom-nav only.
+// Left-edge swipe: editor = back; overlays close. Full-page swipe is PageNav.
 function handleEdgeSwipeRight() {
   if (!els.settingsOverlay.hidden) {
     closeSettings();
@@ -926,6 +926,11 @@ function initSwipeBack() {
         tracking = false;
         return;
       }
+      // Only edge-swipe for in-note chrome (editor back / close overlays)
+      if (state.view !== 'editor' && els.settingsOverlay.hidden && els.tagModal.hidden && !isDrawerOpen()) {
+        tracking = false;
+        return;
+      }
       const t = event.touches[0];
       startX = t.clientX;
       startY = t.clientY;
@@ -940,7 +945,6 @@ function initSwipeBack() {
       const t = event.changedTouches[0];
       const dx = t.clientX - startX;
       const dy = Math.abs(t.clientY - startY);
-      // Swipe left (right-to-left) closes an open drawer.
       if (isDrawerOpen() && dx < -60 && dy < 55) {
         closeDrawer();
         tracking = false;

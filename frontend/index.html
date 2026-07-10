@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="52">
-  <meta name="pnote-built" content="2026-07-10T23:16:00+07:00">
-  <script src="js/cache-bootstrap.js?v=52"></script>
+  <meta name="pnote-build" content="53">
+  <meta name="pnote-built" content="2026-07-10T23:22:00+07:00">
+  <script src="js/cache-bootstrap.js?v=53"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -985,6 +985,7 @@
 
   <div class="toast error" id="toast"></div>
 
+  <script src="js/page-nav.js?v=53"></script>
   <script>
     const STORAGE_PREFIX = 'calorieTracker:';
     const SETTINGS_KEY = 'calorieTracker:settings';
@@ -1002,7 +1003,7 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const APP_VERSION = 'build-52';
+    const APP_VERSION = 'build-53';
 
     const PERIODS = [
       { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
@@ -2972,7 +2973,8 @@
     }
     function goPage(pageId) {
       closePagesMenu();
-      if (pageId === 'note') window.location.href = './note.html';
+      if (window.PageNav) window.PageNav.goTo(pageId);
+      else if (pageId === 'note') window.location.href = './note.html';
     }
     if (els.fabPages) els.fabPages.onclick = () => openPagesMenu();
     if (els.pagesMenuOverlay) {
@@ -2980,6 +2982,17 @@
         if (e.target === els.pagesMenuOverlay) closePagesMenu();
         const item = e.target.closest('.pages-menu-item');
         if (item) goPage(item.dataset.page);
+      });
+    }
+    if (window.PageNav) {
+      window.PageNav.initSwipe({
+        current: 'calorie',
+        canNavigate: () => {
+          if (els.pagesMenuOverlay && !els.pagesMenuOverlay.hidden) return false;
+          if (document.querySelector('.edit-overlay.open')) return false;
+          if (document.querySelector('.confirm-pop-overlay.open')) return false;
+          return true;
+        },
       });
     }
 
@@ -3012,6 +3025,7 @@
       history.replaceState(null, '', location.pathname + location.search);
     }
   </script>
-  <script src="js/update-watch.js?v=52"></script>
+  <script src="js/page-nav.js?v=53"></script>
+  <script src="js/update-watch.js?v=53"></script>
 </body>
 </html>
