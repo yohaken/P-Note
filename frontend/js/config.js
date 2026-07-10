@@ -1,39 +1,17 @@
-function resolveRedirectUri() {
-  const { hostname, origin } = window.location;
-  if (hostname.endsWith('.web.app') || hostname.endsWith('.firebaseapp.com')) {
-    return `${origin}/`;
-  }
-  if (hostname === 'yohaken.github.io') {
-    return 'https://yohaken.github.io/P-Note/';
-  }
-  return `${origin}${window.location.pathname}`;
-}
-
 export const CONFIG = {
-  // Legacy SPA auth (Phase 1 — จะย้ายไป Firebase Auth ใน Phase 2)
-  CLIENT_ID: '470549580687-ca7vl7cechdq430510e6jc6ch3b0ptr1.apps.googleusercontent.com',
   ALLOWED_EMAILS: ['phiraphong.yoh@gmail.com', 'yohaken@gmail.com'],
-  REDIRECT_URI: resolveRedirectUri(),
-  SCOPES: [
-    'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/userinfo.email',
-    'openid',
-  ].join(' '),
   APP_FOLDER_NAME: 'P-Note',
   NOTES_FILE_NAME: 'my_notes.json',
   AUTOSAVE_DELAY_MS: 1500,
 
-  // Backend API (Phase 2+)
+  // Backend API (Phase 3+)
   API_BASE_URL: window.location.hostname === 'localhost'
     ? 'http://localhost:8080'
     : 'https://p-note-api-cwpgmqlv2q-as.a.run.app',
 };
 
 export const STORAGE_KEYS = {
-  REFRESH_TOKEN: 'pnote_refresh_token',
   FILE_ID: 'pnote_file_id',
   FOLDER_ID: 'pnote_folder_id',
   MODIFIED_TIME: 'pnote_modified_time',
-  PKCE_VERIFIER: 'pnote_pkce_verifier',
-  HAS_SESSION: 'pnote_has_session',
 };
