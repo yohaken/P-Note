@@ -970,9 +970,6 @@ async function bootstrapData() {
   setLoading(true, 'กำลังเชื่อมต่อฐานข้อมูล...');
   state.spaceId = getSpaceId();
   state.settings = loadSettings();
-  state.tagFilterId = null;
-  state.priorityFilter = null;
-  state.recurrenceFilter = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
 
   const localData = loadNotes().data;
@@ -981,6 +978,7 @@ async function bootstrapData() {
   state.notesData = result.data;
   state.online = result.online;
   state.sortMode = state.settings.sortMode || 'updated';
+  applySavedFilters();
   saveNotes(state.notesData);
 
   saveManager.configure({
@@ -1026,10 +1024,8 @@ async function applySyncCode(code) {
     state.online = false;
     setStatus('เชื่อมต่อไม่ได้ — เก็บในเครื่อง');
   }
-  state.tagFilterId = null;
-  state.priorityFilter = null;
-  state.recurrenceFilter = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
+  applySavedFilters();
   renderNotesList();
   setLoading(false);
   closeSettings();
