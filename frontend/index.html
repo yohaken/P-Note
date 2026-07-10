@@ -93,7 +93,6 @@
     }
     .sortable-block .section-title,
     .sortable-block .period-summary .section-title,
-    .sortable-block .date-display .label,
     .sortable-block .mini-stat .lbl,
     .sortable-block .hint { color: var(--blk-title, var(--muted)); }
     .sortable-block .mini-stat .sub,
@@ -3022,11 +3021,31 @@
 
     els.btnPrevDay.onclick = () => setDate(shiftDate(currentDate, -1));
     els.btnNextDay.onclick = () => { const n = shiftDate(currentDate, 1); if (n <= todayStr()) setDate(n); };
+    function openDatePicker() {
+      const input = els.datePicker;
+      if (!input) return;
+      input.value = currentDate;
+      try {
+        if (typeof input.showPicker === 'function') input.showPicker();
+        else { input.focus(); input.click(); }
+      } catch {
+        input.focus();
+      }
+    }
+    if (els.dateDisplayBtn) {
+      els.dateDisplayBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        openDatePicker();
+      });
+    }
     els.datePicker.onchange = () => {
       const p = els.datePicker.value;
       const start = getProgramStartDate();
       if (p && p <= todayStr() && (!start || p >= start)) setDate(p);
-      else els.datePicker.value = currentDate;
+      else {
+        els.datePicker.value = currentDate;
+        syncDateDisplay(currentDate);
+      }
     };
 
     els.profileWeight.oninput = () => {
