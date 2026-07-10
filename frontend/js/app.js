@@ -1,5 +1,4 @@
-import { autoLogin, handleAuthRedirect, isAuthRedirectPending, signOut, startLogin } from './auth.js?v=12';
-import { loadNotes } from './drive.js?v=12';
+import { loadNotes } from './local.js?v=13';
 import {
   addTag,
   countNotesByTag,
@@ -8,7 +7,6 @@ import {
   filterNotesByTag,
   formatDate,
   getTagsForNote,
-  normalizeNotesData,
   previewText,
   renameTag,
   safeTagColor,
@@ -16,15 +14,14 @@ import {
   sortNotes,
   toggleNoteTag,
   updateNote,
-} from './notes.js?v=12';
-import { SaveManager } from './sync.js?v=12';
+} from './notes.js?v=13';
+import { SaveManager } from './sync.js?v=13';
 
 const state = {
-  accessToken: null,
   notesData: { version: 2, updatedAt: '', tags: [], notes: [] },
   activeNoteId: null,
   tagFilterId: null,
-  view: 'login',
+  view: 'list',
 };
 
 const saveManager = new SaveManager();
@@ -32,19 +29,13 @@ let statusTimer = null;
 
 const els = {
   app: document.getElementById('app'),
-  loginView: document.getElementById('login-view'),
   listView: document.getElementById('list-view'),
   editorView: document.getElementById('editor-view'),
-  deniedView: document.getElementById('denied-view'),
-  loginBtn: document.getElementById('login-btn'),
-  loginError: document.getElementById('login-error'),
-  deniedMessage: document.getElementById('denied-message'),
   notesList: document.getElementById('notes-list'),
   emptyState: document.getElementById('empty-state'),
   addNoteBtn: document.getElementById('add-note-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
-  signOutBtn: document.getElementById('sign-out-btn'),
   backBtn: document.getElementById('back-btn'),
   saveBtn: document.getElementById('save-btn'),
   deleteBtn: document.getElementById('delete-btn'),
@@ -58,18 +49,13 @@ const els = {
   newTagInput: document.getElementById('new-tag-input'),
   tagManagerList: document.getElementById('tag-manager-list'),
   closeTagModalBtn: document.getElementById('close-tag-modal-btn'),
-  conflictModal: document.getElementById('conflict-modal'),
-  useLocalBtn: document.getElementById('use-local-btn'),
-  useRemoteBtn: document.getElementById('use-remote-btn'),
   loadingOverlay: document.getElementById('loading-overlay'),
 };
 
 function showView(view) {
   state.view = view;
-  els.loginView.hidden = view !== 'login';
   els.listView.hidden = view !== 'list';
   els.editorView.hidden = view !== 'editor';
-  els.deniedView.hidden = view !== 'denied';
 }
 
 function setLoading(visible, message = 'กำลังโหลด...') {
@@ -322,26 +308,18 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;');
 }
 
-async function bootstrapData(accessToken) {
-  setLoading(true, 'กำลังโหลดโน้ตจาก Drive...');
-  const { fileId, modifiedTime, data } = await loadNotes(accessToken);
-  state.accessToken = accessToken;
-  state.notesData = normalizeNotesData(data);
+function bootstrapData() {
+  setLoading(true, 'กำลังโหลดโน้ต...');
+  const { data } = loadNotes();
+  state.notesData = data;
   state.tagFilterId = null;
 
   saveManager.configure({
-    accessToken,
-    fileId,
-    modifiedTime,
     onStatus: (message) => setStatus(message),
-    onConflict: () => {
-      els.conflictModal.hidden = false;
-    },
   });
 
   renderNotesList();
   showView('list');
-  setStatus('โหลดเสร็จแล้ว');
   setLoading(false);
 }
 
@@ -350,35 +328,9 @@ async function init() {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
 
-  els.loginBtn.addEventListener('click', async () => {
-    els.loginError.textContent = '';
-    setLoading(true, 'กำลังไปยัง Google...');
-    try {
-      const accessToken = await startLogin();
-      if (!accessToken) {
-        // Mobile redirect — page will navigate away to Google.
-        return;
-      }
-      await bootstrapData(accessToken);
-    } catch (error) {
-      setLoading(false);
-      if (error.message.includes('Access Denied')) {
-        els.deniedMessage.textContent = error.message;
-        showView('denied');
-        return;
-      }
-      els.loginError.textContent = error.message;
-      showView('login');
-    }
-  });
   els.addNoteBtn.addEventListener('click', openNewNote);
   els.manageTagsBtn.addEventListener('click', openTagManager);
   els.backBtn.addEventListener('click', backToList);
-  els.signOutBtn.addEventListener('click', async () => {
-    await signOut();
-    state.accessToken = null;
-    showView('login');
-  });
 
   els.tagAddForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -419,53 +371,7 @@ async function init() {
   els.noteTitle.addEventListener('input', handleInput);
   els.noteContent.addEventListener('input', handleInput);
 
-  els.useLocalBtn.addEventListener('click', async () => {
-    els.conflictModal.hidden = true;
-    persistLocalChanges();
-    saveManager.updateKnownModifiedTime(null);
-    await saveManager.saveNow(state.notesData);
-    saveManager.updateKnownModifiedTime(localStorage.getItem('pnote_modified_time'));
-    setStatus('บันทึกทับข้อมูลบน cloud แล้ว');
-  });
-
-  els.useRemoteBtn.addEventListener('click', async () => {
-    els.conflictModal.hidden = true;
-    setLoading(true, 'กำลังโหลดข้อมูลล่าสุด...');
-    await bootstrapData(state.accessToken);
-  });
-
-  setLoading(true, 'กำลังตรวจสอบการล็อกอิน...');
-
-  try {
-    const redirectToken = await handleAuthRedirect();
-    if (redirectToken) {
-      await bootstrapData(redirectToken);
-      return;
-    }
-
-    const accessToken = await autoLogin();
-    if (!accessToken) {
-      if (isAuthRedirectPending()) {
-        setLoading(true, 'กำลังไปยัง Google...');
-        return;
-      }
-      setLoading(false);
-      showView('login');
-      return;
-    }
-
-    await bootstrapData(accessToken);
-  } catch (error) {
-    setLoading(false);
-    if (error.message.includes('Access Denied')) {
-      els.deniedMessage.textContent = error.message;
-      showView('denied');
-      return;
-    }
-
-    els.loginError.textContent = error.message;
-    showView('login');
-  }
+  bootstrapData();
 }
 
 init();

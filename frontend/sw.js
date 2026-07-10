@@ -1,12 +1,10 @@
-const CACHE_NAME = 'pnote-v12';
+const CACHE_NAME = 'pnote-v13';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
   './js/config.js',
-  './js/firebase.js',
-  './js/auth.js',
-  './js/drive.js',
+  './js/local.js',
   './js/sync.js',
   './js/notes.js',
   './js/app.js',

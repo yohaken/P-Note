@@ -1,26 +1,14 @@
-import { CONFIG } from './config.js?v=12';
-import { saveNotes } from './drive.js?v=12';
+import { CONFIG } from './config.js?v=13';
+import { saveNotes } from './local.js?v=13';
 
 export class SaveManager {
   constructor() {
     this.queue = Promise.resolve();
-    this.knownModifiedTime = null;
-    this.fileId = null;
-    this.accessToken = null;
     this.onStatus = () => {};
-    this.onConflict = () => {};
   }
 
-  configure({ accessToken, fileId, modifiedTime, onStatus, onConflict }) {
-    this.accessToken = accessToken;
-    this.fileId = fileId;
-    this.knownModifiedTime = modifiedTime;
+  configure({ onStatus }) {
     this.onStatus = onStatus || this.onStatus;
-    this.onConflict = onConflict || this.onConflict;
-  }
-
-  updateKnownModifiedTime(modifiedTime) {
-    this.knownModifiedTime = modifiedTime;
   }
 
   scheduleSave(notesData) {
@@ -34,33 +22,15 @@ export class SaveManager {
   saveNow(notesData) {
     this.queue = this.queue
       .then(() => this._performSave(notesData))
-      .catch((error) => {
-        if (error.name === 'ConflictError') {
-          this.onConflict(error);
-          this.onStatus('ข้อมูลขัดแย้ง');
-          return;
-        }
+      .catch(() => {
         this.onStatus('บันทึกไม่สำเร็จ');
-        throw error;
       });
     return this.queue;
   }
 
   async _performSave(notesData) {
-    if (!this.accessToken || !this.fileId) {
-      return;
-    }
-
     this.onStatus('กำลังบันทึก...');
-
-    const modifiedTime = await saveNotes(
-      this.accessToken,
-      this.fileId,
-      notesData,
-      this.knownModifiedTime,
-    );
-
-    this.knownModifiedTime = modifiedTime;
+    saveNotes(notesData);
     this.onStatus('บันทึกแล้ว');
   }
 }
