@@ -52,7 +52,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=64';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=64';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=66';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -338,6 +338,29 @@ function isManualMode() {
   return state.sortMode === 'manual';
 }
 
+function persistFilters() {
+  state.settings.tagFilterId = state.tagFilterId || null;
+  state.settings.priorityFilter = state.priorityFilter || null;
+  state.settings.recurrenceFilter = state.recurrenceFilter || null;
+  saveSettings(state.settings);
+}
+
+/** Restore last filters from settings; drop stale tag ids. */
+function applySavedFilters() {
+  const s = state.settings || loadSettings();
+  const tags = state.notesData?.tags || [];
+  const tagIds = new Set(tags.map((t) => t.id));
+  const tagId = s.tagFilterId && tagIds.has(s.tagFilterId) ? s.tagFilterId : null;
+  state.tagFilterId = tagId;
+  state.priorityFilter = s.priorityFilter || null;
+  state.recurrenceFilter = normalizeRecurrenceFilter(s.recurrenceFilter);
+  // Keep settings in sync if a deleted tag was dropped
+  if (s.tagFilterId && !tagId) {
+    state.settings.tagFilterId = null;
+    saveSettings(state.settings);
+  }
+}
+
 function setSortMode(mode) {
   state.sortMode = mode;
   state.settings.sortMode = mode;
@@ -356,6 +379,7 @@ function renderPriorityFilterBar() {
   allChip.textContent = 'ทั้งหมด';
   allChip.addEventListener('click', () => {
     state.priorityFilter = null;
+    persistFilters();
     renderNotesList();
   });
   els.priorityFilterBar.appendChild(allChip);
@@ -369,6 +393,7 @@ function renderPriorityFilterBar() {
     chip.textContent = count ? `${opt.short} (${count})` : opt.short;
     chip.addEventListener('click', () => {
       state.priorityFilter = active ? null : opt.id;
+      persistFilters();
       renderNotesList();
     });
     els.priorityFilterBar.appendChild(chip);
@@ -464,6 +489,7 @@ function renderRecurrenceFilterBar() {
     }
     chip.addEventListener('click', () => {
       state.recurrenceFilter = active ? null : opt.id;
+      persistFilters();
       renderNotesList();
     });
     els.recurrenceFilterBar.appendChild(chip);
@@ -483,6 +509,7 @@ function renderTagFilterBar() {
   allChip.textContent = 'ทั้งหมด';
   allChip.addEventListener('click', () => {
     state.tagFilterId = null;
+    persistFilters();
     renderNotesList();
   });
   els.tagFilterBar.appendChild(allChip);
@@ -496,6 +523,7 @@ function renderTagFilterBar() {
     chip.textContent = `${tag.name} (${countNotesByTag(state.notesData.notes, tag.id)})`;
     chip.addEventListener('click', () => {
       state.tagFilterId = active ? null : tag.id;
+      persistFilters();
       renderNotesList();
     });
     els.tagFilterBar.appendChild(chip);
@@ -893,9 +921,14 @@ function reapplyBarLayout() {
 
 function setListGroup(group) {
   state.listGroup = group;
-  state.tagFilterId = null;
-  state.priorityFilter = null;
-  state.recurrenceFilter = null;
+  if (group === NOTE_STATUS.ACTIVE) {
+    applySavedFilters();
+  } else {
+    // Other groups ignore list filters; keep saved filters for when we return.
+    state.tagFilterId = null;
+    state.priorityFilter = null;
+    state.recurrenceFilter = null;
+  }
   closeContextMenu();
   closeDrawer();
   renderNotesList();
@@ -937,9 +970,6 @@ async function bootstrapData() {
   setLoading(true, 'กำลังเชื่อมต่อฐานข้อมูล...');
   state.spaceId = getSpaceId();
   state.settings = loadSettings();
-  state.tagFilterId = null;
-  state.priorityFilter = null;
-  state.recurrenceFilter = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
 
   const localData = loadNotes().data;
@@ -948,6 +978,7 @@ async function bootstrapData() {
   state.notesData = result.data;
   state.online = result.online;
   state.sortMode = state.settings.sortMode || 'updated';
+  applySavedFilters();
   saveNotes(state.notesData);
 
   saveManager.configure({
@@ -993,10 +1024,8 @@ async function applySyncCode(code) {
     state.online = false;
     setStatus('เชื่อมต่อไม่ได้ — เก็บในเครื่อง');
   }
-  state.tagFilterId = null;
-  state.priorityFilter = null;
-  state.recurrenceFilter = null;
   state.listGroup = NOTE_STATUS.ACTIVE;
+  applySavedFilters();
   renderNotesList();
   setLoading(false);
   closeSettings();
