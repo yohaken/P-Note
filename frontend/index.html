@@ -1,44 +1,3514 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="43">
-  <meta name="pnote-built" content="2026-07-10T21:52:25+07:00">
-  <meta name="theme-color" content="#000000">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <title>P-Note</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>Calorie & Protein Tracker</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      background: #000;
-      min-height: 100dvh;
-      width: 100%;
+    :root, [data-theme="dark"] {
+      --bg: #0f172a; --surface: #1e293b; --surface-2: #334155; --border: #475569;
+      --text: #f1f5f9; --muted: #94a3b8; --accent: #38bdf8; --accent-dim: #0ea5e9;
+      --success: #4ade80; --danger: #f87171; --warning: #fbbf24; --protein: #a78bfa;
+      --radius: 12px; --shadow: 0 2px 16px rgba(0,0,0,0.3);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
+    [data-theme="light"] {
+      --bg: #f1f5f9; --surface: #fff; --surface-2: #e2e8f0; --border: #cbd5e1;
+      --text: #0f172a; --muted: #64748b; --accent: #0284c7; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.4;
+      min-height: 100dvh; padding-bottom: calc(1rem + var(--safe-bottom));
+      touch-action: manipulation;
+    }
+    input, select, textarea { font-size: 16px; }
+    .btn-sm, .btn-icon, .btn-tpl-save, .period-pill, .chip, .info-btn, .drag-handle { font-size: 0.72rem; }
+    .btn { font-size: 0.82rem; }
+    .app { max-width: 480px; margin: 0 auto; padding: 0.65rem; }
+    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+    .top-bar h1 { font-size: 1.1rem; font-weight: 700; }
+    .top-actions { display: flex; gap: 0.3rem; }
+    .btn-sm {
+      background: var(--surface); border: 1px solid var(--surface-2); color: var(--muted);
+      border-radius: 8px; padding: 0.3rem 0.5rem; font-size: 0.72rem; cursor: pointer;
+    }
+
+    #blocksContainer { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .sortable-block {
+      position: relative;
+      touch-action: pan-y;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .sortable-block.dragging { opacity: 0.45; z-index: 10; }
+    .sortable-block.drag-over { transform: translateY(4px); }
+
+    .drag-handle {
+      position: absolute; top: 0.45rem; right: 0.45rem;
+      color: var(--muted); font-size: 0.7rem; padding: 0.2rem 0.35rem;
+      cursor: grab; user-select: none; z-index: 2; opacity: 0.5;
+      letter-spacing: -1px;
+    }
+    .drag-handle:active { cursor: grabbing; opacity: 1; }
+
+    .sortable-block .period-summary,
+    .sortable-block .section,
+    .sortable-block .date-nav,
+    .sortable-block .mini-stat,
+    .sortable-block .bsum-strip {
+      background: var(--blk-bg, var(--surface));
+      color: var(--blk-text, var(--text));
+    }
+    .sortable-block .section-title,
+    .sortable-block .period-summary .section-title,
+    .sortable-block .date-display .label,
+    .sortable-block .mini-stat .lbl,
+    .sortable-block .hint { color: var(--blk-title, var(--muted)); }
+    .sortable-block .mini-stat .sub,
+    .sortable-block .bsum-strip { color: var(--blk-title, var(--muted)); }
+    .sortable-block[data-block-id="summary"] .period-card { background: var(--blk-bg-2, var(--bg)); }
+    .sortable-block[data-block-id="summary"] .period-card .period-label { color: var(--blk-accent, var(--accent)); }
+    .sortable-block[data-block-id="summary"] .period-stat .val.good { color: var(--blk-good, var(--success)); }
+    .sortable-block[data-block-id="summary"] .period-stat .val.bad { color: var(--blk-bad, var(--danger)); }
+    .sortable-block[data-block-id="summary"] .period-stat .val.burn { color: var(--blk-burn, var(--success)); }
+    .sortable-block[data-block-id="stats"] .mini-stat.cal .val { color: var(--blk-cal, var(--warning)); }
+    .sortable-block[data-block-id="stats"] .mini-stat.prot .val { color: var(--blk-prot, var(--protein)); }
+    .sortable-block[data-block-id="stats"] .mini-stat.prot.bad .val { color: var(--blk-bad, var(--danger)); }
+    .sortable-block[data-block-id="stats"] .mini-stat.bal.pos .val { color: var(--blk-bal-pos, var(--success)); }
+    .sortable-block[data-block-id="stats"] .mini-stat.bal.neg .val { color: var(--blk-bal-neg, var(--danger)); }
+    .sortable-block[data-block-id="stats"] .mini-stat.est .val { color: var(--blk-est, var(--success)); }
+    .sortable-block[data-block-id="stats"] .mini-stat.est.neg .val { color: var(--blk-good, var(--success)); }
+    .sortable-block[data-block-id="stats"] .bsum-strip strong,
+    .sortable-block[data-block-id="stats"] .adj-link { color: var(--blk-accent, var(--accent)); }
+    .sortable-block[data-block-id="meals"] .section.priority { border-color: var(--blk-accent, rgba(56,189,248,0.2)); }
+    .sortable-block[data-block-id="exercises"] .section.burn { border-color: var(--blk-accent, rgba(74,222,128,0.2)); }
+    .sortable-block .goal-progress { background: var(--blk-bg-2, var(--bg)); }
+    .sortable-block .goal-progress strong { color: var(--blk-accent, var(--accent)); }
+
+    .style-color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-bottom: 0.5rem; }
+    .style-color-field {
+      display: flex; flex-direction: column; gap: 0.2rem;
+      background: var(--bg); border-radius: 8px; padding: 0.4rem;
+    }
+    .style-color-field label { font-size: 0.62rem; color: var(--muted); }
+    .style-color-field input[type="color"] {
+      width: 100%; height: 32px; border: none; background: transparent; padding: 0; cursor: pointer;
+    }
+    .style-color-field .btn-clear-style {
+      background: transparent; border: none; color: var(--muted); font-size: 0.6rem; cursor: pointer; text-align: left; padding: 0;
+    }
+
+    .period-summary {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 0.45rem 0.35rem 0.4rem; box-shadow: var(--shadow);
+    }
+    .period-summary .section-title {
+      font-size: 0.62rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.04em; padding: 0 0.15rem 0.3rem;
+    }
+    .period-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    .period-card {
+      background: var(--bg); border-radius: 5px;
+      padding: 0.22rem 0.1rem; text-align: center; min-width: 0;
+    }
+    .period-card .period-label {
+      font-size: 0.52rem; font-weight: 700; color: var(--accent);
+      margin-bottom: 0.15rem; line-height: 1.1;
+    }
+    .period-stat {
+      font-size: 0.42rem; color: var(--muted); line-height: 1.1;
+    }
+    .period-stat .val {
+      display: block; font-size: 0.45rem; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .period-stat .val.good { color: var(--success); }
+    .period-stat .val.bad { color: var(--danger); }
+    .period-stat .val.burn { color: var(--success); }
+
+    .date-nav {
+      display: flex; align-items: center; gap: 0.35rem;
+      background: var(--surface); border-radius: var(--radius);
+      padding: 0.4rem 0.45rem; box-shadow: var(--shadow);
+    }
+    .date-nav button {
+      background: var(--surface-2); border: none; color: var(--text);
+      width: 32px; height: 32px; border-radius: 8px; font-size: 0.95rem; flex-shrink: 0;
+    }
+    .date-display { flex: 1; text-align: center; }
+    .date-display .label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; }
+    .date-display input[type="date"] {
+      background: transparent; border: none; color: var(--text);
+      font-size: 16px; font-weight: 600; text-align: center; width: 100%;
+    }
+
+    .inline-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3rem;
+    }
+    .mini-stat .val.sm { font-size: 0.82rem; }
+    .bsum-strip {
+      font-size: 0.58rem; color: var(--muted); text-align: center;
+      padding: 0.35rem 0.4rem; margin-top: 0.35rem;
+      background: var(--surface); border-radius: 8px; box-shadow: var(--shadow);
+      line-height: 1.35;
+    }
+    .bsum-strip strong { color: var(--accent); }
+    .section.burn { border: 1px solid rgba(74, 222, 128, 0.2); }
+    .mini-stat {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 0.4rem 0.3rem; text-align: center; box-shadow: var(--shadow);
+    }
+    .mini-stat .lbl { font-size: 0.55rem; color: var(--muted); text-transform: uppercase; }
+    .mini-stat .val { font-size: 0.95rem; font-weight: 700; }
+    .mini-stat .sub { font-size: 0.52rem; color: var(--muted); }
+    .mini-stat.cal .val { color: var(--warning); }
+    .mini-stat.prot .val { color: var(--protein); }
+    .mini-stat.prot.bad .val { color: var(--danger); }
+    .mini-stat.prot.bad { border: 1px solid rgba(248,113,113,0.35); }
+    .mini-stat.bal.neg .val { color: var(--danger); }
+    .mini-stat.bal.pos .val { color: var(--success); }
+    .mini-stat.adj { cursor: pointer; }
+    .mini-stat.adj .val { color: var(--accent); }
+    .mini-stat.est { border: 1px solid rgba(74, 222, 128, 0.35); }
+    .mini-stat.est .val { color: var(--success); font-size: 1.05rem; }
+    .mini-stat.est.neg .val { color: var(--success); }
+    .bsum-strip .adj-link {
+      color: var(--accent); cursor: pointer; text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .goal-progress {
+      font-size: 0.62rem; color: var(--muted); margin-top: 0.35rem;
+      padding: 0.35rem 0.45rem; background: var(--bg); border-radius: 8px;
+      line-height: 1.4;
+    }
+    .goal-progress strong { color: var(--accent); }
+
+    .section {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 0.65rem 0.65rem 0.65rem 0.55rem; box-shadow: var(--shadow);
+    }
+    .section.priority { border: 1px solid rgba(56,189,248,0.2); }
+    .section-title {
+      font-size: 0.68rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem;
+      padding-right: 1.5rem;
+    }
+    .section.collapsed .section-body { display: none; }
+    .section-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; user-select: none; padding-right: 1.2rem;
+    }
+    .section-toggle .chevron { color: var(--muted); font-size: 0.75rem; transition: transform 0.2s; }
+    .section.collapsed .chevron { transform: rotate(-90deg); }
+
+    .meal-add-row { display: flex; gap: 0.3rem; margin-bottom: 0.35rem; }
+    .meal-add-row input[type="text"] {
+      flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--surface-2);
+      border-radius: 8px; color: var(--text); padding: 0.5rem; font-size: 16px;
+    }
+    .meal-add-row input[type="time"] {
+      width: 68px; background: var(--bg); border: 1px solid var(--surface-2);
+      border-radius: 8px; color: var(--text); padding: 0.4rem 0.15rem; font-size: 16px;
+    }
+    .btn {
+      background: var(--accent-dim); color: #0f172a; border: none; border-radius: 8px;
+      padding: 0.5rem 0.65rem; font-size: 0.82rem; font-weight: 600; flex-shrink: 0;
+    }
+    .btn-ghost { background: var(--surface-2); color: var(--text); }
+    .btn-danger { background: transparent; color: var(--danger); font-size: 0.72rem; padding: 0.25rem 0.4rem; }
+    .btn-icon {
+      width: 30px; height: 30px; padding: 0; display: flex; align-items: center;
+      justify-content: center; font-size: 0.85rem; border-radius: 7px;
+    }
+    .template-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.4rem; }
+    .chip {
+      background: var(--bg); border: 1px solid var(--surface-2); color: var(--text);
+      border-radius: 999px; padding: 0.25rem 0.5rem; font-size: 0.68rem;
+    }
+    .meal-list { list-style: none; }
+    .meal-item {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 0.35rem; padding: 0.32rem 0; border-bottom: 1px solid var(--surface-2);
+    }
+    .meal-item:last-child { border-bottom: none; }
+    .meal-info {
+      flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.45rem;
+      font-size: 0.78rem; line-height: 1.2;
+    }
+    .meal-info .meal-time {
+      flex-shrink: 0; width: 2.35rem; font-size: 0.68rem; color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .meal-info .meal-nums {
+      flex: 1; min-width: 0; font-weight: 600; font-size: 0.78rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .meal-actions {
+      display: flex; flex-shrink: 0; align-items: center; gap: 0.15rem;
+    }
+    .meal-actions .btn-icon { width: 26px; height: 26px; font-size: 0.75rem; }
+    .empty-meals { text-align: center; color: var(--muted); font-size: 0.75rem; padding: 0.4rem 0; }
+    .hint { font-size: 0.62rem; color: var(--muted); margin-top: 0.2rem; }
+
+    .field { margin-bottom: 0.55rem; }
+    .field:last-child { margin-bottom: 0; }
+    .field label { display: block; font-size: 0.7rem; color: var(--muted); margin-bottom: 0.2rem; }
+    .field input, .field textarea {
+      width: 100%; background: var(--bg); border: 1px solid var(--surface-2);
+      border-radius: 8px; color: var(--text); padding: 0.5rem; font-size: 16px;
+    }
+    .field textarea { resize: vertical; min-height: 48px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+    .field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; }
+    .age-display {
+      background: var(--bg); border: 1px solid var(--surface-2); border-radius: 8px;
+      padding: 0.5rem; font-size: 16px; font-weight: 600; color: var(--text); min-height: 2.35rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .age-display.muted { color: var(--muted); font-weight: 500; font-size: 0.82rem; }
+    .age-display.tap-hint { cursor: pointer; }
+
+
+    .info-btn {
+      background: none; border: none; color: var(--muted); font-size: 0.55rem;
+      padding: 0 0.15rem; cursor: pointer; vertical-align: middle; line-height: 1;
+    }
+    .info-btn:active { color: var(--accent); }
+
+    .btn-tpl-save {
+      width: 30px; height: 30px; padding: 0; font-size: 0.72rem; flex-shrink: 0;
+      background: var(--surface-2); color: var(--muted); border: none; border-radius: 7px;
+    }
+    .btn-tpl-save:active { color: var(--accent); }
+
+    .chart-period-btns { display: flex; gap: 2px; margin-bottom: 0.4rem; }
+    .period-pill {
+      flex: 1; min-width: 0; padding: 0.22rem 0.1rem; font-size: 0.55rem; font-weight: 600;
+      border-radius: 5px; border: 1px solid var(--surface-2); background: var(--bg);
+      color: var(--muted); cursor: pointer; text-align: center;
+    }
+    .period-pill.active { background: var(--accent-dim); color: #0f172a; border-color: transparent; }
+
+    .chart-stack { display: flex; flex-direction: column; gap: 0.35rem; }
+    .chart-item-label {
+      font-size: 0.55rem; color: var(--muted); margin-bottom: 0.08rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .chart-goal-tag { font-size: 0.5rem; color: var(--success); font-weight: 600; }
+    .chart-canvas {
+      width: 100%; height: 52px; border-radius: 6px; background: var(--bg); display: block;
+    }
+
+    .info-body { font-size: 0.78rem; line-height: 1.55; color: var(--text); }
+    .info-body dt { font-weight: 600; color: var(--accent); margin-top: 0.5rem; }
+    .info-body dt:first-child { margin-top: 0; }
+    .info-body dd { color: var(--muted); margin-left: 0; margin-top: 0.15rem; }
+
+    .meal-item { cursor: pointer; }
+    .meal-item .meal-actions { cursor: default; }
+
+    .weight-log-list { list-style: none; max-height: 50dvh; overflow-y: auto; }
+    .weight-log-item {
+      display: flex; align-items: center; gap: 0.4rem;
+      padding: 0.5rem 0; border-bottom: 1px solid var(--surface-2);
+    }
+    .weight-log-item.anomaly { background: rgba(248,113,113,0.08); border-radius: 6px; padding: 0.5rem 0.35rem; }
+    .weight-log-item .wl-date { font-size: 0.75rem; flex: 1; min-width: 0; }
+    .weight-log-item .wl-inputs { display: flex; gap: 0.3rem; flex-shrink: 0; }
+    .weight-log-item .wl-field { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; }
+    .weight-log-item .wl-field span { font-size: 0.5rem; color: var(--muted); }
+    .weight-log-item input {
+      width: 58px; background: var(--bg); border: 1px solid var(--surface-2);
+      border-radius: 6px; color: var(--text); padding: 0.35rem 0.25rem; font-size: 16px; text-align: right;
+    }
+
+    .ex-history-wrap { flex: 1; min-height: 0; overflow-y: auto; margin-top: 0.35rem; }
+    .ex-history-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+    .ex-history-table thead th {
+      position: sticky; top: 0; background: var(--surface); z-index: 1;
+      text-align: left; font-weight: 600; color: var(--muted); font-size: 0.62rem;
+      padding: 0.35rem 0.25rem; border-bottom: 1px solid var(--surface-2);
+    }
+    .ex-history-table thead th:nth-child(3),
+    .ex-history-table thead th:last-child { text-align: right; }
+    .ex-history-row td {
+      padding: 0.35rem 0.2rem; border-bottom: 1px solid var(--surface-2); vertical-align: middle;
+    }
+    .ex-history-row .ex-date {
+      white-space: nowrap; width: 3.2rem; color: var(--muted); font-size: 0.68rem; font-variant-numeric: tabular-nums;
+    }
+    .ex-history-row .ex-date button {
+      background: none; border: none; color: var(--accent); font-size: 0.68rem; padding: 0; cursor: pointer;
+      text-decoration: underline; text-underline-offset: 2px;
+    }
+    .ex-history-row input[type="text"],
+    .ex-history-row input[type="number"] {
+      width: 100%; background: var(--bg); border: 1px solid var(--surface-2);
+      border-radius: 6px; color: var(--text); padding: 0.35rem 0.3rem; font-size: 16px;
+    }
+    .ex-history-row input[type="number"] { width: 3.5rem; text-align: right; }
+    .ex-history-row .ex-del { width: 28px; padding: 0; }
+
+    .edit-overlay.sheet-full { align-items: stretch; padding: 0; padding-bottom: var(--safe-bottom); }
+    .edit-overlay.sheet-full .edit-sheet {
+      max-width: none; max-height: none; height: 100%; border-radius: 0;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .edit-overlay.sheet-full .edit-sheet .edit-actions { flex-shrink: 0; margin-top: auto; }
+
+    .bmr-note {
+      font-size: 0.68rem; color: var(--muted); margin-top: 0.35rem;
+      padding: 0.4rem 0.5rem; background: var(--bg); border-radius: 8px;
+    }
+    .data-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .data-actions .btn { flex: 1; min-width: 0; text-align: center; font-size: 0.75rem; padding: 0.45rem; }
+    .cloud-status-row {
+      display: flex; align-items: flex-start; gap: 0.45rem; margin-bottom: 0.45rem;
+    }
+    .cloud-status-badge {
+      flex-shrink: 0; font-size: 0.6rem; font-weight: 700; padding: 0.22rem 0.5rem;
+      border-radius: 999px; line-height: 1.25; letter-spacing: 0.01em;
+    }
+    .cloud-status-badge.off { background: var(--surface-2); color: var(--muted); }
+    .cloud-status-badge.wait { background: rgba(251,191,36,0.16); color: #fbbf24; }
+    .cloud-status-badge.ok { background: rgba(74,222,128,0.16); color: var(--success); }
+    .cloud-status-badge.err { background: rgba(248,113,113,0.16); color: var(--danger); }
+    .cloud-status-detail {
+      font-size: 0.68rem; line-height: 1.4; color: var(--muted); flex: 1; min-width: 0; margin: 0;
+    }
+    .cloud-status-detail.ok { color: var(--success); }
+    .cloud-settings-status { margin-top: 0.35rem; font-size: 0.66rem; }
+    .cloud-setup-checklist {
+      margin-top: 0.4rem; font-size: 0.64rem; color: var(--muted);
+      background: var(--bg); border-radius: 8px; padding: 0.45rem 0.55rem;
+    }
+    .cloud-setup-checklist summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+    .cloud-setup-checklist ol { margin: 0.4rem 0 0 1rem; padding: 0; line-height: 1.45; }
+    .cloud-setup-checklist code { font-size: 0.6rem; word-break: break-all; }
+    .cloud-strip {
+      display: flex; align-items: center; gap: 0.45rem;
+      margin: 0 0 0.45rem; padding: 0.42rem 0.55rem;
+      border-radius: 10px; font-size: 0.68rem; line-height: 1.3;
+      border: 1px solid var(--surface-2); background: var(--surface);
+      position: sticky; top: 0; z-index: 20;
+    }
+    .cloud-strip-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: var(--muted); box-shadow: 0 0 0 2px rgba(148,163,184,0.2);
+    }
+    .cloud-strip[data-state="setup"] .cloud-strip-dot,
+    .cloud-strip[data-state="offline"] .cloud-strip-dot { background: #94a3b8; }
+    .cloud-strip[data-state="connecting"] .cloud-strip-dot,
+    .cloud-strip[data-state="syncing"] .cloud-strip-dot {
+      background: #fbbf24; animation: cloud-pulse 1.1s ease-in-out infinite;
+    }
+    .cloud-strip[data-state="online"] .cloud-strip-dot {
+      background: var(--success); box-shadow: 0 0 0 2px rgba(74,222,128,0.25);
+    }
+    .cloud-strip[data-state="error"] .cloud-strip-dot { background: var(--danger); }
+    .cloud-strip[data-state="online"] {
+      border-color: rgba(74,222,128,0.35); background: rgba(74,222,128,0.08);
+    }
+    .cloud-strip[data-state="connecting"],
+    .cloud-strip[data-state="syncing"] {
+      border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.08);
+    }
+    .cloud-strip[data-state="error"] {
+      border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08);
+    }
+  @keyframes cloud-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+    .cloud-strip-label { font-weight: 700; flex-shrink: 0; min-width: 4.8rem; }
+    .cloud-strip-text { flex: 1; min-width: 0; color: var(--muted); }
+    .cloud-strip[data-state="online"] .cloud-strip-text { color: var(--success); }
+    .cloud-strip[data-state="error"] .cloud-strip-text { color: var(--danger); }
+    .cloud-strip-action {
+      flex-shrink: 0; border: none; border-radius: 7px; padding: 0.28rem 0.5rem;
+      font-size: 0.62rem; font-weight: 700; background: var(--surface-2); color: var(--text);
+    }
+    .cloud-strip-action:disabled { opacity: 0.45; }
+    .btn-sm.cloud-on { color: var(--success); border-color: rgba(74,222,128,0.35); }
+    .btn-sm.cloud-busy {
+      color: #fbbf24; border-color: rgba(251,191,36,0.35);
+      display: inline-flex; align-items: center; justify-content: center;
+      animation: cloud-spin 0.85s linear infinite;
+    }
+    @keyframes cloud-spin { to { transform: rotate(360deg); } }
+
+    .edit-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 50; align-items: flex-end; justify-content: center;
+      padding: 1rem; padding-bottom: calc(1rem + var(--safe-bottom));
+    }
+    .edit-overlay.open { display: flex; }
+    .edit-sheet {
+      background: var(--surface); border-radius: var(--radius); padding: 1rem;
+      width: 100%; max-width: 480px; max-height: 85dvh; overflow-y: auto; box-shadow: var(--shadow);
+    }
+    .edit-sheet-form {
+      display: flex; flex-direction: column; padding: 0;
+      max-height: min(92dvh, calc(100dvh - 1.5rem)); overflow: hidden;
+    }
+    .edit-sheet-header {
+      flex-shrink: 0; padding: 0.8rem 1rem 0.45rem;
+      border-bottom: 1px solid var(--surface-2);
+    }
+    .edit-sheet-header h3 { margin-bottom: 0.1rem; }
+    .sheet-scroll-hint { font-size: 0.58rem; color: var(--muted); margin: 0; }
+    .edit-sheet-body {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+      -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
+      touch-action: pan-y; padding: 0.6rem 1rem 0.75rem;
+    }
+    .edit-sheet-footer {
+      flex-shrink: 0; margin-top: 0; padding: 0.6rem 1rem calc(0.65rem + var(--safe-bottom));
+      border-top: 1px solid var(--surface-2); background: var(--surface);
+    }
+    .sheet-section-label {
+      font-size: 0.68rem; font-weight: 600; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.03em; margin: 0.15rem 0 0.45rem;
+    }
+    .edit-sheet h3 { font-size: 0.9rem; margin-bottom: 0.25rem; }
+    .edit-sheet .sheet-desc { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.7rem; }
+    .edit-actions { display: flex; gap: 0.35rem; margin-top: 0.7rem; }
+    .edit-actions .btn { flex: 1; }
+
+    .confirm-pop-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      z-index: 60; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .confirm-pop-overlay.open { display: flex; }
+    .confirm-pop {
+      background: var(--surface); border-radius: var(--radius); padding: 0.85rem 1rem;
+      width: 100%; max-width: 280px; box-shadow: var(--shadow);
+    }
+    .confirm-pop-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+    .confirm-pop-body { font-size: 0.76rem; color: var(--muted); margin-bottom: 0.65rem; line-height: 1.4; white-space: pre-line; }
+    .confirm-pop-actions { display: flex; gap: 0.35rem; }
+    .confirm-pop-actions .btn { flex: 1; padding: 0.45rem; font-size: 0.82rem; }
+
+    .toast {
+      position: fixed; bottom: calc(1rem + var(--safe-bottom)); left: 50%;
+      transform: translateX(-50%) translateY(120%); padding: 0.55rem 1rem;
+      border-radius: 10px; font-size: 0.8rem; font-weight: 500; z-index: 100;
+      transition: transform 0.3s; max-width: calc(100% - 2rem); text-align: center;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.error { background: var(--danger); color: #fff; }
+    .toast.success { background: var(--success); color: #0f172a; }
+    input[type="file"] { display: none; }
+    .reorder-hint { font-size: 0.58rem; color: var(--muted); text-align: center; margin-bottom: 0.35rem; }
   </style>
-  <script>
-    /* wipe old P-Note SW + caches once */
-    (function () {
-      var KEY = 'pnote_blank_43';
-      if (localStorage.getItem(KEY)) return;
-      localStorage.setItem(KEY, '1');
-      var done = Promise.resolve();
-      if ('serviceWorker' in navigator) {
-        done = navigator.serviceWorker.getRegistrations().then(function (regs) {
-          return Promise.all(regs.map(function (r) { return r.unregister(); }));
-        });
-      }
-      if (window.caches) {
-        done = done.then(function () {
-          return caches.keys().then(function (keys) {
-            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
-          });
-        });
-      }
-      done.then(function () { location.reload(); });
-    })();
-  </script>
 </head>
-<body></body>
+<body>
+  <div class="app">
+    <div class="top-bar">
+      <h1>Calorie & Protein</h1>
+      <div class="top-actions">
+        <button type="button" class="btn-sm" id="btnCloudTop" title="ซิงก์ Google Drive">☁️</button>
+        <button type="button" class="btn-sm" id="btnTheme">☀️</button>
+        <button type="button" class="btn-sm" id="btnSettings">⚙️</button>
+      </div>
+    </div>
+    <div class="cloud-strip" id="cloudStrip" data-state="offline" role="status" aria-live="polite">
+      <span class="cloud-strip-dot" id="cloudStripDot" aria-hidden="true"></span>
+      <span class="cloud-strip-label" id="cloudStripLabel">ออฟไลน์</span>
+      <span class="cloud-strip-text" id="cloudStripText">ข้อมูลอยู่ในเครื่อง · ยังไม่เชื่อมต่อ Drive</span>
+      <button type="button" class="cloud-strip-action" id="cloudStripAction">เชื่อมต่อ</button>
+    </div>
+    <p class="reorder-hint">ลาก ⋮⋮ เพื่อจัดลำดับหมวด — ระบบจำไว้</p>
+
+    <div id="blocksContainer">
+      <div class="sortable-block" data-block-id="summary">
+        <span class="drag-handle" aria-hidden="true">⋮⋮</span>
+        <section class="period-summary">
+          <div class="section-title">สรุปย้อนหลัง</div>
+          <p class="hint" style="padding:0 0.15rem 0.25rem;font-size:0.5rem">W น้ำหนัก · C Bal · P Prot · B เบิร์น · E Est.</p>
+          <div class="period-grid" id="periodGrid"></div>
+        </section>
+      </div>
+
+      <div class="sortable-block" data-block-id="date">
+        <span class="drag-handle">⋮⋮</span>
+        <nav class="date-nav">
+          <button type="button" id="btnPrevDay">‹</button>
+          <div class="date-display">
+            <div class="label" id="dateLabel">วันนี้</div>
+            <input type="date" id="datePicker">
+          </div>
+          <button type="button" id="btnNextDay">›</button>
+        </nav>
+      </div>
+
+      <div class="sortable-block" data-block-id="stats">
+        <span class="drag-handle">⋮⋮</span>
+        <div class="inline-stats">
+          <div class="mini-stat cal">
+            <div class="lbl">กิน <button type="button" class="info-btn" data-info="cal">ⓘ</button></div>
+            <div class="val" id="totalCal">0</div>
+            <div class="sub" id="calSub">kcal</div>
+          </div>
+          <div class="mini-stat prot" id="protCard">
+            <div class="lbl">Prot <button type="button" class="info-btn" data-info="prot">ⓘ</button></div>
+            <div class="val" id="protRemain">0</div>
+            <div class="sub" id="protSub">ขาด —g</div>
+          </div>
+          <div class="mini-stat bal" id="balanceCard">
+            <div class="lbl">Bal <button type="button" class="info-btn" data-info="balance">ⓘ</button></div>
+            <div class="val" id="balance">0</div>
+            <div class="sub" id="balSub">kcal</div>
+          </div>
+          <div class="mini-stat est" id="estCard">
+            <div class="lbl">Est. <button type="button" class="info-btn" data-info="loss">ⓘ</button></div>
+            <div class="val" id="estVal">—</div>
+            <div class="sub" id="estSub">กก. วันนี้</div>
+          </div>
+        </div>
+        <div class="bsum-strip" id="bsumStrip">BMR — · ชดเชย <span class="adj-link" id="adjLink">0%</span></div>
+      </div>
+
+      <div class="sortable-block" data-block-id="meals">
+        <span class="drag-handle">⋮⋮</span>
+        <section class="section priority">
+          <div class="section-title">เพิ่มมื้อ · <span id="mealCount">0</span> มื้อ</div>
+          <div class="template-chips" id="templateChips"></div>
+          <div class="meal-add-row">
+            <input type="text" id="mealInput" placeholder="Cal,Protein" autocomplete="off">
+            <input type="time" id="mealTime">
+            <button type="button" class="btn-tpl-save" id="btnQuickTemplate" title="บันทึกเป็นเทมเพลต">☆</button>
+            <button type="button" class="btn" id="btnAddMeal" style="width:30px;padding:0">+</button>
+          </div>
+          <p class="hint">450,30 · ☆=เทมเพลต · ✎ แก้ไข</p>
+          <ul class="meal-list" id="mealList"></ul>
+          <p class="empty-meals" id="emptyMeals">ยังไม่มีมื้อ</p>
+        </section>
+      </div>
+      <div class="sortable-block" data-block-id="exercises">
+        <span class="drag-handle">⋮⋮</span>
+        <section class="section burn">
+          <div class="section-title">ออกกำลังกาย · <span id="exerciseCount">0</span> รายการ</div>
+          <div class="template-chips" id="exerciseTemplateChips"></div>
+          <div class="meal-add-row">
+            <input type="number" id="exerciseKcal" placeholder="kcal" inputmode="numeric" min="0" style="width:58px;flex:none">
+            <input type="text" id="exerciseNote" placeholder="โน้ต เช่น วิ่ง" style="flex:1">
+            <input type="time" id="exerciseTime">
+            <button type="button" class="btn-tpl-save" id="btnQuickExTemplate" title="บันทึกเป็นเทมเพลต">☆</button>
+            <button type="button" class="btn" id="btnAddExercise" style="width:30px;padding:0;background:var(--success);color:#0f172a">+</button>
+          </div>
+          <p class="hint">แคลอรี่เผา · ☆=เทมเพลต · ✎ แก้ไข</p>
+          <button type="button" class="btn btn-ghost" id="btnExerciseHistory" style="width:100%;font-size:0.75rem;margin-bottom:0.35rem">📋 ประวัติโปรแกรม</button>
+          <ul class="meal-list" id="exerciseList"></ul>
+          <p class="empty-meals" id="emptyExercises">ยังไม่มี — วันไม่ออกกำลังกายก็ได้</p>
+        </section>
+      </div>
+
+      <div class="sortable-block" data-block-id="profile">
+        <span class="drag-handle">⋮⋮</span>
+        <section class="section">
+          <div class="section-title">ข้อมูลผู้ใช้</div>
+          <div class="field-row-3">
+            <div class="field">
+              <label for="profileWeight">น้ำหนัก kg</label>
+              <input type="number" id="profileWeight" inputmode="decimal" step="0.1" min="0">
+            </div>
+            <div class="field">
+              <label>อายุ</label>
+              <div class="age-display muted tap-hint" id="profileAgeDisplay" title="แตะเพื่อตั้งวันเกิดใน Settings">ตั้งวันเกิดใน ⚙</div>
+            </div>
+            <div class="field">
+              <label for="profileWaist">เอว cm</label>
+              <input type="number" id="profileWaist" inputmode="decimal" step="0.1" min="0">
+            </div>
+          </div>
+          <p class="hint" style="margin-top:0.2rem">น้ำหนัก/เอว = ค่าที่วัดล่าสุด · แก้ไขเมื่อวัดวันนี้</p>
+          <button type="button" class="btn btn-ghost" id="btnWeightHistory" style="width:100%;font-size:0.75rem;margin-top:0.25rem">📋 แก้ไขประวัติน้ำหนัก & เอว</button>
+          <div class="field" style="margin-top:0.45rem">
+            <label for="programStartDate">📅 วันเริ่มโปรแกรม <button type="button" class="info-btn" data-info="start">ⓘ</button></label>
+            <input type="date" id="programStartDate" max="">
+            <p class="hint">ก่อนวันนี้ = ไม่คำนวณ BMR/Est. ไม่ดึงค่าย้อนหลัง</p>
+          </div>
+          <div class="field-row" style="margin-top:0.45rem">
+            <div class="field">
+              <label for="targetWeight">🎯 เป้าน้ำหนัก kg</label>
+              <input type="number" id="targetWeight" inputmode="decimal" step="0.1" min="0" placeholder="เช่น 70">
+            </div>
+            <div class="field">
+              <label for="targetWaist">🎯 เป้าเอว cm</label>
+              <input type="number" id="targetWaist" inputmode="decimal" step="0.1" min="0" placeholder="เช่น 73">
+            </div>
+          </div>
+          <p class="goal-progress" id="goalProgress">ตั้งเป้าเพื่อดูความคืบหน้า — แสดงเส้นเป้าบนกราฟ <button type="button" class="info-btn" data-info="goal">ⓘ</button></p>
+        </section>
+      </div>
+
+      <div class="sortable-block" data-block-id="charts">
+        <span class="drag-handle">⋮⋮</span>
+        <section class="section">
+          <div class="section-title">กราฟ</div>
+          <div class="chart-period-btns" id="chartPeriodBtns">
+            <button type="button" class="period-pill active" data-days="30">30D</button>
+            <button type="button" class="period-pill" data-days="90">3M</button>
+            <button type="button" class="period-pill" data-days="180">6M</button>
+            <button type="button" class="period-pill" data-days="365">1Y</button>
+            <button type="button" class="period-pill" data-days="0">ALL</button>
+          </div>
+          <div class="chart-stack">
+            <div class="chart-item">
+              <div class="chart-item-label"><span>น้ำหนัก (kg)</span><span id="chartWeightGoal" class="chart-goal-tag"></span></div>
+              <canvas class="chart-canvas" id="chartWeight" data-chart="weight"></canvas>
+            </div>
+            <div class="chart-item">
+              <div class="chart-item-label"><span>รอบเอว (cm)</span><span id="chartWaistGoal" class="chart-goal-tag"></span></div>
+              <canvas class="chart-canvas" id="chartWaist" data-chart="waist"></canvas>
+            </div>
+            <div class="chart-item">
+              <div class="chart-item-label"><span>แคลอรี่ (kcal)</span></div>
+              <canvas class="chart-canvas" id="chartCal" data-chart="cal"></canvas>
+            </div>
+            <div class="chart-item">
+              <div class="chart-item-label"><span>โปรตีน (g)</span></div>
+              <canvas class="chart-canvas" id="chartProt" data-chart="prot"></canvas>
+            </div>
+            <div class="chart-item">
+              <div class="chart-item-label"><span>เบิร์นออกกำลัง (kcal)</span></div>
+              <canvas class="chart-canvas" id="chartBurn" data-chart="burn"></canvas>
+            </div>
+            <div class="chart-item">
+              <div class="chart-item-label"><span>Balance (kcal) <button type="button" class="info-btn" data-info="balance">ⓘ</button></span></div>
+              <canvas class="chart-canvas" id="chartBalance" data-chart="balance"></canvas>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="sortable-block" data-block-id="data">
+        <span class="drag-handle">⋮⋮</span>
+        <section class="section" id="dataSection">
+          <div class="section-toggle" id="toggleData">
+            <div class="section-title" style="margin:0">สำรองข้อมูล</div>
+            <span class="chevron">▼</span>
+          </div>
+          <div class="section-body" style="margin-top:0.5rem">
+            <div class="cloud-status-row" id="cloudStatusRow">
+              <span class="cloud-status-badge off" id="cloudStatusBadge">ยังไม่เชื่อมต่อ</span>
+              <p class="cloud-status-detail" id="cloudSyncStatus">ข้อมูลอยู่ในเครื่อง — ล็อกอิน Google เพื่อซิงก์ Drive</p>
+            </div>
+            <div class="data-actions" style="margin-bottom:0.4rem">
+              <button type="button" class="btn btn-ghost" id="btnCloudLogin">🔐 เข้าสู่ระบบ Google</button>
+              <button type="button" class="btn btn-ghost" id="btnCloudSwitch" style="display:none">เปลี่ยนบัญชี</button>
+              <button type="button" class="btn btn-ghost" id="btnCloudSyncNow" style="display:none">↻ ซิงก์</button>
+              <button type="button" class="btn btn-ghost" id="btnCloudLogout" style="display:none">ออก</button>
+              <button type="button" class="btn btn-ghost" id="btnResetCloud" style="display:none;font-size:0.68rem">รีเซ็ตผูกบัญชี</button>
+            </div>
+            <p class="hint" id="autoBackupStatus" style="margin-bottom:0.4rem">สำรองอัตโนมัติ: ปิด — ตั้งไฟล์ครั้งเดียว ทับไฟล์เดิมทุกครั้งที่มีการเปลี่ยนแปลง</p>
+            <div class="data-actions">
+              <button type="button" class="btn btn-ghost" id="btnAutoBackup">📁 ตั้งไฟล์สำรอง</button>
+              <button type="button" class="btn btn-ghost" id="btnExport">Export</button>
+              <button type="button" class="btn btn-ghost" id="btnImport">Import</button>
+              <input type="file" id="importFile" accept=".json">
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-overlay" id="editOverlay">
+    <div class="edit-sheet">
+      <h3>แก้ไขมื้อ</h3>
+      <div class="field"><label for="editMealInput">Cal,Protein</label><input type="text" id="editMealInput"></div>
+      <div class="field"><label for="editMealTime">เวลา</label><input type="time" id="editMealTime"></div>
+      <div class="edit-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancelEdit">ยกเลิก</button>
+        <button type="button" class="btn" id="btnSaveEdit">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-overlay" id="editExerciseOverlay">
+    <div class="edit-sheet">
+      <h3>แก้ไขออกกำลังกาย</h3>
+      <div class="field"><label for="editExerciseKcal">แคลอรี่เผา (kcal)</label><input type="number" id="editExerciseKcal" min="0"></div>
+      <div class="field"><label for="editExerciseNote">โน้ต</label><input type="text" id="editExerciseNote"></div>
+      <div class="field"><label for="editExerciseTime">เวลา</label><input type="time" id="editExerciseTime"></div>
+      <div class="edit-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancelEditEx">ยกเลิก</button>
+        <button type="button" class="btn" id="btnSaveEditEx">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-overlay" id="weightHistoryOverlay">
+    <div class="edit-sheet">
+      <h3>ประวัติน้ำหนัก & เอว</h3>
+      <p class="sheet-desc">แก้ค่าที่บันทึกผิด · แถวสีแดง = เปลี่ยนแปลงผิดปกติ (น้ำหนัก &gt;2kg หรือเอว &gt;3cm จากวันก่อน)</p>
+      <ul class="weight-log-list" id="weightLogList"></ul>
+      <div class="edit-actions">
+        <button type="button" class="btn btn-ghost" id="btnCloseWeightHistory">ปิด</button>
+        <button type="button" class="btn" id="btnSaveWeightHistory">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-overlay sheet-full" id="exerciseHistoryOverlay">
+    <div class="edit-sheet">
+      <h3>ประวัติออกกำลังกาย</h3>
+      <p class="sheet-desc">แก้โน้ต/kcal ได้เลย · แตะวันที่เพื่อไปวันนั้น</p>
+      <div class="chart-period-btns" id="exHistoryPeriodBtns">
+        <button type="button" class="period-pill active" data-days="7">7D</button>
+        <button type="button" class="period-pill" data-days="30">30D</button>
+        <button type="button" class="period-pill" data-days="90">90D</button>
+      </div>
+      <div class="ex-history-wrap">
+        <table class="ex-history-table" id="exHistoryTable">
+          <thead>
+            <tr><th>วันที่</th><th>รายการ</th><th>kcal</th><th></th></tr>
+          </thead>
+          <tbody id="exHistoryBody"></tbody>
+        </table>
+        <p class="empty-meals" id="exHistoryEmpty" style="display:none">ยังไม่มีประวัติในช่วงนี้</p>
+      </div>
+      <div class="edit-actions">
+        <button type="button" class="btn btn-ghost" id="btnCloseExHistory">ปิด</button>
+        <button type="button" class="btn" id="btnSaveExHistory">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-overlay" id="settingsOverlay">
+    <div class="edit-sheet edit-sheet-form">
+      <div class="edit-sheet-header">
+        <h3>ตั้งค่า <span id="appVersionTag" style="font-size:0.62rem;color:var(--muted);font-weight:500"></span></h3>
+        <p class="sheet-scroll-hint">เลื่อนลงเพื่อดูทั้งหมด ↓</p>
+      </div>
+      <div class="edit-sheet-body" id="settingsScrollBody">
+        <p class="sheet-section-label">☁️ Google Drive</p>
+        <div class="field">
+          <label for="settingsGoogleClientId">Google OAuth Client ID</label>
+          <input type="text" id="settingsGoogleClientId" placeholder="123456789-xxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+          <p class="hint">จาก Google Cloud → OAuth Web Client · ลงท้าย .apps.googleusercontent.com</p>
+          <p class="hint" id="settingsClientIdHint">ยังไม่ได้บันทึก Client ID</p>
+          <details class="cloud-setup-checklist" open>
+            <summary>ตั้งค่า Google Cloud (UI ใหม่ 2025+)</summary>
+            <p class="hint" style="margin:0.35rem 0">แนะนำทำบนคอม — มือถือหาเมนูยาก</p>
+            <ol>
+              <li><strong>เปิด Drive API</strong><br>เมนู ☰ → APIs &amp; Services → <strong>Library</strong> → ค้นหา <em>Google Drive API</em> → กด <strong>Enable</strong></li>
+              <li><strong>Test user</strong><br>เมนู ☰ → <strong>Google Auth platform</strong> → แท็บ <strong>Audience</strong> → <strong>Test users</strong> → Add users → ใส่ Gmail</li>
+              <li><strong>Scope</strong> (ถ้ามีแท็บ Data access)<br>Google Auth platform → <strong>Data access</strong> → Add or remove scopes → วาง <code>https://www.googleapis.com/auth/drive.file</code> → Add to table → Save<br><em>ไม่เจอแท็บนี้? ข้ามได้ — ลองเชื่อมต่อหลังข้อ 1</em></li>
+              <li><strong>Web Client</strong><br>Google Auth platform → <strong>Clients</strong> → Web client → origins: <code>https://yohaken.github.io</code></li>
+            </ol>
+          </details>
+          <p class="hint cloud-settings-status" id="settingsCloudStatus">สถานะ: ยังไม่เชื่อมต่อ</p>
+          <button type="button" class="btn btn-ghost" id="btnResetCloudSettings" style="width:100%;margin-top:0.35rem;font-size:0.72rem">รีเซ็ตการผูกบัญชี Google</button>
+        </div>
+        <p class="sheet-section-label">ข้อมูลส่วนตัว</p>
+        <div class="field">
+          <label for="settingsBirthDate">🎂 วันเกิด</label>
+          <input type="date" id="settingsBirthDate" max="">
+          <p class="hint" id="settingsAgeHint">อายุ — ปี · คำนวณอัตโนมัติทุกวัน</p>
+        </div>
+        <div class="field">
+          <label for="proteinMultiplier">ตัวคูณโปรตีน</label>
+          <input type="number" id="proteinMultiplier" step="0.01" min="0.5" max="3">
+        </div>
+        <p class="sheet-section-label">เทมเพลต</p>
+        <p class="sheet-desc" style="margin-bottom:0.35rem">มื้ออาหาร</p>
+        <div id="templateEditor"></div>
+        <button type="button" class="btn btn-ghost" id="btnAddTemplate" style="width:100%;margin-top:0.4rem">+ เทมเพลตมื้อ</button>
+        <p class="sheet-desc" style="margin-top:0.6rem;margin-bottom:0.35rem">ออกกำลังกาย</p>
+        <div id="exerciseTemplateEditor"></div>
+        <button type="button" class="btn btn-ghost" id="btnAddExTemplate" style="width:100%;margin-top:0.4rem">+ เทมเพลตออกกำลัง</button>
+        <p class="sheet-section-label">ปรับสีกล่อง</p>
+        <div class="field">
+          <label for="blockStylePicker">เลือกกล่อง</label>
+          <select id="blockStylePicker"></select>
+        </div>
+        <div class="style-color-grid" id="blockStyleFields"></div>
+        <button type="button" class="btn btn-ghost" id="btnResetBlockStyle" style="width:100%;margin-bottom:0.25rem">รีเซ็ตกล่องนี้</button>
+      </div>
+      <div class="edit-actions edit-sheet-footer">
+        <button type="button" class="btn btn-ghost" id="btnCancelSettings">ปิด</button>
+        <button type="button" class="btn" id="btnSaveSettings">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-overlay" id="quickTemplateOverlay">
+    <div class="edit-sheet">
+      <h3>บันทึกเทมเพลต</h3>
+      <p class="sheet-desc">ทางลัด — ไม่ต้องเข้า Settings</p>
+      <div class="field"><label for="quickTemplateName">ชื่อ</label><input type="text" id="quickTemplateName" placeholder="เช่น ข้าว+ไก่"></div>
+      <div class="field"><label for="quickTemplateVal">Cal,Protein</label><input type="text" id="quickTemplateVal" placeholder="450,30"></div>
+      <div class="edit-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancelQuickTpl">ยกเลิก</button>
+        <button type="button" class="btn" id="btnSaveQuickTpl">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-overlay" id="quickExTemplateOverlay">
+    <div class="edit-sheet">
+      <h3>บันทึกเทมเพลตออกกำลัง</h3>
+      <p class="sheet-desc">ทางลัด — ไม่ต้องเข้า Settings</p>
+      <div class="field"><label for="quickExTemplateName">ชื่อ</label><input type="text" id="quickExTemplateName" placeholder="เช่น วิ่ง"></div>
+      <div class="field-row">
+        <div class="field"><label for="quickExTemplateKcal">kcal</label><input type="number" id="quickExTemplateKcal" min="0" placeholder="300"></div>
+        <div class="field"><label for="quickExTemplateNote">โน้ต (ถ้ามี)</label><input type="text" id="quickExTemplateNote" placeholder="วิ่ง"></div>
+      </div>
+      <div class="edit-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancelQuickExTpl">ยกเลิก</button>
+        <button type="button" class="btn" id="btnSaveQuickExTpl">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-overlay" id="adjOverlay">
+    <div class="edit-sheet">
+      <h3>ชดเชยพลังงาน</h3>
+      <p class="sheet-desc">จำค่าล่าสุดเสมอจนกว่าจะเปลี่ยนใหม่ — เช่น +5% ถ้า BMR น้อยไป</p>
+      <div class="field">
+        <label for="adjInput">% ของ BMR</label>
+        <input type="number" id="adjInput" step="1" min="-30" max="30" placeholder="0">
+      </div>
+      <p class="hint" id="adjPreview"></p>
+      <div class="edit-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancelAdj">ยกเลิก</button>
+        <button type="button" class="btn" id="btnSaveAdj">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="edit-overlay" id="infoOverlay">
+    <div class="edit-sheet">
+      <h3 id="infoTitle">สูตรคำนวณ</h3>
+      <dl class="info-body" id="infoBody"></dl>
+      <div class="edit-actions"><button type="button" class="btn btn-ghost" id="btnCloseInfo" style="flex:1">ปิด</button></div>
+    </div>
+  </div>
+
+  <div class="confirm-pop-overlay" id="tplConfirmOverlay">
+    <div class="confirm-pop" role="dialog" aria-modal="true">
+      <div class="confirm-pop-title" id="tplConfirmTitle">เพิ่มรายการ</div>
+      <div class="confirm-pop-body" id="tplConfirmBody"></div>
+      <div class="confirm-pop-actions">
+        <button type="button" class="btn btn-ghost" id="tplConfirmCancel">ยกเลิก</button>
+        <button type="button" class="btn" id="tplConfirmOk">ตกลง</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast error" id="toast"></div>
+
+  <script>
+    const STORAGE_PREFIX = 'calorieTracker:';
+    const SETTINGS_KEY = 'calorieTracker:settings';
+    const TEMPLATES_KEY = 'calorieTracker:templates';
+    const EXERCISE_TEMPLATES_KEY = 'calorieTracker:exerciseTemplates';
+    const BMR_MULTIPLIER = 22;
+    const KCAL_PER_KG = 7700;
+    const DEFAULT_PROTEIN_MULT = 1.55;
+    const WEIGHT_ANOMALY_KG = 2;
+    const WAIST_ANOMALY_CM = 3;
+    const BACKUP_FILENAME = 'calorie-tracker-backup.json';
+    const BACKUP_HANDLE_DB = 'calorieTrackerBackup';
+    const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+    const EMAIL_SCOPE = 'openid email profile';
+    const OAUTH_SCOPES = DRIVE_SCOPE + ' ' + EMAIL_SCOPE;
+    const APP_VERSION = '2026.07.09-gcp-guide';
+
+    const PERIODS = [
+      { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
+      { days: 30, label: '30d' }, { days: 90, label: '3m' }, { days: 180, label: '6m' }, { days: 365, label: '12m' },
+    ];
+
+    const DEFAULT_BLOCK_ORDER = ['summary', 'date', 'stats', 'meals', 'exercises', 'profile', 'charts', 'data'];
+
+    const BLOCK_LABELS = {
+      summary: 'สรุปย้อนหลัง', date: 'เลือกวัน', stats: 'สรุปรายวัน',
+      meals: 'บันทึกการกิน', exercises: 'ออกกำลังกาย', profile: 'ข้อมูลผู้ใช้',
+      charts: 'กราฟ', data: 'สำรองข้อมูล',
+    };
+
+    const BLOCK_STYLE_COMMON = [
+      { key: 'bg', label: 'พื้นหลัง', css: '--blk-bg' },
+      { key: 'bg2', label: 'พื้นหลังรอง', css: '--blk-bg-2' },
+      { key: 'text', label: 'ตัวอักษร', css: '--blk-text' },
+      { key: 'title', label: 'หัวข้อ/รอง', css: '--blk-title' },
+      { key: 'accent', label: 'เน้น/ลิงก์', css: '--blk-accent' },
+    ];
+
+    const BLOCK_STYLE_EXTRA = {
+      summary: [
+        { key: 'good', label: 'ลด/ดี (↓)', css: '--blk-good' },
+        { key: 'bad', label: 'เพิ่ม/แย่ (↑)', css: '--blk-bad' },
+        { key: 'burn', label: 'เบิร์น', css: '--blk-burn' },
+      ],
+      stats: [
+        { key: 'cal', label: 'แคลอรี่', css: '--blk-cal' },
+        { key: 'prot', label: 'โปรตีน', css: '--blk-prot' },
+        { key: 'balPos', label: 'Balance บวก', css: '--blk-bal-pos' },
+        { key: 'balNeg', label: 'Balance ลบ', css: '--blk-bal-neg' },
+        { key: 'est', label: 'Est.', css: '--blk-est' },
+        { key: 'good', label: 'ลด/ดี', css: '--blk-good' },
+        { key: 'bad', label: 'เพิ่ม/แย่', css: '--blk-bad' },
+      ],
+    };
+
+    const BLOCK_STYLE_DEFAULTS = {
+      dark: { bg: '#1e293b', bg2: '#0f172a', text: '#f1f5f9', title: '#94a3b8', accent: '#38bdf8', good: '#4ade80', bad: '#f87171', burn: '#4ade80', cal: '#fbbf24', prot: '#a78bfa', balPos: '#4ade80', balNeg: '#f87171', est: '#4ade80' },
+      light: { bg: '#ffffff', bg2: '#f1f5f9', text: '#0f172a', title: '#64748b', accent: '#0284c7', good: '#16a34a', bad: '#dc2626', burn: '#16a34a', cal: '#d97706', prot: '#7c3aed', balPos: '#16a34a', balNeg: '#dc2626', est: '#16a34a' },
+    };
+
+    const INFO_TEXTS = {
+      cal: { title: 'แคลอรี่รวม', body: [['Total Cal', 'ผลรวมแคลอรี่จากทุกมื้อในวันนี้ — ยังไม่กิน = 0'], ['เป้าหมาย', 'กินเข้าไปเพื่อลดขาดแคล (Balance)']] },
+      prot: { title: 'โปรตีน (คงเหลือ)', body: [['เริ่มวัน', 'ติดลบตามเป้า (ยังไม่กิน)'], ['สูตร', 'กินรวม − เป้า (น้ำหนัก × ตัวคูณ)'], ['ติดลบ', 'ยังขาดอีก — ต้องกินเพิ่ม'], ['ติดบวก', 'ถึงหรือเกินเป้าแล้ว'], ['สีแดง', 'ยังขาดโปรตีน']] },
+      balance: { title: 'Balance (Deficit)', body: [['เริ่มวัน', 'ติดลบตาม Bsum (ยังไม่กิน)'], ['สูตร', 'Balance = แคลอรี่กิน − Bsum'], ['Bsum', 'BMR × (1 + ชดเชย%) + ออกกำลัง'], ['กินเข้า', 'Balance ค่อย ๆ ขึ้นใกล้ 0 หรือบวก'], ['ติดลบ (−)', 'ขาดแคล = ดีสำหรับลดน้ำหนัก']] },
+      adj: { title: 'ชดเชยพลังงาน', body: [['จำค่า', 'ใช้ค่าล่าสุดเสมอจนกว่าจะเปลี่ยนใหม่'], ['สูตร', 'ชดเชย kcal = BMR × % ÷ 100'], ['ตัวอย่าง', '+5% ถ้าสังเกตว่าขาดแคลมากไป'], ['ผล', 'เพิ่ม Bsum → Est. ลดน้ำหนักแม่นขึ้น']] },
+      loss: { title: 'Est. ลดน้ำหนัก (หัวใจแอป)', body: [['สูตร', 'Balance ÷ ' + KCAL_PER_KG + ' = กก.'], ['Balance', 'แคลอรี่กิน − (BMR + ชดเชย + ออกกำลัง)'], ['รวมเบิร์น', 'รวมการเผาพลังงานทั้งวัน → ส่งผลน้ำหนัก'], ['ติดลบ', 'ประมาณการลดน้ำหนักวันนั้น (ดี)'], ['หมายเหตุ', '1 กก. ไขมัน ≈ ' + KCAL_PER_KG + ' kcal']] },
+      goal: { title: 'เป้าหมาย', body: [['ตั้งค่า', 'เป้าน้ำหนัก + เป้าเอว ในข้อมูลผู้ใช้'], ['กราฟ', 'เส้นประสีเขียว = เป้าหมาย'], ['แรงจูงใจ', 'เห็นความห่างจากเส้นเป้าทุกวัน'], ['แอปทั่วไป', 'MyFitnessPal, Lose It ใช้เส้นเป้า + progress bar คล้ายกัน']] },
+      start: { title: 'วันเริ่มโปรแกรม', body: [['คืออะไร', 'วันแรกที่เริ่มติดตามจริง ๆ'], ['ก่อนวันนี้', 'ไม่คำนวณ BMR/Est. ไม่ดึงน้ำหนัก/เอวย้อนหลัง'], ['ตั้งค่า', 'ตั้งเองได้ หรือระบบตั้งอัตโนมัติเมื่อบันทึกครั้งแรก'], ['แอปทั่วไป', 'MyFitnessPal = Start Date · Zero = วันเริ่มลดน้ำหนัก']] },
+    };
+
+    let chartPeriodDays = 30;
+    let backupFileHandle = null;
+    let backupDebounceTimer = null;
+    let driveSyncDebounceTimer = null;
+    let googleAccessToken = null;
+    let googleTokenClient = null;
+    let cloudUiPhase = 'idle';
+    let cloudUiError = '';
+    let cloudLive = false;
+    let pendingTokenResolve = null;
+    let pendingTokenReject = null;
+    let gsiScriptPromise = null;
+
+    const DEFAULT_TEMPLATES = [
+      { id: 't1', label: 'ไข่ 2ฟอง', calories: 140, protein: 12 },
+      { id: 't2', label: 'โปรตีนเชค', calories: 120, protein: 24 },
+      { id: 't3', label: 'ข้าว+ไก่', calories: 450, protein: 35 },
+    ];
+
+    const DEFAULT_EXERCISE_TEMPLATES = [
+      { id: 'e1', label: 'วิ่ง', calories: 300, note: 'วิ่ง' },
+      { id: 'e2', label: 'เดิน', calories: 150, note: 'เดิน' },
+      { id: 'e3', label: 'ยกน้ำหนัก', calories: 200, note: 'ยกน้ำหนัก' },
+    ];
+
+    let currentDate = todayStr();
+    let editingMealId = null;
+    let editingExerciseId = null;
+    let dragState = null;
+    let pendingTplConfirm = null;
+    let exHistoryPeriodDays = 7;
+    let editingBlockStyleId = 'summary';
+    let blockStyleDraft = null;
+
+    const $ = (s) => document.querySelector(s);
+
+    const els = {
+      blocksContainer: $('#blocksContainer'),
+      periodGrid: $('#periodGrid'),
+      datePicker: $('#datePicker'), dateLabel: $('#dateLabel'),
+      btnPrevDay: $('#btnPrevDay'), btnNextDay: $('#btnNextDay'),
+      totalCal: $('#totalCal'), protRemain: $('#protRemain'), protCard: $('#protCard'), protSub: $('#protSub'),
+      calSub: $('#calSub'), balance: $('#balance'), balanceCard: $('#balanceCard'), balSub: $('#balSub'),
+      estCard: $('#estCard'), estVal: $('#estVal'), estSub: $('#estSub'),
+      bsumStrip: $('#bsumStrip'), adjLink: $('#adjLink'),
+      profileWeight: $('#profileWeight'), profileAgeDisplay: $('#profileAgeDisplay'), profileWaist: $('#profileWaist'),
+      targetWeight: $('#targetWeight'), targetWaist: $('#targetWaist'), goalProgress: $('#goalProgress'),
+      programStartDate: $('#programStartDate'),
+      exerciseKcal: $('#exerciseKcal'), exerciseNote: $('#exerciseNote'), exerciseTime: $('#exerciseTime'),
+      btnAddExercise: $('#btnAddExercise'), btnQuickExTemplate: $('#btnQuickExTemplate'),
+      exerciseList: $('#exerciseList'), exerciseTemplateChips: $('#exerciseTemplateChips'),
+      exerciseCount: $('#exerciseCount'), emptyExercises: $('#emptyExercises'),
+      btnExerciseHistory: $('#btnExerciseHistory'),
+      exerciseHistoryOverlay: $('#exerciseHistoryOverlay'), exHistoryPeriodBtns: $('#exHistoryPeriodBtns'),
+      exHistoryTable: $('#exHistoryTable'), exHistoryBody: $('#exHistoryBody'), exHistoryEmpty: $('#exHistoryEmpty'),
+      btnCloseExHistory: $('#btnCloseExHistory'), btnSaveExHistory: $('#btnSaveExHistory'),
+      blockStylePicker: $('#blockStylePicker'), blockStyleFields: $('#blockStyleFields'),
+      btnResetBlockStyle: $('#btnResetBlockStyle'),
+      mealInput: $('#mealInput'), mealTime: $('#mealTime'), btnAddMeal: $('#btnAddMeal'),
+      mealList: $('#mealList'), mealCount: $('#mealCount'), emptyMeals: $('#emptyMeals'),
+      templateChips: $('#templateChips'),
+      chartPeriodBtns: $('#chartPeriodBtns'),
+      chartWeight: $('#chartWeight'), chartWaist: $('#chartWaist'), chartCal: $('#chartCal'),
+      chartWeightGoal: $('#chartWeightGoal'), chartWaistGoal: $('#chartWaistGoal'),
+      chartProt: $('#chartProt'), chartBurn: $('#chartBurn'), chartBalance: $('#chartBalance'),
+      editExerciseOverlay: $('#editExerciseOverlay'), editExerciseKcal: $('#editExerciseKcal'),
+      editExerciseNote: $('#editExerciseNote'), editExerciseTime: $('#editExerciseTime'),
+      btnCancelEditEx: $('#btnCancelEditEx'), btnSaveEditEx: $('#btnSaveEditEx'),
+      weightLogList: $('#weightLogList'),
+      editOverlay: $('#editOverlay'), editMealInput: $('#editMealInput'), editMealTime: $('#editMealTime'),
+      btnCancelEdit: $('#btnCancelEdit'), btnSaveEdit: $('#btnSaveEdit'),
+      weightHistoryOverlay: $('#weightHistoryOverlay'),
+      btnWeightHistory: $('#btnWeightHistory'), btnCloseWeightHistory: $('#btnCloseWeightHistory'),
+      btnSaveWeightHistory: $('#btnSaveWeightHistory'),
+      settingsOverlay: $('#settingsOverlay'), proteinMultiplier: $('#proteinMultiplier'),
+      settingsBirthDate: $('#settingsBirthDate'), settingsAgeHint: $('#settingsAgeHint'),
+      settingsGoogleClientId: $('#settingsGoogleClientId'),
+      settingsClientIdHint: $('#settingsClientIdHint'),
+      appVersionTag: $('#appVersionTag'), settingsScrollBody: $('#settingsScrollBody'),
+      templateEditor: $('#templateEditor'), btnAddTemplate: $('#btnAddTemplate'),
+      exerciseTemplateEditor: $('#exerciseTemplateEditor'), btnAddExTemplate: $('#btnAddExTemplate'),
+      btnSettings: $('#btnSettings'), btnTheme: $('#btnTheme'),
+      btnCancelSettings: $('#btnCancelSettings'), btnSaveSettings: $('#btnSaveSettings'),
+      btnExport: $('#btnExport'), btnImport: $('#btnImport'), importFile: $('#importFile'),
+      btnAutoBackup: $('#btnAutoBackup'), autoBackupStatus: $('#autoBackupStatus'),
+      cloudStatusBadge: $('#cloudStatusBadge'), cloudSyncStatus: $('#cloudSyncStatus'),
+      cloudStrip: $('#cloudStrip'), cloudStripLabel: $('#cloudStripLabel'),
+      cloudStripText: $('#cloudStripText'), cloudStripAction: $('#cloudStripAction'),
+      settingsCloudStatus: $('#settingsCloudStatus'),
+      btnCloudLogin: $('#btnCloudLogin'), btnCloudSwitch: $('#btnCloudSwitch'),
+      btnResetCloud: $('#btnResetCloud'), btnResetCloudSettings: $('#btnResetCloudSettings'),
+      btnCloudSyncNow: $('#btnCloudSyncNow'), btnCloudLogout: $('#btnCloudLogout'), btnCloudTop: $('#btnCloudTop'),
+      btnQuickTemplate: $('#btnQuickTemplate'),
+      quickTemplateOverlay: $('#quickTemplateOverlay'),
+      quickTemplateName: $('#quickTemplateName'), quickTemplateVal: $('#quickTemplateVal'),
+      btnCancelQuickTpl: $('#btnCancelQuickTpl'), btnSaveQuickTpl: $('#btnSaveQuickTpl'),
+      quickExTemplateOverlay: $('#quickExTemplateOverlay'),
+      quickExTemplateName: $('#quickExTemplateName'), quickExTemplateKcal: $('#quickExTemplateKcal'),
+      quickExTemplateNote: $('#quickExTemplateNote'),
+      btnCancelQuickExTpl: $('#btnCancelQuickExTpl'), btnSaveQuickExTpl: $('#btnSaveQuickExTpl'),
+      adjOverlay: $('#adjOverlay'), adjInput: $('#adjInput'), adjPreview: $('#adjPreview'),
+      btnCancelAdj: $('#btnCancelAdj'), btnSaveAdj: $('#btnSaveAdj'),
+      infoOverlay: $('#infoOverlay'), infoTitle: $('#infoTitle'), infoBody: $('#infoBody'),
+      btnCloseInfo: $('#btnCloseInfo'),
+      tplConfirmOverlay: $('#tplConfirmOverlay'), tplConfirmTitle: $('#tplConfirmTitle'),
+      tplConfirmBody: $('#tplConfirmBody'), tplConfirmCancel: $('#tplConfirmCancel'), tplConfirmOk: $('#tplConfirmOk'),
+      toast: $('#toast'),
+    };
+
+    function localDateStr(d) {
+      const dt = d instanceof Date ? d : new Date(d + 'T12:00:00');
+      return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+    }
+    function todayStr() { return localDateStr(new Date()); }
+    function nowTimeStr() {
+      const n = new Date();
+      return String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
+    }
+    function shiftDate(d, n) {
+      const x = new Date(d + 'T12:00:00');
+      x.setDate(x.getDate() + n);
+      return localDateStr(x);
+    }
+    function formatDateLabel(d) {
+      if (d === todayStr()) return 'วันนี้';
+      return new Date(d + 'T12:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+    function formatDateShort(d) {
+      const [y, m, day] = d.split('-');
+      return day + '/' + m;
+    }
+    function formatTimeDisplay(t) { if (!t) return ''; const [h, m] = t.split(':'); return parseInt(h, 10) + ':' + m; }
+    function storageKey(d) { return STORAGE_PREFIX + d; }
+
+    function loadRawSettings() {
+      try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }
+      catch { return {}; }
+    }
+
+    function loadTemplateList() {
+      try {
+        const raw = localStorage.getItem(TEMPLATES_KEY);
+        if (raw !== null) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) return arr.map((t) => ({ ...t }));
+        }
+      } catch { /* fall through */ }
+      const s = loadRawSettings();
+      if (Array.isArray(s.templates)) {
+        const migrated = s.templates.map((t) => ({ ...t }));
+        saveTemplateList(migrated);
+        return migrated;
+      }
+      return DEFAULT_TEMPLATES.map((t) => ({ ...t }));
+    }
+
+    function loadExerciseTemplateList() {
+      try {
+        const raw = localStorage.getItem(EXERCISE_TEMPLATES_KEY);
+        if (raw !== null) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) return arr.map((t) => ({ ...t }));
+        }
+      } catch { /* fall through */ }
+      const s = loadRawSettings();
+      if (Array.isArray(s.exerciseTemplates)) {
+        const migrated = s.exerciseTemplates.map((t) => ({ ...t }));
+        saveExerciseTemplateList(migrated);
+        return migrated;
+      }
+      return DEFAULT_EXERCISE_TEMPLATES.map((t) => ({ ...t }));
+    }
+
+    function saveTemplateList(templates) {
+      localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates.map((t) => ({ ...t }))));
+    }
+
+    function saveExerciseTemplateList(templates) {
+      localStorage.setItem(EXERCISE_TEMPLATES_KEY, JSON.stringify(templates.map((t) => ({ ...t }))));
+    }
+
+    function migrateTemplateStores() {
+      loadTemplateList();
+      loadExerciseTemplateList();
+    }
+
+    function defaultSettings() {
+      return {
+        proteinMultiplier: DEFAULT_PROTEIN_MULT, theme: 'dark',
+        sectionOrder: [...DEFAULT_BLOCK_ORDER],
+        chartPeriodDays: 30,
+        lastCompensationPct: 0,
+        programStartDate: '',
+        googleClientId: '',
+        syncOwnerEmail: '',
+        driveFileId: '',
+        cloudSessionActive: false,
+        lastCloudSyncAt: '',
+        lastCloudConnectAt: '',
+        blockStyles: {},
+        templates: loadTemplateList(),
+        exerciseTemplates: loadExerciseTemplateList(),
+        profile: { weight: '', age: '', birthDate: '', waist: '', targetWeight: '', targetWaist: '', weightLog: {}, waistLog: {} },
+      };
+    }
+
+    function loadSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return defaultSettings();
+        const s = JSON.parse(raw);
+        const order = Array.isArray(s.sectionOrder) ? s.sectionOrder : [...DEFAULT_BLOCK_ORDER];
+        const merged = [...order];
+        DEFAULT_BLOCK_ORDER.forEach((id) => { if (!merged.includes(id)) merged.push(id); });
+        return {
+          proteinMultiplier: parseFloat(s.proteinMultiplier) || DEFAULT_PROTEIN_MULT,
+          theme: s.theme === 'light' ? 'light' : 'dark',
+          sectionOrder: merged,
+          chartPeriodDays: s.chartPeriodDays || 30,
+          lastCompensationPct: parseFloat(s.lastCompensationPct) || 0,
+          programStartDate: s.programStartDate || '',
+          googleClientId: s.googleClientId || '',
+          syncOwnerEmail: s.syncOwnerEmail || '',
+          driveFileId: s.driveFileId || '',
+          cloudSessionActive: !!s.cloudSessionActive,
+          lastCloudSyncAt: s.lastCloudSyncAt || '',
+          lastCloudConnectAt: s.lastCloudConnectAt || '',
+          blockStyles: s.blockStyles && typeof s.blockStyles === 'object' ? s.blockStyles : {},
+          templates: loadTemplateList(),
+          exerciseTemplates: loadExerciseTemplateList(),
+          profile: {
+            weight: s.profile?.weight ?? '',
+            age: s.profile?.age ?? '',
+            birthDate: s.profile?.birthDate ?? '',
+            waist: s.profile?.waist ?? '',
+            targetWeight: s.profile?.targetWeight ?? '',
+            targetWaist: s.profile?.targetWaist ?? '',
+            weightLog: s.profile?.weightLog && typeof s.profile.weightLog === 'object' ? s.profile.weightLog : {},
+            waistLog: s.profile?.waistLog && typeof s.profile.waistLog === 'object' ? s.profile.waistLog : {},
+          },
+        };
+      } catch { return defaultSettings(); }
+    }
+
+    function saveSettings(partial) {
+      if ('templates' in partial) saveTemplateList(partial.templates);
+      if ('exerciseTemplates' in partial) saveExerciseTemplateList(partial.exerciseTemplates);
+      const cur = loadSettings();
+      const next = { ...cur, ...partial };
+      if (partial.profile) next.profile = { ...cur.profile, ...partial.profile };
+      next.templates = loadTemplateList();
+      next.exerciseTemplates = loadExerciseTemplateList();
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+      scheduleAutoBackup();
+    }
+
+    function calcAgeFromBirthDate(birthDate, asOfDate) {
+      if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return null;
+      const birth = new Date(birthDate + 'T12:00:00');
+      const asOf = new Date((asOfDate || todayStr()) + 'T12:00:00');
+      if (birth > asOf) return null;
+      let age = asOf.getFullYear() - birth.getFullYear();
+      const md = asOf.getMonth() - birth.getMonth();
+      if (md < 0 || (md === 0 && asOf.getDate() < birth.getDate())) age--;
+      return age >= 0 && age <= 150 ? age : null;
+    }
+
+    function getProfileBirthDate() {
+      return loadSettings().profile.birthDate || '';
+    }
+
+    function getProfileAge(asOfDate) {
+      const birthDate = getProfileBirthDate();
+      const computed = calcAgeFromBirthDate(birthDate, asOfDate || todayStr());
+      if (computed != null) return computed;
+      const legacy = parseInt(loadSettings().profile.age, 10);
+      return !isNaN(legacy) && legacy > 0 ? legacy : null;
+    }
+
+    function formatAgeHint(birthDate, asOfDate) {
+      const age = calcAgeFromBirthDate(birthDate, asOfDate);
+      if (age == null) return 'อายุ — ปี · คำนวณอัตโนมัติทุกวัน';
+      return 'อายุ ' + age + ' ปี · คำนวณจากวันเกิด';
+    }
+
+    function renderProfileAge(asOfDate) {
+      const birthDate = getProfileBirthDate();
+      const age = getProfileAge(asOfDate || todayStr());
+      if (age != null) {
+        els.profileAgeDisplay.textContent = age + ' ปี';
+        els.profileAgeDisplay.classList.remove('muted');
+      } else {
+        els.profileAgeDisplay.textContent = 'ตั้งวันเกิดใน ⚙';
+        els.profileAgeDisplay.classList.add('muted');
+      }
+      if (els.settingsAgeHint) els.settingsAgeHint.textContent = formatAgeHint(birthDate, todayStr());
+    }
+
+    function getWeightLog() { return loadSettings().profile.weightLog || {}; }
+    function getWaistLog() { return loadSettings().profile.waistLog || {}; }
+
+    function inferProgramStartDate() {
+      const dates = [];
+      Object.keys(getWeightLog()).forEach((d) => dates.push(d));
+      Object.keys(getWaistLog()).forEach((d) => dates.push(d));
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key?.startsWith(STORAGE_PREFIX) || key === SETTINGS_KEY) continue;
+        const d = key.slice(STORAGE_PREFIX.length);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+        try {
+          const raw = JSON.parse(localStorage.getItem(key));
+          if (raw?.meals?.length || raw?.exercises?.length) dates.push(d);
+        } catch { /* ignore */ }
+      }
+      dates.sort();
+      return dates.length ? dates[0] : null;
+    }
+
+    function getProgramStartDate() {
+      const s = loadSettings().programStartDate;
+      if (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      return inferProgramStartDate();
+    }
+
+    function isActiveTrackingDate(date) {
+      const start = getProgramStartDate();
+      return !start || date >= start;
+    }
+
+    function touchProgramStart(date) {
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+      const cur = loadSettings().programStartDate;
+      if (!cur) saveSettings({ programStartDate: date });
+    }
+
+    function getLastCompensationPct() {
+      return parseFloat(loadSettings().lastCompensationPct) || 0;
+    }
+
+    function setWeightLogEntry(date, weight) {
+      const log = { ...getWeightLog() };
+      const w = parseFloat(weight);
+      if (isNaN(w) || w <= 0) delete log[date];
+      else log[date] = w;
+      touchProgramStart(date);
+      const profile = { ...loadSettings().profile, weightLog: log };
+      profile.weight = String(getLatestWeightFromLog(log) || profile.weight || '');
+      saveSettings({ profile });
+    }
+
+    function setWaistLogEntry(date, waist) {
+      const log = { ...getWaistLog() };
+      const w = parseFloat(waist);
+      if (isNaN(w) || w <= 0) delete log[date];
+      else log[date] = w;
+      touchProgramStart(date);
+      const profile = { ...loadSettings().profile, waistLog: log };
+      const latest = getLatestFromLog(log);
+      if (latest) profile.waist = String(latest);
+      saveSettings({ profile });
+    }
+
+    function getLatestFromLog(log) {
+      const dates = Object.keys(log).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+      const today = todayStr();
+      const valid = dates.filter((d) => d <= today);
+      if (!valid.length) return null;
+      return parseFloat(log[valid[valid.length - 1]]);
+    }
+
+    function getLatestWeightFromLog(log) {
+      return getLatestFromLog(log);
+    }
+
+    function getWaistOnDate(date) {
+      if (!isActiveTrackingDate(date)) return 0;
+      const start = getProgramStartDate();
+      const log = getWaistLog();
+      if (log[date]) return parseFloat(log[date]);
+      const sorted = Object.keys(log).filter((d) => d <= date && (!start || d >= start)).sort();
+      if (sorted.length) return parseFloat(log[sorted[sorted.length - 1]]);
+      return 0;
+    }
+
+    function getWeightOnDate(date) {
+      if (!isActiveTrackingDate(date)) return 0;
+      const start = getProgramStartDate();
+      const log = getWeightLog();
+      if (log[date]) return parseFloat(log[date]);
+      const sorted = Object.keys(log).filter((d) => d <= date && (!start || d >= start)).sort();
+      if (sorted.length) return parseFloat(log[sorted[sorted.length - 1]]);
+      const legacy = loadDay(date)._legacyWeight;
+      const lw = parseFloat(legacy);
+      return !isNaN(lw) && lw > 0 ? lw : 0;
+    }
+
+    function defaultDayData() { return { meals: [], exercises: [] }; }
+
+    function migrateMeal(m) {
+      return { id: m.id || crypto.randomUUID(), calories: m.calories, protein: m.protein, time: m.time || '12:00' };
+    }
+
+    function migrateExercise(e) {
+      return {
+        id: e.id || crypto.randomUUID(),
+        calories: parseFloat(e.calories) || 0,
+        note: e.note || '',
+        time: e.time || '12:00',
+      };
+    }
+
+    function sumExerciseBurn(exercises) {
+      return (exercises || []).reduce((s, e) => s + (parseFloat(e.calories) || 0), 0);
+    }
+
+    function normalizeDayData(data) {
+      let exercises = Array.isArray(data.exercises) ? data.exercises.map(migrateExercise) : [];
+      if (!exercises.length) {
+        const legacyBurn = parseFloat(data.exerciseBurn);
+        if (!isNaN(legacyBurn) && legacyBurn > 0) {
+          exercises = [{
+            id: crypto.randomUUID(),
+            calories: legacyBurn,
+            note: data.workoutProgram || '',
+            time: '12:00',
+          }];
+        }
+      }
+      return {
+        meals: Array.isArray(data.meals) ? data.meals.map(migrateMeal) : [],
+        exercises,
+        _legacyWeight: data.weight ?? '',
+      };
+    }
+
+    function loadDay(dateStr) {
+      try {
+        const raw = localStorage.getItem(storageKey(dateStr));
+        if (!raw) return defaultDayData();
+        return normalizeDayData(JSON.parse(raw));
+      } catch { return defaultDayData(); }
+    }
+
+    function saveDay(dateStr, data) {
+      localStorage.setItem(storageKey(dateStr), JSON.stringify({
+        meals: data.meals ?? [],
+        exercises: (data.exercises ?? []).map(migrateExercise),
+      }));
+      scheduleAutoBackup();
+    }
+
+    function runMigration() {
+      const settings = loadSettings();
+      const log = { ...settings.profile.weightLog };
+      const waistLog = { ...settings.profile.waistLog };
+      let changed = false;
+      let lastComp = settings.lastCompensationPct || 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key?.startsWith(STORAGE_PREFIX) || key === SETTINGS_KEY) continue;
+        const dateStr = key.slice(STORAGE_PREFIX.length);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+        try {
+          const raw = JSON.parse(localStorage.getItem(key));
+          if (raw && raw.compensationPct != null) lastComp = parseFloat(raw.compensationPct) || lastComp;
+        } catch { /* ignore */ }
+        const day = loadDay(dateStr);
+        if (day._legacyWeight && !log[dateStr]) {
+          log[dateStr] = parseFloat(day._legacyWeight);
+          changed = true;
+        }
+        saveDay(dateStr, day);
+      }
+      const legacyWaist = parseFloat(settings.profile.waist);
+      if (!isNaN(legacyWaist) && legacyWaist > 0 && !Object.keys(waistLog).length) {
+        waistLog[todayStr()] = legacyWaist;
+        changed = true;
+      }
+      if (changed || !settings.profile.weight || lastComp !== settings.lastCompensationPct || (!settings.programStartDate && inferProgramStartDate())) {
+        const latest = getLatestWeightFromLog(log);
+        const inferred = inferProgramStartDate();
+        saveSettings({
+          lastCompensationPct: lastComp,
+          programStartDate: settings.programStartDate || inferred || '',
+          profile: {
+            ...settings.profile,
+            weightLog: log,
+            waistLog,
+            weight: latest ? String(latest) : settings.profile.weight,
+          },
+        });
+      }
+      migrateTemplateStores();
+    }
+
+    function getFormData() {
+      return loadDay(currentDate);
+    }
+    function persistForm() { saveDay(currentDate, getFormData()); }
+
+    function parseMealInput(text) {
+      const p = text.trim().split(',').map((s) => s.trim());
+      if (p.length !== 2) return null;
+      const calories = parseFloat(p[0]), protein = parseFloat(p[1]);
+      if (isNaN(calories) || isNaN(protein) || calories < 0 || protein < 0) return null;
+      return { calories, protein };
+    }
+
+    function calcBMR(w) { const x = parseFloat(w); return isNaN(x) || x <= 0 ? 0 : x * BMR_MULTIPLIER; }
+    function getProteinTarget(w) {
+      const x = parseFloat(w); return isNaN(x) || x <= 0 ? 0 : Math.round(x * loadSettings().proteinMultiplier * 10) / 10;
+    }
+
+    function calculate(data, weight) {
+      const totalCal = data.meals.reduce((s, m) => s + m.calories, 0);
+      const totalProt = data.meals.reduce((s, m) => s + m.protein, 0);
+      const baseBMR = calcBMR(weight);
+      const compensationPct = getLastCompensationPct();
+      const compensationKcal = baseBMR * (compensationPct / 100);
+      const exercise = sumExerciseBurn(data.exercises);
+      const bsum = baseBMR + compensationKcal + exercise;
+      const balance = totalCal - bsum;
+      const proteinTarget = getProteinTarget(weight);
+      const proteinRemain = totalProt - proteinTarget;
+      return {
+        totalCal, totalProt, baseBMR, compensationPct, compensationKcal, exercise, bsum, balance,
+        proteinTarget, proteinRemain,
+        weightLoss: bsum > 0 || totalCal > 0 ? balance / KCAL_PER_KG : 0,
+      };
+    }
+
+    function getDateRange(end, days) {
+      const start = getProgramStartDate();
+      const a = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const d = shiftDate(end, -i);
+        if (!start || d >= start) a.push(d);
+      }
+      return a;
+    }
+
+    function formatWC(d) {
+      if (d === null) return { text: '—', cls: 'neutral' };
+      const r = Math.round(d * 10) / 10;
+      if (r < 0) return { text: '↓' + Math.abs(r), cls: 'good' };
+      if (r > 0) return { text: '↑' + r, cls: 'bad' };
+      return { text: '—', cls: 'neutral' };
+    }
+    function formatBal(t) {
+      if (!t) return { text: '—', cls: 'neutral' };
+      const r = Math.round(t);
+      if (r < 0) return { text: '↓' + Math.abs(r), cls: 'good' };
+      if (r > 0) return { text: '↑' + r, cls: 'bad' };
+      return { text: '0', cls: 'neutral' };
+    }
+    function formatProt(sf, days) {
+      if (!days) return { text: '—', cls: 'neutral' };
+      const r = Math.round(sf);
+      return r > 0 ? { text: '↓' + r, cls: 'bad' } : { text: '✓', cls: 'good' };
+    }
+    function formatBurn(kg) {
+      if (!kg) return { text: '—', cls: 'neutral' };
+      const r = Math.round(kg * 100) / 100;
+      if (r <= 0) return { text: '—', cls: 'neutral' };
+      return { text: '↓' + r, cls: 'burn' };
+    }
+    function formatEst(kg, days) {
+      if (!days) return { text: '—', cls: 'neutral' };
+      const r = Math.round(kg * 100) / 100;
+      if (r < 0) return { text: '↓' + Math.abs(r), cls: 'good' };
+      if (r > 0) return { text: '↑' + r, cls: 'bad' };
+      return { text: '0', cls: 'neutral' };
+    }
+
+    function dayHasActivity(data) {
+      return data.meals.length > 0 || (data.exercises && data.exercises.length > 0);
+    }
+
+    function calcPeriodSummary(endDate, days) {
+      const mult = loadSettings().proteinMultiplier;
+      let sw = null, ew = null, tb = 0, tps = 0, dm = 0, de = 0, totalBurnKcal = 0, totalEstKg = 0;
+      getDateRange(endDate, days).forEach((date) => {
+        const data = loadDay(date), w = getWeightOnDate(date), st = calculate(data, w);
+        totalBurnKcal += st.exercise;
+        if (w > 0) {
+          if (sw === null) sw = w; ew = w;
+          totalEstKg += st.weightLoss;
+          de++;
+        }
+        if (dayHasActivity(data)) {
+          dm++; tb += st.balance;
+          const tgt = w > 0 ? w * mult : (ew || 0) * mult;
+          if (tgt > 0 && st.totalProt < tgt) tps += tgt - st.totalProt;
+        }
+      });
+      return {
+        weightChange: sw !== null && ew !== null ? ew - sw : null,
+        totalBalance: tb,
+        totalProteinShortfall: tps,
+        burnKg: totalBurnKcal / KCAL_PER_KG,
+        totalEstKg,
+        daysWithMeals: dm,
+        daysWithEst: de,
+      };
+    }
+
+    function renderPeriodSummary() {
+      const end = currentDate <= todayStr() ? currentDate : todayStr();
+      els.periodGrid.innerHTML = '';
+      PERIODS.forEach(({ days, label }) => {
+        const s = calcPeriodSummary(end, days);
+        const w = formatWC(s.weightChange), c = formatBal(s.totalBalance), p = formatProt(s.totalProteinShortfall, s.daysWithMeals);
+        const b = formatBurn(s.burnKg), e = formatEst(s.totalEstKg, s.daysWithEst);
+        const card = document.createElement('div');
+        card.className = 'period-card';
+        card.innerHTML = '<div class="period-label">' + label + '</div>'
+          + '<div class="period-stat">W<span class="val ' + w.cls + '">' + w.text + '</span></div>'
+          + '<div class="period-stat">C<span class="val ' + c.cls + '">' + c.text + '</span></div>'
+          + '<div class="period-stat">P<span class="val ' + p.cls + '">' + p.text + '</span></div>'
+          + '<div class="period-stat">B<span class="val ' + b.cls + '">' + b.text + '</span></div>'
+          + '<div class="period-stat">E<span class="val ' + e.cls + '">' + e.text + '</span></div>';
+        els.periodGrid.appendChild(card);
+      });
+    }
+
+    function renderDashboard(st) {
+      if (!isActiveTrackingDate(currentDate)) {
+        els.totalCal.textContent = '—';
+        els.calSub.textContent = 'ก่อนเริ่ม';
+        els.protRemain.textContent = '—';
+        els.protSub.textContent = '—';
+        els.protCard.classList.remove('bad');
+        els.balance.textContent = '—';
+        els.balanceCard.classList.remove('neg', 'pos');
+        els.balSub.textContent = '—';
+        els.estVal.textContent = '—';
+        els.estSub.textContent = 'ก่อนเริ่มโปรแกรม';
+        els.estCard.classList.remove('neg');
+        els.bsumStrip.textContent = 'วันนี้ก่อนวันเริ่มโปรแกรม (' + getProgramStartDate() + ') — ไม่คำนวณ';
+        return;
+      }
+      els.totalCal.textContent = Math.round(st.totalCal);
+      els.calSub.textContent = 'kcal กิน';
+
+      const pr = Math.round(st.proteinRemain * 10) / 10;
+      if (st.proteinTarget > 0) {
+        els.protRemain.textContent = (pr > 0 ? '+' : '') + pr;
+        els.protSub.textContent = pr < 0 ? 'ขาด ' + Math.abs(pr) + 'g' : pr > 0 ? 'เกิน ' + pr + 'g' : 'ถึงเป้า';
+        els.protCard.classList.toggle('bad', pr < 0);
+      } else {
+        els.protRemain.textContent = '—';
+        els.protSub.textContent = 'ตั้งน้ำหนัก';
+        els.protCard.classList.remove('bad');
+      }
+
+      const br = Math.round(st.balance);
+      els.balance.textContent = (br > 0 ? '+' : '') + br;
+      els.balanceCard.classList.toggle('neg', st.balance < 0);
+      els.balanceCard.classList.toggle('pos', st.balance > 0);
+      els.balSub.textContent = st.balance < 0 ? 'ขาด ' + Math.abs(br) : st.balance > 0 ? 'เกิน ' + br : 'พอดี';
+
+      const w = getWeightOnDate(currentDate);
+      const wl = Math.round(st.weightLoss * 1000) / 1000;
+      if (w > 0 || st.totalCal > 0 || st.bsum > 0) {
+        els.estVal.textContent = wl < 0 ? '↓' + Math.abs(wl) : wl > 0 ? '↑' + wl : '0';
+        els.estSub.textContent = wl < 0 ? 'กก. ลดวันนี้' : wl > 0 ? 'กก. เพิ่ม' : 'กก. คงที่';
+        els.estCard.classList.toggle('neg', wl < 0);
+      } else {
+        els.estVal.textContent = '—';
+        els.estSub.textContent = 'กก. วันนี้';
+        els.estCard.classList.remove('neg');
+      }
+
+      const pct = Math.round(st.compensationPct);
+      const ck = Math.round(st.compensationKcal);
+      const adjTxt = (pct > 0 ? '+' : '') + pct + '%' + (ck ? ' (' + (ck > 0 ? '+' : '') + ck + ')' : '');
+
+      if (w > 0) {
+        let parts = 'BMR <strong>' + Math.round(st.baseBMR) + '</strong>';
+        if (st.compensationKcal) {
+          parts += ' + ชดเชย <strong>' + (ck > 0 ? '+' : '') + ck + '</strong>';
+        }
+        if (st.exercise > 0) parts += ' + ออกกำลัง <strong>' + Math.round(st.exercise) + '</strong>';
+        parts += ' = เผา <strong>' + Math.round(st.bsum) + '</strong> kcal';
+        parts += ' · ชดเชย <span class="adj-link" id="adjLinkInner">' + adjTxt + '</span>';
+        els.bsumStrip.innerHTML = parts;
+        const inner = document.getElementById('adjLinkInner');
+        if (inner) inner.onclick = (e) => { e.stopPropagation(); openAdjEditor(); };
+      } else {
+        els.bsumStrip.innerHTML = 'กรอกน้ำหนักเพื่อคำนวณ · ชดเชย <span class="adj-link">' + adjTxt + '</span>';
+        els.bsumStrip.querySelector('.adj-link').onclick = (e) => { e.stopPropagation(); openAdjEditor(); };
+      }
+      els.adjLink.textContent = adjTxt;
+    }
+
+    function renderGoalProgress() {
+      const profile = loadSettings().profile;
+      const tw = parseFloat(profile.targetWeight);
+      const tWa = parseFloat(profile.targetWaist);
+      const cw = getWeightOnDate(currentDate);
+      const cWa = getWaistOnDate(currentDate);
+      const parts = [];
+      if (!isNaN(tw) && tw > 0 && cw > 0) {
+        const diff = Math.round((cw - tw) * 10) / 10;
+        parts.push(diff > 0 ? 'น้ำหนักเหลือ <strong>' + diff + '</strong> kg' : diff < 0 ? 'น้ำหนักถึงเป้าแล้ว ✓' : 'น้ำหนักถึงเป้า ✓');
+      }
+      if (!isNaN(tWa) && tWa > 0 && cWa > 0) {
+        const diff = Math.round((cWa - tWa) * 10) / 10;
+        parts.push(diff > 0 ? 'เอวเหลือ <strong>' + diff + '</strong> cm' : diff < 0 ? 'เอวถึงเป้าแล้ว ✓' : 'เอวถึงเป้า ✓');
+      }
+      els.goalProgress.innerHTML = parts.length
+        ? parts.join(' · ') + ' — เส้นเป้าบนกราฟ'
+        : 'ตั้งเป้าเพื่อดูความคืบหน้า — แสดงเส้นเป้าบนกราฟ';
+    }
+
+    function renderMeals(meals) {
+      els.mealCount.textContent = meals.length;
+      els.emptyMeals.style.display = meals.length ? 'none' : 'block';
+      els.mealList.innerHTML = '';
+      [...meals].sort((a, b) => (a.time || '').localeCompare(b.time || '')).forEach((m) => {
+        const li = document.createElement('li');
+        li.className = 'meal-item';
+        li.dataset.id = m.id;
+        li.innerHTML = '<div class="meal-info" data-action="edit" data-id="' + m.id + '">'
+          + '<span class="meal-time">' + formatTimeDisplay(m.time) + '</span>'
+          + '<span class="meal-nums">' + Math.round(m.calories) + ' · ' + m.protein + 'g</span></div>'
+          + '<div class="meal-actions"><button type="button" class="btn btn-ghost btn-icon" data-action="edit" data-id="' + m.id + '">✎</button>'
+          + '<button type="button" class="btn btn-danger btn-icon" data-action="delete" data-id="' + m.id + '">✕</button></div>';
+        els.mealList.appendChild(li);
+      });
+    }
+
+    function getChartDateRange(endDate, days) {
+      if (days === 0) {
+        const dates = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key?.startsWith(STORAGE_PREFIX) || key === SETTINGS_KEY) continue;
+          const d = key.slice(STORAGE_PREFIX.length);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d <= endDate) dates.push(d);
+        }
+        const logDates = Object.keys(getWeightLog()).filter((d) => d <= endDate);
+        const waistDates = Object.keys(getWaistLog()).filter((d) => d <= endDate);
+        logDates.forEach((d) => { if (!dates.includes(d)) dates.push(d); });
+        waistDates.forEach((d) => { if (!dates.includes(d)) dates.push(d); });
+        dates.sort();
+        const start = getProgramStartDate();
+        const filtered = start ? dates.filter((d) => d >= start) : dates;
+        if (!filtered.length) return getDateRange(endDate, 30);
+        const first = filtered[0];
+        const span = Math.ceil((new Date(endDate) - new Date(first)) / 86400000) + 1;
+        return getDateRange(endDate, Math.min(span, 999));
+      }
+      return getDateRange(endDate, days);
+    }
+
+    function drawLineChart(canvas, points, colorVar, opts) {
+      opts = opts || {};
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (!w || !h) return;
+      canvas.width = w * dpr; canvas.height = h * dpr; ctx.scale(dpr, dpr); ctx.clearRect(0, 0, w, h);
+      if (points.length < 1) {
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
+        ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('ไม่มีข้อมูล', w / 2, h / 2); return;
+      }
+      const vals = points.map((p) => p.v);
+      let min = Math.min(...vals), max = Math.max(...vals);
+      if (opts.zeroLine) { min = Math.min(min, 0); max = Math.max(max, 0); }
+      if (opts.goal != null && !isNaN(opts.goal)) {
+        min = Math.min(min, opts.goal);
+        max = Math.max(max, opts.goal);
+      }
+      const range = max - min || 1, pad = 5;
+      const color = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
+      if (opts.goal != null && !isNaN(opts.goal)) {
+        const gy = h - pad - ((opts.goal - min) / range) * (h - pad * 2);
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--success').trim();
+        ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(w - pad, gy); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--success').trim();
+        ctx.font = '8px sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText('เป้า ' + opts.goal, w - pad, gy - 2);
+      }
+      if (opts.zeroLine && min < 0 && max > 0) {
+        const zy = h - pad - ((0 - min) / range) * (h - pad * 2);
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+        ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(pad, zy); ctx.lineTo(w - pad, zy); ctx.stroke();
+      }
+      if (points.length < 2) {
+        const x = w / 2, y = h - pad - ((vals[0] - min) / range) * (h - pad * 2);
+        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill(); return;
+      }
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
+      points.forEach((p, i) => {
+        const x = pad + (i / (points.length - 1)) * (w - pad * 2);
+        const y = h - pad - ((p.v - min) / range) * (h - pad * 2);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function renderExercises(exercises) {
+      els.exerciseCount.textContent = exercises.length;
+      els.emptyExercises.style.display = exercises.length ? 'none' : 'block';
+      els.exerciseList.innerHTML = '';
+      [...exercises].sort((a, b) => (a.time || '').localeCompare(b.time || '')).forEach((ex) => {
+        const li = document.createElement('li');
+        li.className = 'meal-item';
+        li.dataset.id = ex.id;
+        const note = ex.note ? ' · ' + ex.note : '';
+        li.innerHTML = '<div class="meal-info" data-action="edit-ex" data-id="' + ex.id + '">'
+          + '<span class="meal-time">' + formatTimeDisplay(ex.time) + '</span>'
+          + '<span class="meal-nums">' + Math.round(ex.calories) + ' kcal' + note + '</span></div>'
+          + '<div class="meal-actions"><button type="button" class="btn btn-ghost btn-icon" data-action="edit-ex" data-id="' + ex.id + '">✎</button>'
+          + '<button type="button" class="btn btn-danger btn-icon" data-action="delete-ex" data-id="' + ex.id + '">✕</button></div>';
+        els.exerciseList.appendChild(li);
+      });
+    }
+
+    function collectExerciseHistoryRows(days) {
+      const end = currentDate <= todayStr() ? currentDate : todayStr();
+      const rows = [];
+      getDateRange(end, days).reverse().forEach((date) => {
+        const exercises = [...(loadDay(date).exercises || [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+        exercises.forEach((ex, i) => {
+          rows.push({ date, exercise: ex, showDate: i === 0 });
+        });
+      });
+      return rows;
+    }
+
+    function renderExerciseHistory() {
+      const rows = collectExerciseHistoryRows(exHistoryPeriodDays);
+      els.exHistoryBody.innerHTML = '';
+      const hasRows = rows.length > 0;
+      els.exHistoryTable.style.display = hasRows ? '' : 'none';
+      els.exHistoryEmpty.style.display = hasRows ? 'none' : 'block';
+      rows.forEach((row) => {
+        const ex = row.exercise;
+        const tr = document.createElement('tr');
+        tr.className = 'ex-history-row';
+        tr.dataset.date = row.date;
+        tr.dataset.exId = ex.id;
+        tr.dataset.exTime = ex.time || '';
+
+        const tdDate = document.createElement('td');
+        tdDate.className = 'ex-date';
+        if (row.showDate) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.gotoDate = row.date;
+          btn.textContent = formatDateShort(row.date);
+          tdDate.appendChild(btn);
+        }
+
+        const tdNote = document.createElement('td');
+        const noteInp = document.createElement('input');
+        noteInp.type = 'text';
+        noteInp.dataset.exNote = '1';
+        noteInp.placeholder = 'เช่น อก';
+        noteInp.value = ex.note || '';
+        tdNote.appendChild(noteInp);
+
+        const tdKcal = document.createElement('td');
+        const kcalInp = document.createElement('input');
+        kcalInp.type = 'number';
+        kcalInp.min = '0';
+        kcalInp.inputMode = 'numeric';
+        kcalInp.dataset.exKcal = '1';
+        kcalInp.value = String(Math.round(ex.calories));
+        tdKcal.appendChild(kcalInp);
+
+        const tdDel = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'btn btn-danger btn-icon ex-del';
+        delBtn.dataset.exDel = '1';
+        delBtn.textContent = '✕';
+        tdDel.appendChild(delBtn);
+
+        tr.append(tdDate, tdNote, tdKcal, tdDel);
+        els.exHistoryBody.appendChild(tr);
+      });
+    }
+
+    function saveExerciseHistory() {
+      const datesInView = new Set();
+      const byDate = {};
+      els.exHistoryBody.querySelectorAll('tr.ex-history-row').forEach((tr) => {
+        const date = tr.dataset.date;
+        if (!date) return;
+        datesInView.add(date);
+        if (tr.dataset.deleted) return;
+        const note = tr.querySelector('[data-ex-note]')?.value.trim() || '';
+        const kcal = parseFloat(tr.querySelector('[data-ex-kcal]')?.value);
+        if (isNaN(kcal) || kcal <= 0) return;
+        (byDate[date] = byDate[date] || []).push({
+          id: tr.dataset.exId || crypto.randomUUID(),
+          calories: kcal,
+          note,
+          time: tr.dataset.exTime || nowTimeStr(),
+        });
+      });
+      datesInView.forEach((date) => {
+        const data = loadDay(date);
+        data.exercises = byDate[date] || [];
+        saveDay(date, data);
+      });
+      closeExerciseHistory();
+      refresh();
+      showToast('บันทึกประวัติแล้ว', 'success');
+    }
+
+    function openExerciseHistory() {
+      els.exHistoryPeriodBtns.querySelectorAll('.period-pill').forEach((btn) => {
+        btn.classList.toggle('active', parseInt(btn.dataset.days, 10) === exHistoryPeriodDays);
+      });
+      renderExerciseHistory();
+      els.exerciseHistoryOverlay.classList.add('open');
+    }
+
+    function closeExerciseHistory() {
+      els.exerciseHistoryOverlay.classList.remove('open');
+    }
+
+    function renderCharts() {
+      const end = currentDate <= todayStr() ? currentDate : todayStr();
+      const dates = getChartDateRange(end, chartPeriodDays);
+      const profile = loadSettings().profile;
+      const targetW = parseFloat(profile.targetWeight);
+      const targetWa = parseFloat(profile.targetWaist);
+      const wPts = [], waistPts = [], calPts = [], protPts = [], burnPts = [], balPts = [];
+      dates.forEach((d) => {
+        const w = getWeightOnDate(d);
+        const waist = getWaistOnDate(d);
+        const data = loadDay(d);
+        const st = calculate(data, w);
+        if (w > 0) wPts.push({ v: w });
+        if (waist > 0) waistPts.push({ v: waist });
+        if (data.meals.length) {
+          calPts.push({ v: st.totalCal });
+          protPts.push({ v: st.totalProt });
+        }
+        if (st.exercise > 0) burnPts.push({ v: st.exercise });
+        if (w > 0 || dayHasActivity(data)) balPts.push({ v: st.balance });
+      });
+      const wGoal = !isNaN(targetW) && targetW > 0 ? targetW : null;
+      const waGoal = !isNaN(targetWa) && targetWa > 0 ? targetWa : null;
+      els.chartWeightGoal.textContent = wGoal ? 'เป้า ' + targetW : '';
+      els.chartWaistGoal.textContent = waGoal ? 'เป้า ' + targetWa : '';
+      drawLineChart(els.chartWeight, wPts, '--accent', { goal: wGoal });
+      drawLineChart(els.chartWaist, waistPts, '--protein', { goal: waGoal });
+      drawLineChart(els.chartCal, calPts, '--warning');
+      drawLineChart(els.chartProt, protPts, '--protein');
+      drawLineChart(els.chartBurn, burnPts, '--success');
+      drawLineChart(els.chartBalance, balPts, '--warning', { zeroLine: true });
+    }
+
+    function setChartPeriod(days) {
+      chartPeriodDays = days;
+      saveSettings({ chartPeriodDays: days });
+      els.chartPeriodBtns.querySelectorAll('.period-pill').forEach((btn) => {
+        btn.classList.toggle('active', parseInt(btn.dataset.days, 10) === days);
+      });
+      renderCharts();
+    }
+
+    function isLogAnomaly(date, value, log, threshold) {
+      const sorted = Object.keys(log).filter((d) => d !== date && /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+      const prev = sorted.filter((d) => d < date).pop();
+      const next = sorted.find((d) => d > date);
+      const v = parseFloat(value);
+      if (prev && Math.abs(v - parseFloat(log[prev])) > threshold) return true;
+      if (next && Math.abs(v - parseFloat(log[next])) > threshold) return true;
+      return false;
+    }
+
+    function isWeightAnomaly(date, weight, log) {
+      return isLogAnomaly(date, weight, log, WEIGHT_ANOMALY_KG);
+    }
+
+    function isWaistAnomaly(date, waist, log) {
+      return isLogAnomaly(date, waist, log, WAIST_ANOMALY_CM);
+    }
+
+    function openWeightHistory() {
+      const weightLog = getWeightLog();
+      const waistLog = getWaistLog();
+      const dates = [...new Set([...Object.keys(weightLog), ...Object.keys(waistLog)])].sort().reverse();
+      els.weightLogList.innerHTML = '';
+      if (!dates.length) {
+        els.weightLogList.innerHTML = '<li class="hint" style="padding:1rem">ยังไม่มีประวัติ — กรอกน้ำหนักหรือเอวเพื่อบันทึก</li>';
+      }
+      dates.forEach((date) => {
+        const w = weightLog[date];
+        const wa = waistLog[date];
+        const wAnom = w != null && isWeightAnomaly(date, w, weightLog);
+        const waAnom = wa != null && isWaistAnomaly(date, wa, waistLog);
+        const li = document.createElement('li');
+        li.className = 'weight-log-item' + (wAnom || waAnom ? ' anomaly' : '');
+        li.dataset.date = date;
+        li.innerHTML = '<span class="wl-date">' + formatDateLabel(date) + '<br><small style="color:var(--muted)">' + date + '</small></span>'
+          + '<div class="wl-inputs">'
+          + '<label class="wl-field"><span>kg</span><input type="number" step="0.1" value="' + (w != null ? w : '') + '" data-wl-weight placeholder="—"></label>'
+          + '<label class="wl-field"><span>cm</span><input type="number" step="0.1" value="' + (wa != null ? wa : '') + '" data-wl-waist placeholder="—"></label>'
+          + '</div>'
+          + '<button type="button" class="btn btn-danger btn-icon" data-wl-del>✕</button>';
+        els.weightLogList.appendChild(li);
+      });
+      els.weightHistoryOverlay.classList.add('open');
+    }
+
+    function saveWeightHistory() {
+      const weightLog = { ...getWeightLog() };
+      const waistLog = { ...getWaistLog() };
+      els.weightLogList.querySelectorAll('.weight-log-item').forEach((li) => {
+        const date = li.dataset.date;
+        if (li.dataset.deleted) {
+          delete weightLog[date];
+          delete waistLog[date];
+          return;
+        }
+        const wInp = li.querySelector('[data-wl-weight]');
+        const waInp = li.querySelector('[data-wl-waist]');
+        const w = parseFloat(wInp?.value);
+        const wa = parseFloat(waInp?.value);
+        if (!isNaN(w) && w > 0) weightLog[date] = w; else delete weightLog[date];
+        if (!isNaN(wa) && wa > 0) waistLog[date] = wa; else delete waistLog[date];
+      });
+      const profile = { ...loadSettings().profile, weightLog, waistLog };
+      profile.weight = String(getLatestWeightFromLog(weightLog) || '');
+      const latestWaist = getLatestFromLog(waistLog);
+      if (latestWaist) profile.waist = String(latestWaist);
+      saveSettings({ profile });
+      els.weightHistoryOverlay.classList.remove('open');
+      refresh();
+      showToast('บันทึกประวัติน้ำหนัก & เอวแล้ว', 'success');
+    }
+
+    function openQuickTemplate() {
+      const p = parseMealInput(els.mealInput.value);
+      els.quickTemplateVal.value = p ? (p.calories + ',' + p.protein) : els.mealInput.value;
+      els.quickTemplateName.value = '';
+      els.quickTemplateOverlay.classList.add('open');
+      els.quickTemplateName.focus();
+    }
+
+    function saveQuickTemplate() {
+      const p = parseMealInput(els.quickTemplateVal.value);
+      const name = els.quickTemplateName.value.trim();
+      if (!p) { showToast('ใช้ Cal,Protein เช่น 450,30', 'error'); return; }
+      if (!name) { showToast('ใส่ชื่อเทมเพลต', 'error'); return; }
+      const templates = loadTemplateList();
+      templates.push({ id: 't' + Date.now(), label: name, calories: p.calories, protein: p.protein });
+      saveSettings({ templates });
+      els.quickTemplateOverlay.classList.remove('open');
+      renderTemplates();
+      showToast('บันทึกเทมเพลต "' + name + '"', 'success');
+    }
+
+    function showInfo(key) {
+      const info = INFO_TEXTS[key];
+      if (!info) return;
+      els.infoTitle.textContent = info.title;
+      els.infoBody.innerHTML = info.body.map(([dt, dd]) => '<dt>' + dt + '</dt><dd>' + dd + '</dd>').join('');
+      els.infoOverlay.classList.add('open');
+    }
+
+    function openTplConfirm(title, body, onOk) {
+      pendingTplConfirm = onOk;
+      els.tplConfirmTitle.textContent = title;
+      els.tplConfirmBody.textContent = body;
+      els.tplConfirmOverlay.classList.add('open');
+    }
+
+    function closeTplConfirm() {
+      pendingTplConfirm = null;
+      els.tplConfirmOverlay.classList.remove('open');
+    }
+
+    function confirmTplOk() {
+      const fn = pendingTplConfirm;
+      closeTplConfirm();
+      if (fn) fn();
+    }
+
+    function renderTemplates() {
+      els.templateChips.innerHTML = '';
+      loadTemplateList().forEach((t) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip'; b.textContent = t.label;
+        b.onclick = () => {
+          openTplConfirm(
+            'เพิ่มมื้อ',
+            t.label + '\n' + t.calories + ' kcal · ' + t.protein + 'g โปรตีน',
+            () => addMeal(t.calories, t.protein, els.mealTime.value)
+          );
+        };
+        els.templateChips.appendChild(b);
+      });
+    }
+
+    function renderExerciseTemplates() {
+      els.exerciseTemplateChips.innerHTML = '';
+      loadExerciseTemplateList().forEach((t) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip'; b.textContent = t.label;
+        const note = t.note || t.label;
+        b.onclick = () => {
+          openTplConfirm(
+            'เพิ่มออกกำลังกาย',
+            t.label + '\n' + t.calories + ' kcal' + (note ? ' · ' + note : ''),
+            () => addExercise(t.calories, note, els.exerciseTime.value)
+          );
+        };
+        els.exerciseTemplateChips.appendChild(b);
+      });
+    }
+
+    function renderTemplateEditor() {
+      els.templateEditor.innerHTML = '';
+      loadTemplateList().forEach((t, i) => {
+        const row = document.createElement('div');
+        row.className = 'field-row'; row.style.marginBottom = '0.4rem';
+        row.innerHTML = '<input data-tpl="label" data-tpl-id="' + t.id + '" data-i="' + i + '" value="' + String(t.label).replace(/"/g, '&quot;') + '" style="font-size:14px;padding:0.35rem;background:var(--bg);border:1px solid var(--surface-2);border-radius:6px;color:var(--text)">'
+          + '<input data-tpl="val" data-tpl-id="' + t.id + '" data-i="' + i + '" value="' + t.calories + ',' + t.protein + '" style="font-size:14px;padding:0.35rem;background:var(--bg);border:1px solid var(--surface-2);border-radius:6px;color:var(--text)">';
+        els.templateEditor.appendChild(row);
+      });
+    }
+
+    function readTemplateEditor() {
+      const templates = [];
+      els.templateEditor.querySelectorAll('[data-tpl="label"]').forEach((el) => {
+        const i = el.dataset.i;
+        const val = els.templateEditor.querySelector('[data-tpl="val"][data-i="' + i + '"]');
+        const p = parseMealInput(val?.value || '');
+        if (!p || !el.value.trim()) return;
+        templates.push({
+          id: el.dataset.tplId || ('t' + Date.now() + i),
+          label: el.value.trim(),
+          calories: p.calories,
+          protein: p.protein,
+        });
+      });
+      return templates;
+    }
+
+    function renderExerciseTemplateEditor() {
+      els.exerciseTemplateEditor.innerHTML = '';
+      loadExerciseTemplateList().forEach((t, i) => {
+        const row = document.createElement('div');
+        row.className = 'field-row-3'; row.style.marginBottom = '0.4rem';
+        row.innerHTML = '<input data-extpl="label" data-extpl-id="' + t.id + '" data-i="' + i + '" value="' + String(t.label).replace(/"/g, '&quot;') + '" style="font-size:14px;padding:0.35rem;background:var(--bg);border:1px solid var(--surface-2);border-radius:6px;color:var(--text)">'
+          + '<input data-extpl="kcal" data-extpl-id="' + t.id + '" data-i="' + i + '" value="' + t.calories + '" inputmode="numeric" style="font-size:14px;padding:0.35rem;background:var(--bg);border:1px solid var(--surface-2);border-radius:6px;color:var(--text)">'
+          + '<input data-extpl="note" data-extpl-id="' + t.id + '" data-i="' + i + '" value="' + String(t.note || '').replace(/"/g, '&quot;') + '" placeholder="โน้ต" style="font-size:14px;padding:0.35rem;background:var(--bg);border:1px solid var(--surface-2);border-radius:6px;color:var(--text)">';
+        els.exerciseTemplateEditor.appendChild(row);
+      });
+    }
+
+    function readExerciseTemplateEditor() {
+      const templates = [];
+      els.exerciseTemplateEditor.querySelectorAll('[data-extpl="label"]').forEach((el) => {
+        const i = el.dataset.i;
+        const kcalEl = els.exerciseTemplateEditor.querySelector('[data-extpl="kcal"][data-i="' + i + '"]');
+        const noteEl = els.exerciseTemplateEditor.querySelector('[data-extpl="note"][data-i="' + i + '"]');
+        const kcal = parseFloat(kcalEl?.value);
+        if (!el.value.trim() || isNaN(kcal) || kcal <= 0) return;
+        templates.push({
+          id: el.dataset.extplId || ('e' + Date.now() + i),
+          label: el.value.trim(),
+          calories: kcal,
+          note: noteEl?.value.trim() || el.value.trim(),
+        });
+      });
+      return templates;
+    }
+
+    function applyBlockOrder() {
+      const order = loadSettings().sectionOrder || DEFAULT_BLOCK_ORDER;
+      order.forEach((id) => {
+        const el = els.blocksContainer.querySelector('[data-block-id="' + id + '"]');
+        if (el) els.blocksContainer.appendChild(el);
+      });
+      applyBlockStyles();
+    }
+
+    function populateBlockStylePicker() {
+      const cur = els.blockStylePicker.value;
+      els.blockStylePicker.innerHTML = '';
+      DEFAULT_BLOCK_ORDER.forEach((id) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = BLOCK_LABELS[id] || id;
+        els.blockStylePicker.appendChild(opt);
+      });
+      els.blockStylePicker.value = cur && DEFAULT_BLOCK_ORDER.includes(cur) ? cur : 'summary';
+    }
+
+    function getBlockStyleFields(blockId) {
+      return [...BLOCK_STYLE_COMMON, ...(BLOCK_STYLE_EXTRA[blockId] || [])];
+    }
+
+    function getThemeColorDefault(key) {
+      const theme = loadSettings().theme === 'light' ? 'light' : 'dark';
+      return BLOCK_STYLE_DEFAULTS[theme][key] || '#888888';
+    }
+
+    function applyBlockStyles() {
+      const styles = loadSettings().blockStyles || {};
+      els.blocksContainer.querySelectorAll('.sortable-block').forEach((block) => {
+        const id = block.dataset.blockId;
+        const s = styles[id] || {};
+        getBlockStyleFields(id).forEach(({ key, css }) => {
+          if (s[key]) block.style.setProperty(css, s[key]);
+          else block.style.removeProperty(css);
+        });
+      });
+    }
+
+    function flushBlockStyleDraft() {
+      if (!editingBlockStyleId || !blockStyleDraft) return;
+      const next = readBlockStyleEditor();
+      if (Object.keys(next).length) blockStyleDraft[editingBlockStyleId] = next;
+      else delete blockStyleDraft[editingBlockStyleId];
+    }
+
+    function renderBlockStyleFields(blockId) {
+      editingBlockStyleId = blockId;
+      const saved = (blockStyleDraft || {})[blockId] || {};
+      els.blockStyleFields.innerHTML = '';
+      getBlockStyleFields(blockId).forEach(({ key, label }) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'style-color-field';
+        const lab = document.createElement('label');
+        lab.textContent = label;
+        const inp = document.createElement('input');
+        inp.type = 'color';
+        inp.dataset.styleKey = key;
+        inp.value = saved[key] || getThemeColorDefault(key);
+        const clr = document.createElement('button');
+        clr.type = 'button';
+        clr.className = 'btn-clear-style';
+        clr.dataset.styleKey = key;
+        clr.textContent = 'ใช้ค่าเริ่มต้น';
+        wrap.append(lab, inp, clr);
+        els.blockStyleFields.appendChild(wrap);
+      });
+    }
+
+    function readBlockStyleEditor() {
+      const out = {};
+      els.blockStyleFields.querySelectorAll('input[type="color"]').forEach((inp) => {
+        const key = inp.dataset.styleKey;
+        const def = getThemeColorDefault(key);
+        if (inp.value && inp.value.toLowerCase() !== def.toLowerCase()) out[key] = inp.value;
+      });
+      return out;
+    }
+
+    function resetBlockStyle() {
+      if (!editingBlockStyleId || !blockStyleDraft) return;
+      delete blockStyleDraft[editingBlockStyleId];
+      renderBlockStyleFields(editingBlockStyleId);
+    }
+
+    function initDragReorder() {
+      els.blocksContainer.querySelectorAll('.sortable-block').forEach((block) => {
+        const handle = block.querySelector('.drag-handle');
+        handle.addEventListener('touchstart', (e) => startDrag(e, block), { passive: false });
+        handle.addEventListener('mousedown', (e) => startDrag(e, block));
+      });
+      document.addEventListener('touchmove', onDragMove, { passive: false });
+      document.addEventListener('mousemove', onDragMove);
+      document.addEventListener('touchend', endDrag);
+      document.addEventListener('mouseup', endDrag);
+    }
+
+    function startDrag(e, block) {
+      e.preventDefault();
+      dragState = { block, id: block.dataset.blockId };
+      block.classList.add('dragging');
+    }
+
+    function onDragMove(e) {
+      if (!dragState) return;
+      e.preventDefault();
+      const y = e.touches ? e.touches[0].clientY : e.clientY;
+      els.blocksContainer.querySelectorAll('.sortable-block').forEach((b) => {
+        b.classList.remove('drag-over');
+        if (b === dragState.block) return;
+        const r = b.getBoundingClientRect();
+        if (y > r.top && y < r.bottom) {
+          b.classList.add('drag-over');
+          const after = y > r.top + r.height / 2;
+          if (after) b.after(dragState.block); else b.before(dragState.block);
+        }
+      });
+    }
+
+    function endDrag() {
+      if (!dragState) return;
+      dragState.block.classList.remove('dragging');
+      els.blocksContainer.querySelectorAll('.sortable-block').forEach((b) => b.classList.remove('drag-over'));
+      const order = [...els.blocksContainer.querySelectorAll('.sortable-block')].map((b) => b.dataset.blockId);
+      saveSettings({ sectionOrder: order });
+      dragState = null;
+    }
+
+    function refresh() {
+      const today = todayStr();
+      if (els.dateLabel.textContent === 'วันนี้' && currentDate !== today) {
+        setDate(today);
+        return;
+      }
+      const profile = loadSettings().profile;
+      const start = getProgramStartDate();
+      const w = getWeightOnDate(currentDate);
+      const wa = getWaistOnDate(currentDate);
+      els.profileWeight.value = w > 0 ? w : '';
+      renderProfileAge(currentDate);
+      els.profileWaist.value = wa > 0 ? wa : '';
+      els.targetWeight.value = profile.targetWeight || '';
+      els.targetWaist.value = profile.targetWaist || '';
+      els.programStartDate.value = start || '';
+      els.programStartDate.max = todayStr();
+      els.datePicker.min = start || '';
+      const data = loadDay(currentDate);
+      renderMeals(data.meals);
+      renderExercises(data.exercises);
+      renderDashboard(calculate(data, w));
+      renderGoalProgress();
+      renderPeriodSummary();
+      renderTemplates();
+      renderExerciseTemplates();
+      renderCharts();
+    }
+
+    function setDate(d) {
+      currentDate = d;
+      els.datePicker.value = d;
+      const start = getProgramStartDate();
+      const beforeStart = start && d < start;
+      els.dateLabel.textContent = beforeStart ? 'ก่อนเริ่มโปรแกรม' : formatDateLabel(d);
+      els.btnNextDay.disabled = d >= todayStr();
+      els.btnPrevDay.disabled = start ? shiftDate(d, -1) < start : false;
+      els.mealTime.value = nowTimeStr();
+      els.exerciseTime.value = nowTimeStr();
+      refresh();
+    }
+
+    function addMeal(cal, prot, time) {
+      const data = loadDay(currentDate);
+      data.meals.push({ id: crypto.randomUUID(), calories: cal, protein: prot, time: time || nowTimeStr() });
+      touchProgramStart(currentDate);
+      saveDay(currentDate, data);
+      const st = calculate(data, getWeightOnDate(currentDate));
+      if (st.proteinTarget > 0 && st.proteinRemain >= 0) {
+        if (navigator.vibrate) navigator.vibrate(50);
+        showToast('ถึงเป้าโปรตีน! 🎉', 'success');
+      }
+      els.mealInput.value = ''; els.mealTime.value = nowTimeStr(); refresh();
+    }
+
+    function handleAddMeal() {
+      const p = parseMealInput(els.mealInput.value);
+      if (!p) { showToast('ใช้ Cal,Protein เช่น 450,30', 'error'); return; }
+      addMeal(p.calories, p.protein, els.mealTime.value);
+    }
+
+    function deleteMeal(id) {
+      const data = loadDay(currentDate);
+      data.meals = data.meals.filter((m) => m.id !== id);
+      saveDay(currentDate, data); refresh();
+    }
+
+    function openEdit(id) {
+      const m = loadDay(currentDate).meals.find((x) => x.id === id);
+      if (!m) return;
+      editingMealId = id;
+      els.editMealInput.value = m.calories + ',' + m.protein;
+      els.editMealTime.value = m.time || '12:00';
+      els.editOverlay.classList.add('open');
+    }
+    function closeEdit() { editingMealId = null; els.editOverlay.classList.remove('open'); }
+    function saveEdit() {
+      const p = parseMealInput(els.editMealInput.value);
+      if (!p) { showToast('รูปแบบไม่ถูกต้อง', 'error'); return; }
+      const data = loadDay(currentDate);
+      const m = data.meals.find((x) => x.id === editingMealId);
+      if (!m) { closeEdit(); return; }
+      Object.assign(m, p, { time: els.editMealTime.value || '12:00' });
+      saveDay(currentDate, data); closeEdit(); refresh();
+    }
+
+    function addExercise(kcal, note, time) {
+      const k = parseFloat(kcal);
+      if (isNaN(k) || k <= 0) { showToast('ใส่แคลอรี่ที่เผา', 'error'); return; }
+      const data = loadDay(currentDate);
+      data.exercises.push({
+        id: crypto.randomUUID(),
+        calories: k,
+        note: (note || '').trim(),
+        time: time || nowTimeStr(),
+      });
+      touchProgramStart(currentDate);
+      saveDay(currentDate, data);
+      els.exerciseKcal.value = ''; els.exerciseNote.value = ''; els.exerciseTime.value = nowTimeStr();
+      refresh();
+    }
+
+    function handleAddExercise() {
+      const kcal = parseFloat(els.exerciseKcal.value);
+      if (isNaN(kcal) || kcal <= 0) { showToast('ใส่แคลอรี่ที่เผา', 'error'); return; }
+      addExercise(kcal, els.exerciseNote.value.trim(), els.exerciseTime.value);
+    }
+
+    function deleteExercise(id) {
+      const data = loadDay(currentDate);
+      data.exercises = data.exercises.filter((e) => e.id !== id);
+      saveDay(currentDate, data); refresh();
+    }
+
+    function openEditExercise(id) {
+      const ex = loadDay(currentDate).exercises.find((x) => x.id === id);
+      if (!ex) return;
+      editingExerciseId = id;
+      els.editExerciseKcal.value = ex.calories;
+      els.editExerciseNote.value = ex.note || '';
+      els.editExerciseTime.value = ex.time || '12:00';
+      els.editExerciseOverlay.classList.add('open');
+    }
+    function closeEditExercise() { editingExerciseId = null; els.editExerciseOverlay.classList.remove('open'); }
+    function saveEditExercise() {
+      const kcal = parseFloat(els.editExerciseKcal.value);
+      if (isNaN(kcal) || kcal <= 0) { showToast('ใส่แคลอรี่ที่เผา', 'error'); return; }
+      const data = loadDay(currentDate);
+      const ex = data.exercises.find((x) => x.id === editingExerciseId);
+      if (!ex) { closeEditExercise(); return; }
+      ex.calories = kcal;
+      ex.note = els.editExerciseNote.value.trim();
+      ex.time = els.editExerciseTime.value || '12:00';
+      saveDay(currentDate, data); closeEditExercise(); refresh();
+    }
+
+    function openQuickExerciseTemplate() {
+      const kcal = parseFloat(els.exerciseKcal.value);
+      els.quickExTemplateKcal.value = !isNaN(kcal) && kcal > 0 ? kcal : '';
+      els.quickExTemplateNote.value = els.exerciseNote.value.trim();
+      els.quickExTemplateName.value = els.exerciseNote.value.trim() || '';
+      els.quickExTemplateOverlay.classList.add('open');
+      els.quickExTemplateName.focus();
+    }
+
+    function saveQuickExerciseTemplate() {
+      const kcal = parseFloat(els.quickExTemplateKcal.value);
+      const name = els.quickExTemplateName.value.trim();
+      if (isNaN(kcal) || kcal <= 0) { showToast('ใส่ kcal', 'error'); return; }
+      if (!name) { showToast('ใส่ชื่อเทมเพลต', 'error'); return; }
+      const templates = loadExerciseTemplateList();
+      templates.push({
+        id: 'e' + Date.now(),
+        label: name,
+        calories: kcal,
+        note: els.quickExTemplateNote.value.trim() || name,
+      });
+      saveSettings({ exerciseTemplates: templates });
+      els.quickExTemplateOverlay.classList.remove('open');
+      renderExerciseTemplates();
+      showToast('บันทึกเทมเพลต "' + name + '"', 'success');
+    }
+
+    function openAdjEditor() {
+      els.adjInput.value = getLastCompensationPct();
+      updateAdjPreview();
+      els.adjOverlay.classList.add('open');
+      els.adjInput.focus();
+    }
+
+    function updateAdjPreview() {
+      const pct = parseFloat(els.adjInput.value) || 0;
+      const bmr = calcBMR(getWeightOnDate(currentDate));
+      const kcal = Math.round(bmr * pct / 100);
+      els.adjPreview.textContent = bmr > 0
+        ? 'ชดเชย ' + (kcal > 0 ? '+' : '') + kcal + ' kcal จาก BMR ' + Math.round(bmr)
+        : 'กรอกน้ำหนักก่อนเพื่อดูตัวอย่าง';
+    }
+
+    function saveAdj() {
+      const pct = parseFloat(els.adjInput.value);
+      if (isNaN(pct) || pct < -30 || pct > 30) { showToast('ใช้ % ระหว่าง −30 ถึง +30', 'error'); return; }
+      saveSettings({ lastCompensationPct: pct });
+      els.adjOverlay.classList.remove('open');
+      refresh();
+    }
+
+    function openSettings() {
+      els.proteinMultiplier.value = loadSettings().proteinMultiplier;
+      const birthDate = getProfileBirthDate();
+      els.settingsBirthDate.value = birthDate;
+      els.settingsBirthDate.max = todayStr();
+      els.settingsAgeHint.textContent = formatAgeHint(birthDate, todayStr());
+      els.settingsGoogleClientId.value = loadSettings().googleClientId || '';
+      updateClientIdHint();
+      updateCloudSyncUI();
+      if (els.appVersionTag) els.appVersionTag.textContent = '· ' + APP_VERSION;
+      renderTemplateEditor();
+      renderExerciseTemplateEditor();
+      blockStyleDraft = JSON.parse(JSON.stringify(loadSettings().blockStyles || {}));
+      populateBlockStylePicker();
+      editingBlockStyleId = els.blockStylePicker.value;
+      renderBlockStyleFields(editingBlockStyleId);
+      els.settingsOverlay.classList.add('open');
+      if (els.settingsScrollBody) els.settingsScrollBody.scrollTop = 0;
+    }
+    function closeSettings() {
+      blockStyleDraft = null;
+      els.settingsOverlay.classList.remove('open');
+    }
+    function saveAllSettings() {
+      const mult = parseFloat(els.proteinMultiplier.value);
+      if (isNaN(mult) || mult < 0.5 || mult > 3) { showToast('ตัวคูณ 0.5–3.0', 'error'); return; }
+      const partial = { proteinMultiplier: mult };
+      const mealRows = els.templateEditor.querySelectorAll('[data-tpl="label"]').length;
+      const exRows = els.exerciseTemplateEditor.querySelectorAll('[data-extpl="label"]').length;
+      if (mealRows > 0) {
+        const tpl = readTemplateEditor();
+        if (tpl.length !== mealRows) {
+          showToast('เทมเพลตมื้อรูปแบบไม่ถูกต้อง — ใช้ Cal,Protein', 'error');
+          return;
+        }
+        partial.templates = tpl;
+      }
+      if (exRows > 0) {
+        const exTpl = readExerciseTemplateEditor();
+        if (exTpl.length !== exRows) {
+          showToast('เทมเพลตออกกำลังไม่ครบ — ใส่ชื่อและ kcal', 'error');
+          return;
+        }
+        partial.exerciseTemplates = exTpl;
+      }
+      flushBlockStyleDraft();
+      partial.blockStyles = blockStyleDraft || {};
+      const birthDate = els.settingsBirthDate.value;
+      if (birthDate && birthDate > todayStr()) {
+        showToast('วันเกิดต้องไม่เกินวันนี้', 'error');
+        return;
+      }
+      partial.profile = {
+        ...loadSettings().profile,
+        birthDate: birthDate || '',
+      };
+      if (birthDate) partial.profile.age = String(calcAgeFromBirthDate(birthDate, todayStr()) || '');
+      partial.googleClientId = readClientIdFromInput();
+      if (partial.googleClientId && !isValidGoogleClientId(partial.googleClientId)) {
+        showToast('Client ID ไม่ถูกต้อง — ต้องลงท้าย .apps.googleusercontent.com', 'error');
+        return;
+      }
+      saveSettings(partial);
+      blockStyleDraft = null;
+      closeSettings(); refresh();
+    }
+
+    function applyTheme(t) {
+      document.documentElement.dataset.theme = t;
+      saveSettings({ theme: t });
+      els.btnTheme.textContent = t === 'dark' ? '☀️' : '🌙';
+      $('meta[name="theme-color"]').content = t === 'dark' ? '#0f172a' : '#f1f5f9';
+    }
+
+    function buildExportPayload() {
+      const payload = { version: 6, exportedAt: new Date().toISOString(), data: {} };
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith(STORAGE_PREFIX)) payload.data[k] = localStorage.getItem(k);
+      }
+      return payload;
+    }
+
+    function buildExportJson(compact) {
+      const payload = buildExportPayload();
+      return compact ? JSON.stringify(payload) : JSON.stringify(payload, null, 2);
+    }
+
+    function estimatePayloadKb() {
+      return Math.round(buildExportJson(true).length / 1024);
+    }
+
+    function isValidGoogleClientId(id) {
+      return /\.apps\.googleusercontent\.com$/i.test((id || '').trim());
+    }
+
+    function readClientIdFromInput() {
+      return (els.settingsGoogleClientId?.value || '').trim();
+    }
+
+    function resolveGoogleClientId(opts) {
+      const saved = (loadSettings().googleClientId || '').trim();
+      if (isValidGoogleClientId(saved)) return saved;
+      const fromInput = readClientIdFromInput();
+      if (isValidGoogleClientId(fromInput)) {
+        if (opts?.autoSave) saveSettings({ googleClientId: fromInput });
+        return fromInput;
+      }
+      return saved || fromInput || '';
+    }
+
+    function hasGoogleClientId() {
+      return isValidGoogleClientId(resolveGoogleClientId());
+    }
+
+    function getGoogleClientId() {
+      const id = resolveGoogleClientId({ autoSave: true });
+      return isValidGoogleClientId(id) ? id : '';
+    }
+
+    function updateClientIdHint() {
+      if (!els.settingsClientIdHint) return;
+      const saved = (loadSettings().googleClientId || '').trim();
+      const input = readClientIdFromInput();
+      if (isValidGoogleClientId(saved)) {
+        els.settingsClientIdHint.textContent = '✓ บันทึก Client ID แล้ว';
+        els.settingsClientIdHint.style.color = 'var(--success)';
+      } else if (isValidGoogleClientId(input)) {
+        els.settingsClientIdHint.textContent = 'กด「บันทึก」ด้านล่างเพื่อเก็บ Client ID';
+        els.settingsClientIdHint.style.color = '#fbbf24';
+      } else if (input) {
+        els.settingsClientIdHint.textContent = 'รูปแบบไม่ถูก — ต้องลงท้าย .apps.googleusercontent.com';
+        els.settingsClientIdHint.style.color = 'var(--danger)';
+      } else {
+        els.settingsClientIdHint.textContent = 'ยังไม่ได้ใส่ Client ID';
+        els.settingsClientIdHint.style.color = 'var(--muted)';
+      }
+    }
+
+    function persistClientIdFromInput() {
+      const id = readClientIdFromInput();
+      if (!id) return false;
+      if (!isValidGoogleClientId(id)) return false;
+      saveSettings({ googleClientId: id });
+      updateClientIdHint();
+      updateCloudSyncUI();
+      return true;
+    }
+
+    function loadGsiScript() {
+      if (window.google?.accounts?.oauth2) return Promise.resolve();
+      if (gsiScriptPromise) return gsiScriptPromise;
+      gsiScriptPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.async = true;
+        s.defer = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('gsi_load'));
+        document.head.appendChild(s);
+      });
+      return gsiScriptPromise;
+    }
+
+    function revokeGoogleSession() {
+      return new Promise((resolve) => {
+        googleTokenClient = null;
+        const token = googleAccessToken;
+        googleAccessToken = null;
+        if (token && window.google?.accounts?.oauth2?.revoke) {
+          let done = false;
+          const finish = () => { if (!done) { done = true; resolve(); } };
+          try { google.accounts.oauth2.revoke(token, finish); } catch { finish(); }
+          setTimeout(finish, 600);
+        } else resolve();
+      });
+    }
+
+    function clearStaleCloudBinding() {
+      const s = loadSettings();
+      if (!s.lastCloudSyncAt) {
+        saveSettings({ syncOwnerEmail: '', driveFileId: '', cloudSessionActive: false });
+      }
+    }
+
+    function getBoundOwnerEmail() {
+      const s = loadSettings();
+      const owner = (s.syncOwnerEmail || '').trim();
+      return s.lastCloudSyncAt && owner ? owner : '';
+    }
+
+    function requestGoogleToken(prompt) {
+      return new Promise(async (resolve, reject) => {
+        const clientId = getGoogleClientId();
+        if (!clientId) { reject(new Error('no_client_id')); return; }
+        try { await loadGsiScript(); } catch { reject(new Error('gsi_load')); return; }
+
+        if (pendingTokenReject) {
+          try { pendingTokenReject(new Error('token_superseded')); } catch { /* ignore */ }
+        }
+        pendingTokenResolve = resolve;
+        pendingTokenReject = reject;
+
+        const timeoutId = setTimeout(() => {
+          if (!pendingTokenReject) return;
+          pendingTokenReject(new Error('token_timeout'));
+          pendingTokenResolve = pendingTokenReject = null;
+        }, 90000);
+
+        const finish = (fn) => {
+          clearTimeout(timeoutId);
+          fn();
+          pendingTokenResolve = pendingTokenReject = null;
+        };
+
+        googleTokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: OAUTH_SCOPES,
+          callback: (resp) => {
+            if (!pendingTokenResolve && !pendingTokenReject) return;
+            if (resp.error) {
+              finish(() => pendingTokenReject?.(new Error(resp.error)));
+            } else if (!resp.access_token) {
+              finish(() => pendingTokenReject?.(new Error('no_access_token')));
+            } else {
+              googleAccessToken = resp.access_token;
+              finish(() => pendingTokenResolve?.(resp.access_token));
+            }
+          },
+          error_callback: (err) => {
+            if (!pendingTokenReject) return;
+            const code = err?.type || err?.message || 'oauth_error';
+            finish(() => pendingTokenReject?.(new Error(code)));
+          },
+        });
+        googleTokenClient.requestAccessToken({ prompt: prompt || '' });
+      });
+    }
+
+    async function fetchGoogleEmail(token) {
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!res.ok) throw new Error('userinfo_' + res.status);
+      const j = await res.json();
+      if (!j.email) throw new Error('no_email');
+      return j.email;
+    }
+
+    function assertOwnerEmail(email) {
+      const owner = (loadSettings().syncOwnerEmail || '').trim().toLowerCase();
+      if (owner && owner !== email.trim().toLowerCase()) throw new Error('not_allowed');
+    }
+
+    async function driveApi(path, options = {}) {
+      const res = await fetch('https://www.googleapis.com' + path, {
+        ...options,
+        headers: { Authorization: 'Bearer ' + googleAccessToken, ...(options.headers || {}) },
+      });
+      if (!res.ok) throw new Error('drive_' + res.status);
+      return res;
+    }
+
+    async function resolveDriveFileId() {
+      const saved = loadSettings().driveFileId;
+      if (saved) {
+        try {
+          const res = await driveApi('/drive/v3/files/' + encodeURIComponent(saved) + '?fields=id,trashed');
+          const j = await res.json();
+          if (!j.trashed) return j.id;
+        } catch { /* search by name */ }
+      }
+      const q = encodeURIComponent("name='" + BACKUP_FILENAME + "' and trashed=false");
+      const res = await driveApi('/drive/v3/files?q=' + q + '&fields=files(id,modifiedTime)&spaces=drive');
+      const j = await res.json();
+      const files = j.files || [];
+      if (!files.length) return null;
+      files.sort((a, b) => (b.modifiedTime || '').localeCompare(a.modifiedTime || ''));
+      return files[0].id;
+    }
+
+    async function uploadDriveJson(fileId, jsonStr) {
+      if (!fileId) {
+        const boundary = '-------caltracker' + Date.now();
+        const meta = JSON.stringify({ name: BACKUP_FILENAME, mimeType: 'application/json' });
+        const body = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'
+          + meta + '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n'
+          + jsonStr + '\r\n--' + boundary + '--';
+        const res = await driveApi('/upload/drive/v3/files?uploadType=multipart&fields=id', {
+          method: 'POST',
+          headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+          body,
+        });
+        const j = await res.json();
+        return j.id;
+      }
+      await driveApi('/upload/drive/v3/files/' + encodeURIComponent(fileId) + '?uploadType=media', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: jsonStr,
+      });
+      return fileId;
+    }
+
+    async function downloadDriveJson(fileId) {
+      const res = await driveApi('/drive/v3/files/' + encodeURIComponent(fileId) + '?alt=media');
+      return res.text();
+    }
+
+    function applyImportPayload(payload, opts) {
+      const data = payload.data || payload;
+      let n = 0;
+      Object.keys(data).forEach((k) => {
+        if (k.startsWith(STORAGE_PREFIX)) {
+          localStorage.setItem(k, typeof data[k] === 'string' ? data[k] : JSON.stringify(data[k]));
+          n++;
+        }
+      });
+      runMigration();
+      applyBlockOrder();
+      migrateTemplateStores();
+      refresh();
+      if (!opts?.skipCloud) scheduleAutoBackup();
+      return n;
+    }
+
+    function formatSyncTime(iso) {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      } catch { return ''; }
+    }
+
+    function cloudErrorMessage(err) {
+      const code = err?.message || '';
+      if (code === 'not_allowed') {
+        const owner = getBoundOwnerEmail();
+        return owner
+          ? 'ต้องใช้ ' + owner + ' — กด「รีเซ็ตผูกบัญชี」ถ้าต้องการเปลี่ยน'
+          : 'อีเมลนี้ไม่ได้รับอนุญาต';
+      }
+      if (code === 'no_client_id') return 'ยังไม่ได้ใส่ Client ID — เปิด ⚙ Settings วางแล้วกดบันทึก';
+      if (code === 'invalid_client_id') return 'Client ID ไม่ถูกต้อง — ต้องลงท้าย .apps.googleusercontent.com';
+      if (/client id|api key|app id|required/i.test(code)) {
+        return 'ยังไม่ได้ตั้งค่า Client ID — เปิด ⚙ Settings วางแล้วกดบันทึก';
+      }
+      if (code === 'no_token' || code === 'no_access_token') return 'ไม่ได้รับ token จาก Google — ลองใหม่';
+      if (code === 'token_timeout') return 'ล็อกอินนานเกินไป — ลองใหม่';
+      if (code === 'access_denied') return 'Google ปฏิเสธ — เพิ่มอีเมลใน Test users ของ OAuth';
+      if (code === 'popup_closed_by_user') return 'ปิดหน้าต่างล็อกอินก่อนเสร็จ';
+      if (code === 'gsi_load') return 'โหลด Google Sign-In ไม่ได้ — ตรวจเน็ต';
+      if (code === 'no_email') return 'อ่านอีเมลไม่ได้ — ลองล็อกอินใหม่';
+      if (code.startsWith('userinfo_')) return 'อ่านอีเมลไม่ได้ (' + code.replace('userinfo_', '') + ') — ลองใหม่';
+      if (code === 'drive_403') {
+        return 'Drive API ยังไม่เปิด — ไป Library เปิด Google Drive API ก่อน (ดูเช็กลิสต์ใน Settings)';
+      }
+      if (code === 'drive_401') return 'สิทธิ์ Drive หมดอายุ — ล็อกอินใหม่';
+      if (code.startsWith('drive_')) return 'เข้า Drive ไม่ได้ (HTTP ' + code.replace('drive_', '') + ')';
+      if (code === 'oauth_error') return 'Google OAuth ผิดพลาด — ตรวจ Client ID และ JavaScript origins';
+      return code ? ('ข้อผิดพลาด: ' + code) : 'ตรวจ Client ID, Test user, Drive API แล้วลองใหม่';
+    }
+
+    function showCloudError(err, fallbackToast) {
+      const msg = cloudErrorMessage(err);
+      setCloudPhase('error', msg);
+      if (fallbackToast !== false) showToast(msg, 'error');
+    }
+
+    function getCloudStripState() {
+      const hasClient = hasGoogleClientId();
+      if (!hasClient) return 'setup';
+      if (cloudUiPhase === 'connecting') return 'connecting';
+      if (cloudUiPhase === 'syncing') return 'syncing';
+      if (cloudUiPhase === 'error') return 'error';
+      if (cloudLive) return 'online';
+      return 'offline';
+    }
+
+    function setCloudPhase(phase, errMsg) {
+      cloudUiPhase = phase;
+      cloudUiError = errMsg || '';
+      if (phase === 'error') cloudLive = false;
+      updateCloudSyncUI();
+    }
+
+    function updateCloudSyncUI() {
+      const s = loadSettings();
+      const hasClient = hasGoogleClientId();
+      const owner = getBoundOwnerEmail();
+      const stripState = getCloudStripState();
+      const busy = stripState === 'connecting' || stripState === 'syncing';
+
+      const stripLabels = {
+        setup: 'ยังไม่ตั้งค่า',
+        offline: 'ออฟไลน์',
+        connecting: 'กำลังเชื่อมต่อ',
+        syncing: 'กำลังซิงก์',
+        online: 'ออนไลน์',
+        error: 'ผิดพลาด',
+      };
+
+      if (els.cloudStrip) {
+        els.cloudStrip.dataset.state = stripState;
+        if (els.cloudStripLabel) els.cloudStripLabel.textContent = stripLabels[stripState] || 'ออฟไลน์';
+      }
+
+      let stripText = '';
+      let badgeText = '';
+      let badgeClass = 'cloud-status-badge off';
+      let detailText = '';
+      let detailClass = 'cloud-status-detail';
+
+      if (stripState === 'setup') {
+        stripText = 'ยังไม่ตั้งค่า Client ID — เปิด ⚙ Settings วาง OAuth Client ID';
+        badgeText = 'ยังไม่ตั้งค่า';
+        detailText = stripText;
+      } else if (stripState === 'connecting') {
+        stripText = 'รอสักครู่ — กำลังล็อกอิน Google';
+        badgeText = 'กำลังเชื่อมต่อ...';
+        badgeClass = 'cloud-status-badge wait';
+        detailText = stripText;
+      } else if (stripState === 'syncing') {
+        stripText = 'อัปโหลด/ดึงข้อมูลจาก Google Drive';
+        badgeText = 'กำลังซิงก์...';
+        badgeClass = 'cloud-status-badge wait';
+        detailText = stripText;
+      } else if (stripState === 'error') {
+        stripText = cloudUiError || 'เชื่อมต่อไม่สำเร็จ — ลองใหม่';
+        badgeText = 'เชื่อมต่อไม่สำเร็จ';
+        badgeClass = 'cloud-status-badge err';
+        detailText = stripText;
+        detailClass = 'cloud-status-detail';
+      } else if (stripState === 'online') {
+        const syncT = formatSyncTime(s.lastCloudSyncAt);
+        stripText = owner + (syncT ? ' · ซิงก์ ' + syncT : '');
+        badgeText = '✓ เชื่อมต่อแล้ว';
+        badgeClass = 'cloud-status-badge ok';
+        detailText = owner
+          + (syncT ? ' · ซิงก์ล่าสุด ' + syncT : ' · รอซิงก์ครั้งแรก')
+          + ' · ~' + estimatePayloadKb() + ' KB บน Drive';
+        detailClass = 'cloud-status-detail ok';
+      } else {
+        stripText = owner
+          ? 'ยังไม่เชื่อมต่อ · บัญชีที่เคยซิงก์: ' + owner
+          : 'ข้อมูลอยู่ในเครื่อง · กดเชื่อมต่อเพื่อเลือกบัญชี Google';
+        badgeText = 'ยังไม่เชื่อมต่อ';
+        detailText = stripText;
+      }
+
+      if (els.cloudStripText) els.cloudStripText.textContent = stripText;
+      if (els.cloudStatusBadge) {
+        els.cloudStatusBadge.textContent = badgeText;
+        els.cloudStatusBadge.className = badgeClass;
+      }
+      if (els.cloudSyncStatus) {
+        els.cloudSyncStatus.textContent = detailText;
+        els.cloudSyncStatus.className = detailClass;
+      }
+
+      if (els.cloudStripAction) {
+        if (busy) {
+          els.cloudStripAction.textContent = '...';
+          els.cloudStripAction.disabled = true;
+        } else if (stripState === 'online') {
+          els.cloudStripAction.textContent = 'ซิงก์';
+          els.cloudStripAction.disabled = false;
+        } else if (stripState === 'setup') {
+          els.cloudStripAction.textContent = 'ตั้งค่า';
+          els.cloudStripAction.disabled = false;
+        } else {
+          els.cloudStripAction.textContent = 'เชื่อมต่อ';
+          els.cloudStripAction.disabled = false;
+        }
+      }
+
+      els.btnCloudTop.textContent = busy ? '⟳' : '☁️';
+      els.btnCloudTop.classList.toggle('cloud-busy', busy);
+      els.btnCloudTop.classList.toggle('cloud-on', stripState === 'online');
+      if (busy) els.btnCloudTop.title = stripState === 'connecting' ? 'กำลังเชื่อมต่อ...' : 'กำลังซิงก์...';
+      else if (stripState === 'online') els.btnCloudTop.title = 'ออนไลน์ — แตะเพื่อซิงก์';
+      else els.btnCloudTop.title = 'เชื่อมต่อ Google Drive';
+
+      const showLogged = cloudLive || !!getBoundOwnerEmail();
+      els.btnCloudLogin.style.display = cloudLive ? 'none' : '';
+      els.btnCloudSwitch.style.display = hasClient && !cloudLive ? '' : 'none';
+      els.btnCloudLogout.style.display = cloudLive ? '' : 'none';
+      els.btnCloudSyncNow.style.display = cloudLive ? '' : 'none';
+      els.btnResetCloud.style.display = showLogged && hasClient ? '' : 'none';
+      if (els.btnResetCloudSettings) els.btnResetCloudSettings.style.display = showLogged && hasClient ? '' : 'none';
+
+      if (els.settingsCloudStatus) {
+        els.settingsCloudStatus.textContent = 'สถานะ: ' + stripLabels[stripState] + ' — ' + stripText;
+      }
+    }
+
+    async function syncWithDrive(preferPull) {
+      if (!googleAccessToken) throw new Error('no_token');
+      const localPayload = buildExportPayload();
+      const localJson = buildExportJson(true);
+      let fileId = await resolveDriveFileId();
+
+      if (!fileId) {
+        fileId = await uploadDriveJson(null, localJson);
+        saveSettings({ driveFileId: fileId, lastCloudSyncAt: localPayload.exportedAt });
+        return 'upload';
+      }
+
+      let remotePayload = null;
+      try {
+        remotePayload = JSON.parse(await downloadDriveJson(fileId));
+      } catch { remotePayload = null; }
+
+      if (!remotePayload?.data) {
+        await uploadDriveJson(fileId, localJson);
+        saveSettings({ driveFileId: fileId, lastCloudSyncAt: localPayload.exportedAt });
+        return 'upload';
+      }
+
+      const localTs = Date.parse(localPayload.exportedAt) || 0;
+      const remoteTs = Date.parse(remotePayload.exportedAt) || 0;
+
+      if (preferPull || remoteTs > localTs) {
+        applyImportPayload(remotePayload, { skipCloud: true });
+        saveSettings({ driveFileId: fileId, lastCloudSyncAt: remotePayload.exportedAt });
+        return 'download';
+      }
+      if (localTs >= remoteTs) {
+        await uploadDriveJson(fileId, localJson);
+        saveSettings({ driveFileId: fileId, lastCloudSyncAt: localPayload.exportedAt });
+        return 'upload';
+      }
+      return 'noop';
+    }
+
+    function scheduleDriveSync() {
+      if (!cloudLive || !getGoogleClientId()) return;
+      clearTimeout(driveSyncDebounceTimer);
+      driveSyncDebounceTimer = setTimeout(async () => {
+        try {
+          if (!googleAccessToken) await requestGoogleToken('');
+          setCloudPhase('syncing');
+          await syncWithDrive(false);
+          cloudLive = true;
+          setCloudPhase('idle');
+        } catch (e) {
+          cloudLive = false;
+          saveSettings({ cloudSessionActive: false });
+          showCloudError(e, false);
+        }
+      }, 2200);
+    }
+
+    function cloudLoginFailed(err) {
+      cloudLive = false;
+      const partial = { cloudSessionActive: false };
+      if (!loadSettings().lastCloudSyncAt) {
+        partial.syncOwnerEmail = '';
+        partial.driveFileId = '';
+      }
+      saveSettings(partial);
+      if (err?.message === 'popup_closed_by_user') setCloudPhase('error', cloudErrorMessage(err));
+      else showCloudError(err);
+    }
+
+    async function loginCloud(forceFresh) {
+      if (!persistClientIdFromInput() && !hasGoogleClientId()) {
+        showToast('วาง OAuth Client ID ใน Settings แล้วกดบันทึก', 'error');
+        setCloudPhase('error', 'ยังไม่ได้ตั้งค่า Client ID — เปิด ⚙ Settings');
+        openSettings();
+        return;
+      }
+      if (!hasGoogleClientId()) {
+        showToast('Client ID ไม่ถูกต้อง — ต้องลงท้าย .apps.googleusercontent.com', 'error');
+        setCloudPhase('error', 'Client ID ไม่ถูกต้อง');
+        openSettings();
+        return;
+      }
+      cloudLive = false;
+      clearStaleCloudBinding();
+      await revokeGoogleSession();
+      setCloudPhase('connecting');
+      try {
+        const prompt = forceFresh ? 'select_account consent' : 'select_account consent';
+        const token = await requestGoogleToken(prompt);
+        const email = await fetchGoogleEmail(token);
+        const bound = getBoundOwnerEmail();
+        if (bound && bound.toLowerCase() !== email.trim().toLowerCase()) {
+          throw new Error('not_allowed');
+        }
+        setCloudPhase('syncing');
+        const result = await syncWithDrive(true);
+        saveSettings({
+          syncOwnerEmail: bound || email,
+          cloudSessionActive: true,
+          lastCloudConnectAt: new Date().toISOString(),
+        });
+        cloudLive = true;
+        setCloudPhase('idle');
+        const syncMsg = result === 'download' ? 'ดึงข้อมูลจาก Drive แล้ว' : 'อัปโหลดขึ้น Drive แล้ว';
+        showToast('✓ เชื่อมต่อ Google Drive สำเร็จ — ' + syncMsg, 'success');
+      } catch (e) {
+        await revokeGoogleSession();
+        cloudLoginFailed(e);
+      }
+    }
+
+    async function switchCloudAccount() {
+      if (!confirm('เปลี่ยนบัญชี Google?\n\nจะล้าง session เดิมและให้เลือกบัญชีใหม่')) return;
+      saveSettings({ cloudSessionActive: false });
+      cloudLive = false;
+      await revokeGoogleSession();
+      await loginCloud(true);
+    }
+
+    async function syncCloudNow() {
+      if (!getGoogleClientId()) {
+        openSettings();
+        return;
+      }
+      setCloudPhase('syncing');
+      try {
+        if (!googleAccessToken) await requestGoogleToken(cloudLive ? '' : 'select_account');
+        const email = await fetchGoogleEmail(googleAccessToken);
+        assertOwnerEmail(email);
+        const result = await syncWithDrive(false);
+        cloudLive = true;
+        saveSettings({ cloudSessionActive: true });
+        setCloudPhase('idle');
+        const t = formatSyncTime(loadSettings().lastCloudSyncAt);
+        showToast(
+          (result === 'download' ? 'ดึงจาก Drive แล้ว' : 'อัปโหลด Drive แล้ว')
+            + (t ? ' · ' + t : ''),
+          'success'
+        );
+      } catch (e) {
+        cloudLive = false;
+        saveSettings({ cloudSessionActive: false });
+        showCloudError(e);
+      }
+    }
+
+    function logoutCloud() {
+      revokeGoogleSession().then(() => {
+        cloudLive = false;
+        saveSettings({ cloudSessionActive: false });
+        setCloudPhase('idle');
+        showToast('ออกจากระบบคลาวด์แล้ว — ข้อมูลยังอยู่ในเครื่อง', 'success');
+      });
+    }
+
+    function resetCloudAccount() {
+      if (!confirm('รีเซ็ตการผูกบัญชี Google?\n\nจะลืมอีเมลเจ้าของ ล้าง session และต้องเลือกบัญชีใหม่')) return;
+      revokeGoogleSession().then(() => {
+        googleTokenClient = null;
+        cloudLive = false;
+        saveSettings({
+          syncOwnerEmail: '',
+          driveFileId: '',
+          cloudSessionActive: false,
+          lastCloudSyncAt: '',
+          lastCloudConnectAt: '',
+        });
+        setCloudPhase('idle');
+        showToast('รีเซ็ตแล้ว — กดเชื่อมต่อและเลือกบัญชีใหม่', 'success');
+      });
+    }
+
+    async function initCloudOnLoad() {
+      updateCloudSyncUI();
+      if (!getGoogleClientId()) return;
+      const s = loadSettings();
+      if (!s.lastCloudSyncAt) {
+        clearStaleCloudBinding();
+        return;
+      }
+      if (!s.cloudSessionActive) return;
+      setCloudPhase('connecting');
+      try {
+        await requestGoogleToken('');
+        const email = await fetchGoogleEmail(googleAccessToken);
+        assertOwnerEmail(email);
+        cloudLive = true;
+        setCloudPhase('syncing');
+        await syncWithDrive(true);
+        setCloudPhase('idle');
+      } catch (e) {
+        await revokeGoogleSession();
+        cloudLive = false;
+        saveSettings({ cloudSessionActive: false });
+        showCloudError(e, false);
+      }
+    }
+
+    function onCloudStripAction() {
+      const state = getCloudStripState();
+      if (state === 'setup' || state === 'error') openSettings();
+      else if (state === 'online') syncCloudNow();
+      else if (state !== 'connecting' && state !== 'syncing') loginCloud(true);
+    }
+
+    if (els.settingsGoogleClientId) {
+      els.settingsGoogleClientId.addEventListener('input', updateClientIdHint);
+      els.settingsGoogleClientId.addEventListener('blur', () => {
+        if (persistClientIdFromInput()) showToast('บันทึก Client ID แล้ว', 'success');
+      });
+    }
+
+    function openBackupDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(BACKUP_HANDLE_DB, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('handles');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+    }
+
+    async function storeBackupHandle(handle) {
+      const db = await openBackupDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('handles', 'readwrite');
+        tx.objectStore('handles').put(handle, 'backup');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function loadStoredBackupHandle() {
+      if (!('showSaveFilePicker' in window)) return null;
+      try {
+        const db = await openBackupDB();
+        const handle = await new Promise((resolve, reject) => {
+          const tx = db.transaction('handles');
+          const req = tx.objectStore('handles').get('backup');
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => reject(req.error);
+        });
+        if (!handle) return null;
+        let perm = await handle.queryPermission({ mode: 'writable' });
+        if (perm !== 'granted') perm = await handle.requestPermission({ mode: 'writable' });
+        return perm === 'granted' ? handle : null;
+      } catch { return null; }
+    }
+
+    async function writeBackupToHandle(handle) {
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(buildExportPayload(), null, 2));
+      await writable.close();
+    }
+
+    function updateAutoBackupStatus() {
+      if (!els.autoBackupStatus) return;
+      if (backupFileHandle) {
+        els.autoBackupStatus.textContent = 'สำรองอัตโนมัติ: เปิด — ทับ ' + BACKUP_FILENAME + ' ทุกครั้งที่เปลี่ยนข้อมูล';
+        els.autoBackupStatus.style.color = 'var(--success)';
+      } else {
+        els.autoBackupStatus.textContent = 'สำรองอัตโนมัติ: ปิด — ตั้งไฟล์ครั้งเดียว ทับไฟล์เดิมทุกครั้งที่มีการเปลี่ยนแปลง';
+        els.autoBackupStatus.style.color = '';
+      }
+    }
+
+    function scheduleAutoBackup() {
+      clearTimeout(backupDebounceTimer);
+      if (backupFileHandle) {
+        backupDebounceTimer = setTimeout(async () => {
+          try {
+            await writeBackupToHandle(backupFileHandle);
+          } catch {
+            backupFileHandle = null;
+            updateAutoBackupStatus();
+            showToast('สำรองอัตโนมัติล้มเหลว — ตั้งไฟล์ใหม่', 'error');
+          }
+          scheduleDriveSync();
+        }, 1200);
+      } else {
+        scheduleDriveSync();
+      }
+    }
+
+    async function setupAutoBackup() {
+      if (!('showSaveFilePicker' in window)) {
+        showToast('ใช้ Chrome/Edge บนเดสก์ท็อปเพื่อสำรองอัตโนมัติ', 'error');
+        return;
+      }
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: BACKUP_FILENAME,
+          types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }],
+        });
+        backupFileHandle = handle;
+        await storeBackupHandle(handle);
+        await writeBackupToHandle(handle);
+        updateAutoBackupStatus();
+        showToast('ตั้งสำรองอัตโนมัติแล้ว — ทับไฟล์เดิมทุกครั้ง', 'success');
+      } catch { /* cancelled */ }
+    }
+
+    async function initAutoBackup() {
+      backupFileHandle = await loadStoredBackupHandle();
+      updateAutoBackupStatus();
+    }
+
+    function exportData() {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([buildExportJson(false)], { type: 'application/json' }));
+      a.download = BACKUP_FILENAME;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('Export สำเร็จ', 'success');
+    }
+
+    function importData(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const payload = JSON.parse(reader.result);
+          const n = applyImportPayload(payload);
+          showToast('Import ' + n + ' รายการ', 'success');
+        } catch { showToast('ไฟล์ไม่ถูกต้อง', 'error'); }
+      };
+      reader.readAsText(file);
+    }
+
+    let toastTimer;
+    function showToast(msg, type) {
+      els.toast.textContent = msg;
+      els.toast.className = 'toast show ' + (type || 'error');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2600);
+    }
+
+    els.btnPrevDay.onclick = () => setDate(shiftDate(currentDate, -1));
+    els.btnNextDay.onclick = () => { const n = shiftDate(currentDate, 1); if (n <= todayStr()) setDate(n); };
+    els.datePicker.onchange = () => {
+      const p = els.datePicker.value;
+      const start = getProgramStartDate();
+      if (p && p <= todayStr() && (!start || p >= start)) setDate(p);
+      else els.datePicker.value = currentDate;
+    };
+
+    els.profileWeight.oninput = () => {
+      const w = els.profileWeight.value;
+      setWeightLogEntry(currentDate, w);
+      refresh();
+    };
+    els.profileWaist.oninput = () => {
+      setWaistLogEntry(currentDate, els.profileWaist.value);
+      refresh();
+    };
+    els.settingsBirthDate.oninput = () => {
+      els.settingsAgeHint.textContent = formatAgeHint(els.settingsBirthDate.value, todayStr());
+    };
+    function saveGoals() {
+      saveSettings({
+        profile: {
+          ...loadSettings().profile,
+          targetWeight: els.targetWeight.value,
+          targetWaist: els.targetWaist.value,
+        },
+      });
+      renderGoalProgress();
+      renderCharts();
+    }
+    els.targetWeight.onchange = saveGoals;
+    els.targetWaist.onchange = saveGoals;
+    els.programStartDate.onchange = () => {
+      const v = els.programStartDate.value;
+      if (!v) { saveSettings({ programStartDate: '' }); refresh(); return; }
+      if (v > todayStr()) { els.programStartDate.value = getProgramStartDate() || ''; showToast('เลือกวันไม่เกินวันนี้', 'error'); return; }
+      saveSettings({ programStartDate: v });
+      if (currentDate < v) setDate(v);
+      else refresh();
+      showToast('วันเริ่มโปรแกรม: ' + v, 'success');
+    };
+
+    els.btnAddMeal.onclick = handleAddMeal;
+    els.btnAddExercise.onclick = handleAddExercise;
+    els.exerciseKcal.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddExercise(); } };
+    els.exerciseList.onclick = (e) => {
+      if (e.target.closest('[data-action="delete-ex"]')) {
+        e.stopPropagation();
+        deleteExercise(e.target.closest('[data-action="delete-ex"]').dataset.id);
+        return;
+      }
+      const editBtn = e.target.closest('[data-action="edit-ex"]');
+      if (editBtn) openEditExercise(editBtn.dataset.id);
+    };
+    els.btnCancelEditEx.onclick = closeEditExercise;
+    els.btnSaveEditEx.onclick = saveEditExercise;
+    els.editExerciseOverlay.onclick = (e) => { if (e.target === els.editExerciseOverlay) closeEditExercise(); };
+    els.btnQuickTemplate.onclick = openQuickTemplate;
+    els.btnQuickExTemplate.onclick = openQuickExerciseTemplate;
+    els.tplConfirmCancel.onclick = closeTplConfirm;
+    els.tplConfirmOk.onclick = confirmTplOk;
+    els.tplConfirmOverlay.onclick = (e) => { if (e.target === els.tplConfirmOverlay) closeTplConfirm(); };
+    els.btnCancelQuickTpl.onclick = () => els.quickTemplateOverlay.classList.remove('open');
+    els.btnSaveQuickTpl.onclick = saveQuickTemplate;
+    els.quickTemplateOverlay.onclick = (e) => { if (e.target === els.quickTemplateOverlay) els.quickTemplateOverlay.classList.remove('open'); };
+    els.btnCancelQuickExTpl.onclick = () => els.quickExTemplateOverlay.classList.remove('open');
+    els.btnSaveQuickExTpl.onclick = saveQuickExerciseTemplate;
+    els.quickExTemplateOverlay.onclick = (e) => { if (e.target === els.quickExTemplateOverlay) els.quickExTemplateOverlay.classList.remove('open'); };
+    els.adjLink.onclick = (e) => { e.stopPropagation(); openAdjEditor(); };
+    els.bsumStrip.onclick = (e) => { if (e.target.classList.contains('adj-link')) openAdjEditor(); };
+    els.adjInput.oninput = updateAdjPreview;
+    els.btnCancelAdj.onclick = () => els.adjOverlay.classList.remove('open');
+    els.btnSaveAdj.onclick = saveAdj;
+    els.adjOverlay.onclick = (e) => { if (e.target === els.adjOverlay) els.adjOverlay.classList.remove('open'); };
+    els.adjInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); saveAdj(); } };
+    els.quickTemplateName.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); saveQuickTemplate(); } };
+
+    document.body.addEventListener('click', (e) => {
+      const infoBtn = e.target.closest('[data-info]');
+      if (infoBtn) { e.preventDefault(); e.stopPropagation(); showInfo(infoBtn.dataset.info); }
+    });
+    els.btnCloseInfo.onclick = () => els.infoOverlay.classList.remove('open');
+    els.infoOverlay.onclick = (e) => { if (e.target === els.infoOverlay) els.infoOverlay.classList.remove('open'); };
+
+    els.chartPeriodBtns.onclick = (e) => {
+      const btn = e.target.closest('.period-pill');
+      if (btn) setChartPeriod(parseInt(btn.dataset.days, 10));
+    };
+
+    els.mealInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddMeal(); } };
+    els.mealList.onclick = (e) => {
+      if (e.target.closest('[data-action="delete"]')) {
+        e.stopPropagation();
+        deleteMeal(e.target.closest('[data-action="delete"]').dataset.id);
+        return;
+      }
+      const editBtn = e.target.closest('[data-action="edit"]');
+      if (editBtn) openEdit(editBtn.dataset.id);
+    };
+    els.btnCancelEdit.onclick = closeEdit;
+    els.btnSaveEdit.onclick = saveEdit;
+    els.editOverlay.onclick = (e) => { if (e.target === els.editOverlay) closeEdit(); };
+
+    els.btnWeightHistory.onclick = openWeightHistory;
+    els.btnCloseWeightHistory.onclick = () => els.weightHistoryOverlay.classList.remove('open');
+    els.btnSaveWeightHistory.onclick = saveWeightHistory;
+    els.weightLogList.onclick = (e) => {
+      const del = e.target.closest('[data-wl-del]');
+      if (del) { del.closest('.weight-log-item').dataset.deleted = '1'; del.closest('.weight-log-item').style.opacity = '0.35'; }
+    };
+    els.weightHistoryOverlay.onclick = (e) => { if (e.target === els.weightHistoryOverlay) els.weightHistoryOverlay.classList.remove('open'); };
+
+    els.btnExerciseHistory.onclick = openExerciseHistory;
+    els.btnCloseExHistory.onclick = closeExerciseHistory;
+    els.btnSaveExHistory.onclick = saveExerciseHistory;
+    els.exerciseHistoryOverlay.onclick = (e) => { if (e.target === els.exerciseHistoryOverlay) closeExerciseHistory(); };
+    els.exHistoryPeriodBtns.onclick = (e) => {
+      const btn = e.target.closest('.period-pill');
+      if (!btn) return;
+      exHistoryPeriodDays = parseInt(btn.dataset.days, 10);
+      els.exHistoryPeriodBtns.querySelectorAll('.period-pill').forEach((b) => b.classList.toggle('active', b === btn));
+      renderExerciseHistory();
+    };
+    els.exHistoryBody.onclick = (e) => {
+      const goto = e.target.closest('[data-goto-date]');
+      if (goto) { closeExerciseHistory(); setDate(goto.dataset.gotoDate); return; }
+      const del = e.target.closest('[data-ex-del]');
+      if (del) { const tr = del.closest('tr'); tr.dataset.deleted = '1'; tr.style.opacity = '0.35'; }
+    };
+
+    els.btnResetBlockStyle.onclick = resetBlockStyle;
+    els.blockStylePicker.onchange = () => {
+      flushBlockStyleDraft();
+      renderBlockStyleFields(els.blockStylePicker.value);
+    };
+    els.blockStyleFields.onclick = (e) => {
+      const clr = e.target.closest('.btn-clear-style');
+      if (!clr) return;
+      const inp = els.blockStyleFields.querySelector('input[data-style-key="' + clr.dataset.styleKey + '"]');
+      if (inp) inp.value = getThemeColorDefault(clr.dataset.styleKey);
+    };
+
+    els.btnCloudLogin.onclick = () => loginCloud(true);
+    els.btnCloudSwitch.onclick = switchCloudAccount;
+    els.btnCloudTop.onclick = () => {
+      if (cloudLive) syncCloudNow();
+      else loginCloud(true);
+    };
+    els.btnCloudSyncNow.onclick = syncCloudNow;
+    els.btnCloudLogout.onclick = logoutCloud;
+    els.btnResetCloud.onclick = resetCloudAccount;
+    if (els.btnResetCloudSettings) els.btnResetCloudSettings.onclick = resetCloudAccount;
+    if (els.cloudStripAction) els.cloudStripAction.onclick = onCloudStripAction;
+
+    els.btnSettings.onclick = openSettings;
+    els.profileAgeDisplay.onclick = openSettings;
+    els.btnCancelSettings.onclick = closeSettings;
+    els.btnSaveSettings.onclick = saveAllSettings;
+    els.settingsOverlay.onclick = (e) => { if (e.target === els.settingsOverlay) closeSettings(); };
+    els.settingsOverlay.addEventListener('touchmove', (e) => {
+      if (e.target === els.settingsOverlay) e.preventDefault();
+    }, { passive: false });
+    els.btnAddTemplate.onclick = () => {
+      const t = loadTemplateList();
+      t.push({ id: 't' + Date.now(), label: 'มื้อใหม่', calories: 300, protein: 20 });
+      saveSettings({ templates: t }); renderTemplateEditor();
+    };
+    els.btnAddExTemplate.onclick = () => {
+      const t = loadExerciseTemplateList();
+      t.push({ id: 'e' + Date.now(), label: 'ออกกำลังใหม่', calories: 200, note: '' });
+      saveSettings({ exerciseTemplates: t }); renderExerciseTemplateEditor();
+    };
+    els.btnTheme.onclick = () => { applyTheme(loadSettings().theme === 'dark' ? 'light' : 'dark'); renderCharts(); };
+    els.btnExport.onclick = exportData;
+    els.btnAutoBackup.onclick = setupAutoBackup;
+    els.btnImport.onclick = () => els.importFile.click();
+    els.importFile.onchange = (e) => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; };
+    $('#toggleData').onclick = () => $('#dataSection').classList.toggle('collapsed');
+
+    window.addEventListener('resize', renderCharts);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      const today = todayStr();
+      if (currentDate === today) refresh();
+      else if (els.dateLabel.textContent === 'วันนี้') setDate(today);
+    });
+
+    runMigration();
+    applyTheme(loadSettings().theme);
+    applyBlockOrder();
+    initDragReorder();
+    initAutoBackup();
+    updateClientIdHint();
+    updateCloudSyncUI();
+    initCloudOnLoad();
+    setChartPeriod(loadSettings().chartPeriodDays || 30);
+    els.mealTime.value = nowTimeStr();
+    els.exerciseTime.value = nowTimeStr();
+    setDate(todayStr());
+  </script>
+</body>
 </html>
