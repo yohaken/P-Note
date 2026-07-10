@@ -1077,8 +1077,8 @@ async function applySyncCode(code) {
   closeSettings();
 }
 
-// Editor: swipe left OR right → save & leave editor (then PageNav works on list).
-// Overlays/drawer: keep close gestures. List page swipe is PageNav.
+// Editor: swipe left OR right → save & leave editor.
+// Overlays/drawer: keep close gestures. Page switching is FAB-only (no list swipe).
 function initSwipeBack() {
   let startX = 0;
   let startY = 0;
