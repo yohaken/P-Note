@@ -23,14 +23,9 @@ Personal notes PWA. Static frontend (`frontend/`) synced to Google Drive via Fir
 - The only automated tests are Playwright scripts: `scripts/test-hello-world.mjs` (verifies the "hello world" banner across visitor states) and `scripts/test-login-flow.mjs` (verifies the Google sign-in popup loads). They default to the deployed site; set `TEST_URL=http://localhost:5000/` to run against the local frontend. They need Playwright installed with a Chromium browser; because `scripts/` has no `package.json`, Node resolves `playwright` from a parent `node_modules`.
 - The frontend "build" for production is just `firebase deploy --only hosting`; there is nothing to compile locally.
 
-### Frontend caching gotcha
+### Frontend caching (built into app)
 
-- The PWA registers a service worker (`frontend/sw.js`) that caches all assets. When you change any file in `frontend/js/` or `frontend/css/`, you MUST bump the cache-busting `?v=N` query used in `frontend/index.html` and the `./js/*.js?v=N` import statements, AND bump `CACHE_NAME` in `frontend/sw.js`. Otherwise browsers (and the deployed site) keep serving stale JS/CSS even after deploy. During local testing, a hard refresh (Ctrl+Shift+R) forces fresh assets.
-- Notes data on Drive is versioned (`my_notes.json`, currently `version: 2`). `normalizeNotesData()` in `frontend/js/notes.js` migrates older payloads forward and is idempotent — run it on any loaded payload.
-
-### Mobile login
-
-- Production must use **`signInWithRedirect` on mobile** (iPhone/Android/PWA) — popup-only auth fails on many phones. Desktop keeps popup with redirect fallback when blocked.
-- `frontend/js/firebase.js` sets `authDomain` to `window.location.hostname` on Firebase Hosting (e.g. `mypeer-501909.web.app`) so `/__/auth/handler` is same-origin; using `*.firebaseapp.com` while the app runs on `*.web.app` breaks sign-in on Safari/modern mobile browsers.
-- Local static dev (`localhost`) has no `/__/auth` handler — mobile emulation on localhost still uses popup; test redirect flow on the deployed Hosting URL.
-- `autoLogin()` reuses a cached Drive token (~55 min) and does **not** auto-open popup/redirect when the token expires (requires tapping "Sign in with Google" again).
+- **Single bump point:** `<meta name="pnote-build" content="N">` in `frontend/index.html` — also update `?v=N` on `cache-bootstrap.js`, `app.js`, `css/style.css`, all `./js/*.js?v=N` imports, and `CACHE_NAME` in `frontend/sw.js` (`pnote-vN`).
+- **`js/cache-bootstrap.js`** runs before modules: if `localStorage.pnote_active_build !== meta build`, it unregisters all service workers, deletes all Cache Storage, saves the new build id, and reloads once. This is the permanent in-app cache flush (not a one-off hack).
+- **`js/cache.js`** registers `sw.js?v=N` after bootstrap. Login is disabled for now — no auth modules loaded.
+- Notes live in `localStorage` key `pnote_local_data` (v2 schema with tags). Export/import JSON via **สำรอง / นำเข้า** in the header.

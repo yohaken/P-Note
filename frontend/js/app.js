@@ -1,4 +1,5 @@
-import { loadNotes } from './local.js?v=14';
+import { loadNotes, exportNotesBlob, parseNotesImport } from './local.js?v=15';
+import { registerServiceWorker } from './cache.js?v=15';
 import {
   addTag,
   countNotesByTag,
@@ -14,8 +15,9 @@ import {
   sortNotes,
   toggleNoteTag,
   updateNote,
-} from './notes.js?v=14';
-import { SaveManager } from './sync.js?v=14';
+} from './notes.js?v=15';
+import { SaveManager } from './sync.js?v=15';
+import { getAppBuild } from './version.js?v=15';
 
 const state = {
   notesData: { version: 2, updatedAt: '', tags: [], notes: [] },
@@ -35,6 +37,10 @@ const els = {
   emptyState: document.getElementById('empty-state'),
   addNoteBtn: document.getElementById('add-note-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
+  exportBtn: document.getElementById('export-btn'),
+  importBtn: document.getElementById('import-btn'),
+  importInput: document.getElementById('import-input'),
+  appVersion: document.getElementById('app-version'),
   tagFilterBar: document.getElementById('tag-filter-bar'),
   backBtn: document.getElementById('back-btn'),
   saveBtn: document.getElementById('save-btn'),
@@ -308,6 +314,44 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;');
 }
 
+function updateAppVersionLabel() {
+  if (els.appVersion) {
+    els.appVersion.textContent = `v${getAppBuild()} · เก็บในเครื่อง`;
+  }
+}
+
+function exportBackup() {
+  const blob = exportNotesBlob(state.notesData);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `pnote-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  setStatus('ส่งออกไฟล์แล้ว');
+}
+
+function importBackup(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = parseNotesImport(reader.result);
+      if (!window.confirm('แทนที่โน้ตทั้งหมดด้วยไฟล์สำรอง?')) {
+        return;
+      }
+      state.notesData = data;
+      state.tagFilterId = null;
+      saveManager.saveNow(state.notesData);
+      renderNotesList();
+      setStatus('นำเข้าสำเร็จ');
+    } catch {
+      window.alert('ไฟล์ไม่ถูกต้อง');
+    }
+  };
+  reader.readAsText(file);
+}
+
 function bootstrapData() {
   setLoading(true, 'กำลังโหลดโน้ต...');
   const { data } = loadNotes();
@@ -321,15 +365,20 @@ function bootstrapData() {
   renderNotesList();
   showView('list');
   setLoading(false);
+  updateAppVersionLabel();
 }
 
 async function init() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  }
+  registerServiceWorker();
 
   els.addNoteBtn.addEventListener('click', openNewNote);
   els.manageTagsBtn.addEventListener('click', openTagManager);
+  els.exportBtn.addEventListener('click', exportBackup);
+  els.importBtn.addEventListener('click', () => els.importInput.click());
+  els.importInput.addEventListener('change', () => {
+    importBackup(els.importInput.files?.[0]);
+    els.importInput.value = '';
+  });
   els.backBtn.addEventListener('click', backToList);
 
   els.tagAddForm.addEventListener('submit', (event) => {

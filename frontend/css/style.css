@@ -185,11 +185,10 @@ body {
   gap: 0.15rem;
 }
 
-.hello-world {
+.app-version {
   margin: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--primary);
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .topbar-actions {

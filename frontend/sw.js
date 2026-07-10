@@ -1,8 +1,11 @@
-const CACHE_NAME = 'pnote-v14';
+const CACHE_NAME = 'pnote-v15';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
+  './js/cache-bootstrap.js',
+  './js/version.js',
+  './js/cache.js',
   './js/config.js',
   './js/local.js',
   './js/sync.js',

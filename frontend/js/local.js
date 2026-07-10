@@ -1,6 +1,7 @@
-import { normalizeNotesData } from './notes.js?v=14';
+import { STORAGE_KEYS } from './config.js?v=15';
+import { normalizeNotesData } from './notes.js?v=15';
 
-const LOCAL_DATA_KEY = 'pnote_local_data';
+export const LOCAL_DATA_KEY = STORAGE_KEYS.LOCAL_DATA;
 
 function emptyPayload() {
   return normalizeNotesData({
@@ -26,4 +27,12 @@ export function loadNotes() {
 export function saveNotes(notesData) {
   notesData.updatedAt = new Date().toISOString();
   localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(notesData));
+}
+
+export function exportNotesBlob(notesData) {
+  return new Blob([JSON.stringify(notesData, null, 2)], { type: 'application/json' });
+}
+
+export function parseNotesImport(text) {
+  return normalizeNotesData(JSON.parse(text));
 }
