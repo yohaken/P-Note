@@ -6,16 +6,20 @@
 
 | | URL |
 |---|-----|
-| **แอป** | https://p-note.web.app |
+| **แอป (prod)** | https://p-note.web.app |
+| **Preview (dev)** | push branch `dev` → ดู URL ใน Actions |
 | **GitHub** | https://github.com/yohaken/P-Note |
 | **API Health** | `GET /api/health` |
+
+คู่มือพัฒนา + ใช้จริงนอกสถานที่: **[docs/DEV_PREVIEW.md](docs/DEV_PREVIEW.md)**
 
 ## สถาปัตยกรรม
 
 ```
-GitHub (โค้ด)  →  Cloud Build  →  Cloud Run (API) + Firebase Hosting (แอป)
-                                      ↓
-                                 Firestore + Drive (Phase 3+)
+GitHub main → Actions → Cloud Run (API) + Firebase Hosting (prod)
+GitHub dev  → Actions → Firebase Hosting preview (API/DB ชุดเดียวกับ prod)
+                              ↓
+                         Firestore
 ```
 
 ## โครงสร้าง Repo

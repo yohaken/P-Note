@@ -1,9 +1,9 @@
 import cors from 'cors';
-import { config } from '../config.js';
+import { isAllowedOrigin } from '../config.js';
 
 export const corsMiddleware = cors({
   origin(origin, callback) {
-    if (!origin || config.allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
       return;
     }

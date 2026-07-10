@@ -1,0 +1,50 @@
+name: Deploy Preview (dev)
+
+# Frontend preview only — same Cloud Run API + Firestore as production.
+# Use a different sync/space id on the preview URL so real notes stay safe.
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: mypeer-501909
+  CHANNEL_ID: dev
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Deploy Firebase Hosting preview channel
+        id: channel
+        run: |
+          OUTPUT=$(npx firebase-tools@13 hosting:channel:deploy "$CHANNEL_ID" \
+            --project "$PROJECT_ID" \
+            --expires 30d \
+            --non-interactive)
+          echo "$OUTPUT"
+          URL=$(echo "$OUTPUT" | grep -Eo 'https://[^ ]+\.web\.app' | tail -1)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Preview URL: $URL"
+
+      - name: Summary
+        run: |
+          {
+            echo "## Preview ready"
+            echo "- URL: ${{ steps.channel.outputs.url }}"
+            echo "- API: production Cloud Run (same Firestore)"
+            echo "- Tip: use a **test sync code** in Settings, not your real space id"
+          } >> "$GITHUB_STEP_SUMMARY"
