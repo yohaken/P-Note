@@ -1,13 +1,13 @@
-import { autoLogin, signOut, startLogin } from './auth.js';
-import { loadNotes } from './drive.js';
+import { autoLogin, signOut, startLogin } from './auth.js?v=7';
+import { loadNotes } from './drive.js?v=7';
 import {
   createNote,
   formatDate,
   previewText,
   sortNotes,
   updateNote,
-} from './notes.js';
-import { SaveManager } from './sync.js';
+} from './notes.js?v=7';
+import { SaveManager } from './sync.js?v=7';
 
 const state = {
   accessToken: null,
