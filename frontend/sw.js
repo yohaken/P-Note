@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pnote-v3';
+const CACHE_NAME = 'pnote-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -35,6 +35,26 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   if (url.origin.includes('googleapis.com') || url.origin.includes('accounts.google.com')) {
+    return;
+  }
+
+  const isDocument = event.request.mode === 'navigate'
+    || event.request.destination === 'document'
+    || url.pathname.endsWith('/index.html')
+    || url.pathname === '/' || url.pathname.endsWith('/');
+
+  if (isDocument) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok && url.origin === self.location.origin) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request)),
+    );
     return;
   }
 
