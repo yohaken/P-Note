@@ -95,8 +95,8 @@ const els = {
   sortBar: document.getElementById('sort-bar'),
   barsTop: document.getElementById('bars-top'),
   barsBottom: document.getElementById('bars-bottom'),
-  bottomNav: document.getElementById('bottom-nav'),
-  healthModeBtn: document.getElementById('health-mode-btn'),
+  bottomNav: null,
+  healthModeBtn: null,
   groupNavBtn: document.getElementById('group-nav-btn'),
   sortWrap: document.querySelector('.movable-bar[data-bar="sort"]'),
   tagWrap: document.querySelector('.movable-bar[data-bar="tag"]'),
@@ -146,6 +146,8 @@ function showView(view) {
   state.view = view;
   els.listView.hidden = view !== 'list';
   els.editorView.hidden = view !== 'editor';
+  const fabStack = document.getElementById('fabStack');
+  if (fabStack) fabStack.hidden = view !== 'list';
 }
 
 function setLoading(visible, message = 'กำลังโหลด...') {

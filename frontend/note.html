@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="53">
-  <meta name="pnote-built" content="2026-07-10T23:22:00+07:00">
+  <meta name="pnote-build" content="54">
+  <meta name="pnote-built" content="2026-07-10T23:25:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=53"></script>
+  <script src="js/cache-bootstrap.js?v=54"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=53">
+  <link rel="stylesheet" href="css/pnote.css?v=54">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -25,18 +25,26 @@
     }
     .app-built { display: none !important; }
 
-    .fab-pages {
+    .fab-stack {
       position: fixed;
       right: max(0.85rem, env(safe-area-inset-right, 0px));
       bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
       z-index: 55;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .fab-pages,
+    .fab-action {
+      position: relative;
       width: 3rem;
       height: 3rem;
       border: none;
       border-radius: 999px;
       background: var(--surface-2, #2c2c2e);
       color: var(--text, #fff);
-      font-size: 1.05rem;
+      font-size: 1.15rem;
       font-weight: 700;
       box-shadow: 0 2px 12px rgba(0,0,0,0.35);
       cursor: pointer;
@@ -45,7 +53,19 @@
       justify-content: center;
       -webkit-tap-highlight-color: transparent;
     }
-    .fab-pages:active { transform: scale(0.96); opacity: 0.9; }
+    .fab-pages:active,
+    .fab-action:active { transform: scale(0.96); opacity: 0.9; }
+    .fab-action[hidden] { display: none !important; }
+    .fab-action.active {
+      background: var(--accent, #0a84ff);
+      color: #fff;
+    }
+    #add-note-btn.fab-action {
+      background: var(--accent, #0a84ff);
+      color: #fff;
+      font-size: 1.45rem;
+      line-height: 1;
+    }
     .pages-menu-overlay {
       position: fixed;
       inset: 0;
@@ -100,7 +120,13 @@
       color: var(--text-muted, #98989f);
     }
     body.light .fab-pages,
+    body.light .fab-action,
     body.light .pages-menu { background: var(--surface); color: var(--text); }
+    body.light #add-note-btn.fab-action,
+    body.light .fab-action.active {
+      background: var(--accent, #007aff);
+      color: #fff;
+    }
     body.light .pages-menu-item { background: var(--bg); color: var(--text); }
   </style>
 </head>
@@ -123,7 +149,7 @@
       <div class="list-scroll">
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
-          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ「เพิ่ม」ที่แถบล่างเพื่อสร้างโน้ต</p>
+          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ + เพื่อสร้างโน้ต</p>
           <button class="btn btn-primary" type="button" onclick="document.getElementById('add-note-btn').click()">
             สร้างโน้ตแรก
           </button>
@@ -132,29 +158,6 @@
       </div>
 
       <div id="bars-bottom" class="bars-zone bars-filters" aria-label="ตัวกรอง"></div>
-
-      <nav id="bottom-nav" class="bottom-nav" aria-label="เมนูหลัก">
-        <div class="bottom-nav-inner">
-          <button id="add-note-btn" class="bottom-nav-item" type="button" aria-label="เพิ่มโน้ต">
-            <span class="bottom-nav-icon" aria-hidden="true">+</span>
-            <span class="bottom-nav-label">เพิ่ม</span>
-          </button>
-          <button id="group-nav-btn" class="bottom-nav-item" type="button" aria-label="กลุ่มงาน" aria-controls="group-drawer">
-            <span class="bottom-nav-icon" aria-hidden="true">☰</span>
-            <span class="bottom-nav-label">กลุ่มงาน</span>
-          </button>
-          <button
-            id="health-mode-btn"
-            class="bottom-nav-item"
-            type="button"
-            aria-label="โหมดสุขภาพ"
-            title="โหมดสุขภาพ (เร็วๆ นี้)"
-          >
-            <span class="bottom-nav-icon" aria-hidden="true">♡</span>
-            <span class="bottom-nav-label">สุขภาพ</span>
-          </button>
-        </div>
-      </nav>
 
       <div id="movable-bars" hidden>
         <div class="movable-bar" data-bar="sort" data-bar-name="กำหนดเวลา">
@@ -284,7 +287,11 @@
     </div>
   </div>
 
-  <button type="button" class="fab-pages" id="fabPages" aria-label="แผ่นงาน" title="แผ่นงาน">▦</button>
+  <div class="fab-stack" id="fabStack" aria-label="ทางลัด">
+    <button type="button" class="fab-pages" id="fabPages" aria-label="แผ่นงาน" title="แผ่นงาน">▦</button>
+    <button type="button" class="fab-action" id="group-nav-btn" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน">☰</button>
+    <button type="button" class="fab-action" id="add-note-btn" aria-label="เพิ่มโน้ต" title="เพิ่มโน้ต">+</button>
+  </div>
   <div class="pages-menu-overlay" id="pagesMenuOverlay" hidden>
     <div class="pages-menu" role="menu" aria-label="แผ่นงาน">
       <p class="pages-menu-title">แผ่นงาน</p>
@@ -296,7 +303,7 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=53"></script>
+  <script src="js/page-nav.js?v=54"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -329,7 +336,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=53"></script>
-  <script src="js/update-watch.js?v=53"></script>
+  <script type="module" src="js/app.js?v=54"></script>
+  <script src="js/update-watch.js?v=54"></script>
 </body>
 </html>
