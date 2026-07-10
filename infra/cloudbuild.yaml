@@ -1,0 +1,33 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - asia-southeast1-docker.pkg.dev/$PROJECT_ID/p-note/api:$SHORT_SHA
+      - ./backend
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - asia-southeast1-docker.pkg.dev/$PROJECT_ID/p-note/api:$SHORT_SHA
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - p-note-api
+      - --image=asia-southeast1-docker.pkg.dev/$PROJECT_ID/p-note/api:$SHORT_SHA
+      - --region=asia-southeast1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --max-instances=1
+      - --min-instances=0
+      - --memory=256Mi
+      - --set-env-vars=ALLOWED_EMAIL=phiraphong.yoh@gmail.com,GCP_PROJECT_ID=$PROJECT_ID
+
+images:
+  - asia-southeast1-docker.pkg.dev/$PROJECT_ID/p-note/api:$SHORT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
