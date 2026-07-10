@@ -12,7 +12,7 @@ function resolveRedirectUri() {
 export const CONFIG = {
   // Legacy SPA auth (Phase 1 — จะย้ายไป Firebase Auth ใน Phase 2)
   CLIENT_ID: '470549580687-ca7vl7cechdq430510e6jc6ch3b0ptr1.apps.googleusercontent.com',
-  ALLOWED_EMAIL: 'phiraphong.yoh@gmail.com',
+  ALLOWED_EMAILS: ['phiraphong.yoh@gmail.com', 'yohaken@gmail.com'],
   REDIRECT_URI: resolveRedirectUri(),
   SCOPES: [
     'https://www.googleapis.com/auth/drive.file',

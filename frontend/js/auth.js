@@ -1,4 +1,4 @@
-import { CONFIG, STORAGE_KEYS } from './config.js';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=7';
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
@@ -88,7 +88,7 @@ async function verifyEmail(accessToken) {
   }
 
   const { email } = await response.json();
-  if (email !== CONFIG.ALLOWED_EMAIL) {
+  if (!CONFIG.ALLOWED_EMAILS.includes(email)) {
     await signOut(accessToken);
     throw new Error('Access Denied: บัญชีนี้ไม่มีสิทธิ์ใช้งาน');
   }
