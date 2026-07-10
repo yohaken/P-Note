@@ -760,6 +760,35 @@ body.reordering-active .list-scroll {
   color: var(--text-muted);
 }
 
+.schedule-field > .schedule-label + .schedule-label,
+.schedule-field > .editor-recurrence + .schedule-label {
+  margin-top: 0.45rem;
+}
+
+.editor-recurrence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.recurrence-chip {
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.recurrence-chip.active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent, #0a84ff) 22%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--accent, #0a84ff) 45%, transparent);
+}
+
 .schedule-input-row {
   display: flex;
   gap: 0.5rem;
