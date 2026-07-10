@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="66">
-  <meta name="pnote-built" content="2026-07-11T01:00:00+07:00">
-  <script src="js/cache-bootstrap.js?v=66"></script>
+  <meta name="pnote-build" content="67">
+  <meta name="pnote-built" content="2026-07-11T01:10:00+07:00">
+  <script src="js/cache-bootstrap.js?v=67"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -1052,8 +1052,8 @@
 
   <div class="toast error" id="toast"></div>
 
-  <script src="js/page-nav.js?v=66"></script>
-  <script src="js/fab-drag.js?v=66"></script>
+  <script src="js/page-nav.js?v=67"></script>
+  <script src="js/fab-drag.js?v=67"></script>
   <script>
     const STORAGE_PREFIX = 'calorieTracker:';
     const SETTINGS_KEY = 'calorieTracker:settings';
@@ -1071,7 +1071,7 @@
     const DEFAULT_PROTEIN_MULT = 1.55;
     const WEIGHT_ANOMALY_KG = 2;
     const WAIST_ANOMALY_CM = 3;
-    const APP_VERSION = 'build-66';
+    const APP_VERSION = 'build-67';
 
     const PERIODS = [
       { days: 3, label: '3d' }, { days: 7, label: '7d' }, { days: 15, label: '15d' },
@@ -1341,6 +1341,8 @@
         chartPeriodDays: 30,
         lastCompensationPct: 0,
         programStartDate: '',
+        lastViewedDate: '',
+        followToday: true,
         blockStyles: {},
         templates: loadTemplateList(),
         exerciseTemplates: loadExerciseTemplateList(),
@@ -1356,6 +1358,7 @@
         const order = Array.isArray(s.sectionOrder) ? s.sectionOrder : [...DEFAULT_BLOCK_ORDER];
         const merged = order.filter((id) => id !== 'pages');
         DEFAULT_BLOCK_ORDER.forEach((id) => { if (!merged.includes(id)) merged.push(id); });
+        const lastViewedDate = /^\d{4}-\d{2}-\d{2}$/.test(s.lastViewedDate || '') ? s.lastViewedDate : '';
         return {
           proteinMultiplier: parseFloat(s.proteinMultiplier) || DEFAULT_PROTEIN_MULT,
           theme: s.theme === 'light' ? 'light' : 'dark',
@@ -1363,6 +1366,8 @@
           chartPeriodDays: s.chartPeriodDays || 30,
           lastCompensationPct: parseFloat(s.lastCompensationPct) || 0,
           programStartDate: s.programStartDate || '',
+          lastViewedDate,
+          followToday: s.followToday !== false,
           blockStyles: s.blockStyles && typeof s.blockStyles === 'object' ? s.blockStyles : {},
           templates: loadTemplateList(),
           exerciseTemplates: loadExerciseTemplateList(),
@@ -1742,7 +1747,7 @@
           applyCalorieRemoteData(remote.data);
           applyBlockOrder();
           setDbStrip('online', 'โหลดจากคลาวด์แล้ว · ' + remoteCount + ' คีย์');
-          try { refresh(); } catch { /* refresh may need currentDate */ }
+          try { setDate(resolveStartupDate()); } catch { /* boot may still call setDate */ }
         } else if (localCount > 0) {
           await pushRemoteCalorie(spaceId, collectCalorieLocalData());
           setDbStrip('online', 'อัปโหลดข้อมูลเครื่องขึ้นคลาวด์แล้ว');
@@ -2767,13 +2772,38 @@
       renderCharts();
     }
 
+    /** Last viewed day (or today if user was following live today). */
+    function resolveStartupDate() {
+      const s = loadSettings();
+      const today = todayStr();
+      const start = s.programStartDate || '';
+      let d = s.followToday ? today : s.lastViewedDate;
+      if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) d = today;
+      if (d > today) d = today;
+      if (start && d < start) d = start;
+      return d;
+    }
+
+    function persistViewedDate(d, follow) {
+      const cur = loadSettings();
+      if (cur.lastViewedDate === d && cur.followToday === follow) return;
+      saveSettings({ lastViewedDate: d, followToday: follow });
+    }
+
     function setDate(d) {
-      currentDate = d;
-      followToday = d === todayStr();
-      syncDateDisplay(d);
+      const today = todayStr();
+      let next = d;
+      if (!next || !/^\d{4}-\d{2}-\d{2}$/.test(next)) next = today;
+      if (next > today) next = today;
       const start = getProgramStartDate();
-      els.btnNextDay.disabled = d >= todayStr();
-      els.btnPrevDay.disabled = start ? shiftDate(d, -1) < start : false;
+      if (start && next < start) next = start;
+
+      currentDate = next;
+      followToday = next === today;
+      persistViewedDate(next, followToday);
+      syncDateDisplay(next);
+      els.btnNextDay.disabled = next >= today;
+      els.btnPrevDay.disabled = start ? shiftDate(next, -1) < start : false;
       els.mealTime.value = nowTimeStr();
       els.exerciseTime.value = nowTimeStr();
       refresh();
@@ -3277,10 +3307,11 @@
     applyBlockOrder();
     initDragReorder();
     updateClientIdHint();
-    // Paint date text immediately (do not wait for network / native input)
-    currentDate = todayStr();
-    followToday = true;
-    syncDateDisplay(currentDate);
+    // Restore last viewed date and paint immediately, then load that day's data.
+    const bootDate = resolveStartupDate();
+    currentDate = bootDate;
+    followToday = bootDate === todayStr();
+    syncDateDisplay(bootDate);
     pullOrMigrateCalorie();
     if (els.btnCopySyncCode) {
       els.btnCopySyncCode.onclick = async () => {
@@ -3298,13 +3329,13 @@
     setChartPeriod(loadSettings().chartPeriodDays || 30);
     els.mealTime.value = nowTimeStr();
     els.exerciseTime.value = nowTimeStr();
-    setDate(todayStr());
+    setDate(bootDate);
 
     if (location.hash === '#settings') {
       openSettings();
       history.replaceState(null, '', location.pathname + location.search);
     }
   </script>
-  <script src="js/update-watch.js?v=66"></script>
+  <script src="js/update-watch.js?v=67"></script>
 </body>
 </html>
