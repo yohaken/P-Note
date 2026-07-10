@@ -2,6 +2,7 @@ export const CONFIG = {
   APP_FOLDER_NAME: 'P-Note',
   NOTES_FILE_NAME: 'my_notes.json',
   AUTOSAVE_DELAY_MS: 1500,
+  UPDATE_CHECK_MS: 20000,
 
   // Backend API (Phase 3+ — not used while login is disabled)
   API_BASE_URL: window.location.hostname === 'localhost'

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pnote-v17';
+const CACHE_NAME = 'pnote-v18';
 const ASSETS = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const ASSETS = [
   './js/cache-bootstrap.js',
   './js/version.js',
   './js/cache.js',
+  './js/update.js',
   './js/config.js',
   './js/local.js',
   './js/sync.js',
@@ -18,6 +19,12 @@ const ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -1,6 +1,7 @@
-import { loadNotes, exportNotesBlob, parseNotesImport } from './local.js?v=17';
-import { registerServiceWorker } from './cache.js?v=17';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=17';
+import { loadNotes, exportNotesBlob, parseNotesImport } from './local.js?v=18';
+import { registerServiceWorker } from './cache.js?v=18';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=18';
+import { CONFIG } from './config.js?v=18';
 import {
   addTag,
   countNotesByTag,
@@ -25,7 +26,7 @@ import {
   updateNote,
   updateNoteInData,
   activeNotes,
-} from './notes.js?v=17';
+} from './notes.js?v=18';
 import {
   buildMonthGrid,
   formatScheduleDisplay,
@@ -36,10 +37,11 @@ import {
   notesOnDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=17';
-import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=17';
-import { SaveManager } from './sync.js?v=17';
-import { getAppBuild } from './version.js?v=17';
+} from './schedule.js?v=18';
+import { densityToCssUnit, loadSettings, saveSettings } from './settings.js?v=18';
+import { SaveManager } from './sync.js?v=18';
+import { forceRefresh, startUpdateWatcher } from './update.js?v=18';
+import { getAppBuild } from './version.js?v=18';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -104,6 +106,7 @@ const els = {
   cardDensitySlider: document.getElementById('card-density-slider'),
   closeSettingsBtn: document.getElementById('close-settings-btn'),
   noteContextMenu: document.getElementById('note-context-menu'),
+  refreshAppBtn: document.getElementById('refresh-app-btn'),
   loadingOverlay: document.getElementById('loading-overlay'),
 };
 
@@ -649,6 +652,15 @@ function shiftCalendar(delta) {
 
 async function init() {
   registerServiceWorker();
+
+  startUpdateWatcher({
+    getLocalBuild: getAppBuild,
+    intervalMs: CONFIG.UPDATE_CHECK_MS,
+  });
+
+  els.refreshAppBtn.addEventListener('click', () => {
+    forceRefresh();
+  });
 
   els.addNoteBtn.addEventListener('click', openNewNote);
   els.settingsBtn.addEventListener('click', openSettings);

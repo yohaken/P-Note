@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="17">
+  <meta name="pnote-build" content="18">
   <meta name="theme-color" content="#1a1a2e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=17"></script>
+  <script src="js/cache-bootstrap.js?v=18"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=17">
+  <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
   <p id="hello-world-banner" class="hello-world-banner" role="status">hello world</p>
@@ -22,7 +22,7 @@
       <header class="topbar">
         <div class="topbar-title">
           <h1>P-Note</h1>
-          <p id="app-version" class="app-version">v17 · โน้ต + ปฏิทิน</p>
+          <p id="app-version" class="app-version">v18 · โน้ต + ปฏิทิน</p>
         </div>
         <div class="topbar-actions">
           <button id="export-btn" class="btn btn-text" type="button">สำรอง</button>
@@ -123,12 +123,15 @@
 
     <div id="note-context-menu" class="context-menu" hidden role="menu"></div>
 
+    <div id="update-toast" class="update-toast" hidden role="status" aria-live="polite"></div>
+    <button id="refresh-app-btn" class="refresh-fab" type="button" aria-label="รีเฟรชแอป" title="รีเฟรชแอป">↻</button>
+
     <div id="loading-overlay" class="loading-overlay">
       <div class="spinner"></div>
       <p>กำลังโหลด...</p>
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=17"></script>
+  <script type="module" src="js/app.js?v=18"></script>
 </body>
 </html>
