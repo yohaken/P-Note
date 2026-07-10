@@ -173,7 +173,22 @@ async function init() {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
 
-  els.loginBtn.addEventListener('click', () => startLogin());
+  els.loginBtn.addEventListener('click', async () => {
+    els.loginError.textContent = '';
+    try {
+      const accessToken = await startLogin();
+      await bootstrapData(accessToken);
+    } catch (error) {
+      setLoading(false);
+      if (error.message.includes('Access Denied')) {
+        els.deniedMessage.textContent = error.message;
+        showView('denied');
+        return;
+      }
+      els.loginError.textContent = error.message;
+      showView('login');
+    }
+  });
   els.addNoteBtn.addEventListener('click', openNewNote);
   els.backBtn.addEventListener('click', backToList);
   els.signOutBtn.addEventListener('click', async () => {

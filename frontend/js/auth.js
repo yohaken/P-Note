@@ -1,28 +1,63 @@
 import { CONFIG, STORAGE_KEYS } from './config.js';
 
-const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GIS_SRC = 'https://accounts.google.com/gsi/client';
 const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
 
-function base64UrlEncode(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  bytes.forEach((b) => {
-    binary += String.fromCharCode(b);
+let gisReadyPromise = null;
+
+function loadGisScript() {
+  if (window.google?.accounts?.oauth2) {
+    return Promise.resolve();
+  }
+
+  if (!gisReadyPromise) {
+    gisReadyPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = GIS_SRC;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => {
+        gisReadyPromise = null;
+        reject(new Error('โหลด Google Sign-In ไม่สำเร็จ กรุณาลองใหม่'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  return gisReadyPromise;
+}
+
+async function requestAccessToken(promptMode) {
+  await loadGisScript();
+
+  return new Promise((resolve, reject) => {
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: CONFIG.CLIENT_ID,
+      scope: CONFIG.SCOPES,
+      callback: (response) => {
+        if (response.error) {
+          reject(new Error(response.error_description || response.error));
+          return;
+        }
+        resolve(response.access_token);
+      },
+      error_callback: (error) => {
+        if (error.type === 'popup_closed') {
+          reject(new Error('การล็อกอินถูกยกเลิก'));
+          return;
+        }
+        if (error.type === 'popup_failed_to_open') {
+          reject(new Error('เปิดหน้าต่างล็อกอินไม่ได้ กรุณาอนุญาต popup แล้วลองใหม่'));
+          return;
+        }
+        reject(new Error(error.message || 'การล็อกอินล้มเหลว'));
+      },
+    });
+
+    client.requestAccessToken({ prompt: promptMode });
   });
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-async function createPkcePair() {
-  const verifier = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-  const challenge = base64UrlEncode(digest);
-  return { verifier, challenge };
-}
-
-export function getStoredRefreshToken() {
-  return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
 }
 
 export function clearSession() {
@@ -39,7 +74,7 @@ async function revokeToken(token) {
 }
 
 export async function signOut(accessToken) {
-  await revokeToken(accessToken || getStoredRefreshToken());
+  await revokeToken(accessToken);
   clearSession();
 }
 
@@ -61,102 +96,18 @@ async function verifyEmail(accessToken) {
   return email;
 }
 
-async function exchangeToken(body) {
-  const response = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(body),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error_description || data.error || 'การยืนยันตัวตนล้มเหลว');
-  }
-
-  return data;
-}
-
 export async function startLogin() {
-  const { verifier, challenge } = await createPkcePair();
-  localStorage.setItem(STORAGE_KEYS.PKCE_VERIFIER, verifier);
+  const hasSession = localStorage.getItem(STORAGE_KEYS.HAS_SESSION) === '1';
+  const accessToken = await requestAccessToken(hasSession ? '' : 'consent');
 
-  const params = new URLSearchParams({
-    client_id: CONFIG.CLIENT_ID,
-    redirect_uri: CONFIG.REDIRECT_URI,
-    response_type: 'code',
-    scope: CONFIG.SCOPES,
-    access_type: 'offline',
-    prompt: getStoredRefreshToken() ? 'select_account' : 'consent',
-    code_challenge: challenge,
-    code_challenge_method: 'S256',
-  });
-
-  window.location.href = `${AUTH_URL}?${params}`;
-}
-
-export async function handleAuthCallback() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
-  const error = params.get('error');
-
-  if (error) {
-    throw new Error(`การล็อกอินถูกยกเลิก: ${error}`);
-  }
-
-  if (!code) {
-    return null;
-  }
-
-  const verifier = localStorage.getItem(STORAGE_KEYS.PKCE_VERIFIER);
-  if (!verifier) {
-    throw new Error('ไม่พบ PKCE verifier กรุณาล็อกอินใหม่');
-  }
-
-  const tokens = await exchangeToken({
-    client_id: CONFIG.CLIENT_ID,
-    code,
-    redirect_uri: CONFIG.REDIRECT_URI,
-    grant_type: 'authorization_code',
-    code_verifier: verifier,
-  });
-
-  localStorage.removeItem(STORAGE_KEYS.PKCE_VERIFIER);
-
-  if (tokens.refresh_token) {
-    localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refresh_token);
-  }
-
-  await verifyEmail(tokens.access_token);
-  window.history.replaceState({}, document.title, CONFIG.REDIRECT_URI);
-  return tokens.access_token;
-}
-
-export async function refreshAccessToken() {
-  const refreshToken = getStoredRefreshToken();
-  if (!refreshToken) {
-    return null;
-  }
-
-  try {
-    const tokens = await exchangeToken({
-      client_id: CONFIG.CLIENT_ID,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    });
-
-    await verifyEmail(tokens.access_token);
-    return tokens.access_token;
-  } catch {
-    clearSession();
-    return null;
-  }
+  await verifyEmail(accessToken);
+  localStorage.setItem(STORAGE_KEYS.HAS_SESSION, '1');
+  return accessToken;
 }
 
 export async function autoLogin() {
-  const callbackToken = await handleAuthCallback();
-  if (callbackToken) {
-    return callbackToken;
-  }
-
-  return refreshAccessToken();
+  // GIS token popups require a user gesture, so there is no silent
+  // auto-login. Returning null sends the user to the login button,
+  // which resolves instantly when a Google session already exists.
+  return null;
 }

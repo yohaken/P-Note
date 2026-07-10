@@ -35,4 +35,5 @@ export const STORAGE_KEYS = {
   FOLDER_ID: 'pnote_folder_id',
   MODIFIED_TIME: 'pnote_modified_time',
   PKCE_VERIFIER: 'pnote_pkce_verifier',
+  HAS_SESSION: 'pnote_has_session',
 };
