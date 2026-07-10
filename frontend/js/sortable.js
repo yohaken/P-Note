@@ -26,6 +26,13 @@ export function initListSortable(listEl, { onTap, onReorder, isEnabled }) {
   const endDrag = () => {
     if (card) card.classList.remove('reordering');
     document.body.classList.remove('reordering-active');
+    if (pointerId !== null) {
+      try {
+        listEl.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
   };
 
   const beginDrag = () => {
@@ -33,6 +40,11 @@ export function initListSortable(listEl, { onTap, onReorder, isEnabled }) {
     dragging = true;
     card.classList.add('reordering');
     document.body.classList.add('reordering-active');
+    try {
+      listEl.setPointerCapture(pointerId);
+    } catch {
+      /* ignore */
+    }
     if (navigator.vibrate) navigator.vibrate(10);
   };
 
