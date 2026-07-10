@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="46">
-  <meta name="pnote-built" content="2026-07-10T22:48:00+07:00">
+  <meta name="pnote-build" content="47">
+  <meta name="pnote-built" content="2026-07-10T22:52:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=46"></script>
+  <script src="js/cache-bootstrap.js?v=47"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=46">
+  <link rel="stylesheet" href="css/pnote.css?v=47">
   <style>
     /* Shell chrome above P-Note — keep Calorie/Note switch without touching #app layout */
     .shell-chrome {
@@ -106,14 +106,24 @@
         </div>
         <div class="topbar-actions">
           <button id="manage-tags-btn" class="btn btn-mini" type="button">แท็ก</button>
+          <button
+            id="sync-status-btn"
+            class="btn btn-mini btn-mini-icon sync-status-btn"
+            type="button"
+            data-state="idle"
+            aria-label="สถานะซิงค์"
+            title="พร้อม"
+          >
+            <span class="sync-status-glyph" aria-hidden="true"></span>
+          </button>
           <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">⚙</button>
+          <div id="sync-status-tip" class="sync-status-tip" hidden role="status" aria-live="polite"></div>
         </div>
       </header>
 
       <div id="bars-top" class="bars-zone" aria-label="แถบด้านบน"></div>
 
       <div class="list-scroll">
-        <p id="sync-status" class="sync-status" aria-live="polite"></p>
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
           <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ「เพิ่ม」ที่แถบล่างเพื่อสร้างโน้ต</p>
@@ -177,7 +187,18 @@
     <section id="editor-view" class="view" hidden>
       <header class="topbar topbar-thin editor-topbar">
         <button id="back-btn" class="btn btn-mini" type="button">← กลับ</button>
-        <span id="editor-sync-status" class="sync-status inline" aria-live="polite"></span>
+        <span class="editor-topbar-spacer" aria-hidden="true"></span>
+        <button
+          id="editor-sync-status-btn"
+          class="btn btn-mini btn-mini-icon sync-status-btn"
+          type="button"
+          data-state="idle"
+          aria-label="สถานะซิงค์"
+          title="พร้อม"
+        >
+          <span class="sync-status-glyph" aria-hidden="true"></span>
+        </button>
+        <div id="editor-sync-status-tip" class="sync-status-tip" hidden role="status" aria-live="polite"></div>
       </header>
       <div class="editor-body">
         <input id="note-title" class="note-title" type="text" placeholder="หัวข้อโน้ต" autocomplete="off">
@@ -285,7 +306,7 @@
       if (btn.dataset.page === 'calorie') location.href = './index.html';
     });
   </script>
-  <script type="module" src="js/app.js?v=46"></script>
-  <script src="js/update-watch.js?v=46"></script>
+  <script type="module" src="js/app.js?v=47"></script>
+  <script src="js/update-watch.js?v=47"></script>
 </body>
 </html>
