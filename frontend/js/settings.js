@@ -1,5 +1,5 @@
-import { STORAGE_KEYS } from './config.js?v=35';
-import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=35';
+import { STORAGE_KEYS } from './config.js?v=36';
+import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=36';
 
 const DEFAULTS = {
   theme: 'dark',

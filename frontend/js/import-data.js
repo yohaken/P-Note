@@ -1,4 +1,4 @@
-import { normalizeNotesData } from './notes.js?v=35';
+import { normalizeNotesData } from './notes.js?v=36';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
