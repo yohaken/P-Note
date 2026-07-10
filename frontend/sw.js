@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pnote-v1';
+const CACHE_NAME = 'pnote-v2';
 const ASSETS = [
   './',
   './index.html',

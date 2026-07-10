@@ -1,7 +1,8 @@
 export const CONFIG = {
+  // Legacy SPA auth (Phase 1 — จะย้ายไป Firebase Auth ใน Phase 2)
   CLIENT_ID: '470549580687-ca7vl7cechdq430510e6jc6ch3b0ptr1.apps.googleusercontent.com',
   ALLOWED_EMAIL: 'phiraphong.yoh@gmail.com',
-  REDIRECT_URI: 'https://yohaken.github.io/P-Note/',
+  REDIRECT_URI: 'https://yohaken.github.io/P-Note/frontend/',
   SCOPES: [
     'https://www.googleapis.com/auth/drive.file',
     'https://www.googleapis.com/auth/userinfo.email',
@@ -10,6 +11,11 @@ export const CONFIG = {
   APP_FOLDER_NAME: 'P-Note',
   NOTES_FILE_NAME: 'my_notes.json',
   AUTOSAVE_DELAY_MS: 1500,
+
+  // Backend API (Phase 2+)
+  API_BASE_URL: window.location.hostname === 'localhost'
+    ? 'http://localhost:8080'
+    : 'https://p-note-api-PLACEHOLDER.run.app',
 };
 
 export const STORAGE_KEYS = {
