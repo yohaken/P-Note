@@ -2,209 +2,43 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="42">
-  <meta name="pnote-built" content="2026-07-10T21:47:35+07:00">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="pnote-build" content="43">
+  <meta name="pnote-built" content="2026-07-10T21:52:25+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=42"></script>
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icons/icon-192.png" type="image/png">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=42">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: #000;
+      min-height: 100dvh;
+      width: 100%;
+    }
+  </style>
+  <script>
+    /* wipe old P-Note SW + caches once */
+    (function () {
+      var KEY = 'pnote_blank_43';
+      if (localStorage.getItem(KEY)) return;
+      localStorage.setItem(KEY, '1');
+      var done = Promise.resolve();
+      if ('serviceWorker' in navigator) {
+        done = navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        });
+      }
+      if (window.caches) {
+        done = done.then(function () {
+          return caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+          });
+        });
+      }
+      done.then(function () { location.reload(); });
+    })();
+  </script>
 </head>
-<body>
-  <div id="app">
-    <section id="list-view" class="view" hidden>
-      <header class="topbar topbar-thin">
-        <button id="open-drawer-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="กลุ่มงาน">☰</button>
-        <div class="topbar-title">
-          <h1 id="app-title">P-Note <span class="title-version">v42</span></h1>
-          <p id="app-built" class="app-built">อัปเดต —</p>
-        </div>
-        <div class="topbar-actions">
-          <button id="manage-tags-btn" class="btn btn-mini" type="button">แท็ก</button>
-          <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">⚙</button>
-        </div>
-      </header>
-
-      <div id="bars-top" class="bars-zone" aria-label="แถบด้านบน"></div>
-
-      <div class="list-scroll">
-        <p id="sync-status" class="sync-status" aria-live="polite"></p>
-        <div id="empty-state" class="empty-state" hidden>
-          <p id="empty-state-text">ยังไม่มีโน้ต</p>
-          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ「เพิ่ม」ที่แถบล่างเพื่อสร้างโน้ต</p>
-          <button class="btn btn-primary" type="button" onclick="document.getElementById('add-note-btn').click()">
-            สร้างโน้ตแรก
-          </button>
-        </div>
-        <div id="notes-list" class="notes-list notes-first"></div>
-      </div>
-
-      <!-- Filters (movable) sit above the bottom nav -->
-      <div id="bars-bottom" class="bars-zone bars-filters" aria-label="ตัวกรอง"></div>
-
-      <!-- Bottom nav in-flow (calorie-tracker shell — not position:fixed) -->
-      <nav id="bottom-nav" class="bottom-nav" aria-label="เมนูหลัก">
-        <div class="bottom-nav-inner">
-          <button id="add-note-btn" class="bottom-nav-item" type="button" aria-label="เพิ่มโน้ต">
-            <span class="bottom-nav-icon" aria-hidden="true">+</span>
-            <span class="bottom-nav-label">เพิ่ม</span>
-          </button>
-          <button
-            id="health-mode-btn"
-            class="bottom-nav-item"
-            type="button"
-            aria-label="โหมดสุขภาพ"
-            title="โหมดสุขภาพ (เร็วๆ นี้)"
-          >
-            <span class="bottom-nav-icon" aria-hidden="true">♡</span>
-            <span class="bottom-nav-label">สุขภาพ</span>
-          </button>
-        </div>
-      </nav>
-
-      <!-- Named bars: กำหนดเวลา / ความสำคัญ / แท็ก · กลุ่มงาน = drawer · สุขภาพ = bottom nav -->
-      <div id="movable-bars" hidden>
-        <div class="movable-bar" data-bar="sort" data-bar-name="กำหนดเวลา">
-          <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div class="bar-body">
-            <span class="bar-label">กำหนดเวลา</span>
-            <div id="sort-bar" class="sort-bar" aria-label="กำหนดเวลา">
-              <button id="sort-updated-btn" class="sort-chip active" type="button">ล่าสุด</button>
-              <button id="sort-schedule-btn" class="sort-chip" type="button">ตามกำหนด</button>
-              <button id="sort-manual-btn" class="sort-chip" type="button">อิสระ</button>
-            </div>
-          </div>
-        </div>
-        <div class="movable-bar" data-bar="priority" data-bar-name="ความสำคัญ">
-          <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div class="bar-body">
-            <span class="bar-label">ความสำคัญ</span>
-            <div id="priority-filter-bar" class="priority-filter-bar" aria-label="ความสำคัญ"></div>
-          </div>
-        </div>
-        <div class="movable-bar" data-bar="tag" data-bar-name="แท็ก">
-          <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div class="bar-body">
-            <span class="bar-label">แท็ก</span>
-            <div id="tag-filter-bar" class="tag-filter-bar" aria-label="แท็ก"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="editor-view" class="view" hidden>
-      <header class="topbar topbar-thin editor-topbar">
-        <button id="back-btn" class="btn btn-mini" type="button">← กลับ</button>
-        <span id="editor-sync-status" class="sync-status inline" aria-live="polite"></span>
-      </header>
-      <div class="editor-body">
-        <input id="note-title" class="note-title" type="text" placeholder="หัวข้อโน้ต" autocomplete="off">
-        <div class="schedule-field">
-          <label class="schedule-label" for="note-schedule">กำหนดการ</label>
-          <div class="schedule-input-row">
-            <input id="note-schedule" class="note-schedule" type="datetime-local">
-            <button id="clear-schedule-btn" class="btn btn-text" type="button">ล้าง</button>
-          </div>
-        </div>
-        <div class="priority-field">
-          <span class="schedule-label">ความสำคัญ</span>
-          <div id="editor-priority" class="editor-priority" aria-label="ระดับความสำคัญ"></div>
-        </div>
-        <div id="editor-tags" class="editor-tags" aria-label="แท็กของโน้ต"></div>
-        <textarea id="note-content" class="note-content" placeholder="พิมพ์โน้ตของคุณ..."></textarea>
-      </div>
-      <footer class="editor-footer">
-        <button id="delete-btn" class="trash-mini-btn" type="button" aria-label="ย้ายโน้ตไปถังขยะ" title="ย้ายไปถังขยะ">🗑</button>
-      </footer>
-    </section>
-
-    <!-- กลุ่มงาน: left drawer (งาน / ทำแล้ว / ถังขยะ) -->
-    <div id="drawer-backdrop" class="drawer-backdrop"></div>
-    <aside id="group-drawer" class="drawer" aria-label="กลุ่มงาน">
-      <h2>กลุ่มงาน</h2>
-      <button id="group-active-btn" class="drawer-item active" type="button">📋 งาน</button>
-      <button id="group-done-btn" class="drawer-item" type="button">✓ ทำแล้ว</button>
-      <button id="group-trash-btn" class="drawer-item" type="button">🗑 ถังขยะ</button>
-    </aside>
-
-    <div id="tag-modal" class="modal" hidden>
-      <div class="modal-card">
-        <h2>จัดการแท็ก</h2>
-        <p>สร้างหมวดแท็ก เช่น งานที่ดิน, งานร้านน้ำ แล้วนำไปติดกับโน้ตได้</p>
-        <form id="tag-add-form" class="tag-add-row">
-          <input id="new-tag-input" class="tag-add-input" type="text" placeholder="ชื่อแท็กใหม่" autocomplete="off" maxlength="40">
-          <button id="add-tag-btn" class="btn btn-primary" type="submit">เพิ่ม</button>
-        </form>
-        <div id="tag-manager-list" class="tag-manager-list"></div>
-        <div class="modal-actions">
-          <button id="close-tag-modal-btn" class="btn btn-secondary" type="button">ปิด</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="settings-overlay" class="settings-overlay" hidden>
-      <div id="settings-backdrop" class="settings-backdrop"></div>
-      <div class="settings-panel" role="dialog" aria-labelledby="settings-title">
-        <h2 id="settings-title">ตั้งค่า</h2>
-        <div class="settings-row">
-          <span class="settings-label">ธีม</span>
-          <div class="segmented" id="theme-segmented">
-            <button id="theme-dark-btn" type="button" class="active">มืด</button>
-            <button id="theme-light-btn" type="button">สว่าง</button>
-          </div>
-        </div>
-        <div class="settings-row">
-          <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
-          <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
-        </div>
-        <div class="settings-row">
-          <span class="settings-label">ความบางของแถบ (ปรับแยกแต่ละแถบ)</span>
-          <div class="thickness-row">
-            <span>กำหนดเวลา</span>
-            <input id="thickness-sort" type="range" min="0" max="100" value="0" step="5">
-          </div>
-          <div class="thickness-row">
-            <span>แท็ก</span>
-            <input id="thickness-tag" type="range" min="0" max="100" value="0" step="5">
-          </div>
-          <div class="thickness-row">
-            <span>ความสำคัญ</span>
-            <input id="thickness-priority" type="range" min="0" max="100" value="0" step="5">
-          </div>
-          <button id="reset-bars-btn" class="btn btn-secondary" type="button">รีเซ็ตตำแหน่งแถบ</button>
-        </div>
-        <div class="settings-row">
-          <label class="settings-label" for="sync-code-value">รหัสซิงค์ (ใช้ข้ามอุปกรณ์ · ไม่ต้องล็อกอิน)</label>
-          <div class="sync-code-row">
-            <input id="sync-code-value" class="sync-code-input" type="text" readonly>
-            <button id="copy-sync-code-btn" class="btn btn-secondary" type="button">คัดลอก</button>
-          </div>
-          <div class="sync-code-row">
-            <input id="sync-code-input" class="sync-code-input" type="text" placeholder="วางรหัสจากอีกเครื่อง" autocomplete="off">
-            <button id="apply-sync-code-btn" class="btn btn-primary" type="button">ใช้รหัสนี้</button>
-          </div>
-          <p class="settings-hint">ข้อมูลเก็บในฐานข้อมูลบนเซิร์ฟเวอร์ ใช้รหัสเดียวกันบนอีกเครื่องเพื่อเห็นโน้ตชุดเดียวกัน</p>
-        </div>
-        <button id="close-settings-btn" class="btn btn-secondary settings-close" type="button">ปิด</button>
-      </div>
-    </div>
-
-    <div id="note-context-menu" class="context-menu" hidden role="menu"></div>
-
-    <div id="update-toast" class="update-toast" hidden role="status" aria-live="polite"></div>
-
-    <div id="loading-overlay" class="loading-overlay">
-      <div class="spinner"></div>
-      <p>กำลังโหลด...</p>
-    </div>
-  </div>
-
-  <script type="module" src="js/app.js?v=42"></script>
-</body>
+<body></body>
 </html>
