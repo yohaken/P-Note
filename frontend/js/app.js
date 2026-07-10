@@ -1,5 +1,5 @@
-import { autoLogin, handleAuthRedirect, isAuthRedirectPending, signOut, startLogin } from './auth.js?v=11';
-import { loadNotes } from './drive.js?v=11';
+import { autoLogin, handleAuthRedirect, isAuthRedirectPending, signOut, startLogin } from './auth.js?v=12';
+import { loadNotes } from './drive.js?v=12';
 import {
   addTag,
   countNotesByTag,
@@ -16,8 +16,8 @@ import {
   sortNotes,
   toggleNoteTag,
   updateNote,
-} from './notes.js?v=11';
-import { SaveManager } from './sync.js?v=11';
+} from './notes.js?v=12';
+import { SaveManager } from './sync.js?v=12';
 
 const state = {
   accessToken: null,

@@ -1,5 +1,5 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=11';
-import { auth, initFirebase } from './firebase.js?v=11';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=12';
+import { auth, initFirebase } from './firebase.js?v=12';
 import {
   GoogleAuthProvider,
   getRedirectResult,
@@ -125,16 +125,20 @@ async function signInWithRedirectFlow() {
 async function getDriveAccessToken() {
   const provider = googleProvider();
 
-  if (shouldPreferRedirectAuth()) {
-    return signInWithRedirectFlow();
-  }
-
+  // User gesture (button click): try popup first — works on many phones too.
   try {
     const result = await signInWithPopup(auth, provider);
     return finalizeSignInResult(result);
   } catch (error) {
     const code = error?.code || '';
-    if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/redirect-cancelled-by-user') {
+      throw error;
+    }
+    if (
+      shouldPreferRedirectAuth()
+      || code === 'auth/popup-blocked'
+      || code === 'auth/cancelled-popup-request'
+    ) {
       return signInWithRedirectFlow();
     }
     throw error;
