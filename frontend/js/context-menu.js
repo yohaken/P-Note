@@ -73,14 +73,13 @@ export function attachNoteCardInteractions(card, handlers) {
   };
 }
 
-export function positionContextMenu(menuEl, clientX, clientY) {
+/** Always center the menu in the viewport (ignore tap coordinates). */
+export function positionContextMenu(menuEl) {
+  if (!menuEl) return;
   menuEl.hidden = false;
-  const rect = menuEl.getBoundingClientRect();
-  const pad = 8;
-  let left = clientX - rect.width / 2;
-  let top = clientY - rect.height - 12;
-  left = Math.max(pad, Math.min(left, window.innerWidth - rect.width - pad));
-  top = Math.max(pad, Math.min(top, window.innerHeight - rect.height - pad));
-  menuEl.style.left = `${left}px`;
-  menuEl.style.top = `${top}px`;
+  menuEl.style.left = '50%';
+  menuEl.style.top = '50%';
+  menuEl.style.right = 'auto';
+  menuEl.style.bottom = 'auto';
+  menuEl.style.transform = 'translate(-50%, -50%)';
 }
