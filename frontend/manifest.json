@@ -2,7 +2,7 @@
   "name": "P-Note",
   "short_name": "P-Note",
   "description": "โน้ตส่วนตัว ซิงค์ผ่าน Google Drive",
-  "start_url": "./index.html",
+  "start_url": "./note.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
