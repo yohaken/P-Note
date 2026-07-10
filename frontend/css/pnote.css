@@ -398,6 +398,20 @@ body.light .bottom-nav-item:active {
   color: var(--text-muted);
 }
 
+.bottom-nav-item.active {
+  color: var(--text);
+}
+
+.bottom-nav-item.active .bottom-nav-icon,
+.bottom-nav-item.active .bottom-nav-label {
+  color: var(--accent);
+}
+
+#group-nav-btn.active .bottom-nav-icon,
+#group-nav-btn.active .bottom-nav-label {
+  color: var(--accent);
+}
+
 #health-mode-btn .bottom-nav-icon,
 #health-mode-btn .bottom-nav-label {
   color: #7eb6ff;

@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="47">
-  <meta name="pnote-built" content="2026-07-10T22:52:00+07:00">
+  <meta name="pnote-build" content="48">
+  <meta name="pnote-built" content="2026-07-10T22:55:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=47"></script>
+  <script src="js/cache-bootstrap.js?v=48"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=47">
+  <link rel="stylesheet" href="css/pnote.css?v=48">
   <style>
     /* Shell chrome above P-Note — keep Calorie/Note switch without touching #app layout */
     .shell-chrome {
@@ -99,7 +99,6 @@
   <div id="app">
     <section id="list-view" class="view" hidden>
       <header class="topbar topbar-thin">
-        <button id="open-drawer-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="กลุ่มงาน">☰</button>
         <div class="topbar-title">
           <h1 id="app-title">P-Note <span class="title-version">note-v1</span></h1>
           <p id="app-built" class="app-built">อัปเดต —</p>
@@ -141,6 +140,10 @@
           <button id="add-note-btn" class="bottom-nav-item" type="button" aria-label="เพิ่มโน้ต">
             <span class="bottom-nav-icon" aria-hidden="true">+</span>
             <span class="bottom-nav-label">เพิ่ม</span>
+          </button>
+          <button id="group-nav-btn" class="bottom-nav-item" type="button" aria-label="กลุ่มงาน" aria-controls="group-drawer">
+            <span class="bottom-nav-icon" aria-hidden="true">☰</span>
+            <span class="bottom-nav-label">กลุ่มงาน</span>
           </button>
           <button
             id="health-mode-btn"
@@ -306,7 +309,7 @@
       if (btn.dataset.page === 'calorie') location.href = './index.html';
     });
   </script>
-  <script type="module" src="js/app.js?v=47"></script>
-  <script src="js/update-watch.js?v=47"></script>
+  <script type="module" src="js/app.js?v=48"></script>
+  <script src="js/update-watch.js?v=48"></script>
 </body>
 </html>
