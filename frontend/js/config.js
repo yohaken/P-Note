@@ -1,8 +1,19 @@
+function resolveRedirectUri() {
+  const { hostname, origin } = window.location;
+  if (hostname.endsWith('.web.app') || hostname.endsWith('.firebaseapp.com')) {
+    return `${origin}/`;
+  }
+  if (hostname === 'yohaken.github.io') {
+    return 'https://yohaken.github.io/P-Note/';
+  }
+  return `${origin}${window.location.pathname}`;
+}
+
 export const CONFIG = {
   // Legacy SPA auth (Phase 1 — จะย้ายไป Firebase Auth ใน Phase 2)
   CLIENT_ID: '470549580687-ca7vl7cechdq430510e6jc6ch3b0ptr1.apps.googleusercontent.com',
   ALLOWED_EMAIL: 'phiraphong.yoh@gmail.com',
-  REDIRECT_URI: 'https://yohaken.github.io/P-Note/frontend/',
+  REDIRECT_URI: resolveRedirectUri(),
   SCOPES: [
     'https://www.googleapis.com/auth/drive.file',
     'https://www.googleapis.com/auth/userinfo.email',
