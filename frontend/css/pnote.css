@@ -989,8 +989,20 @@ body.light .note-schedule {
   touch-action: pan-y;
 }
 
-.tag-filter-chip[data-tag-id] {
+.tag-filter-chip {
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.movable-bar[data-bar='tag'].tag-reorder-mode .tag-filter-bar {
+  outline: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+.movable-bar[data-bar='tag'].tag-reorder-mode .tag-filter-chip[data-tag-id] {
+  cursor: grab;
 }
 
 .sort-chip.active,
@@ -1161,6 +1173,58 @@ body.light .priority-badge.priority-urgent {
   background: var(--surface-2);
   border-radius: var(--radius-sm);
   padding: 0.45rem 0.6rem;
+  touch-action: pan-y;
+}
+
+.tag-manager-row.is-tag-row-dragging {
+  opacity: 0.88;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  z-index: 2;
+}
+
+.tag-manager-grip {
+  flex: 0 0 auto;
+  width: 1.35rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  letter-spacing: -0.08em;
+  cursor: grab;
+  padding: 0.2rem 0;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  line-height: 1;
+}
+
+.tag-manager-grip:active {
+  cursor: grabbing;
+}
+
+.tag-manager-ord {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.tag-manager-ord button {
+  width: 1.55rem;
+  height: 1.15rem;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: 5px;
+  background: var(--surface, #1c1c1e);
+  color: var(--text);
+  font-size: 0.65rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.tag-manager-ord button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .tag-color-input {

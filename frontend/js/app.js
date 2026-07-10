@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=72';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=75';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -78,6 +78,7 @@ const state = {
   online: false,
   contextNoteId: null,
   draftNoteId: null,
+  tagReorderMode: false,
 };
 
 const saveManager = new SaveManager();
@@ -141,6 +142,8 @@ const els = {
   cardDensitySlider: document.getElementById('card-density-slider'),
   themeDarkBtn: document.getElementById('theme-dark-btn'),
   themeLightBtn: document.getElementById('theme-light-btn'),
+  fabDirVerticalBtn: document.getElementById('fab-dir-vertical-btn'),
+  fabDirHorizontalBtn: document.getElementById('fab-dir-horizontal-btn'),
   thicknessSort: document.getElementById('thickness-sort'),
   thicknessTag: document.getElementById('thickness-tag'),
   thicknessPriority: document.getElementById('thickness-priority'),
@@ -212,6 +215,16 @@ function applyTheme() {
   els.themeLightBtn?.classList.toggle('active', light);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', light ? '#f2f2f7' : '#000000');
+}
+
+function applyFabDirection() {
+  const dir =
+    typeof window.FabDrag?.getDirection === 'function'
+      ? window.FabDrag.getDirection()
+      : 'vertical';
+  const horizontal = dir === 'horizontal';
+  els.fabDirVerticalBtn?.classList.toggle('active', !horizontal);
+  els.fabDirHorizontalBtn?.classList.toggle('active', horizontal);
 }
 
 function barWrapper(bar) {
@@ -313,11 +326,11 @@ function renderGroupNav() {
   els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
-  const hasTags = (state.notesData.tags || []).length > 0;
   if (els.sortWrap) els.sortWrap.hidden = !isActiveGroup;
   if (els.priorityWrap) els.priorityWrap.hidden = !isActiveGroup;
   if (els.recurrenceWrap) els.recurrenceWrap.hidden = !isActiveGroup;
-  if (els.tagWrap) els.tagWrap.hidden = !isActiveGroup || !hasTags;
+  // Always show tag bar on Active so long-press "ทั้งหมด" can open tag settings
+  if (els.tagWrap) els.tagWrap.hidden = !isActiveGroup;
   els.addNoteBtn.hidden = !isActiveGroup;
 
   const groupTitle =
@@ -520,13 +533,101 @@ function persistTagOrder(ids) {
   saveSettings(state.settings);
 }
 
-function bindTagChipReorder(chip, tagId) {
+function closeTagBarMenu() {
+  closeContextMenu();
+}
+
+function enableTagReorderMode() {
+  state.tagReorderMode = true;
+  if (els.tagWrap) els.tagWrap.classList.add('tag-reorder-mode');
+  setStatus('ลากแท็กเพื่อจัดลำดับ · แตะพื้นหลังเมื่อเสร็จ');
+  renderTagFilterBar();
+}
+
+function disableTagReorderMode() {
+  if (!state.tagReorderMode) return;
+  state.tagReorderMode = false;
+  if (els.tagWrap) els.tagWrap.classList.remove('tag-reorder-mode');
+  setStatus('บันทึกลำดับแท็กแล้ว');
+  renderTagFilterBar();
+}
+
+function openTagBarMenu(tagId) {
+  const tag = tagId ? (state.notesData.tags || []).find((t) => t.id === tagId) : null;
+  const items = [];
+
+  items.push({
+    id: 'add',
+    label: 'เพิ่มแท็ก',
+    action: () => openTagManager(),
+  });
+
+  if (tag) {
+    items.push({
+      id: 'delete',
+      label: `ลบแท็ก “${tag.name}”`,
+      danger: true,
+      action: async () => {
+        const ok = await showConfirm(`ลบแท็ก "${tag.name}"?`, { okLabel: 'ลบ', danger: true });
+        if (!ok) return;
+        if (state.tagFilterId === tag.id) {
+          state.tagFilterId = null;
+          persistFilters();
+        }
+        commitData(deleteTag(state.notesData, tag.id));
+        setStatus('ลบแท็กแล้ว');
+      },
+    });
+  }
+
+  items.push({
+    id: 'manage',
+    label: 'จัดการแท็กทั้งหมด',
+    action: () => openTagManager(),
+  });
+
+  if ((state.notesData.tags || []).length > 1) {
+    items.push({
+      id: 'reorder',
+      label: state.tagReorderMode ? 'เลิกจัดลำดับ' : 'จัดลำดับแท็ก',
+      action: () => {
+        if (state.tagReorderMode) disableTagReorderMode();
+        else enableTagReorderMode();
+      },
+    });
+  }
+
+  state.contextNoteId = null;
+  els.noteContextMenu.innerHTML = '';
+  items.forEach((item) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `context-menu-item${item.danger ? ' danger' : ''}`;
+    btn.textContent = item.label;
+    btn.addEventListener('click', () => {
+      closeTagBarMenu();
+      item.action();
+    });
+    els.noteContextMenu.appendChild(btn);
+  });
+
+  if (els.noteContextOverlay) els.noteContextOverlay.hidden = false;
+  positionContextMenu(els.noteContextMenu);
+}
+
+/**
+ * Long-press: menu (no move) or drag-reorder (move, tag chips only).
+ * @param {HTMLElement} chip
+ * @param {string|null} tagId null = "ทั้งหมด"
+ */
+function bindTagChipGestures(chip, tagId) {
   const LONG_MS = 420;
   const MOVE_PX = 10;
   let timer = null;
   let armed = false;
   let dragging = false;
   let startX = 0;
+  let startY = 0;
   let pointerId = null;
   let suppressClick = false;
 
@@ -541,25 +642,32 @@ function bindTagChipReorder(chip, tagId) {
     dragging = false;
     suppressClick = false;
     startX = e.clientX;
+    startY = e.clientY;
     pointerId = e.pointerId;
     clearTimer();
+    // In reorder mode, tag chips arm immediately for drag
+    const armDelay = state.tagReorderMode && tagId ? 0 : LONG_MS;
     timer = setTimeout(() => {
       armed = true;
       chip.classList.add('is-tag-drag-armed');
-      try {
-        if (navigator.vibrate) navigator.vibrate(10);
-      } catch (_) {}
-    }, LONG_MS);
+      if (armDelay > 0) {
+        try {
+          if (navigator.vibrate) navigator.vibrate(10);
+        } catch (_) {}
+      }
+    }, armDelay);
   });
 
   chip.addEventListener('pointermove', (e) => {
     if (pointerId == null || e.pointerId !== pointerId) return;
     const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
     if (!armed && !dragging) {
-      if (Math.abs(dx) > MOVE_PX) clearTimer();
+      if (Math.hypot(dx, dy) > MOVE_PX) clearTimer();
       return;
     }
-    if (armed && !dragging && Math.abs(dx) > MOVE_PX) {
+    // Only tag chips (not ทั้งหมด) can drag-reorder
+    if (armed && !dragging && tagId && Math.abs(dx) > MOVE_PX) {
       dragging = true;
       suppressClick = true;
       chip.classList.add('is-tag-dragging');
@@ -595,14 +703,23 @@ function bindTagChipReorder(chip, tagId) {
 
   const end = (e) => {
     if (pointerId == null || (e && e.pointerId != null && e.pointerId !== pointerId)) return;
+    const wasArmed = armed;
+    const wasDragging = dragging;
     clearTimer();
     chip.classList.remove('is-tag-drag-armed', 'is-tag-dragging');
-    if (dragging) {
+    if (wasDragging) {
       const ids = [...els.tagFilterBar.querySelectorAll('.tag-filter-chip[data-tag-id]')].map(
         (el) => el.dataset.tagId,
       );
       persistTagOrder(ids);
       renderTagManager();
+      suppressClick = true;
+    } else if (wasArmed) {
+      // Long-press without drag → config menu (skip while actively reordering a tag chip)
+      if (!(state.tagReorderMode && tagId)) {
+        suppressClick = true;
+        openTagBarMenu(tagId);
+      }
     }
     pointerId = null;
     armed = false;
@@ -634,17 +751,19 @@ function renderTagFilterBar() {
 
   const tags = orderedFilterTags();
   els.tagFilterBar.innerHTML = '';
-  if (!tags.length) return;
 
+  // Always show ทั้งหมด so long-press can open tag settings even with no tags yet
   const allChip = document.createElement('button');
   allChip.type = 'button';
   allChip.className = `tag-filter-chip${state.tagFilterId ? '' : ' active'}`;
   allChip.textContent = 'ทั้งหมด';
+  allChip.title = 'แตะ = แสดงทั้งหมด · ค้าง = ตั้งค่าแท็ก';
   allChip.addEventListener('click', () => {
     state.tagFilterId = null;
     persistFilters();
     renderNotesList();
   });
+  bindTagChipGestures(allChip, null);
   els.tagFilterBar.appendChild(allChip);
 
   tags.forEach((tag) => {
@@ -655,15 +774,20 @@ function renderTagFilterBar() {
     chip.dataset.tagId = tag.id;
     chip.style.setProperty('--tag', safeTagColor(tag.color));
     chip.textContent = `${tag.name} (${countNotesByTag(state.notesData.notes, tag.id)})`;
-    chip.title = 'แตะ = กรอง · ค้างแล้วลาก = เรียงลำดับ';
+    chip.title = 'แตะ = กรอง · ค้าง = ตั้งค่า · ค้างแล้วลาก = เรียงลำดับ';
     chip.addEventListener('click', () => {
       state.tagFilterId = active ? null : tag.id;
       persistFilters();
       renderNotesList();
     });
-    bindTagChipReorder(chip, tag.id);
+    bindTagChipGestures(chip, tag.id);
     els.tagFilterBar.appendChild(chip);
   });
+
+  if (els.tagWrap) {
+    els.tagWrap.hidden = false;
+    els.tagWrap.classList.toggle('tag-reorder-mode', Boolean(state.tagReorderMode));
+  }
 }
 
 function scheduleBadgeHtml(note) {
@@ -967,6 +1091,7 @@ function openSettings() {
   els.settingsOverlay.hidden = false;
   els.cardDensitySlider.value = String(state.settings.cardDensity);
   applyTheme();
+  applyFabDirection();
   applyBarThickness();
 }
 
@@ -974,11 +1099,115 @@ function closeSettings() {
   els.settingsOverlay.hidden = true;
 }
 
+function moveTagOrder(index, delta) {
+  const tags = orderedFilterTags();
+  const next = index + delta;
+  if (next < 0 || next >= tags.length) return;
+  const ids = tags.map((t) => t.id);
+  const tmp = ids[index];
+  ids[index] = ids[next];
+  ids[next] = tmp;
+  persistTagOrder(ids);
+  renderTagManager();
+  renderTagFilterBar();
+}
+
+function bindTagManagerListReorder() {
+  const list = els.tagManagerList;
+  if (!list || list.dataset.tagReorderBound === '1') return;
+  list.dataset.tagReorderBound = '1';
+
+  let row = null;
+  let dragging = false;
+  let pointerId = null;
+  let startY = 0;
+
+  list.addEventListener('pointerdown', (e) => {
+    const grip = e.target.closest('.tag-manager-grip');
+    if (!grip) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    row = grip.closest('.tag-manager-row');
+    if (!row) return;
+    dragging = true;
+    pointerId = e.pointerId;
+    startY = e.clientY;
+    row.classList.add('is-tag-row-dragging');
+    try {
+      list.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    e.preventDefault();
+  });
+
+  list.addEventListener(
+    'pointermove',
+    (e) => {
+      if (!dragging || !row || e.pointerId !== pointerId) return;
+      e.preventDefault();
+      const y = e.clientY;
+      const others = [...list.querySelectorAll('.tag-manager-row')].filter((r) => r !== row);
+      let before = null;
+      for (const other of others) {
+        const r = other.getBoundingClientRect();
+        if (y < r.top + r.height / 2) {
+          before = other;
+          break;
+        }
+      }
+      if (before) list.insertBefore(row, before);
+      else list.appendChild(row);
+    },
+    { passive: false },
+  );
+
+  const end = (e) => {
+    if (!dragging || (e && e.pointerId != null && e.pointerId !== pointerId)) return;
+    dragging = false;
+    if (row) row.classList.remove('is-tag-row-dragging');
+    const ids = [...list.querySelectorAll('.tag-manager-row')]
+      .map((el) => el.dataset.tagId)
+      .filter(Boolean);
+    row = null;
+    pointerId = null;
+    if (ids.length) {
+      persistTagOrder(ids);
+      renderTagFilterBar();
+    }
+  };
+
+  list.addEventListener('pointerup', end);
+  list.addEventListener('pointercancel', end);
+}
+
 function renderTagManager() {
   els.tagManagerList.innerHTML = '';
-  orderedFilterTags().forEach((tag) => {
+  const tags = orderedFilterTags();
+  tags.forEach((tag, index) => {
     const row = document.createElement('div');
     row.className = 'tag-manager-row';
+    row.dataset.tagId = tag.id;
+
+    const grip = document.createElement('button');
+    grip.type = 'button';
+    grip.className = 'tag-manager-grip';
+    grip.title = 'ลากเพื่อจัดลำดับ';
+    grip.setAttribute('aria-label', 'ลากจัดลำดับ');
+    grip.textContent = '⋮⋮';
+
+    const ord = document.createElement('div');
+    ord.className = 'tag-manager-ord';
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.textContent = '↑';
+    up.title = 'เลื่อนขึ้น';
+    up.disabled = index === 0;
+    up.addEventListener('click', () => moveTagOrder(index, -1));
+    const down = document.createElement('button');
+    down.type = 'button';
+    down.textContent = '↓';
+    down.title = 'เลื่อนลง';
+    down.disabled = index === tags.length - 1;
+    down.addEventListener('click', () => moveTagOrder(index, 1));
+    ord.append(up, down);
 
     const color = document.createElement('input');
     color.type = 'color';
@@ -1012,9 +1241,10 @@ function renderTagManager() {
       if (ok) commitData(deleteTag(state.notesData, tag.id));
     });
 
-    row.append(color, name, count, del);
+    row.append(grip, ord, color, name, count, del);
     els.tagManagerList.appendChild(row);
   });
+  bindTagManagerListReorder();
 }
 
 function openEditor(noteId) {
@@ -1317,6 +1547,16 @@ async function init() {
   els.themeDarkBtn.addEventListener('click', () => setTheme('dark'));
   els.themeLightBtn.addEventListener('click', () => setTheme('light'));
 
+  const setFabDir = (dir) => {
+    if (typeof window.FabDrag?.setDirection === 'function') {
+      window.FabDrag.setDirection(dir);
+    }
+    applyFabDirection();
+  };
+  els.fabDirVerticalBtn?.addEventListener('click', () => setFabDir('vertical'));
+  els.fabDirHorizontalBtn?.addEventListener('click', () => setFabDir('horizontal'));
+  applyFabDirection();
+
   els.cardDensitySlider.addEventListener('input', () => {
     state.settings.cardDensity = Number(els.cardDensitySlider.value);
     saveSettings(state.settings);
@@ -1367,6 +1607,14 @@ async function init() {
       event.target === els.noteContextOverlay
     ) {
       closeContextMenu();
+    }
+    if (
+      state.tagReorderMode &&
+      els.tagFilterBar &&
+      !els.tagFilterBar.contains(event.target) &&
+      !(els.noteContextOverlay && !els.noteContextOverlay.hidden)
+    ) {
+      disableTagReorderMode();
     }
   });
 

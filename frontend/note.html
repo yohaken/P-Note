@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="72">
+  <meta name="pnote-build" content="75">
   <meta name="pnote-built" content="2026-07-11T02:15:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=72"></script>
+  <script src="js/cache-bootstrap.js?v=75"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=72">
+  <link rel="stylesheet" href="css/pnote.css?v=75">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -35,6 +35,12 @@
       align-items: center;
       gap: 0.5rem;
       touch-action: manipulation;
+    }
+    .fab-stack.fab-dir-vertical {
+      flex-direction: column-reverse;
+    }
+    .fab-stack.fab-dir-horizontal {
+      flex-direction: row-reverse;
     }
     .fab-stack.is-fab-armed .fab-pages,
     .fab-stack.is-fab-armed .fab-action {
@@ -244,7 +250,7 @@
     <div id="tag-modal" class="modal" hidden>
       <div class="modal-card">
         <h2>จัดการแท็ก</h2>
-        <p>สร้างหมวดแท็ก เช่น งานที่ดิน, งานร้านน้ำ แล้วนำไปติดกับโน้ตได้</p>
+        <p>สร้างหมวดแท็ก · ลาก ⋮⋮ หรือกด ↑↓ เพื่อจัดลำดับ · กดค้างที่แถบแท็กก็ตั้งค่าได้</p>
         <form id="tag-add-form" class="tag-add-row">
           <input id="new-tag-input" class="tag-add-input" type="text" placeholder="ชื่อแท็กใหม่" autocomplete="off" maxlength="40">
           <button id="add-tag-btn" class="btn btn-primary" type="submit">เพิ่ม</button>
@@ -266,6 +272,14 @@
             <button id="theme-dark-btn" type="button" class="active">มืด</button>
             <button id="theme-light-btn" type="button">สว่าง</button>
           </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">กลุ่มไอคอน</span>
+          <div class="segmented" id="fab-dir-segmented">
+            <button id="fab-dir-vertical-btn" type="button" class="active">แนวตั้ง</button>
+            <button id="fab-dir-horizontal-btn" type="button">แนวนอน</button>
+          </div>
+          <p class="settings-hint">ใช้ร่วมกันทุกหน้า · จดจำอัตโนมัติ</p>
         </div>
         <div class="settings-row">
           <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
@@ -336,8 +350,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=72"></script>
-  <script src="js/fab-drag.js?v=72"></script>
+  <script src="js/page-nav.js?v=75"></script>
+  <script src="js/fab-drag.js?v=75"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -347,7 +361,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=72"></script>
-  <script src="js/update-watch.js?v=72"></script>
+  <script type="module" src="js/app.js?v=75"></script>
+  <script src="js/update-watch.js?v=75"></script>
 </body>
 </html>

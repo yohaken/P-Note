@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="72">
+  <meta name="pnote-build" content="75">
   <meta name="pnote-built" content="2026-07-11T02:15:00+07:00">
-  <script src="js/cache-bootstrap.js?v=72"></script>
+  <script src="js/cache-bootstrap.js?v=75"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -579,6 +579,12 @@
       gap: 0.5rem;
       touch-action: manipulation;
     }
+    .fab-stack.fab-dir-vertical {
+      flex-direction: column-reverse;
+    }
+    .fab-stack.fab-dir-horizontal {
+      flex-direction: row-reverse;
+    }
     .fab-stack.is-fab-armed .fab-pages,
     .fab-stack.is-fab-armed .fab-action {
       transform: scale(1.08);
@@ -927,6 +933,14 @@
           </div>
           <p class="hint">สลับธีมมืด / สว่าง</p>
         </div>
+        <p class="sheet-section-label">กลุ่มไอคอน</p>
+        <div class="field">
+          <div class="chart-period-btns" id="fabDirSegmented" style="margin-bottom:0.35rem">
+            <button type="button" class="period-pill" id="fabDirVerticalBtn" data-fab-dir="vertical">แนวตั้ง</button>
+            <button type="button" class="period-pill" id="fabDirHorizontalBtn" data-fab-dir="horizontal">แนวนอน</button>
+          </div>
+          <p class="hint">จัดเรียงปุ่มทางลัดแนวตั้งหรือแนวนอน · ใช้ร่วมกันทุกหน้า</p>
+        </div>
         <p class="sheet-section-label">จัดลำดับกล่อง</p>
         <div class="field">
           <div id="blockOrderList" class="block-order-list" aria-label="ลำดับกล่องงาน"></div>
@@ -1052,8 +1066,8 @@
 
   <div class="toast error" id="toast"></div>
 
-  <script src="js/page-nav.js?v=72"></script>
-  <script src="js/fab-drag.js?v=72"></script>
+  <script src="js/page-nav.js?v=75"></script>
+  <script src="js/fab-drag.js?v=75"></script>
   <script>
     const STORAGE_PREFIX = 'calorieTracker:';
     const SETTINGS_KEY = 'calorieTracker:settings';
@@ -1211,6 +1225,8 @@
       btnSettings: $('#btnSettings'),
       themeDarkBtn: $('#themeDarkBtn'),
       themeLightBtn: $('#themeLightBtn'),
+      fabDirVerticalBtn: $('#fabDirVerticalBtn'),
+      fabDirHorizontalBtn: $('#fabDirHorizontalBtn'),
       btnCancelSettings: $('#btnCancelSettings'), btnSaveSettings: $('#btnSaveSettings'),
       btnQuickTemplate: $('#btnQuickTemplate'),
       quickTemplateOverlay: $('#quickTemplateOverlay'),
@@ -2970,6 +2986,7 @@
       renderBlockStyleFields(editingBlockStyleId);
       blockOrderDraft = normalizeBlockOrder(loadSettings().sectionOrder);
       renderBlockOrderEditor();
+      applyFabDirectionUi();
       els.settingsOverlay.classList.add('open');
       if (els.settingsScrollBody) els.settingsScrollBody.scrollTop = 0;
     }
@@ -3026,6 +3043,23 @@
       if (els.themeDarkBtn) els.themeDarkBtn.classList.toggle('active', t === 'dark');
       if (els.themeLightBtn) els.themeLightBtn.classList.toggle('active', t === 'light');
       $('meta[name="theme-color"]').content = t === 'dark' ? '#0f172a' : '#f1f5f9';
+    }
+
+    function applyFabDirectionUi() {
+      const dir =
+        typeof window.FabDrag?.getDirection === 'function'
+          ? window.FabDrag.getDirection()
+          : 'vertical';
+      const horizontal = dir === 'horizontal';
+      if (els.fabDirVerticalBtn) els.fabDirVerticalBtn.classList.toggle('active', !horizontal);
+      if (els.fabDirHorizontalBtn) els.fabDirHorizontalBtn.classList.toggle('active', horizontal);
+    }
+
+    function setFabDirection(dir) {
+      if (typeof window.FabDrag?.setDirection === 'function') {
+        window.FabDrag.setDirection(dir);
+      }
+      applyFabDirectionUi();
     }
 
     let toastTimer;
@@ -3243,6 +3277,13 @@
     if (els.themeLightBtn) {
       els.themeLightBtn.onclick = () => { applyTheme('light'); renderCharts(); };
     }
+    if (els.fabDirVerticalBtn) {
+      els.fabDirVerticalBtn.onclick = () => setFabDirection('vertical');
+    }
+    if (els.fabDirHorizontalBtn) {
+      els.fabDirHorizontalBtn.onclick = () => setFabDirection('horizontal');
+    }
+    applyFabDirectionUi();
     els.btnAddTemplate.onclick = () => {
       const t = loadTemplateList();
       t.push({ id: 't' + Date.now(), label: 'มื้อใหม่', calories: 300, protein: 20 });
@@ -3325,6 +3366,6 @@
       history.replaceState(null, '', location.pathname + location.search);
     }
   </script>
-  <script src="js/update-watch.js?v=72"></script>
+  <script src="js/update-watch.js?v=75"></script>
 </body>
 </html>
