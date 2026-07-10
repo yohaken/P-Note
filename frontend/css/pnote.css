@@ -972,11 +972,25 @@ body.light .note-schedule {
   white-space: nowrap;
 }
 
-.tag-filter-chip,
-.priority-chip,
-.recurrence-filter-chip {
-  --tag: var(--text-muted);
-  flex: 0 0 auto;
+.tag-filter-chip.is-tag-drag-armed {
+  transform: scale(1.06);
+  opacity: 0.95;
+}
+
+.tag-filter-chip.is-tag-dragging {
+  transform: scale(1.08);
+  opacity: 0.85;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+  cursor: grabbing;
+}
+
+.tag-filter-bar {
+  touch-action: pan-y;
+}
+
+.tag-filter-chip[data-tag-id] {
+  touch-action: none;
 }
 
 .sort-chip.active,

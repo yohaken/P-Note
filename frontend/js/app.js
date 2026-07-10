@@ -51,8 +51,8 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=64';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=66';
+} from './schedule.js?v=71';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=71';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -483,10 +483,7 @@ function renderRecurrenceFilterBar() {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = `recurrence-filter-chip${active ? ' active' : ''}`;
-    if (opt.id === 'any') {
-      const n = countNotesByRecurrence(groupNotes, 'any');
-      chip.textContent = n ? `${opt.label} (${n})` : opt.label;
-    } else if (opt.id) {
+    if (opt.id) {
       const n = countNotesByRecurrence(groupNotes, opt.id);
       chip.textContent = n ? `${opt.label} (${n})` : opt.label;
     } else {
@@ -501,10 +498,141 @@ function renderRecurrenceFilterBar() {
   });
 }
 
+/** Tags in saved filter-bar order (unknown ids appended). */
+function orderedFilterTags() {
+  const tags = state.notesData.tags || [];
+  const order = Array.isArray(state.settings.tagOrder) ? state.settings.tagOrder : [];
+  if (!order.length) return tags.slice();
+  const byId = new Map(tags.map((tag) => [tag.id, tag]));
+  const out = [];
+  order.forEach((id) => {
+    if (byId.has(id)) {
+      out.push(byId.get(id));
+      byId.delete(id);
+    }
+  });
+  byId.forEach((tag) => out.push(tag));
+  return out;
+}
+
+function persistTagOrder(ids) {
+  state.settings.tagOrder = ids.slice();
+  saveSettings(state.settings);
+}
+
+function bindTagChipReorder(chip, tagId) {
+  const LONG_MS = 420;
+  const MOVE_PX = 10;
+  let timer = null;
+  let armed = false;
+  let dragging = false;
+  let startX = 0;
+  let pointerId = null;
+  let suppressClick = false;
+
+  const clearTimer = () => {
+    clearTimeout(timer);
+    timer = null;
+  };
+
+  chip.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    armed = false;
+    dragging = false;
+    suppressClick = false;
+    startX = e.clientX;
+    pointerId = e.pointerId;
+    clearTimer();
+    timer = setTimeout(() => {
+      armed = true;
+      chip.classList.add('is-tag-drag-armed');
+      try {
+        if (navigator.vibrate) navigator.vibrate(10);
+      } catch (_) {}
+    }, LONG_MS);
+  });
+
+  chip.addEventListener('pointermove', (e) => {
+    if (pointerId == null || e.pointerId !== pointerId) return;
+    const dx = e.clientX - startX;
+    if (!armed && !dragging) {
+      if (Math.abs(dx) > MOVE_PX) clearTimer();
+      return;
+    }
+    if (armed && !dragging && Math.abs(dx) > MOVE_PX) {
+      dragging = true;
+      suppressClick = true;
+      chip.classList.add('is-tag-dragging');
+      chip.classList.remove('is-tag-drag-armed');
+      try {
+        chip.setPointerCapture(e.pointerId);
+      } catch (_) {}
+    }
+    if (!dragging || !els.tagFilterBar) return;
+    e.preventDefault();
+    const x = e.clientX;
+    const chips = [...els.tagFilterBar.querySelectorAll('.tag-filter-chip[data-tag-id]')];
+    let beforeId = null;
+    for (const other of chips) {
+      if (other === chip) continue;
+      const r = other.getBoundingClientRect();
+      const mid = r.left + r.width / 2;
+      if (x < mid) {
+        beforeId = other.dataset.tagId;
+        break;
+      }
+    }
+    const currentBefore = chip.nextElementSibling?.dataset?.tagId || null;
+    if (beforeId !== currentBefore) {
+      if (beforeId) {
+        const target = els.tagFilterBar.querySelector(`[data-tag-id="${beforeId}"]`);
+        if (target) els.tagFilterBar.insertBefore(chip, target);
+      } else {
+        els.tagFilterBar.appendChild(chip);
+      }
+    }
+  });
+
+  const end = (e) => {
+    if (pointerId == null || (e && e.pointerId != null && e.pointerId !== pointerId)) return;
+    clearTimer();
+    chip.classList.remove('is-tag-drag-armed', 'is-tag-dragging');
+    if (dragging) {
+      const ids = [...els.tagFilterBar.querySelectorAll('.tag-filter-chip[data-tag-id]')].map(
+        (el) => el.dataset.tagId,
+      );
+      persistTagOrder(ids);
+      renderTagManager();
+    }
+    pointerId = null;
+    armed = false;
+    dragging = false;
+    if (suppressClick) {
+      setTimeout(() => {
+        suppressClick = false;
+      }, 0);
+    }
+  };
+
+  chip.addEventListener('pointerup', end);
+  chip.addEventListener('pointercancel', end);
+  chip.addEventListener(
+    'click',
+    (e) => {
+      if (suppressClick) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true,
+  );
+}
+
 function renderTagFilterBar() {
   if (state.listGroup !== NOTE_STATUS.ACTIVE) return;
+  if (!els.tagFilterBar) return;
 
-  const tags = state.notesData.tags || [];
+  const tags = orderedFilterTags();
   els.tagFilterBar.innerHTML = '';
   if (!tags.length) return;
 
@@ -524,13 +652,16 @@ function renderTagFilterBar() {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = `tag-filter-chip${active ? ' active' : ''}`;
+    chip.dataset.tagId = tag.id;
     chip.style.setProperty('--tag', safeTagColor(tag.color));
     chip.textContent = `${tag.name} (${countNotesByTag(state.notesData.notes, tag.id)})`;
+    chip.title = 'แตะ = กรอง · ค้างแล้วลาก = เรียงลำดับ';
     chip.addEventListener('click', () => {
       state.tagFilterId = active ? null : tag.id;
       persistFilters();
       renderNotesList();
     });
+    bindTagChipReorder(chip, tag.id);
     els.tagFilterBar.appendChild(chip);
   });
 }
@@ -792,7 +923,7 @@ function renderEditorTags() {
   els.editorTags.innerHTML = '';
   if (!note) return;
 
-  (state.notesData.tags || []).forEach((tag) => {
+  orderedFilterTags().forEach((tag) => {
     const selected = (note.tagIds || []).includes(tag.id);
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -845,7 +976,7 @@ function closeSettings() {
 
 function renderTagManager() {
   els.tagManagerList.innerHTML = '';
-  (state.notesData.tags || []).forEach((tag) => {
+  orderedFilterTags().forEach((tag) => {
     const row = document.createElement('div');
     row.className = 'tag-manager-row';
 

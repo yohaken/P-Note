@@ -8,12 +8,13 @@ const DEFAULTS = {
   tagFilterId: null,
   priorityFilter: null,
   recurrenceFilter: null,
+  tagOrder: [],
   barThickness: { sort: 0, tag: 0, priority: 0, recurrence: 0 },
 };
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
 const PRIORITY_FILTERS = ['normal', 'important', 'urgent', 'critical'];
-const RECURRENCE_FILTERS = ['any', 'daily', 'weekly', 'monthly', 'yearly'];
+const RECURRENCE_FILTERS = ['none', 'any', 'daily', 'weekly', 'monthly', 'yearly'];
 
 function clampPct(value, fallback = 0) {
   const n = Number(value);
@@ -33,12 +34,18 @@ function normalizeRecurrenceFilterSetting(value) {
   return RECURRENCE_FILTERS.includes(value) ? value : null;
 }
 
+function normalizeTagOrder(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((id) => String(id)).filter(Boolean);
+}
+
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (!raw) {
       return {
         ...DEFAULTS,
+        tagOrder: [],
         barThickness: { ...DEFAULTS.barThickness },
         barLayout: [...DEFAULT_BAR_LAYOUT],
       };
@@ -52,6 +59,7 @@ export function loadSettings() {
       tagFilterId: normalizeTagFilterId(parsed.tagFilterId),
       priorityFilter: normalizePriorityFilter(parsed.priorityFilter),
       recurrenceFilter: normalizeRecurrenceFilterSetting(parsed.recurrenceFilter),
+      tagOrder: normalizeTagOrder(parsed.tagOrder),
       barThickness: {
         sort: clampPct(bt.sort),
         tag: clampPct(bt.tag),
@@ -63,6 +71,7 @@ export function loadSettings() {
   } catch {
     return {
       ...DEFAULTS,
+      tagOrder: [],
       barThickness: { ...DEFAULTS.barThickness },
       barLayout: [...DEFAULT_BAR_LAYOUT],
     };
