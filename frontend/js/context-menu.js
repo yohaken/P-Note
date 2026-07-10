@@ -73,13 +73,17 @@ export function attachNoteCardInteractions(card, handlers) {
   };
 }
 
-/** Always center the menu in the viewport (ignore tap coordinates). */
+/**
+ * Show menu centered via CSS flex on the overlay.
+ * Do NOT set left/top/transform here — that fights flex centering and shifts the menu.
+ */
 export function positionContextMenu(menuEl) {
   if (!menuEl) return;
   menuEl.hidden = false;
-  menuEl.style.left = '50%';
-  menuEl.style.top = '50%';
-  menuEl.style.right = 'auto';
-  menuEl.style.bottom = 'auto';
-  menuEl.style.transform = 'translate(-50%, -50%)';
+  menuEl.style.left = '';
+  menuEl.style.top = '';
+  menuEl.style.right = '';
+  menuEl.style.bottom = '';
+  menuEl.style.transform = '';
+  menuEl.style.position = '';
 }
