@@ -1,4 +1,4 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=113';
+import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=114';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=112';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
@@ -38,7 +38,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=113';
+} from './notes.js?v=114';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -65,8 +65,11 @@ import {
   toDatetimeLocalValue,
   defaultDatetimeLocalValue,
   defaultScheduleIso,
-} from './schedule.js?v=113';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=113';
+  snoozeNote,
+  SNOOZE_OPTIONS,
+  normalizeSnoozeId,
+} from './schedule.js?v=114';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=114';
 import {
   notificationPermission,
   notificationSupported,
@@ -74,20 +77,20 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=113';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=113';
+} from './note-notify.js?v=114';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=114';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=112';
-import { createInAppCamera } from './camera.js?v=112';
+} from './files.js?v=114';
+import { createInAppCamera } from './camera.js?v=114';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=112';
+} from './user-context.js?v=114';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -95,7 +98,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=113';
+import { normalizeNotesData } from './notes.js?v=114';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -1759,6 +1762,7 @@ function contextMenuActions(note) {
   if (state.listGroup === NOTE_STATUS.ACTIVE) {
     return [
       { id: 'done', label: 'ทำแล้ว', action: () => applyNoteAction(note.id, 'done') },
+      { id: 'snooze', label: 'เลื่อน…', action: () => openSnoozeMenu(note.id) },
       { id: 'trash', label: 'ลบ', danger: true, action: () => applyNoteAction(note.id, 'trash') },
     ];
   }
@@ -1779,6 +1783,37 @@ function contextMenuActions(note) {
   ];
 }
 
+function openSnoozeMenu(noteId) {
+  const note = getNoteById(noteId);
+  if (!note) return;
+
+  state.contextNoteId = noteId;
+  els.noteContextMenu.innerHTML = '';
+
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'context-menu-item';
+  back.textContent = '← กลับ';
+  back.addEventListener('click', () => openContextMenu(noteId));
+  els.noteContextMenu.appendChild(back);
+
+  SNOOZE_OPTIONS.forEach((opt) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'context-menu-item';
+    btn.textContent = opt.label;
+    btn.addEventListener('click', () => {
+      closeContextMenu();
+      applyNoteAction(noteId, 'snooze', { snoozeId: opt.id });
+    });
+    els.noteContextMenu.appendChild(btn);
+  });
+
+  if (els.noteContextOverlay) els.noteContextOverlay.hidden = false;
+  positionContextMenu(els.noteContextMenu);
+  clearUiTextSelection();
+}
+
 function openContextMenu(noteId) {
   const note = getNoteById(noteId);
   if (!note) return;
@@ -1791,6 +1826,10 @@ function openContextMenu(noteId) {
     btn.className = `context-menu-item${item.danger ? ' danger' : ''}`;
     btn.textContent = item.label;
     btn.addEventListener('click', () => {
+      if (item.id === 'snooze') {
+        item.action();
+        return;
+      }
       closeContextMenu();
       item.action();
     });
@@ -1802,7 +1841,7 @@ function openContextMenu(noteId) {
   clearUiTextSelection();
 }
 
-async function applyNoteAction(noteId, action) {
+async function applyNoteAction(noteId, action, extra = {}) {
   const note = getNoteById(noteId);
   if (!note) return;
 
@@ -1812,6 +1851,13 @@ async function applyNoteAction(noteId, action) {
     const result = completeOrAdvanceNote(note, markNoteDone);
     updated = result.note;
     advanced = result.advanced;
+  } else if (action === 'snooze') {
+    const snoozeId = normalizeSnoozeId(extra.snoozeId);
+    if (!snoozeId) {
+      openSnoozeMenu(noteId);
+      return;
+    }
+    updated = snoozeNote(note, snoozeId);
   } else if (action === 'trash') updated = moveNoteToTrash(note);
   else if (action === 'restore') {
     updated = state.listGroup === NOTE_STATUS.TRASH ? restoreNoteFromTrash(note) : markNoteActive(note);
@@ -1826,14 +1872,24 @@ async function applyNoteAction(noteId, action) {
   state.notesData = updateNoteInData(state.notesData, updated);
   autosave();
   renderNotesList();
-  const doneMsg = advanced ? 'เลื่อนไปรอบถัดไป' : 'ย้ายไปทำแล้ว';
-  setStatus(action === 'done' ? doneMsg : action === 'trash' ? 'ย้ายไปถังขยะ' : 'กู้คืนแล้ว');
+  refreshNoteNotifications();
+  if (action === 'done') {
+    setStatus(advanced ? 'เลื่อนไปรอบถัดไป' : 'ย้ายไปทำแล้ว');
+  } else if (action === 'snooze') {
+    const opt = SNOOZE_OPTIONS.find((o) => o.id === extra.snoozeId);
+    setStatus(opt ? `เลื่อนเป็น ${opt.label}` : 'เลื่อนนัดแล้ว');
+  } else if (action === 'trash') {
+    setStatus('ย้ายไปถังขยะ');
+  } else {
+    setStatus('กู้คืนแล้ว');
+  }
 }
 
 function cardActionsFor(note) {
   if (state.listGroup === NOTE_STATUS.ACTIVE) {
     return [
       { label: '✓', title: 'ทำแล้ว', action: 'done' },
+      { label: '⏳', title: 'เลื่อน', action: 'snooze' },
       { label: '🗑', title: 'ลบ', danger: true, action: 'trash' },
     ];
   }
