@@ -1,5 +1,5 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=111';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=111';
+import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=112';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=112';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -38,7 +38,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=111';
+} from './notes.js?v=112';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -60,8 +60,8 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
   defaultDatetimeLocalValue,
-} from './schedule.js?v=111';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=111';
+} from './schedule.js?v=112';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=112';
 import {
   notificationPermission,
   notificationSupported,
@@ -70,19 +70,19 @@ import {
   sendTestNotification,
   syncNoteNotifications,
 } from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=111';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=112';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=111';
-import { createInAppCamera } from './camera.js?v=111';
+} from './files.js?v=112';
+import { createInAppCamera } from './camera.js?v=112';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=111';
+} from './user-context.js?v=112';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -90,7 +90,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=111';
+import { normalizeNotesData } from './notes.js?v=112';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -160,6 +160,12 @@ const els = {
   cameraFacing: document.getElementById('camera-facing'),
   cameraSaveSeg: document.getElementById('camera-save-seg'),
   cameraSettingsRow: document.getElementById('camera-settings-row'),
+  boxColorsSettingsRow: document.getElementById('box-colors-settings-row'),
+  priorityColorGrid: document.getElementById('priority-color-grid'),
+  dueColorGrid: document.getElementById('due-color-grid'),
+  resetBoxColorsBtn: document.getElementById('reset-box-colors-btn'),
+  gotoTagColorsBtn: document.getElementById('goto-tag-colors-btn'),
+  tagsSettingsRow: document.getElementById('tags-settings-row'),
   aiNoteStatus: null,
   aiNoteCancelBtn: document.getElementById('ai-note-cancel-btn'),
   aiNoteSummarizeBtn: document.getElementById('ai-note-summarize-btn'),
@@ -476,6 +482,76 @@ function applyTheme() {
   els.themeLightBtn?.classList.toggle('active', light);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', light ? '#f2f2f7' : '#000000');
+  applyBoxColors();
+}
+
+function applyBoxColors() {
+  const prio = normalizePriorityColors(state.settings.priorityColors);
+  const due = normalizeDueColors(state.settings.dueColors);
+  state.settings.priorityColors = prio;
+  state.settings.dueColors = due;
+  const root = document.documentElement;
+  root.style.setProperty('--prio-normal', prio.normal);
+  root.style.setProperty('--prio-important', prio.important);
+  root.style.setProperty('--prio-urgent', prio.urgent);
+  root.style.setProperty('--prio-critical', prio.critical);
+  root.style.setProperty('--due-far', due.far);
+  root.style.setProperty('--due-mid', due.mid);
+  root.style.setProperty('--due-near', due.near);
+  root.style.setProperty('--due-today', due.today);
+  root.style.setProperty('--due-overdue', due.overdue);
+
+  const preview = document.querySelector('.box-color-preview');
+  if (preview) {
+    preview.style.setProperty('--preview-prio', prio.important);
+    preview.style.setProperty('--preview-due', due.today);
+    const firstTag = (state.notesData?.tags || [])[0];
+    preview.style.setProperty(
+      '--preview-tag',
+      firstTag ? safeTagColor(firstTag.color) : '#22c55e',
+    );
+  }
+}
+
+function applyBoxColorsSettingsUi() {
+  const prio = normalizePriorityColors(state.settings.priorityColors);
+  const due = normalizeDueColors(state.settings.dueColors);
+  els.priorityColorGrid?.querySelectorAll('[data-priority-color]').forEach((input) => {
+    const key = input.dataset.priorityColor;
+    if (key && prio[key]) input.value = prio[key];
+  });
+  els.dueColorGrid?.querySelectorAll('[data-due-color]').forEach((input) => {
+    const key = input.dataset.dueColor;
+    if (key && due[key]) input.value = due[key];
+  });
+  applyBoxColors();
+}
+
+function persistBoxColorsFromUi() {
+  const nextPrio = { ...normalizePriorityColors(state.settings.priorityColors) };
+  const nextDue = { ...normalizeDueColors(state.settings.dueColors) };
+  els.priorityColorGrid?.querySelectorAll('[data-priority-color]').forEach((input) => {
+    const key = input.dataset.priorityColor;
+    if (key) nextPrio[key] = input.value;
+  });
+  els.dueColorGrid?.querySelectorAll('[data-due-color]').forEach((input) => {
+    const key = input.dataset.dueColor;
+    if (key) nextDue[key] = input.value;
+  });
+  state.settings.priorityColors = normalizePriorityColors(nextPrio);
+  state.settings.dueColors = normalizeDueColors(nextDue);
+  saveSettings(state.settings);
+  applyBoxColors();
+  renderNotesList();
+}
+
+function resetBoxColorsToDefaults() {
+  state.settings.priorityColors = { ...DEFAULT_PRIORITY_COLORS };
+  state.settings.dueColors = { ...DEFAULT_DUE_COLORS };
+  saveSettings(state.settings);
+  applyBoxColorsSettingsUi();
+  renderNotesList();
+  setStatus('รีเซ็ตสีกล่องแล้ว');
 }
 
 function applyFabDirection() {
@@ -1772,6 +1848,9 @@ function renderNotesList() {
     if (state.listGroup === NOTE_STATUS.DONE) item.classList.add('done-card');
     if (state.listGroup === NOTE_STATUS.TRASH) item.classList.add('trash-card');
 
+    const priority = notePriority(note);
+    const prioColors = normalizePriorityColors(state.settings.priorityColors);
+    const prioColor = prioColors[priority] || prioColors.normal;
     const tags = getTagsForNote(note, state.notesData.tags || []);
     const priorityHtml = priorityBadgeHtml(note);
     const recur = recurrenceLabel(note.recurrence, { short: true });
@@ -1787,7 +1866,7 @@ function renderNotesList() {
       ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
       <div class="card-split-row">
         ${tagsCellHtml(tags)}
-        <div class="card-col card-col-body">
+        <div class="card-col card-col-body" style="--prio:${escapeHtml(prioColor)}">
           <div class="card-top-row">
             <h3 class="card-title">${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
             ${bodyMeta ? `<div class="card-meta-row">${bodyMeta}</div>` : ''}
@@ -1888,6 +1967,7 @@ function openSettings() {
   renderAiTagRulesList();
   fillAiContextPreview();
   applyCameraSettingsUi();
+  applyBoxColorsSettingsUi();
   applyTheme();
   applyFabDirection();
   renderFabOrderList();
@@ -2002,6 +2082,7 @@ function closeSettings() {
   persistGeminiSettingsFromUi();
   persistAiProfileFromUi();
   persistCameraSettingsFromUi();
+  persistBoxColorsFromUi();
   els.settingsOverlay.hidden = true;
 }
 
@@ -3740,6 +3821,16 @@ async function init() {
       b.classList.toggle('active', b === btn);
     });
     persistCameraSettingsFromUi();
+  });
+  els.priorityColorGrid?.addEventListener('input', persistBoxColorsFromUi);
+  els.dueColorGrid?.addEventListener('input', persistBoxColorsFromUi);
+  els.resetBoxColorsBtn?.addEventListener('click', resetBoxColorsToDefaults);
+  els.gotoTagColorsBtn?.addEventListener('click', () => {
+    const row = els.tagsSettingsRow;
+    if (row) {
+      row.open = true;
+      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   });
   els.geminiApiKey?.addEventListener('change', persistGeminiSettingsFromUi);
   els.geminiModel?.addEventListener('change', persistGeminiSettingsFromUi);

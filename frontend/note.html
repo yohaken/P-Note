@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="111">
-  <meta name="pnote-built" content="2026-07-11T14:53:23+07:00">
+  <meta name="pnote-build" content="112">
+  <meta name="pnote-built" content="2026-07-11T14:57:26+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=111"></script>
+  <script src="js/cache-bootstrap.js?v=112"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=111">
+  <link rel="stylesheet" href="css/pnote.css?v=112">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -454,6 +454,74 @@
           </div>
         </details>
 
+        <details class="settings-group" id="box-colors-settings-row">
+          <summary class="settings-group-summary">สีกล่องรายการ</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-last">
+              <p class="settings-hint" style="margin-top:0">
+                กำหนดสีกล่องในรายการโน้ต · แท็กซ้าย · เนื้อหาตามความสำคัญ · ขวาตามระยะเวลาที่ใกล้เข้ามา
+              </p>
+
+              <span class="settings-label">ความสำคัญ (กล่องกลาง)</span>
+              <div class="box-color-grid" id="priority-color-grid" aria-label="สีความสำคัญ">
+                <label class="box-color-row" for="color-priority-critical">
+                  <span>สำคัญเร่งด่วน</span>
+                  <input id="color-priority-critical" type="color" data-priority-color="critical" value="#ef4444">
+                </label>
+                <label class="box-color-row" for="color-priority-important">
+                  <span>สำคัญ</span>
+                  <input id="color-priority-important" type="color" data-priority-color="important" value="#f59e0b">
+                </label>
+                <label class="box-color-row" for="color-priority-urgent">
+                  <span>เร่งด่วน</span>
+                  <input id="color-priority-urgent" type="color" data-priority-color="urgent" value="#06b6d4">
+                </label>
+                <label class="box-color-row" for="color-priority-normal">
+                  <span>ทั่วไป</span>
+                  <input id="color-priority-normal" type="color" data-priority-color="normal" value="#8b929a">
+                </label>
+              </div>
+
+              <span class="settings-label" style="margin-top:0.75rem">ระยะเวลาที่ใกล้เข้ามา (กล่องขวา)</span>
+              <div class="box-color-grid" id="due-color-grid" aria-label="สีระยะเวลา">
+                <label class="box-color-row" for="color-due-far">
+                  <span>ไกล</span>
+                  <input id="color-due-far" type="color" data-due-color="far" value="#6b8f71">
+                </label>
+                <label class="box-color-row" for="color-due-mid">
+                  <span>ใกล้ขึ้น</span>
+                  <input id="color-due-mid" type="color" data-due-color="mid" value="#c4a035">
+                </label>
+                <label class="box-color-row" for="color-due-near">
+                  <span>ใกล้มาก</span>
+                  <input id="color-due-near" type="color" data-due-color="near" value="#e0893a">
+                </label>
+                <label class="box-color-row" for="color-due-today">
+                  <span>วันนี้</span>
+                  <input id="color-due-today" type="color" data-due-color="today" value="#e85d2c">
+                </label>
+                <label class="box-color-row" for="color-due-overdue">
+                  <span>เลยกำหนด</span>
+                  <input id="color-due-overdue" type="color" data-due-color="overdue" value="#e23b2e">
+                </label>
+              </div>
+
+              <span class="settings-label" style="margin-top:0.75rem">แท็ก (กล่องซ้าย)</span>
+              <p class="settings-hint">
+                สีแท็กกำหนดรายตัวที่หมวด <strong>แท็ก · ตัวกรอง</strong> · กล่องซ้ายใช้สีนั้นโดยตรง
+              </p>
+              <button id="goto-tag-colors-btn" class="btn btn-secondary" type="button">ไปตั้งสีแท็ก</button>
+
+              <div class="box-color-preview" aria-hidden="true">
+                <div class="box-color-preview-col is-tag">แท็ก</div>
+                <div class="box-color-preview-col is-body">เนื้อหา</div>
+                <div class="box-color-preview-col is-due">ใกล้</div>
+              </div>
+              <button id="reset-box-colors-btn" class="btn btn-secondary" type="button" style="margin-top:0.55rem">รีเซ็ตสีเริ่มต้น</button>
+            </div>
+          </div>
+        </details>
+
         <details class="settings-group" id="notify-settings-row">
           <summary class="settings-group-summary">แจ้งเตือนเครื่อง</summary>
           <div class="settings-group-body">
@@ -752,8 +820,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=111"></script>
-  <script src="js/fab-drag.js?v=111"></script>
+  <script src="js/page-nav.js?v=112"></script>
+  <script src="js/fab-drag.js?v=112"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -763,7 +831,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=111"></script>
-  <script src="js/update-watch.js?v=111"></script>
+  <script type="module" src="js/app.js?v=112"></script>
+  <script src="js/update-watch.js?v=112"></script>
 </body>
 </html>
