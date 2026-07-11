@@ -15,6 +15,9 @@ export const DEFAULT_NOTIFY_PREFS = {
 
 const DEFAULT_FAB_ORDER = ['pages', 'group', 'ai']; // visual top → bottom (AI nearest dock by default)
 
+const CAMERA_QUALITIES = ['max', 'high', 'medium'];
+const CAMERA_FACINGS = ['environment', 'user'];
+
 const DEFAULTS = {
   theme: 'dark',
   cardDensity: 0,
@@ -36,7 +39,37 @@ const DEFAULTS = {
   aiProfile: '',
   /** Manual keyword → tag rules, e.g. ที่ดิน/รังวัด → peerland */
   aiTagRules: [],
+  /** In-app camera: save captured photos to device */
+  cameraSaveToDevice: true,
+  cameraFacing: 'environment',
+  cameraQuality: 'max',
 };
+
+/** @returns {'max'|'high'|'medium'} */
+export function normalizeCameraQuality(value) {
+  return CAMERA_QUALITIES.includes(value) ? value : 'max';
+}
+
+/** @returns {'environment'|'user'} */
+export function normalizeCameraFacing(value) {
+  return CAMERA_FACINGS.includes(value) ? value : 'environment';
+}
+
+export function normalizeCameraSaveToDevice(value) {
+  return value !== false;
+}
+
+/** Ideal capture constraints + JPEG quality for a preset. */
+export function cameraQualityPreset(quality) {
+  const q = normalizeCameraQuality(quality);
+  if (q === 'medium') {
+    return { width: 1280, height: 960, jpeg: 0.82, label: 'กลาง' };
+  }
+  if (q === 'high') {
+    return { width: 1920, height: 1440, jpeg: 0.88, label: 'สูง' };
+  }
+  return { width: 4032, height: 3024, jpeg: 0.92, label: 'สูงสุด' };
+}
 
 export function normalizeGeminiModel(value) {
   const v = String(value || '').trim().slice(0, 80);
@@ -169,6 +202,9 @@ export function loadSettings() {
         dockScale: DEFAULTS.dockScale,
         dockOffsetY: DEFAULTS.dockOffsetY,
         fabOrder: [...DEFAULT_FAB_ORDER],
+        cameraSaveToDevice: true,
+        cameraFacing: 'environment',
+        cameraQuality: 'max',
       };
     }
     const parsed = JSON.parse(raw);
@@ -198,6 +234,9 @@ export function loadSettings() {
       geminiModel: normalizeGeminiModel(parsed.geminiModel),
       aiProfile: normalizeAiProfile(parsed.aiProfile),
       aiTagRules: normalizeAiTagRules(parsed.aiTagRules),
+      cameraSaveToDevice: normalizeCameraSaveToDevice(parsed.cameraSaveToDevice),
+      cameraFacing: normalizeCameraFacing(parsed.cameraFacing),
+      cameraQuality: normalizeCameraQuality(parsed.cameraQuality),
     };
   } catch {
     return {
@@ -214,6 +253,9 @@ export function loadSettings() {
       dockScale: DEFAULTS.dockScale,
       dockOffsetY: DEFAULTS.dockOffsetY,
       fabOrder: [...DEFAULT_FAB_ORDER],
+      cameraSaveToDevice: true,
+      cameraFacing: 'environment',
+      cameraQuality: 'max',
     };
   }
 }
@@ -232,6 +274,9 @@ export function saveSettings(settings) {
     geminiModel: normalizeGeminiModel(settings.geminiModel),
     aiProfile: normalizeAiProfile(settings.aiProfile),
     aiTagRules: normalizeAiTagRules(settings.aiTagRules),
+    cameraSaveToDevice: normalizeCameraSaveToDevice(settings.cameraSaveToDevice),
+    cameraFacing: normalizeCameraFacing(settings.cameraFacing),
+    cameraQuality: normalizeCameraQuality(settings.cameraQuality),
   };
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
