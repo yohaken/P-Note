@@ -1250,9 +1250,13 @@ body.light .priority-badge.priority-urgent {
 }
 
 .ai-note-actions .btn {
-  flex: 1 1 calc(50% - 0.25rem);
-  padding: 0.5rem 0.65rem;
-  font-size: 0.88rem;
+  flex: 1 1 calc(33% - 0.3rem);
+  padding: 0.5rem 0.45rem;
+  font-size: 0.82rem;
+}
+
+.ai-note-actions .btn-primary {
+  flex: 1.15 1 calc(34% - 0.3rem);
 }
 
 .ai-note-step {

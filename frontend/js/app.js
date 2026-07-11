@@ -36,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=86';
+} from './notes.js?v=87';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -56,8 +56,8 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=86';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=86';
+} from './schedule.js?v=87';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=87';
 import {
   notificationPermission,
   notificationSupported,
@@ -65,13 +65,13 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=86';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=86';
+} from './note-notify.js?v=87';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=87';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
-} from './user-context.js?v=86';
+} from './user-context.js?v=87';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -79,7 +79,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=86';
+import { normalizeNotesData } from './notes.js?v=87';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -110,10 +110,7 @@ const els = {
   emptyState: document.getElementById('empty-state'),
   emptyStateText: document.getElementById('empty-state-text'),
   addNoteBtn: document.getElementById('add-note-btn'),
-  addAiNoteBtn: document.getElementById('add-ai-note-btn'),
   aiNoteModal: document.getElementById('ai-note-modal'),
-  aiNoteStepInput: document.getElementById('ai-note-step-input'),
-  aiNoteStepReview: document.getElementById('ai-note-step-review'),
   aiNoteSource: document.getElementById('ai-note-source'),
   aiNoteDraftTitle: document.getElementById('ai-note-draft-title'),
   aiNoteDraftSummary: document.getElementById('ai-note-draft-summary'),
@@ -129,7 +126,6 @@ const els = {
   noteAttachments: document.getElementById('note-attachments'),
   aiNoteStatus: document.getElementById('ai-note-status'),
   aiNoteCancelBtn: document.getElementById('ai-note-cancel-btn'),
-  aiNoteBackBtn: document.getElementById('ai-note-back-btn'),
   aiNoteSummarizeBtn: document.getElementById('ai-note-summarize-btn'),
   aiNoteConfirmBtn: document.getElementById('ai-note-confirm-btn'),
   geminiApiKey: document.getElementById('gemini-api-key'),
@@ -558,7 +554,6 @@ function renderGroupNav() {
   // Always show tag bar on Active so long-press "ทั้งหมด" can open tag settings
   if (els.tagWrap) els.tagWrap.hidden = !isActiveGroup;
   els.addNoteBtn.hidden = !isActiveGroup;
-  if (els.addAiNoteBtn) els.addAiNoteBtn.hidden = !isActiveGroup;
 
   const groupTitle =
     state.listGroup === NOTE_STATUS.DONE
@@ -1439,13 +1434,14 @@ function setAiNoteStatus(message) {
   if (els.aiNoteStatus) els.aiNoteStatus.textContent = message || '';
 }
 
-function showAiNoteStep(step) {
-  const review = step === 'review';
-  if (els.aiNoteStepInput) els.aiNoteStepInput.hidden = review;
-  if (els.aiNoteStepReview) els.aiNoteStepReview.hidden = !review;
-  if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.hidden = review;
-  if (els.aiNoteConfirmBtn) els.aiNoteConfirmBtn.hidden = !review;
-  if (els.aiNoteBackBtn) els.aiNoteBackBtn.hidden = !review;
+function seedExistingTagChips() {
+  const existing = state.notesData.tags || [];
+  aiTagDraft = existing.slice(0, 12).map((t) => ({
+    name: t.name,
+    isNew: false,
+    on: false,
+  }));
+  renderAiTagChips();
 }
 
 function formatBytes(n) {
@@ -1553,11 +1549,18 @@ function applyAiDraftToForm(draft) {
   const existingNames = new Set(
     (state.notesData.tags || []).map((t) => t.name.toLowerCase()),
   );
-  aiTagDraft = (draft.tags || []).map((name) => ({
+  const suggested = (draft.tags || []).map((name) => ({
     name,
     isNew: !existingNames.has(name.toLowerCase()),
     on: true,
   }));
+  // Keep other existing tags (off) so user can tap to add
+  const suggestedKeys = new Set(suggested.map((s) => s.name.toLowerCase()));
+  const extras = (state.notesData.tags || [])
+    .filter((t) => !suggestedKeys.has(t.name.toLowerCase()))
+    .slice(0, 10)
+    .map((t) => ({ name: t.name, isNew: false, on: false }));
+  aiTagDraft = [...suggested, ...extras];
   renderAiTagChips();
 }
 
@@ -1615,27 +1618,19 @@ function renderEditorAttachments(note) {
   });
 }
 
-function openAiNoteModal() {
+function openAddNoteModal() {
   if (!els.aiNoteModal) return;
-  if (!String(state.settings.geminiApiKey || '').trim()) {
-    setStatus('ตั้งค่า Gemini API key ก่อน');
-    openSettings();
-    els.geminiApiKey?.focus();
-    return;
-  }
   if (els.aiNoteSource) els.aiNoteSource.value = '';
   if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = '';
   if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = '';
   if (els.aiNoteDraftSchedule) els.aiNoteDraftSchedule.value = '';
   if (els.aiNoteDraftPriority) els.aiNoteDraftPriority.value = NOTE_PRIORITY.NORMAL;
   if (els.aiNoteDraftRecurrence) els.aiNoteDraftRecurrence.value = '';
-  aiTagDraft = [];
-  renderAiTagChips();
   clearAiPendingMedia();
+  seedExistingTagChips();
   setAiNoteStatus('');
-  showAiNoteStep('input');
   els.aiNoteModal.hidden = false;
-  queueMicrotask(() => els.aiNoteSource?.focus());
+  queueMicrotask(() => els.aiNoteDraftTitle?.focus() || els.aiNoteSource?.focus());
 }
 
 function closeAiNoteModal() {
@@ -1679,13 +1674,18 @@ async function addAiMediaFiles(fileList) {
 async function runAiSummarize() {
   if (aiNoteBusy) return;
   const source = String(els.aiNoteSource?.value || '').trim();
-  if (!source && !aiPendingMedia.length) {
-    setAiNoteStatus('ใส่ข้อความ ถ่ายรูป หรือแนบไฟล์ก่อน');
+  const titleHint = String(els.aiNoteDraftTitle?.value || '').trim();
+  const summaryHint = String(els.aiNoteDraftSummary?.value || '').trim();
+  const combined = [source, titleHint, summaryHint].filter(Boolean).join('\n');
+  if (!combined && !aiPendingMedia.length) {
+    setAiNoteStatus('ใส่ข้อความ ถ่ายรูป หรือแนบไฟล์ก่อนสรุป');
     return;
   }
   const apiKey = String(state.settings.geminiApiKey || '').trim();
   if (!apiKey) {
-    setAiNoteStatus('ยังไม่มี API key — ไปตั้งค่า');
+    setAiNoteStatus('ตั้งค่า Gemini API key ก่อน');
+    openSettings();
+    els.geminiApiKey?.focus();
     return;
   }
   aiNoteBusy = true;
@@ -1694,7 +1694,7 @@ async function runAiSummarize() {
   setAiNoteStatus(aiImages.length ? 'กำลังอ่านไฟล์และสรุป…' : 'กำลังสรุป…');
   try {
     const ctx = refreshUserContext(state.notesData);
-    let draft = await summarizeToNoteDraft(apiKey, source, {
+    let draft = await summarizeToNoteDraft(apiKey, combined || source, {
       model: state.settings.geminiModel,
       existingTags: state.notesData.tags || [],
       images: aiImages,
@@ -1704,16 +1704,15 @@ async function runAiSummarize() {
     draft = refineDraftWithContext(
       draft,
       state.notesData,
-      `${source}\n${draft.title || ''}\n${draft.summary || ''}`,
+      `${combined}\n${draft.title || ''}\n${draft.summary || ''}`,
     );
     applyAiDraftToForm(draft);
-    showAiNoteStep('review');
     const bits = [];
     if (aiPendingMedia.length) bits.push(`แนบ ${aiPendingMedia.length}`);
     if (draft.tags?.length) bits.push(`แท็ก ${draft.tags.join(', ')}`);
     if (draft.scheduledAt) bits.push('มีกำหนด');
     if (draft.priority && draft.priority !== 'normal') bits.push(priorityLabel(draft.priority));
-    setAiNoteStatus(bits.length ? `ตรวจแล้วสร้าง · ${bits.join(' · ')}` : 'ตรวจแล้วกดสร้าง');
+    setAiNoteStatus(bits.length ? `สรุปแล้ว · ${bits.join(' · ')} · แก้ได้แล้วกดสร้าง` : 'สรุปแล้ว · แก้ได้แล้วกดสร้าง');
     els.aiNoteDraftTitle?.focus();
   } catch (err) {
     const code = err?.code || '';
@@ -1730,7 +1729,7 @@ async function runAiSummarize() {
 }
 
 async function confirmAiNoteDraft() {
-  const title = ensureLeadingEmoji(String(els.aiNoteDraftTitle?.value || '').trim() || 'โน้ตจาก AI');
+  const title = ensureLeadingEmoji(String(els.aiNoteDraftTitle?.value || '').trim() || 'โน้ต');
   const content = String(els.aiNoteDraftSummary?.value || '').trim();
   const attachments = normalizeAttachments(
     aiPendingMedia.map((m) => {
@@ -1746,7 +1745,7 @@ async function confirmAiNoteDraft() {
     }),
   );
   if (!title && !content && !attachments.length) {
-    setAiNoteStatus('ใส่หัวข้อ สรุป หรือไฟล์แนบอย่างน้อยอย่างหนึ่ง');
+    setAiNoteStatus('ใส่หัวข้อ รายละเอียด หรือไฟล์แนบอย่างน้อยอย่างหนึ่ง');
     return;
   }
 
@@ -1778,14 +1777,18 @@ async function confirmAiNoteDraft() {
   try {
     await saveManager.saveNow(() => state.notesData);
   } catch (err) {
-    console.warn('AI note save failed', err);
+    console.warn('note save failed', err);
     autosave();
   }
   renderNotesList();
   renderTagFilterBar();
   renderTagManager();
   scheduleUserContextRefresh();
-  setStatus(attachments.length ? 'สร้างโน้ตจาก AI พร้อมไฟล์แนบ' : 'สร้างโน้ตจาก AI แล้ว');
+  setStatus(attachments.length ? 'สร้างโน้ตพร้อมไฟล์แนบ' : 'สร้างโน้ตแล้ว');
+}
+
+function openNewNote() {
+  openAddNoteModal();
 }
 
 function moveTagOrder(index, delta) {
@@ -1958,13 +1961,6 @@ function openEditor(noteId) {
   renderEditorTags();
   renderEditorPriority();
   renderEditorRecurrence();
-}
-
-function openNewNote() {
-  const note = createNote();
-  state.notesData.notes.unshift(note);
-  state.draftNoteId = note.id;
-  openEditor(note.id);
 }
 
 function discardDraftIfEmpty() {
@@ -2232,14 +2228,8 @@ async function init() {
   applyTheme();
   // Update polling: js/update-watch.js (shared with Calorie). No SW in this shell.
 
-  els.addNoteBtn.addEventListener('click', openNewNote);
-  els.addAiNoteBtn?.addEventListener('click', openAiNoteModal);
+  els.addNoteBtn.addEventListener('click', openAddNoteModal);
   els.aiNoteCancelBtn?.addEventListener('click', closeAiNoteModal);
-  els.aiNoteBackBtn?.addEventListener('click', () => {
-    showAiNoteStep('input');
-    setAiNoteStatus(aiPendingMedia.length ? `แนบแล้ว ${aiPendingMedia.length} · แก้ข้อความได้` : '');
-    els.aiNoteSource?.focus();
-  });
   els.aiNoteSummarizeBtn?.addEventListener('click', () => {
     runAiSummarize();
   });
