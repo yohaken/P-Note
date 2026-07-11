@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="90">
-  <meta name="pnote-built" content="2026-07-11T11:25:00+07:00">
+  <meta name="pnote-build" content="91">
+  <meta name="pnote-built" content="2026-07-11T11:35:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=90"></script>
+  <script src="js/cache-bootstrap.js?v=91"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=90">
+  <link rel="stylesheet" href="css/pnote.css?v=91">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -164,9 +164,9 @@
       <div class="list-scroll">
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
-          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ + เพื่อสร้างโน้ต</p>
+          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ ✦ เพื่อเพิ่มงานด้วย AI</p>
           <button class="btn btn-primary" type="button" onclick="document.getElementById('add-note-btn').click()">
-            สร้างโน้ตแรก
+            เพิ่มงานด้วย AI
           </button>
         </div>
         <div id="notes-list" class="notes-list notes-first"></div>
@@ -263,8 +263,8 @@
     <div id="ai-note-modal" class="modal" hidden>
       <div class="modal-card modal-card-ai" role="dialog" aria-labelledby="ai-note-title">
         <header class="ai-note-head">
-          <h2 id="ai-note-title">เพิ่มงาน</h2>
-          <p id="ai-note-lead" class="ai-note-lead">กรอกเอง หรือวางข้อความแล้วกดสรุปด้วย AI</p>
+          <h2 id="ai-note-title">เพิ่มงานด้วย AI</h2>
+          <p id="ai-note-lead" class="ai-note-lead">กรอกเอง หรือวางข้อความ/แนบไฟล์ แล้วกดสรุปด้วย AI — จบในหน้านี้</p>
         </header>
 
         <div class="ai-note-step">
@@ -513,8 +513,13 @@
         </div>
       </div>
       <div class="filter-dock-actions">
-        <button type="button" class="filter-dock-action" id="dock-ai-btn" aria-label="สรุปด้วย AI" title="สรุปด้วย AI">🤖</button>
-        <button type="button" class="filter-dock-action filter-dock-add" id="add-note-btn" aria-label="เพิ่มงาน" title="เพิ่มงาน">➕</button>
+        <button type="button" class="filter-dock-action filter-dock-ai" id="add-note-btn" aria-label="เพิ่มงานด้วย AI" title="เพิ่มงานด้วย AI">
+          <svg class="filter-dock-ai-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
+            <path fill="currentColor" d="M18.2 14.2l.72 2.76L21.7 17.7l-2.78.72-.72 2.78-.72-2.78-2.78-.72 2.78-.74.72-2.76z" opacity=".92"/>
+            <path fill="currentColor" d="M6.1 15.4l.5 1.9 1.9.5-1.9.5-.5 1.9-.5-1.9-1.9-.5 1.9-.5.5-1.9z" opacity=".85"/>
+          </svg>
+        </button>
       </div>
     </div>
   </nav>
@@ -530,8 +535,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=90"></script>
-  <script src="js/fab-drag.js?v=90"></script>
+  <script src="js/page-nav.js?v=91"></script>
+  <script src="js/fab-drag.js?v=91"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -541,7 +546,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=90"></script>
-  <script src="js/update-watch.js?v=90"></script>
+  <script type="module" src="js/app.js?v=91"></script>
+  <script src="js/update-watch.js?v=91"></script>
 </body>
 </html>

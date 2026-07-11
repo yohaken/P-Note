@@ -641,8 +641,8 @@ body.bars-dragging .list-scroll {
 }
 .filter-dock-action {
   appearance: none;
-  width: 2.55rem;
-  height: 2.55rem;
+  width: 2.7rem;
+  height: 2.7rem;
   border: none;
   border-radius: 999px;
   background: var(--surface-2);
@@ -659,10 +659,14 @@ body.bars-dragging .list-scroll {
   transform: scale(0.96);
   opacity: 0.9;
 }
-.filter-dock-add {
-  background: var(--accent);
+.filter-dock-ai {
+  background: linear-gradient(145deg, #4b8dff 0%, #0a84ff 45%, #7c5cff 100%);
   color: #fff;
-  font-size: 1.15rem;
+  box-shadow: 0 2px 10px rgba(10, 132, 255, 0.4);
+}
+.filter-dock-ai-icon {
+  display: block;
+  flex-shrink: 0;
 }
 .filter-dd-backdrop {
   position: fixed;
