@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=102';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=103';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -36,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=88';
+} from './notes.js?v=103';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=102';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=103';
 import {
   notificationPermission,
   notificationSupported,
@@ -79,7 +79,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=88';
+import { normalizeNotesData } from './notes.js?v=103';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -126,7 +126,17 @@ const els = {
   aiNoteFileBtn: document.getElementById('ai-note-file-btn'),
   aiNoteFile: document.getElementById('ai-note-file'),
   aiNoteAttachList: document.getElementById('ai-note-attach-list'),
+  aiNoteDocs: document.getElementById('ai-note-docs'),
   noteAttachments: document.getElementById('note-attachments'),
+  attachViewer: document.getElementById('attach-viewer'),
+  attachViewerBackdrop: document.getElementById('attach-viewer-backdrop'),
+  attachViewerBody: document.getElementById('attach-viewer-body'),
+  attachViewerTitle: document.getElementById('attach-viewer-title'),
+  attachViewerSub: document.getElementById('attach-viewer-sub'),
+  attachViewerClose: document.getElementById('attach-viewer-close'),
+  attachViewerPrev: document.getElementById('attach-viewer-prev'),
+  attachViewerNext: document.getElementById('attach-viewer-next'),
+  attachViewerDownload: document.getElementById('attach-viewer-download'),
   aiNoteStatus: null,
   aiNoteCancelBtn: document.getElementById('ai-note-cancel-btn'),
   aiNoteSummarizeBtn: document.getElementById('ai-note-summarize-btn'),
@@ -1444,10 +1454,11 @@ function renderNotesList() {
   els.notesList.classList.toggle('manual-sort', manual);
 
   notes.forEach((note) => {
-    const item = document.createElement('button');
-    item.type = 'button';
+    const item = document.createElement('div');
     item.className = 'note-card';
     item.dataset.noteId = note.id;
+    item.setAttribute('role', 'button');
+    item.tabIndex = 0;
     if (state.listGroup === NOTE_STATUS.DONE) item.classList.add('done-card');
     if (state.listGroup === NOTE_STATUS.TRASH) item.classList.add('trash-card');
 
@@ -1475,6 +1486,8 @@ function renderNotesList() {
       ${previewHtml}
     `;
 
+    appendCardAttachments(item, note);
+
     if (manual) {
       appendCardActions(item, note);
       // Tap + long-press drag handled by the list-level sortable.
@@ -1483,6 +1496,12 @@ function renderNotesList() {
         noteId: note.id,
         onTap: () => openEditor(note.id),
         onLongPress: () => openContextMenu(note.id),
+      });
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openEditor(note.id);
+        }
       });
     }
 
@@ -1955,28 +1974,194 @@ function clearAiPendingMedia() {
   renderAiAttachList();
 }
 
+/** @type {{ list: object[], index: number, blobUrl: string|null }} */
+let attachViewerState = { list: [], index: 0, blobUrl: null };
+
+function attachmentDataUrl(a) {
+  return `data:${a.mimeType};base64,${a.data}`;
+}
+
+function attachmentToBlob(a) {
+  const bin = atob(String(a.data || ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: a.mimeType || 'application/octet-stream' });
+}
+
+function revokeAttachViewerBlob() {
+  if (attachViewerState.blobUrl) {
+    try {
+      URL.revokeObjectURL(attachViewerState.blobUrl);
+    } catch {
+      /* ignore */
+    }
+    attachViewerState.blobUrl = null;
+  }
+}
+
+function fileKindLabel(a) {
+  const mime = String(a?.mimeType || '');
+  if (mime.startsWith('image/')) return 'รูปภาพ';
+  if (mime === 'application/pdf' || /\.pdf$/i.test(a?.name || '')) return 'PDF';
+  if (mime.startsWith('text/')) return 'ข้อความ';
+  return 'ไฟล์';
+}
+
+function canInlinePreview(a) {
+  const mime = String(a?.mimeType || '');
+  if (mime.startsWith('image/')) return 'image';
+  if (mime === 'application/pdf' || /\.pdf$/i.test(a?.name || '')) return 'pdf';
+  if (mime.startsWith('text/')) return 'text';
+  return null;
+}
+
+function renderAttachViewerContent() {
+  const wrap = els.attachViewerBody;
+  if (!wrap) return;
+  revokeAttachViewerBlob();
+  wrap.innerHTML = '';
+  const list = attachViewerState.list;
+  const a = list[attachViewerState.index];
+  if (!a) return;
+
+  const blob = attachmentToBlob(a);
+  const url = URL.createObjectURL(blob);
+  attachViewerState.blobUrl = url;
+
+  if (els.attachViewerTitle) els.attachViewerTitle.textContent = a.name || 'เอกสาร';
+  if (els.attachViewerSub) {
+    els.attachViewerSub.textContent = [
+      fileKindLabel(a),
+      formatBytes(a.size),
+      list.length > 1 ? `${attachViewerState.index + 1}/${list.length}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (els.attachViewerDownload) {
+    els.attachViewerDownload.href = url;
+    els.attachViewerDownload.download = a.name || 'file';
+  }
+  const multi = list.length > 1;
+  if (els.attachViewerPrev) els.attachViewerPrev.hidden = !multi;
+  if (els.attachViewerNext) els.attachViewerNext.hidden = !multi;
+
+  const mode = canInlinePreview(a);
+  if (mode === 'image') {
+    const img = document.createElement('img');
+    img.className = 'attach-viewer-image';
+    img.src = url;
+    img.alt = a.name || 'รูปแนบ';
+    wrap.appendChild(img);
+    return;
+  }
+  if (mode === 'pdf') {
+    const frame = document.createElement('iframe');
+    frame.className = 'attach-viewer-frame';
+    frame.title = a.name || 'PDF';
+    frame.src = url;
+    wrap.appendChild(frame);
+    const fallback = document.createElement('p');
+    fallback.className = 'attach-viewer-fallback';
+    fallback.innerHTML =
+      'ถ้าดู PDF ไม่ได้ในเครื่องนี้ ใช้ปุ่ม <strong>↓</strong> เพื่อดาวน์โหลด/เปิดภายนอก';
+    wrap.appendChild(fallback);
+    return;
+  }
+  if (mode === 'text') {
+    const pre = document.createElement('pre');
+    pre.className = 'attach-viewer-text';
+    try {
+      const bin = atob(String(a.data || ''));
+      let text = '';
+      for (let i = 0; i < bin.length; i += 1) text += bin[i];
+      pre.textContent = text.slice(0, 200000) || '(ว่าง)';
+    } catch {
+      pre.textContent = '(อ่านข้อความไม่สำเร็จ — ลองดาวน์โหลด)';
+    }
+    wrap.appendChild(pre);
+    return;
+  }
+
+  const box = document.createElement('div');
+  box.className = 'attach-viewer-file';
+  box.innerHTML = `
+    <div class="attach-viewer-file-icon" aria-hidden="true">📄</div>
+    <p class="attach-viewer-file-name">${escapeHtml(a.name || 'ไฟล์')}</p>
+    <p class="attach-viewer-file-meta">${escapeHtml(fileKindLabel(a))} · ${escapeHtml(formatBytes(a.size))}</p>
+  `;
+  const openBtn = document.createElement('a');
+  openBtn.className = 'btn btn-primary';
+  openBtn.href = url;
+  openBtn.download = a.name || 'file';
+  openBtn.textContent = 'ดาวน์โหลด / เปิดไฟล์';
+  box.appendChild(openBtn);
+  wrap.appendChild(box);
+}
+
+function openAttachViewer(list, index = 0) {
+  const items = normalizeAttachments(list);
+  if (!items.length || !els.attachViewer) return;
+  attachViewerState.list = items;
+  attachViewerState.index = Math.max(0, Math.min(index, items.length - 1));
+  els.attachViewer.hidden = false;
+  renderAttachViewerContent();
+}
+
+function closeAttachViewer() {
+  if (!els.attachViewer) return;
+  els.attachViewer.hidden = true;
+  if (els.attachViewerBody) els.attachViewerBody.innerHTML = '';
+  revokeAttachViewerBlob();
+  attachViewerState = { list: [], index: 0, blobUrl: null };
+}
+
+function stepAttachViewer(delta) {
+  const n = attachViewerState.list.length;
+  if (n < 2) return;
+  attachViewerState.index = (attachViewerState.index + delta + n) % n;
+  renderAttachViewerContent();
+}
+
+function initAttachViewer() {
+  els.attachViewerClose?.addEventListener('click', closeAttachViewer);
+  els.attachViewerBackdrop?.addEventListener('click', closeAttachViewer);
+  els.attachViewerPrev?.addEventListener('click', () => stepAttachViewer(-1));
+  els.attachViewerNext?.addEventListener('click', () => stepAttachViewer(1));
+  document.addEventListener('keydown', (e) => {
+    if (!els.attachViewer || els.attachViewer.hidden) return;
+    if (e.key === 'Escape') closeAttachViewer();
+    if (e.key === 'ArrowLeft') stepAttachViewer(-1);
+    if (e.key === 'ArrowRight') stepAttachViewer(1);
+  });
+}
+
 function renderAiAttachList() {
   const wrap = els.aiNoteAttachList;
+  const docs = els.aiNoteDocs;
   if (!wrap) return;
   wrap.innerHTML = '';
   if (!aiPendingMedia.length) {
-    wrap.hidden = true;
+    if (docs) docs.hidden = true;
     return;
   }
-  wrap.hidden = false;
+  if (docs) docs.hidden = false;
+  const list = aiPendingMedia.map((m) => m.attachment).filter(Boolean);
   aiPendingMedia.forEach((item, index) => {
     const a = item.attachment;
-    const row = document.createElement('div');
+    const row = document.createElement('button');
+    row.type = 'button';
     row.className = 'ai-note-attach-item';
+    row.setAttribute('aria-label', `ดู ${a.name || 'เอกสาร'}`);
     if (a.kind === 'image' && (a.previewUrl || a.data)) {
       const img = document.createElement('img');
-      img.alt = a.name || 'รูป';
-      img.src = a.previewUrl || `data:${a.mimeType};base64,${a.data}`;
+      img.alt = '';
+      img.src = a.previewUrl || attachmentDataUrl(a);
       row.appendChild(img);
     } else {
       const icon = document.createElement('span');
       icon.className = 'ai-note-attach-file-icon';
-      icon.textContent = '📄';
+      icon.textContent = canInlinePreview(a) === 'pdf' ? '📕' : '📄';
       row.appendChild(icon);
     }
     const meta = document.createElement('div');
@@ -1986,18 +2171,24 @@ function renderAiAttachList() {
     name.textContent = a.name || 'ไฟล์';
     const sub = document.createElement('span');
     sub.className = 'ai-note-attach-sub';
-    const bits = [formatBytes(a.size)];
-    if (a.kind === 'image' && a.fullRes) bits.push('เต็มความละเอียด');
-    else if (a.kind === 'image' && a.fullRes === false) bits.push('ย่อเล็กน้อย');
+    const bits = [fileKindLabel(a), formatBytes(a.size), 'แตะเพื่อดู'];
+    if (a.kind === 'image' && a.fullRes) bits.splice(2, 0, 'เต็ม');
     sub.textContent = bits.join(' · ');
     meta.append(name, sub);
     row.appendChild(meta);
+    const chev = document.createElement('span');
+    chev.className = 'ai-note-attach-open';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.textContent = '›';
+    row.appendChild(chev);
+    row.addEventListener('click', () => openAttachViewer(list, index));
     const rm = document.createElement('button');
     rm.type = 'button';
     rm.className = 'ai-note-attach-remove';
-    rm.setAttribute('aria-label', 'ลบ');
+    rm.setAttribute('aria-label', 'ลบเอกสาร');
     rm.textContent = '×';
-    rm.addEventListener('click', () => {
+    rm.addEventListener('click', (e) => {
+      e.stopPropagation();
       aiPendingMedia.splice(index, 1);
       renderAiAttachList();
       setAiNoteStatus(
@@ -2005,10 +2196,52 @@ function renderAiAttachList() {
         { kind: aiPendingMedia.length ? 'done' : 'idle', restoreMs: 1600 },
       );
     });
-    row.appendChild(rm);
-    wrap.appendChild(row);
+    // Wrap row+remove in a container so remove isn't nested oddly
+    const shell = document.createElement('div');
+    shell.className = 'ai-note-attach-shell';
+    shell.append(row, rm);
+    wrap.appendChild(shell);
   });
   updateAiCancelBtn();
+}
+
+function appendCardAttachments(item, note) {
+  const atts = normalizeAttachments(note.attachments);
+  if (!atts.length) return;
+  const strip = document.createElement('div');
+  strip.className = 'card-attach-strip';
+  strip.setAttribute('aria-label', `เอกสารแนบ ${atts.length} รายการ`);
+  atts.slice(0, 4).forEach((a, i) => {
+    const thumb = document.createElement('button');
+    thumb.type = 'button';
+    thumb.className = 'card-attach-thumb';
+    thumb.title = a.name || 'เอกสาร';
+    thumb.setAttribute('aria-label', `ดู ${a.name || 'เอกสาร'}`);
+    if (a.kind === 'image') {
+      const img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      img.src = attachmentDataUrl(a);
+      thumb.appendChild(img);
+    } else {
+      thumb.classList.add('is-file');
+      thumb.textContent = canInlinePreview(a) === 'pdf' ? 'PDF' : 'ไฟล์';
+    }
+    thumb.addEventListener('pointerdown', (e) => e.stopPropagation());
+    thumb.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openAttachViewer(atts, i);
+    });
+    strip.appendChild(thumb);
+  });
+  if (atts.length > 4) {
+    const more = document.createElement('span');
+    more.className = 'card-attach-more';
+    more.textContent = `+${atts.length - 4}`;
+    strip.appendChild(more);
+  }
+  item.appendChild(strip);
 }
 
 function renderAiTagChips() {
@@ -2069,10 +2302,6 @@ function applyAiDraftToForm(draft) {
   updateAiCancelBtn();
 }
 
-function attachmentDataUrl(a) {
-  return `data:${a.mimeType};base64,${a.data}`;
-}
-
 function renderEditorAttachments(note) {
   const wrap = els.noteAttachments;
   if (!wrap) return;
@@ -2083,7 +2312,7 @@ function renderEditorAttachments(note) {
     return;
   }
   wrap.hidden = false;
-  list.forEach((a) => {
+  list.forEach((a, index) => {
     const row = document.createElement('div');
     row.className = 'note-attach-item';
     if (a.kind === 'image') {
@@ -2091,17 +2320,15 @@ function renderEditorAttachments(note) {
       img.src = attachmentDataUrl(a);
       img.alt = a.name || 'รูปแนบ';
       img.loading = 'lazy';
-      img.addEventListener('click', () => {
-        window.open(attachmentDataUrl(a), '_blank');
-      });
+      img.addEventListener('click', () => openAttachViewer(list, index));
       row.appendChild(img);
     }
-    const link = document.createElement('a');
-    link.className = 'note-attach-link';
-    link.href = attachmentDataUrl(a);
-    link.download = a.name || 'file';
-    link.textContent = a.kind === 'image' ? `📷 ${a.name || 'รูป'}` : `📎 ${a.name || 'ไฟล์'}`;
-    row.appendChild(link);
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'note-attach-link';
+    openBtn.textContent = a.kind === 'image' ? `📷 ${a.name || 'รูป'}` : `📎 ${a.name || 'ไฟล์'}`;
+    openBtn.addEventListener('click', () => openAttachViewer(list, index));
+    row.appendChild(openBtn);
     const rm = document.createElement('button');
     rm.type = 'button';
     rm.className = 'btn btn-text';
@@ -2759,6 +2986,7 @@ function initSwipeBack() {
       if (currentMode === 'edge') {
         if (dx > 70 && dy < 55) {
           if (!els.settingsOverlay.hidden) closeSettings();
+          else if (els.attachViewer && !els.attachViewer.hidden) closeAttachViewer();
           else if (els.aiNoteModal && !els.aiNoteModal.hidden) closeAiNoteModal();
           else if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) finishConfirm(false);
           else if (els.noteContextOverlay && !els.noteContextOverlay.hidden) closeContextMenu();
@@ -2780,6 +3008,7 @@ function initSwipeBack() {
 async function init() {
   applyTheme();
   // Update polling: js/update-watch.js (shared with Calorie). No SW in this shell.
+  initAttachViewer();
 
   els.addNoteBtn.addEventListener('click', openAddNoteModal);
   els.aiNoteCancelBtn?.addEventListener('click', onAiCancelOrReset);

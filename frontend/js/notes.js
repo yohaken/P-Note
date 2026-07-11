@@ -262,6 +262,7 @@ export function normalizeAttachments(raw) {
       data: String(a.data),
       size: Number.isFinite(a.size) ? a.size : Math.ceil((String(a.data).length * 3) / 4),
       kind: a.mimeType && String(a.mimeType).startsWith('image/') ? 'image' : 'file',
+      fullRes: a.fullRes !== false,
     }))
     .slice(0, 8);
 }

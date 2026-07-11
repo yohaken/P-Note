@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="102">
+  <meta name="pnote-build" content="103">
   <meta name="pnote-built" content="2026-07-11T12:40:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=102"></script>
+  <script src="js/cache-bootstrap.js?v=103"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=102">
+  <link rel="stylesheet" href="css/pnote.css?v=103">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -279,7 +279,13 @@
           </div>
           <input id="ai-note-camera" type="file" accept="image/*" capture="environment" hidden>
           <input id="ai-note-file" type="file" accept="image/*,application/pdf,.pdf,.txt,.doc,.docx,.png,.jpg,.jpeg,.heic,.webp" multiple hidden>
-          <div id="ai-note-attach-list" class="ai-note-attach-list" hidden></div>
+          <div class="ai-note-docs" id="ai-note-docs" hidden>
+            <div class="ai-note-docs-head">
+              <span class="ai-note-meta-label">เอกสารของงาน</span>
+              <span class="ai-note-docs-hint">แตะเพื่อดู · เก็บคู่กับงานนี้</span>
+            </div>
+            <div id="ai-note-attach-list" class="ai-note-attach-list"></div>
+          </div>
 
           <div class="modal-actions ai-note-actions">
             <button id="ai-note-cancel-btn" class="btn btn-secondary" type="button">ยกเลิก</button>
@@ -596,6 +602,25 @@
     </div>
   </div>
 
+  <div id="attach-viewer" class="attach-viewer" hidden>
+    <div class="attach-viewer-backdrop" id="attach-viewer-backdrop"></div>
+    <div class="attach-viewer-sheet" role="dialog" aria-modal="true" aria-labelledby="attach-viewer-title">
+      <header class="attach-viewer-bar">
+        <button type="button" class="attach-viewer-close" id="attach-viewer-close" aria-label="ปิด">✕</button>
+        <div class="attach-viewer-heading">
+          <p class="attach-viewer-title" id="attach-viewer-title">เอกสาร</p>
+          <p class="attach-viewer-sub" id="attach-viewer-sub"></p>
+        </div>
+        <div class="attach-viewer-bar-actions">
+          <button type="button" class="attach-viewer-icon-btn" id="attach-viewer-prev" aria-label="ก่อนหน้า" hidden>‹</button>
+          <button type="button" class="attach-viewer-icon-btn" id="attach-viewer-next" aria-label="ถัดไป" hidden>›</button>
+          <a class="attach-viewer-icon-btn" id="attach-viewer-download" download aria-label="ดาวน์โหลด">↓</a>
+        </div>
+      </header>
+      <div class="attach-viewer-body" id="attach-viewer-body"></div>
+    </div>
+  </div>
+
   <nav id="filter-dock" class="filter-dock" aria-label="ตัวกรอง">
     <div class="filter-dock-inner">
       <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรอง">
@@ -637,8 +662,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=102"></script>
-  <script src="js/fab-drag.js?v=102"></script>
+  <script src="js/page-nav.js?v=103"></script>
+  <script src="js/fab-drag.js?v=103"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -648,7 +673,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=102"></script>
-  <script src="js/update-watch.js?v=102"></script>
+  <script type="module" src="js/app.js?v=103"></script>
+  <script src="js/update-watch.js?v=103"></script>
 </body>
 </html>
