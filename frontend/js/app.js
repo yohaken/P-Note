@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=94';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=95';
 import {
   notificationPermission,
   notificationSupported,
@@ -1645,29 +1645,98 @@ function syncAiScheduleDisplay() {
   if (els.aiNoteScheduleBtn) {
     els.aiNoteScheduleBtn.classList.toggle('has-value', Boolean(raw));
   }
-}
-
-function openAiSchedulePicker() {
-  const input = els.aiNoteDraftSchedule;
-  if (!input) return;
-  try {
-    if (typeof input.showPicker === 'function') input.showPicker();
-    else input.click();
-  } catch {
-    input.focus();
-    input.click();
-  }
+  updateAiCancelBtn();
 }
 
 function initAiScheduleControls() {
-  els.aiNoteScheduleBtn?.addEventListener('click', openAiSchedulePicker);
+  // Tap lands on the datetime-local itself (label + overlay input).
   els.aiNoteDraftSchedule?.addEventListener('change', syncAiScheduleDisplay);
   els.aiNoteDraftSchedule?.addEventListener('input', syncAiScheduleDisplay);
-  els.aiNoteScheduleClear?.addEventListener('click', () => {
+  els.aiNoteScheduleClear?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (els.aiNoteDraftSchedule) els.aiNoteDraftSchedule.value = '';
     syncAiScheduleDisplay();
   });
   syncAiScheduleDisplay();
+}
+
+function isAiFormDirty() {
+  const source = String(els.aiNoteSource?.value || '').trim();
+  const title = String(els.aiNoteDraftTitle?.value || '').trim();
+  const summary = String(els.aiNoteDraftSummary?.value || '').trim();
+  const schedule = els.aiNoteDraftSchedule?.value || '';
+  const priority = els.aiNoteDraftPriority?.value || NOTE_PRIORITY.NORMAL;
+  const recurrence = els.aiNoteDraftRecurrence?.value || '';
+  const tagsOn = aiTagDraft.some((t) => t.on);
+  return Boolean(
+    source ||
+      title ||
+      summary ||
+      schedule ||
+      aiPendingMedia.length ||
+      tagsOn ||
+      (priority && priority !== NOTE_PRIORITY.NORMAL) ||
+      recurrence,
+  );
+}
+
+function updateAiCancelBtn() {
+  const btn = els.aiNoteCancelBtn;
+  if (!btn) return;
+  const dirty = isAiFormDirty();
+  btn.textContent = dirty ? 'เริ่มใหม่' : 'ยกเลิก';
+  btn.dataset.mode = dirty ? 'reset' : 'cancel';
+  btn.setAttribute('aria-label', dirty ? 'เริ่มใหม่ เคลียร์ฟอร์ม' : 'ยกเลิก');
+}
+
+function resetAiAddForm() {
+  if (els.aiNoteSource) els.aiNoteSource.value = '';
+  if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = '';
+  if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = '';
+  if (els.aiNoteDraftSchedule) els.aiNoteDraftSchedule.value = '';
+  if (els.aiNoteDraftPriority) els.aiNoteDraftPriority.value = NOTE_PRIORITY.NORMAL;
+  if (els.aiNoteDraftRecurrence) els.aiNoteDraftRecurrence.value = '';
+  clearAiPendingMedia();
+  seedExistingTagChips();
+  syncAiScheduleDisplay();
+  setAiNoteStatus('');
+  updateAiCancelBtn();
+  focusAiSourceField();
+}
+
+function focusAiSourceField() {
+  const el = els.aiNoteSource;
+  if (!el) return;
+  const run = () => {
+    try {
+      el.focus({ preventScroll: false });
+    } catch {
+      el.focus();
+    }
+  };
+  run();
+  queueMicrotask(run);
+  requestAnimationFrame(() => setTimeout(run, 40));
+}
+
+function onAiCancelOrReset() {
+  if (els.aiNoteCancelBtn?.dataset.mode === 'reset') {
+    resetAiAddForm();
+    setStatus('เคลียร์ฟอร์มแล้ว · พร้อมกรอกใหม่');
+    return;
+  }
+  closeAiNoteModal();
+}
+
+function bindAiFormDirtyWatchers() {
+  const bump = () => updateAiCancelBtn();
+  [els.aiNoteSource, els.aiNoteDraftTitle, els.aiNoteDraftSummary, els.aiNoteDraftPriority, els.aiNoteDraftRecurrence]
+    .filter(Boolean)
+    .forEach((el) => {
+      el.addEventListener('input', bump);
+      el.addEventListener('change', bump);
+    });
 }
 
 function seedExistingTagChips() {
@@ -1747,9 +1816,8 @@ function renderAiAttachList() {
     row.appendChild(rm);
     wrap.appendChild(row);
   });
+  updateAiCancelBtn();
 }
-
-function renderAiTagChips() {
   const wrap = els.aiNoteTagChips;
   if (!wrap) return;
   wrap.innerHTML = '';
@@ -1769,6 +1837,7 @@ function renderAiTagChips() {
     });
     wrap.appendChild(btn);
   });
+  updateAiCancelBtn();
 }
 
 function applyAiDraftToForm(draft) {
@@ -1803,6 +1872,7 @@ function applyAiDraftToForm(draft) {
     .map((t) => ({ name: t.name, isNew: false, on: false }));
   aiTagDraft = [...suggested, ...extras];
   renderAiTagChips();
+  updateAiCancelBtn();
 }
 
 function attachmentDataUrl(a) {
@@ -1861,18 +1931,9 @@ function renderEditorAttachments(note) {
 
 function openAddNoteModal() {
   if (!els.aiNoteModal) return;
-  if (els.aiNoteSource) els.aiNoteSource.value = '';
-  if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = '';
-  if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = '';
-  if (els.aiNoteDraftSchedule) els.aiNoteDraftSchedule.value = '';
-  if (els.aiNoteDraftPriority) els.aiNoteDraftPriority.value = NOTE_PRIORITY.NORMAL;
-  if (els.aiNoteDraftRecurrence) els.aiNoteDraftRecurrence.value = '';
-  clearAiPendingMedia();
-  seedExistingTagChips();
-  syncAiScheduleDisplay();
-  setAiNoteStatus('');
+  resetAiAddForm();
   els.aiNoteModal.hidden = false;
-  queueMicrotask(() => els.aiNoteSource?.focus() || els.aiNoteDraftTitle?.focus());
+  focusAiSourceField();
 }
 
 function closeAiNoteModal() {
@@ -2467,7 +2528,7 @@ async function init() {
   // Update polling: js/update-watch.js (shared with Calorie). No SW in this shell.
 
   els.addNoteBtn.addEventListener('click', openAddNoteModal);
-  els.aiNoteCancelBtn?.addEventListener('click', closeAiNoteModal);
+  els.aiNoteCancelBtn?.addEventListener('click', onAiCancelOrReset);
   els.aiNoteSummarizeBtn?.addEventListener('click', () => {
     runAiSummarize();
   });
@@ -2583,6 +2644,7 @@ async function init() {
     applyDockScale();
   });
   initAiScheduleControls();
+  bindAiFormDirtyWatchers();
   els.thicknessSort.addEventListener('input', () => {
     state.settings.barThickness.sort = Number(els.thicknessSort.value);
     saveSettings(state.settings);
