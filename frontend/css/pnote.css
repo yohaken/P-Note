@@ -570,6 +570,9 @@ body.bars-dragging .list-scroll {
   border-radius: 999px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .filter-dd-btn.is-active,
 .filter-dd-btn[aria-expanded='true'] {
@@ -594,6 +597,9 @@ body.bars-dragging .list-scroll {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
   padding: 0.3rem;
   z-index: 70;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .filter-dd-menu-end {
   /* alignment handled in JS via fixed coords */
@@ -618,6 +624,9 @@ body.bars-dragging .list-scroll {
   border-radius: var(--radius-sm);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .filter-dd-item:active {
   background: var(--surface-2);
@@ -692,7 +701,14 @@ body.bars-dragging .list-scroll {
   color: inherit;
   cursor: pointer;
   touch-action: manipulation;
+  -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.note-card.is-longpress-armed {
+  transform: scale(0.985);
+  opacity: 0.92;
 }
 
 .note-card:active {
@@ -2590,6 +2606,9 @@ body.light .priority-badge.priority-urgent {
   margin: 0;
   background: rgba(0, 0, 0, 0.45);
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   box-sizing: border-box;
 }
 
@@ -2614,6 +2633,9 @@ body.light .priority-badge.priority-urgent {
   border-radius: var(--radius-sm);
   padding: 0.3rem;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .context-menu[hidden] {
@@ -2632,6 +2654,10 @@ body.light .priority-badge.priority-urgent {
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .context-menu-item:active {
