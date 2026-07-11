@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=88';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss } from './settings.js?v=93';
 import {
   notificationPermission,
   notificationSupported,
@@ -150,7 +150,7 @@ const els = {
   barsTop: null,
   barsBottom: null,
   filterDock: document.getElementById('filter-dock'),
-  filterDockFilters: document.querySelector('.filter-dock-filters'),
+  filterDockFilters: document.querySelector('.filter-dock-cluster'),
   filterSortBtn: document.getElementById('filter-sort-btn'),
   filterSortMenu: document.getElementById('filter-sort-menu'),
   filterPriorityBtn: document.getElementById('filter-priority-btn'),
@@ -161,6 +161,8 @@ const els = {
   filterTagMenu: document.getElementById('filter-tag-menu'),
   filterDdBackdrop: document.getElementById('filter-dd-backdrop'),
   dockAiBtn: null,
+  dockScaleSlider: document.getElementById('dock-scale-slider'),
+  dockScalePreview: document.getElementById('dock-scale-preview'),
   bottomNav: null,
   healthModeBtn: null,
   groupNavBtn: document.getElementById('group-nav-btn'),
@@ -299,6 +301,20 @@ function applyCardDensity() {
   if (els.cardDensitySlider) {
     els.cardDensitySlider.value = String(state.settings.cardDensity);
   }
+}
+
+function applyDockScale() {
+  const scale = dockScaleToCss(state.settings.dockScale ?? 50);
+  const value = String(scale);
+  if (els.filterDock) els.filterDock.style.setProperty('--dock-scale', value);
+  if (els.dockScalePreview) els.dockScalePreview.style.setProperty('--dock-scale', value);
+  if (els.dockScaleSlider) {
+    els.dockScaleSlider.value = String(
+      Number.isFinite(state.settings.dockScale) ? state.settings.dockScale : 50,
+    );
+  }
+  applyDockOffset();
+  requestAnimationFrame(applyDockOffset);
 }
 
 function applyTheme() {
@@ -1335,6 +1351,7 @@ function renderNotesList() {
   renderTagFilterBar();
   applyCardDensity();
   ensureFiltersDockObserver();
+  applyDockScale();
   applyDockOffset();
   requestAnimationFrame(applyDockOffset);
 
@@ -1443,6 +1460,7 @@ function closeTagManager() {
 function openSettings() {
   els.settingsOverlay.hidden = false;
   els.cardDensitySlider.value = String(state.settings.cardDensity);
+  applyDockScale();
   if (els.geminiApiKey) els.geminiApiKey.value = state.settings.geminiApiKey || '';
   fillGeminiModelSelect(state.settings.geminiModel);
   fillAiContextPreview();
@@ -2236,6 +2254,7 @@ async function bootstrapData() {
 
   applyTheme();
   applyCardDensity();
+  applyDockScale();
   reapplyBarLayout();
   applyBarThickness();
   renderNotesList();
@@ -2479,6 +2498,11 @@ async function init() {
     state.settings.cardDensity = Number(els.cardDensitySlider.value);
     saveSettings(state.settings);
     applyCardDensity();
+  });
+  els.dockScaleSlider?.addEventListener('input', () => {
+    state.settings.dockScale = Number(els.dockScaleSlider.value);
+    saveSettings(state.settings);
+    applyDockScale();
   });
   els.thicknessSort.addEventListener('input', () => {
     state.settings.barThickness.sort = Number(els.thicknessSort.value);

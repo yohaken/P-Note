@@ -16,6 +16,7 @@ export const DEFAULT_NOTIFY_PREFS = {
 const DEFAULTS = {
   theme: 'dark',
   cardDensity: 0,
+  dockScale: 50,
   sortMode: 'updated',
   tagFilterId: null,
   priorityFilter: null,
@@ -95,6 +96,7 @@ export function loadSettings() {
         notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
         geminiApiKey: '',
         geminiModel: DEFAULTS.geminiModel,
+        dockScale: DEFAULTS.dockScale,
       };
     }
     const parsed = JSON.parse(raw);
@@ -103,6 +105,7 @@ export function loadSettings() {
     return {
       theme: parsed.theme === 'light' ? 'light' : 'dark',
       cardDensity: clampPct(parsed.cardDensity),
+      dockScale: clampPct(parsed.dockScale, 50),
       sortMode: SORT_MODES.includes(parsed.sortMode) ? parsed.sortMode : 'updated',
       tagFilterId: normalizeTagFilterId(parsed.tagFilterId),
       priorityFilter: normalizePriorityFilter(parsed.priorityFilter),
@@ -130,6 +133,7 @@ export function loadSettings() {
       notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
       geminiApiKey: '',
       geminiModel: DEFAULTS.geminiModel,
+      dockScale: DEFAULTS.dockScale,
     };
   }
 }
@@ -151,6 +155,12 @@ export function saveSettings(settings) {
 
 export function densityToCssUnit(percent) {
   return Math.min(100, Math.max(0, percent)) / 100;
+}
+
+/** Map dockScale 0..100 → CSS scale factor (~0.78 .. 1.32). Mid 50 = 1.0 */
+export function dockScaleToCss(percent) {
+  const p = Math.min(100, Math.max(0, Number(percent) || 0)) / 100;
+  return Number((0.78 + p * 0.54).toFixed(3));
 }
 
 /** Map thickness 0..100 (thin) → bar padding + chip scale (wider range, ultra-thin at 100). */
