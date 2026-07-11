@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=106';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=107';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -38,7 +38,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=106';
+} from './notes.js?v=107';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -59,7 +59,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=106';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=107';
 import {
   notificationPermission,
   notificationSupported,
@@ -68,18 +68,19 @@ import {
   sendTestNotification,
   syncNoteNotifications,
 } from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=106';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=107';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=106';
+} from './files.js?v=107';
+import { createInAppCamera } from './camera.js?v=107';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=106';
+} from './user-context.js?v=107';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -87,7 +88,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=106';
+import { normalizeNotesData } from './notes.js?v=107';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -146,6 +147,17 @@ const els = {
   attachViewerPrev: document.getElementById('attach-viewer-prev'),
   attachViewerNext: document.getElementById('attach-viewer-next'),
   attachViewerDownload: document.getElementById('attach-viewer-download'),
+  inAppCamera: document.getElementById('in-app-camera'),
+  inAppCameraVideo: document.getElementById('in-app-camera-video'),
+  inAppCameraStatus: document.getElementById('in-app-camera-status'),
+  inAppCameraClose: document.getElementById('in-app-camera-close'),
+  inAppCameraSettings: document.getElementById('in-app-camera-settings'),
+  inAppCameraFlip: document.getElementById('in-app-camera-flip'),
+  inAppCameraShutter: document.getElementById('in-app-camera-shutter'),
+  cameraQuality: document.getElementById('camera-quality'),
+  cameraFacing: document.getElementById('camera-facing'),
+  cameraSaveSeg: document.getElementById('camera-save-seg'),
+  cameraSettingsRow: document.getElementById('camera-settings-row'),
   aiNoteStatus: null,
   aiNoteCancelBtn: document.getElementById('ai-note-cancel-btn'),
   aiNoteSummarizeBtn: document.getElementById('ai-note-summarize-btn'),
@@ -1703,6 +1715,7 @@ function openSettings() {
   fillAiTagRuleDatalist();
   renderAiTagRulesList();
   fillAiContextPreview();
+  applyCameraSettingsUi();
   applyTheme();
   applyFabDirection();
   renderFabOrderList();
@@ -1711,9 +1724,112 @@ function openSettings() {
   applyBarThickness();
 }
 
+function applyCameraSettingsUi() {
+  if (els.cameraQuality) {
+    els.cameraQuality.value = normalizeCameraQuality(state.settings.cameraQuality);
+  }
+  if (els.cameraFacing) {
+    els.cameraFacing.value = normalizeCameraFacing(state.settings.cameraFacing);
+  }
+  const saveOn = normalizeCameraSaveToDevice(state.settings.cameraSaveToDevice);
+  els.cameraSaveSeg?.querySelectorAll('[data-camera-save]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.cameraSave === (saveOn ? '1' : '0'));
+  });
+}
+
+function persistCameraSettingsFromUi() {
+  const quality = normalizeCameraQuality(els.cameraQuality?.value);
+  const facing = normalizeCameraFacing(els.cameraFacing?.value);
+  const saveBtn = els.cameraSaveSeg?.querySelector('[data-camera-save].active');
+  const saveToDevice = normalizeCameraSaveToDevice(saveBtn?.dataset.cameraSave !== '0');
+  const same =
+    quality === state.settings.cameraQuality &&
+    facing === state.settings.cameraFacing &&
+    saveToDevice === state.settings.cameraSaveToDevice;
+  if (same) return;
+  state.settings.cameraQuality = quality;
+  state.settings.cameraFacing = facing;
+  state.settings.cameraSaveToDevice = saveToDevice;
+  saveSettings(state.settings);
+  inAppCameraCtl?.reloadFromSettings?.();
+}
+
+function openCameraSettingsFromOverlay() {
+  persistCameraSettingsFromUi();
+  openSettings();
+  const row = els.cameraSettingsRow;
+  if (row) {
+    row.open = true;
+    row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+/** @type {ReturnType<typeof createInAppCamera>|null} */
+let inAppCameraCtl = null;
+
+function initInAppCamera() {
+  if (!els.inAppCamera || !els.inAppCameraVideo) return;
+  inAppCameraCtl = createInAppCamera({
+    root: els.inAppCamera,
+    video: els.inAppCameraVideo,
+    statusEl: els.inAppCameraStatus,
+    getSettings: () => ({
+      cameraSaveToDevice: state.settings.cameraSaveToDevice,
+      cameraFacing: state.settings.cameraFacing,
+      cameraQuality: state.settings.cameraQuality,
+    }),
+    onCaptured: (file, meta) => {
+      addAiMediaFiles([file]);
+      const dim = meta?.width && meta?.height ? `${meta.width}×${meta.height}` : '';
+      if (meta?.saved) {
+        setStatus(dim ? `ถ่าย ${dim} · บันทึกลงเครื่องแล้ว` : 'ถ่ายแล้ว · บันทึกลงเครื่อง');
+      } else if (dim) {
+        setStatus(`ถ่าย ${dim}`);
+      }
+      setAiNoteStatus('แนบรูปแล้ว', { kind: 'done', restoreMs: 2000 });
+    },
+    onFallback: () => {
+      setAiNoteStatus('ใช้กล้องระบบแทน', { kind: 'working', restoreMs: 1600 });
+      els.aiNoteCamera?.click();
+    },
+    onOpenSettings: openCameraSettingsFromOverlay,
+  });
+
+  els.inAppCameraClose?.addEventListener('click', () => inAppCameraCtl?.close());
+  els.inAppCameraShutter?.addEventListener('click', () => inAppCameraCtl?.capture());
+  els.inAppCameraFlip?.addEventListener('click', async () => {
+    await inAppCameraCtl?.flip();
+    const facing = inAppCameraCtl?.getFacing?.();
+    if (facing && facing !== state.settings.cameraFacing) {
+      state.settings.cameraFacing = normalizeCameraFacing(facing);
+      saveSettings(state.settings);
+      applyCameraSettingsUi();
+    }
+  });
+  els.inAppCameraSettings?.addEventListener('click', () => {
+    openCameraSettingsFromOverlay();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (inAppCameraCtl?.isOpen?.()) {
+      if (els.settingsOverlay && !els.settingsOverlay.hidden) return;
+      inAppCameraCtl.close();
+    }
+  });
+}
+
+function openInAppCameraOrFallback() {
+  if (inAppCameraCtl) {
+    inAppCameraCtl.open();
+    return;
+  }
+  els.aiNoteCamera?.click();
+}
+
 function closeSettings() {
   persistGeminiSettingsFromUi();
   persistAiProfileFromUi();
+  persistCameraSettingsFromUi();
   els.settingsOverlay.hidden = true;
 }
 
@@ -3351,6 +3467,7 @@ function initSwipeBack() {
       if (currentMode === 'edge') {
         if (dx > 70 && dy < 55) {
           if (!els.settingsOverlay.hidden) closeSettings();
+          else if (inAppCameraCtl?.isOpen?.()) inAppCameraCtl.close();
           else if (els.attachViewer && !els.attachViewer.hidden) closeAttachViewer();
           else if (els.aiNoteModal && !els.aiNoteModal.hidden) closeAiNoteModal();
           else if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) finishConfirm(false);
@@ -3374,6 +3491,7 @@ async function init() {
   applyTheme();
   // Update polling: js/update-watch.js (shared with Calorie). No SW in this shell.
   initAttachViewer();
+  initInAppCamera();
 
   els.addNoteBtn.addEventListener('click', openAddNoteModal);
   els.aiNoteCancelBtn?.addEventListener('click', onAiCancelOrReset);
@@ -3386,7 +3504,7 @@ async function init() {
     if (e.target === els.aiNoteModal) closeAiNoteModal();
   });
   els.aiNoteCameraBtn?.addEventListener('click', () => {
-    els.aiNoteCamera?.click();
+    openInAppCameraOrFallback();
   });
   els.aiNoteFileBtn?.addEventListener('click', () => {
     els.aiNoteFile?.click();
@@ -3400,6 +3518,16 @@ async function init() {
     const files = els.aiNoteFile.files;
     if (files?.length) addAiMediaFiles(files);
     if (els.aiNoteFile) els.aiNoteFile.value = '';
+  });
+  els.cameraQuality?.addEventListener('change', persistCameraSettingsFromUi);
+  els.cameraFacing?.addEventListener('change', persistCameraSettingsFromUi);
+  els.cameraSaveSeg?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-camera-save]');
+    if (!btn) return;
+    els.cameraSaveSeg.querySelectorAll('[data-camera-save]').forEach((b) => {
+      b.classList.toggle('active', b === btn);
+    });
+    persistCameraSettingsFromUi();
   });
   els.geminiApiKey?.addEventListener('change', persistGeminiSettingsFromUi);
   els.geminiModel?.addEventListener('change', persistGeminiSettingsFromUi);
