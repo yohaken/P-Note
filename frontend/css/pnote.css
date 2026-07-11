@@ -700,13 +700,10 @@ body.filter-menu-open .filter-dd-backdrop {
 .note-card {
   width: 100%;
   text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  /* Density 0 → comfortable; 1 → minimal vertical padding */
-  padding:
-    calc(0.55rem - var(--card-density, 0) * 0.42rem)
-    calc(0.75rem - var(--card-density, 0) * 0.2rem);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
   color: inherit;
   cursor: pointer;
   touch-action: manipulation;
@@ -715,21 +712,134 @@ body.filter-menu-open .filter-dd-backdrop {
   -webkit-touch-callout: none;
 }
 
+.note-card-split {
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.28rem - var(--card-density, 0) * 0.12rem);
+}
+
+.card-split-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.35rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.card-col {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.card-col-tags {
+  flex: 0 0 auto;
+  width: clamp(3.6rem, 22vw, 5.4rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 0.18rem;
+  padding: calc(0.35rem - var(--card-density, 0) * 0.18rem) 0.35rem;
+}
+
+.card-col-tags.is-empty {
+  opacity: 0.55;
+}
+
+.card-tag-name {
+  display: block;
+  font-size: calc(0.68rem - var(--card-density, 0) * 0.06rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--tag, var(--text));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 0.35rem;
+  border-left: 3px solid var(--tag, var(--border));
+}
+
+.card-tag-name.is-muted {
+  border-left-color: var(--border);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.card-tag-more {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  padding-left: 0.35rem;
+}
+
+.card-col-body {
+  flex: 1 1 auto;
+  padding:
+    calc(0.42rem - var(--card-density, 0) * 0.28rem)
+    calc(0.55rem - var(--card-density, 0) * 0.12rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.card-col-due {
+  flex: 0 0 auto;
+  width: clamp(3.2rem, 18vw, 4.4rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.08rem;
+  padding: 0.28rem 0.2rem;
+  text-align: center;
+  border-color: color-mix(in srgb, var(--due, var(--border)) 55%, var(--border));
+  background: color-mix(in srgb, var(--due, var(--surface)) 16%, var(--surface));
+}
+
+.card-col-due.is-empty {
+  opacity: 0.35;
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.due-count {
+  font-size: calc(0.72rem - var(--card-density, 0) * 0.06rem);
+  font-weight: 750;
+  line-height: 1.15;
+  color: var(--due, var(--text));
+}
+
+.due-time {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--due, var(--text-muted)) 70%, var(--text-muted));
+  line-height: 1.1;
+}
+
+/* far → mid → near → today → overdue */
+.card-col-due.due-far { --due: #6b8f71; }
+.card-col-due.due-mid { --due: #c4a035; }
+.card-col-due.due-near { --due: #e0893a; }
+.card-col-due.due-today { --due: #e85d2c; }
+.card-col-due.due-overdue { --due: #e23b2e; }
+
 .note-card.is-longpress-armed {
   transform: scale(0.985);
   opacity: 0.92;
 }
 
-.note-card:active {
+.note-card:active .card-col {
   background: var(--surface-2);
 }
 
-/* Title + tags/priority/schedule on one horizontal row */
 .card-top-row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   min-width: 0;
 }
 
@@ -738,7 +848,7 @@ body.filter-menu-open .filter-dd-backdrop {
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
-  font-size: calc(0.95rem - var(--card-density, 0) * 0.12rem);
+  font-size: calc(0.92rem - var(--card-density, 0) * 0.12rem);
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
@@ -751,40 +861,35 @@ body.filter-menu-open .filter-dd-backdrop {
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.22rem;
   flex: 0 1 auto;
-  max-width: 58%;
+  max-width: 42%;
   min-width: 0;
   overflow: hidden;
 }
 
 .card-meta-row .tag-chip,
 .card-meta-row .priority-badge,
-.card-meta-row .schedule-badge {
+.card-meta-row .schedule-badge,
+.card-meta-row .card-recur {
   flex: 0 0 auto;
   white-space: nowrap;
 }
 
-.card-meta-row .schedule-badge {
-  font-size: 0.68rem;
-  padding: 0.12rem 0.4rem;
-}
-
 .card-meta-row .priority-badge {
-  font-size: 0.65rem;
-  padding: 0.12rem 0.4rem;
+  font-size: 0.62rem;
+  padding: 0.1rem 0.34rem;
 }
 
-.card-meta-row .tag-chip {
-  font-size: 0.65rem;
-  padding: 0.18rem 0.42rem;
-}
-
-/* Single-line content; omit element entirely when empty (no reserved space) */
-.note-card .card-preview {
-  margin: calc(0.28rem - var(--card-density, 0) * 0.18rem) 0 0;
+.card-recur {
+  font-size: 0.62rem;
   color: var(--text-muted);
-  font-size: calc(0.82rem - var(--card-density, 0) * 0.1rem);
+}
+
+.note-card .card-preview {
+  margin: calc(0.22rem - var(--card-density, 0) * 0.14rem) 0 0;
+  color: var(--text-muted);
+  font-size: calc(0.78rem - var(--card-density, 0) * 0.1rem);
   line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
@@ -813,6 +918,7 @@ body.filter-menu-open .filter-dd-backdrop {
 .notes-list.manual-sort .note-card {
   position: relative;
   padding-right: 4.5rem;
+  padding-left: 1.5rem;
   touch-action: pan-y;
 }
 
@@ -821,7 +927,7 @@ body.filter-menu-open .filter-dd-backdrop {
   top: 0;
   left: 0;
   bottom: 0;
-  width: 1.6rem;
+  width: 1.4rem;
   display: grid;
   place-items: center;
   color: var(--text-muted);
@@ -829,11 +935,6 @@ body.filter-menu-open .filter-dd-backdrop {
   opacity: 0.55;
   cursor: grab;
   touch-action: none;
-}
-
-.notes-list.manual-sort .card-top-row,
-.notes-list.manual-sort .card-preview {
-  padding-left: 1.7rem;
 }
 
 .card-actions {
@@ -866,7 +967,10 @@ body.filter-menu-open .filter-dd-backdrop {
 .note-card.reordering {
   z-index: 50;
   opacity: 0.95;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.note-card.reordering .card-col {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   background: var(--surface-2);
 }
 
@@ -1724,7 +1828,8 @@ body.light .priority-badge.priority-urgent {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin-top: 0.4rem;
+  margin-top: 0;
+  margin-left: calc(clamp(3.6rem, 22vw, 5.4rem) + 0.35rem);
   flex-wrap: wrap;
 }
 

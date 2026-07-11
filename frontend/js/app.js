@@ -1,5 +1,5 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=109';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=109';
+import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=110';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=110';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -38,13 +38,14 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=109';
+} from './notes.js?v=110';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
   filterNotesByRecurrence,
   fromDatetimeLocalValue,
   getScheduleStatus,
+  scheduleProximity,
   normalizeRecurrence,
   normalizeRecurrenceFilter,
   normalizeRemindBefore,
@@ -59,8 +60,8 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
   defaultDatetimeLocalValue,
-} from './schedule.js?v=109';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=109';
+} from './schedule.js?v=110';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=110';
 import {
   notificationPermission,
   notificationSupported,
@@ -69,19 +70,19 @@ import {
   sendTestNotification,
   syncNoteNotifications,
 } from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=109';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=110';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=109';
-import { createInAppCamera } from './camera.js?v=109';
+} from './files.js?v=110';
+import { createInAppCamera } from './camera.js?v=110';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=109';
+} from './user-context.js?v=110';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -89,7 +90,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=109';
+import { normalizeNotesData } from './notes.js?v=110';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -1514,6 +1515,51 @@ function scheduleBadgeHtml(note) {
   return `<span class="schedule-badge ${status}">${prefix}${escapeHtml(rel)} · ${escapeHtml(date)}</span>`;
 }
 
+/** Compact proximity cell for list row (right column). */
+function proximityCellHtml(note) {
+  if (state.listGroup !== NOTE_STATUS.ACTIVE || !note.scheduledAt) {
+    return `<div class="card-col card-col-due is-empty" aria-hidden="true"></div>`;
+  }
+  const prox = scheduleProximity(note.scheduledAt);
+  if (prox.level === 'none') {
+    return `<div class="card-col card-col-due is-empty" aria-hidden="true"></div>`;
+  }
+  const time = (() => {
+    try {
+      return new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(
+        new Date(note.scheduledAt),
+      );
+    } catch {
+      return '';
+    }
+  })();
+  return `
+    <div class="card-col card-col-due due-${escapeHtml(prox.level)}" title="${escapeHtml(relativeDayLabel(note.scheduledAt))}">
+      <span class="due-count">${escapeHtml(prox.label)}</span>
+      ${time ? `<span class="due-time">${escapeHtml(time)}</span>` : ''}
+    </div>
+  `;
+}
+
+function tagsCellHtml(tags) {
+  if (!tags.length) {
+    return `
+      <div class="card-col card-col-tags is-empty">
+        <span class="card-tag-name is-muted">—</span>
+      </div>
+    `;
+  }
+  const names = tags
+    .slice(0, 3)
+    .map(
+      (tag) =>
+        `<span class="card-tag-name" style="--tag:${safeTagColor(tag.color)}">${escapeHtml(tag.name)}</span>`,
+    )
+    .join('');
+  const more = tags.length > 3 ? `<span class="card-tag-more">+${tags.length - 3}</span>` : '';
+  return `<div class="card-col card-col-tags">${names}${more}</div>`;
+}
+
 function emptyMessageForGroup() {
   if (state.listGroup === NOTE_STATUS.DONE) return 'ยังไม่มีโน้ตที่ทำแล้ว';
   if (state.listGroup === NOTE_STATUS.TRASH) return 'ถังขยะว่าง';
@@ -1720,7 +1766,7 @@ function renderNotesList() {
 
   notes.forEach((note) => {
     const item = document.createElement('div');
-    item.className = 'note-card';
+    item.className = 'note-card note-card-split';
     item.dataset.noteId = note.id;
     item.setAttribute('role', 'button');
     item.tabIndex = 0;
@@ -1728,27 +1774,29 @@ function renderNotesList() {
     if (state.listGroup === NOTE_STATUS.TRASH) item.classList.add('trash-card');
 
     const tags = getTagsForNote(note, state.notesData.tags || []);
-    const tagSpans = tags
-      .map(
-        (tag) =>
-          `<span class="tag-chip" style="--tag:${safeTagColor(tag.color)}">${escapeHtml(tag.name)}</span>`,
-      )
-      .join('');
     const priorityHtml = priorityBadgeHtml(note);
-    const scheduleHtml = scheduleBadgeHtml(note);
-    const metaHtml = `${priorityHtml}${scheduleHtml}${tagSpans}`;
+    const recur = recurrenceLabel(note.recurrence, { short: true });
     const preview = previewText(note);
     const previewHtml = preview
       ? `<p class="card-preview">${escapeHtml(preview)}</p>`
       : '';
+    const bodyMeta = [priorityHtml, recur ? `<span class="card-recur">🔁 ${escapeHtml(recur)}</span>` : '']
+      .filter(Boolean)
+      .join('');
 
     item.innerHTML = `
       ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
-      <div class="card-top-row">
-        <h3 class="card-title">${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
-        ${metaHtml ? `<div class="card-meta-row">${metaHtml}</div>` : ''}
+      <div class="card-split-row">
+        ${tagsCellHtml(tags)}
+        <div class="card-col card-col-body">
+          <div class="card-top-row">
+            <h3 class="card-title">${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
+            ${bodyMeta ? `<div class="card-meta-row">${bodyMeta}</div>` : ''}
+          </div>
+          ${previewHtml}
+        </div>
+        ${proximityCellHtml(note)}
       </div>
-      ${previewHtml}
     `;
 
     appendCardAttachments(item, note);
