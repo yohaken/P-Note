@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="117">
-  <meta name="pnote-built" content="2026-07-11T16:35:56+07:00">
+  <meta name="pnote-build" content="118">
+  <meta name="pnote-built" content="2026-07-11T16:56:16+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=117"></script>
+  <script src="js/cache-bootstrap.js?v=118"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=117">
+  <link rel="stylesheet" href="css/pnote.css?v=118">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -823,28 +823,29 @@
     <div class="filter-dock-inner">
       <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรอง">
         <div class="filter-dd" data-filter="due">
-          <button type="button" class="filter-dd-btn" id="filter-due-btn" aria-haspopup="listbox" aria-expanded="false">📆 กำหนด</button>
-          <div class="filter-dd-menu" id="filter-due-menu" role="listbox" hidden></div>
+          <button type="button" class="filter-dd-btn" id="filter-due-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-due-menu">📆 กำหนด</button>
         </div>
         <div class="filter-dd" data-filter="sort">
-          <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false">📅 ล่าสุด</button>
-          <div class="filter-dd-menu" id="filter-sort-menu" role="listbox" hidden></div>
+          <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-sort-menu">📅 ล่าสุด</button>
         </div>
         <div class="filter-dd" data-filter="priority">
-          <button type="button" class="filter-dd-btn" id="filter-priority-btn" aria-haspopup="listbox" aria-expanded="false">⚠️ ความสำคัญ</button>
-          <div class="filter-dd-menu" id="filter-priority-menu" role="listbox" hidden></div>
+          <button type="button" class="filter-dd-btn" id="filter-priority-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-priority-menu">⚠️ ความสำคัญ</button>
         </div>
         <div class="filter-dd" data-filter="recurrence">
-          <button type="button" class="filter-dd-btn" id="filter-recurrence-btn" aria-haspopup="listbox" aria-expanded="false">🔁 การซ้ำ</button>
-          <div class="filter-dd-menu" id="filter-recurrence-menu" role="listbox" hidden></div>
+          <button type="button" class="filter-dd-btn" id="filter-recurrence-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-recurrence-menu">🔁 การซ้ำ</button>
         </div>
         <div class="filter-dd" data-filter="tag">
-          <button type="button" class="filter-dd-btn" id="filter-tag-btn" aria-haspopup="listbox" aria-expanded="false">🏷️ แท็ก</button>
-          <div class="filter-dd-menu filter-dd-menu-end" id="filter-tag-menu" role="listbox" hidden></div>
+          <button type="button" class="filter-dd-btn" id="filter-tag-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-tag-menu">🏷️ แท็ก</button>
         </div>
       </div>
     </div>
   </nav>
+  <!-- Menus live outside the overflow cluster so iOS Safari does not clip position:fixed dropdowns. -->
+  <div class="filter-dd-menu" id="filter-due-menu" role="listbox" hidden></div>
+  <div class="filter-dd-menu" id="filter-sort-menu" role="listbox" hidden></div>
+  <div class="filter-dd-menu" id="filter-priority-menu" role="listbox" hidden></div>
+  <div class="filter-dd-menu" id="filter-recurrence-menu" role="listbox" hidden></div>
+  <div class="filter-dd-menu filter-dd-menu-end" id="filter-tag-menu" role="listbox" hidden></div>
   <div id="filter-dd-backdrop" class="filter-dd-backdrop" hidden></div>
 
   <div class="fab-stack" id="fabStack" aria-label="ทางลัด">
@@ -865,8 +866,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=117"></script>
-  <script src="js/fab-drag.js?v=117"></script>
+  <script src="js/page-nav.js?v=118"></script>
+  <script src="js/fab-drag.js?v=118"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -876,7 +877,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=117"></script>
-  <script src="js/update-watch.js?v=117"></script>
+  <script type="module" src="js/app.js?v=118"></script>
+  <script src="js/update-watch.js?v=118"></script>
 </body>
 </html>
