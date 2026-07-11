@@ -111,7 +111,9 @@ export function initListSortable(listEl, { onTap, onReorder, isEnabled }) {
     } else {
       const dx = Math.abs(event.clientX - startX);
       const dy = Math.abs(event.clientY - startY);
-      if (dx < MOVE_CANCEL_PX && dy < MOVE_CANCEL_PX && tappedCard?.dataset.noteId) {
+      if (event.target.closest?.('.card-col-tags, .card-tag-name, .card-action')) {
+        /* tag filter / corner actions handle themselves */
+      } else if (dx < MOVE_CANCEL_PX && dy < MOVE_CANCEL_PX && tappedCard?.dataset.noteId) {
         onTap(tappedCard.dataset.noteId);
       }
     }

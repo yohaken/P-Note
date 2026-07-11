@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=119';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=119';
-import { initListSortable } from './sortable.js?v=119';
-import { bindComposableInput } from './text-input.js?v=119';
-import { CONFIG } from './config.js?v=119';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=119';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=120';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=120';
+import { initListSortable } from './sortable.js?v=120';
+import { bindComposableInput } from './text-input.js?v=120';
+import { CONFIG } from './config.js?v=120';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=120';
 import {
   addTag,
   countNotesByTag,
@@ -41,7 +41,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=119';
+} from './notes.js?v=120';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -76,8 +76,8 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
-} from './schedule.js?v=119';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=119';
+} from './schedule.js?v=120';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=120';
 import {
   notificationPermission,
   notificationSupported,
@@ -86,30 +86,30 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=119';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=119';
+} from './note-notify.js?v=120';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=120';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=119';
-import { createInAppCamera } from './camera.js?v=119';
+} from './files.js?v=120';
+import { createInAppCamera } from './camera.js?v=120';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=119';
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=119';
+} from './user-context.js?v=120';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=120';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=119';
-import { normalizeNotesData } from './notes.js?v=119';
-import { SaveManager } from './sync.js?v=119';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=119';
+} from './remote.js?v=120';
+import { normalizeNotesData } from './notes.js?v=120';
+import { SaveManager } from './sync.js?v=120';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=120';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -2067,20 +2067,55 @@ function proximityCellHtml(note) {
 function tagsCellHtml(tags) {
   if (!tags.length) {
     return `
-      <div class="card-col card-col-tags is-empty">
+      <div class="card-col card-col-tags is-empty" aria-hidden="true">
         <span class="card-tag-name is-muted">—</span>
       </div>
     `;
   }
   const names = tags
     .slice(0, 2)
-    .map(
-      (tag) =>
-        `<span class="card-tag-name" style="--tag:${safeTagColor(tag.color)}">${escapeHtml(tag.name)}</span>`,
-    )
+    .map((tag) => {
+      const active = state.tagFilterId === tag.id ? ' is-filter-active' : '';
+      return `<button type="button" class="card-tag-name${active}" data-tag-id="${escapeHtml(tag.id)}" style="--tag:${safeTagColor(tag.color)}" title="กรองแท็ก ${escapeHtml(tag.name)}">${escapeHtml(tag.name)}</button>`;
+    })
     .join('');
   const more = tags.length > 2 ? `<span class="card-tag-more">+${tags.length - 2}</span>` : '';
   return `<div class="card-col card-col-tags">${names}${more}</div>`;
+}
+
+/** Tap left tag column → filter list by that tag (tap again to clear). */
+function applyTagFilterFromCard(tagId) {
+  if (!tagId || state.selectionMode) return;
+  if (state.listGroup !== NOTE_STATUS.ACTIVE) return;
+  const tags = state.notesData?.tags || [];
+  const tag = tags.find((t) => t.id === tagId);
+  if (!tag) return;
+
+  if (state.tagFilterId === tagId) {
+    state.tagFilterId = null;
+    persistFilters();
+    renderNotesList();
+    setStatus('แท็ก · ทั้งหมด');
+    return;
+  }
+  state.tagFilterId = tagId;
+  persistFilters();
+  renderNotesList();
+  setStatus(`แท็ก · ${tag.name}`);
+}
+
+function initNotesListTagFilter() {
+  els.notesList?.addEventListener(
+    'click',
+    (event) => {
+      const btn = event.target.closest?.('.card-tag-name[data-tag-id]');
+      if (!btn || !els.notesList.contains(btn)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      applyTagFilterFromCard(btn.dataset.tagId);
+    },
+    true,
+  );
 }
 
 function emptyMessageForGroup() {
@@ -5061,6 +5096,7 @@ async function init() {
   initSwipeBack();
   initFilterDock();
   initSelectionDock();
+  initNotesListTagFilter();
   bootstrapData().then(async () => {
     if (getNotifyPrefs().enabled) {
       await registerNotifyServiceWorker();

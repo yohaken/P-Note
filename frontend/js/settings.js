@@ -3,7 +3,7 @@ import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=46';
 import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
-} from './schedule.js?v=119';
+} from './schedule.js?v=120';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,

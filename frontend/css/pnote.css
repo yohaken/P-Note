@@ -865,6 +865,12 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
 
 .card-tag-name {
   display: block;
+  width: 100%;
+  appearance: none;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
   font-size: calc(0.58rem - var(--card-density, 0) * 0.04rem);
   font-weight: 700;
   line-height: 1.15;
@@ -872,14 +878,24 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-left: 0.28rem;
+  padding: 0.12rem 0 0.12rem 0.28rem;
   border-left: 2px solid var(--tag, var(--border));
+  border-radius: 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-
+.card-tag-name:active {
+  opacity: 0.75;
+}
+.card-tag-name.is-filter-active {
+  background: color-mix(in srgb, var(--tag, var(--accent)) 18%, transparent);
+}
 .card-tag-name.is-muted {
   border-left-color: var(--border);
   color: var(--text-muted);
   font-weight: 600;
+  cursor: default;
+  pointer-events: none;
 }
 
 .card-tag-more {
