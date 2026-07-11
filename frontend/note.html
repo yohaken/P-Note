@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="88">
-  <meta name="pnote-built" content="2026-07-11T10:09:42+07:00">
+  <meta name="pnote-build" content="89">
+  <meta name="pnote-built" content="2026-07-11T10:35:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=88"></script>
+  <script src="js/cache-bootstrap.js?v=89"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=88">
+  <link rel="stylesheet" href="css/pnote.css?v=89">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -28,13 +28,16 @@
     .fab-stack {
       position: fixed;
       right: max(0.85rem, env(safe-area-inset-right, 0px));
-      bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+      bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
       z-index: 55;
       display: flex;
       flex-direction: column-reverse;
       align-items: center;
       gap: 0.5rem;
       touch-action: manipulation;
+    }
+    body:has(#filter-dock[hidden]) .fab-stack {
+      bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
     }
     .fab-stack.fab-dir-vertical {
       flex-direction: column-reverse;
@@ -79,12 +82,6 @@
     .fab-action.active {
       background: var(--accent, #0a84ff);
       color: #fff;
-    }
-    #add-note-btn.fab-action {
-      background: var(--accent, #0a84ff);
-      color: #fff;
-      font-size: 1.45rem;
-      line-height: 1;
     }
     .pages-menu-overlay {
       position: fixed;
@@ -164,8 +161,6 @@
         </div>
       </header>
 
-      <div id="bars-top" class="bars-zone" aria-label="แถบด้านบน"></div>
-
       <div class="list-scroll">
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
@@ -175,39 +170,6 @@
           </button>
         </div>
         <div id="notes-list" class="notes-list notes-first"></div>
-      </div>
-
-      <div id="bars-bottom" class="bars-zone bars-filters" aria-label="ตัวกรอง"></div>
-
-      <div id="movable-bars" hidden>
-        <div class="movable-bar" data-bar="sort" data-bar-name="กำหนดเวลา">
-          <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div class="bar-body">
-            <div id="sort-bar" class="sort-bar" aria-label="กำหนดเวลา">
-              <button id="sort-updated-btn" class="sort-chip active" type="button">ล่าสุด</button>
-              <button id="sort-schedule-btn" class="sort-chip" type="button">ตามกำหนด</button>
-              <button id="sort-manual-btn" class="sort-chip" type="button">อิสระ</button>
-            </div>
-          </div>
-        </div>
-        <div class="movable-bar" data-bar="priority" data-bar-name="ความสำคัญ">
-          <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div class="bar-body">
-            <div id="priority-filter-bar" class="priority-filter-bar" aria-label="ความสำคัญ"></div>
-          </div>
-        </div>
-        <div class="movable-bar" data-bar="recurrence" data-bar-name="ทำประจำ">
-          <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div class="bar-body">
-            <div id="recurrence-filter-bar" class="recurrence-filter-bar" aria-label="ทำประจำ"></div>
-          </div>
-        </div>
-        <div class="movable-bar" data-bar="tag" data-bar-name="แท็ก">
-          <span class="bar-grip" aria-hidden="true">⠿</span>
-          <div class="bar-body">
-            <div id="tag-filter-bar" class="tag-filter-bar" aria-label="แท็ก"></div>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -454,25 +416,12 @@
           <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
           <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
         </div>
-        <div class="settings-row">
-          <span class="settings-label">ความบางของแถบ (เลื่อนขวา = บางลง · สเกลกว้างขึ้น)</span>
-          <div class="thickness-row">
-            <span>กำหนดเวลา</span>
-            <input id="thickness-sort" type="range" min="0" max="100" value="0" step="1">
-          </div>
-          <div class="thickness-row">
-            <span>แท็ก</span>
-            <input id="thickness-tag" type="range" min="0" max="100" value="0" step="1">
-          </div>
-          <div class="thickness-row">
-            <span>ความสำคัญ</span>
-            <input id="thickness-priority" type="range" min="0" max="100" value="0" step="1">
-          </div>
-          <div class="thickness-row">
-            <span>ทำประจำ</span>
-            <input id="thickness-recurrence" type="range" min="0" max="100" value="0" step="1">
-          </div>
-          <button id="reset-bars-btn" class="btn btn-secondary" type="button">รีเซ็ตตำแหน่งแถบ</button>
+        <div class="settings-row" hidden>
+          <input id="thickness-sort" type="range" min="0" max="100" value="0" step="1" hidden>
+          <input id="thickness-tag" type="range" min="0" max="100" value="0" step="1" hidden>
+          <input id="thickness-priority" type="range" min="0" max="100" value="0" step="1" hidden>
+          <input id="thickness-recurrence" type="range" min="0" max="100" value="0" step="1" hidden>
+          <button id="reset-bars-btn" type="button" hidden>รีเซ็ตตำแหน่งแถบ</button>
         </div>
         <div class="settings-row" id="gemini-settings-row">
           <span class="settings-label">Gemini AI</span>
@@ -543,10 +492,37 @@
     </div>
   </div>
 
+  <nav id="filter-dock" class="filter-dock" aria-label="ตัวกรองและทางลัด">
+    <div class="filter-dock-inner">
+      <div class="filter-dock-filters" role="toolbar" aria-label="ตัวกรอง">
+        <div class="filter-dd" data-filter="sort">
+          <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false">📅 ล่าสุด</button>
+          <div class="filter-dd-menu" id="filter-sort-menu" role="listbox" hidden></div>
+        </div>
+        <div class="filter-dd" data-filter="priority">
+          <button type="button" class="filter-dd-btn" id="filter-priority-btn" aria-haspopup="listbox" aria-expanded="false">⚠️ ความสำคัญ</button>
+          <div class="filter-dd-menu" id="filter-priority-menu" role="listbox" hidden></div>
+        </div>
+        <div class="filter-dd" data-filter="recurrence">
+          <button type="button" class="filter-dd-btn" id="filter-recurrence-btn" aria-haspopup="listbox" aria-expanded="false">🔁 การซ้ำ</button>
+          <div class="filter-dd-menu" id="filter-recurrence-menu" role="listbox" hidden></div>
+        </div>
+        <div class="filter-dd" data-filter="tag">
+          <button type="button" class="filter-dd-btn" id="filter-tag-btn" aria-haspopup="listbox" aria-expanded="false">🏷️ แท็ก</button>
+          <div class="filter-dd-menu filter-dd-menu-end" id="filter-tag-menu" role="listbox" hidden></div>
+        </div>
+      </div>
+      <div class="filter-dock-actions">
+        <button type="button" class="filter-dock-action" id="dock-ai-btn" aria-label="สรุปด้วย AI" title="สรุปด้วย AI">🤖</button>
+        <button type="button" class="filter-dock-action filter-dock-add" id="add-note-btn" aria-label="เพิ่มงาน" title="เพิ่มงาน">➕</button>
+      </div>
+    </div>
+  </nav>
+  <div id="filter-dd-backdrop" class="filter-dd-backdrop" hidden></div>
+
   <div class="fab-stack" id="fabStack" aria-label="ทางลัด">
     <button type="button" class="fab-pages" id="fabPages" aria-label="แผ่นงาน" title="แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน">▦</button>
     <button type="button" class="fab-action" id="group-nav-btn" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน">☰</button>
-    <button type="button" class="fab-action" id="add-note-btn" aria-label="เพิ่มงาน" title="เพิ่มงาน">+</button>
   </div>
   <div class="pages-menu-overlay" id="pagesMenuOverlay" hidden>
     <div class="pages-menu" role="menu" aria-label="แผ่นงาน">
@@ -554,8 +530,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=88"></script>
-  <script src="js/fab-drag.js?v=88"></script>
+  <script src="js/page-nav.js?v=89"></script>
+  <script src="js/fab-drag.js?v=89"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -565,7 +541,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=88"></script>
-  <script src="js/update-watch.js?v=88"></script>
+  <script type="module" src="js/app.js?v=89"></script>
+  <script src="js/update-watch.js?v=89"></script>
 </body>
 </html>

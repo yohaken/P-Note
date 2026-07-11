@@ -502,8 +502,176 @@ body.bars-dragging .list-scroll {
   display: flex;
   flex-direction: column;
   gap: calc(0.4rem - var(--card-density, 0) * 0.32rem);
-  /* Clear sticky filter stack so last cards can scroll into view */
+  /* Clear fixed filter dock so last cards can scroll into view */
   padding: 0.5rem 0.75rem calc(0.75rem + var(--filters-dock-h, 0px));
+}
+
+/* Single-row multi-filter dock (fixed bottom) */
+.filter-dock {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 50;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.28);
+}
+.filter-dock[hidden] {
+  display: none !important;
+}
+.filter-dock-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.45rem 0.45rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.filter-dock-filters {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.filter-dock-filters::-webkit-scrollbar {
+  display: none;
+}
+.filter-dock-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+}
+.filter-dd {
+  position: relative;
+  flex: 0 0 auto;
+}
+.filter-dd-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+  max-width: 7.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.42rem 0.55rem;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-dd-btn.is-active,
+.filter-dd-btn[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent);
+}
+.filter-dd-btn:active {
+  opacity: 0.88;
+  transform: scale(0.98);
+}
+.filter-dd-menu {
+  position: fixed;
+  min-width: 11rem;
+  max-width: min(18rem, 78vw);
+  max-height: min(50vh, 22rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  padding: 0.3rem;
+  z-index: 70;
+}
+.filter-dd-menu-end {
+  /* alignment handled in JS via fixed coords */
+}
+.filter-dd-menu[hidden] {
+  display: none !important;
+}
+.filter-dd-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-dd-item:active {
+  background: var(--surface-2);
+}
+.filter-dd-item.is-selected {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  font-weight: 650;
+}
+.filter-dd-item-check {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+.filter-dd-sep {
+  height: 1px;
+  margin: 0.25rem 0.35rem;
+  background: var(--border);
+}
+.filter-dock-action {
+  appearance: none;
+  width: 2.55rem;
+  height: 2.55rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.22);
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-dock-action:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+.filter-dock-add {
+  background: var(--accent);
+  color: #fff;
+  font-size: 1.15rem;
+}
+.filter-dd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: transparent;
+}
+.filter-dd-backdrop[hidden] {
+  display: none !important;
 }
 
 .note-card {
