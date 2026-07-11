@@ -124,7 +124,7 @@ const els = {
   aiNoteFile: document.getElementById('ai-note-file'),
   aiNoteAttachList: document.getElementById('ai-note-attach-list'),
   noteAttachments: document.getElementById('note-attachments'),
-  aiNoteStatus: document.getElementById('ai-note-status'),
+  aiNoteStatus: null,
   aiNoteCancelBtn: document.getElementById('ai-note-cancel-btn'),
   aiNoteSummarizeBtn: document.getElementById('ai-note-summarize-btn'),
   aiNoteConfirmBtn: document.getElementById('ai-note-confirm-btn'),
@@ -1549,8 +1549,35 @@ let aiPendingMedia = [];
 /** @type {Array<{ name: string, isNew: boolean, on: boolean }>} */
 let aiTagDraft = [];
 
-function setAiNoteStatus(message) {
-  if (els.aiNoteStatus) els.aiNoteStatus.textContent = message || '';
+const AI_SUMMARIZE_LABEL = 'สรุปด้วย AI';
+let aiStatusResetTimer = null;
+
+/** Short status on the summarize button (no external status line). */
+function setAiNoteStatus(message, { kind = 'idle', restoreMs = 0 } = {}) {
+  const btn = els.aiNoteSummarizeBtn;
+  if (!btn) return;
+  if (aiStatusResetTimer) {
+    clearTimeout(aiStatusResetTimer);
+    aiStatusResetTimer = null;
+  }
+  btn.classList.remove('is-working', 'is-done', 'is-error');
+  if (!message || kind === 'idle') {
+    btn.textContent = AI_SUMMARIZE_LABEL;
+    return;
+  }
+  const short = String(message).length > 16 ? `${String(message).slice(0, 15)}…` : String(message);
+  btn.textContent = short;
+  if (kind === 'working') btn.classList.add('is-working');
+  else if (kind === 'done') btn.classList.add('is-done');
+  else if (kind === 'error') btn.classList.add('is-error');
+  if (restoreMs > 0) {
+    aiStatusResetTimer = setTimeout(() => {
+      if (aiNoteBusy) return;
+      btn.textContent = AI_SUMMARIZE_LABEL;
+      btn.classList.remove('is-working', 'is-done', 'is-error');
+      aiStatusResetTimer = null;
+    }, restoreMs);
+  }
 }
 
 function seedExistingTagChips() {
@@ -1622,7 +1649,10 @@ function renderAiAttachList() {
     rm.addEventListener('click', () => {
       aiPendingMedia.splice(index, 1);
       renderAiAttachList();
-      setAiNoteStatus(aiPendingMedia.length ? `แนบแล้ว ${aiPendingMedia.length} รายการ` : '');
+      setAiNoteStatus(
+        aiPendingMedia.length ? `แนบ ${aiPendingMedia.length}` : '',
+        { kind: aiPendingMedia.length ? 'done' : 'idle', restoreMs: 1600 },
+      );
     });
     row.appendChild(rm);
     wrap.appendChild(row);
@@ -1641,7 +1671,8 @@ function renderAiTagChips() {
     btn.type = 'button';
     btn.className = `ai-note-tag-chip${item.on ? ' is-on' : ''}${item.isNew ? ' is-new' : ''}`;
     btn.textContent = item.name;
-    btn.style.setProperty('--tag', safeTagColor(existing?.color));
+    if (item.on) btn.style.setProperty('--tag', safeTagColor(existing?.color));
+    else btn.style.removeProperty('--tag');
     btn.addEventListener('click', () => {
       aiTagDraft[index].on = !aiTagDraft[index].on;
       renderAiTagChips();
@@ -1765,10 +1796,10 @@ function closeAiNoteModal() {
 async function addAiMediaFiles(fileList) {
   const files = Array.from(fileList || []).filter(Boolean);
   if (!files.length) return;
-  setAiNoteStatus('กำลังเตรียมไฟล์…');
+  setAiNoteStatus('เตรียมไฟล์…', { kind: 'working' });
   for (const file of files) {
     if (aiPendingMedia.length >= 6) {
-      setAiNoteStatus('แนบได้สูงสุด 6 ไฟล์');
+      setAiNoteStatus('แนบได้สูงสุด 6', { kind: 'error', restoreMs: 2200 });
       break;
     }
     try {
@@ -1776,16 +1807,17 @@ async function addAiMediaFiles(fileList) {
       aiPendingMedia.push(prepared);
     } catch (err) {
       const code = err?.code || '';
-      if (code === 'too_large') setAiNoteStatus(`ไฟล์ใหญ่เกิน · ${file.name || ''}`);
-      else setAiNoteStatus(`ใช้ไฟล์นี้ไม่ได้ · ${file.name || ''}`);
+      if (code === 'too_large') setAiNoteStatus('ไฟล์ใหญ่เกิน', { kind: 'error', restoreMs: 2200 });
+      else setAiNoteStatus('ใช้ไฟล์ไม่ได้', { kind: 'error', restoreMs: 2200 });
       console.warn('ai media failed', err);
     }
   }
   renderAiAttachList();
   if (aiPendingMedia.length) {
-    const full = aiPendingMedia.filter((m) => m.attachment.fullRes !== false).length;
+    const full = aiPendingMedia.some((m) => m.attachment?.fullRes);
     setAiNoteStatus(
-      `แนบแล้ว ${aiPendingMedia.length} · กดสรุปได้${full ? ' · เก็บความละเอียดเต็ม' : ''}`,
+      full ? `แนบ ${aiPendingMedia.length} · เต็ม` : `แนบ ${aiPendingMedia.length}`,
+      { kind: 'done', restoreMs: 2000 },
     );
   }
 }
@@ -1797,12 +1829,12 @@ async function runAiSummarize() {
   const summaryHint = String(els.aiNoteDraftSummary?.value || '').trim();
   const combined = [source, titleHint, summaryHint].filter(Boolean).join('\n');
   if (!combined && !aiPendingMedia.length) {
-    setAiNoteStatus('ใส่ข้อความ ถ่ายรูป หรือแนบไฟล์ก่อนสรุป');
+    setAiNoteStatus('ใส่ข้อความก่อน', { kind: 'error', restoreMs: 2200 });
     return;
   }
   const apiKey = String(state.settings.geminiApiKey || '').trim();
   if (!apiKey) {
-    setAiNoteStatus('ตั้งค่า Gemini API key ก่อน');
+    setAiNoteStatus('ตั้งค่า API key', { kind: 'error', restoreMs: 2400 });
     openSettings();
     els.geminiApiKey?.focus();
     return;
@@ -1810,7 +1842,7 @@ async function runAiSummarize() {
   aiNoteBusy = true;
   if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = true;
   const aiImages = aiPendingMedia.map((m) => m.aiPart).filter(Boolean);
-  setAiNoteStatus(aiImages.length ? 'กำลังอ่านไฟล์และสรุป…' : 'กำลังสรุป…');
+  setAiNoteStatus(aiImages.length ? 'กำลังอ่าน…' : 'กำลังสรุป…', { kind: 'working' });
   try {
     const ctx = refreshUserContext(state.notesData);
     let draft = await summarizeToNoteDraft(apiKey, combined || source, {
@@ -1826,21 +1858,16 @@ async function runAiSummarize() {
       `${combined}\n${draft.title || ''}\n${draft.summary || ''}`,
     );
     applyAiDraftToForm(draft);
-    const bits = [];
-    if (aiPendingMedia.length) bits.push(`แนบ ${aiPendingMedia.length}`);
-    if (draft.tags?.length) bits.push(`แท็ก ${draft.tags.join(', ')}`);
-    if (draft.scheduledAt) bits.push('มีกำหนด');
-    if (draft.priority && draft.priority !== 'normal') bits.push(priorityLabel(draft.priority));
-    setAiNoteStatus(bits.length ? `สรุปแล้ว · ${bits.join(' · ')} · แก้ได้แล้วกดสร้าง` : 'สรุปแล้ว · แก้ได้แล้วกดสร้าง');
+    setAiNoteStatus('สรุปแล้ว', { kind: 'done', restoreMs: 2600 });
     els.aiNoteDraftTitle?.focus();
   } catch (err) {
     const code = err?.code || '';
-    if (code === 'missing_api_key') setAiNoteStatus('ยังไม่มี API key');
-    else if (code === 'empty_input') setAiNoteStatus('ใส่ข้อความหรือแนบไฟล์ก่อน');
-    else if (code === 'too_long') setAiNoteStatus('ข้อความยาวเกินไป');
-    else if (code === 'bad_key') setAiNoteStatus('API key ไม่ถูกต้องหรือถูกจำกัด');
-    else if (code === 'network') setAiNoteStatus('เชื่อมต่อ Gemini ไม่ได้');
-    else setAiNoteStatus(err?.message ? String(err.message).slice(0, 120) : 'สรุปไม่สำเร็จ');
+    if (code === 'missing_api_key') setAiNoteStatus('ยังไม่มี API key', { kind: 'error', restoreMs: 2600 });
+    else if (code === 'empty_input') setAiNoteStatus('ใส่ข้อความก่อน', { kind: 'error', restoreMs: 2200 });
+    else if (code === 'too_long') setAiNoteStatus('ข้อความยาวเกิน', { kind: 'error', restoreMs: 2200 });
+    else if (code === 'bad_key') setAiNoteStatus('API key ไม่ถูก', { kind: 'error', restoreMs: 2600 });
+    else if (code === 'network') setAiNoteStatus('เชื่อมต่อไม่ได้', { kind: 'error', restoreMs: 2600 });
+    else setAiNoteStatus('สรุปไม่สำเร็จ', { kind: 'error', restoreMs: 2600 });
   } finally {
     aiNoteBusy = false;
     if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = false;
@@ -1864,7 +1891,7 @@ async function confirmAiNoteDraft() {
     }),
   );
   if (!title && !content && !attachments.length) {
-    setAiNoteStatus('ใส่หัวข้อ รายละเอียด หรือไฟล์แนบอย่างน้อยอย่างหนึ่ง');
+    setAiNoteStatus('ใส่หัวข้อก่อน', { kind: 'error', restoreMs: 2200 });
     return;
   }
 

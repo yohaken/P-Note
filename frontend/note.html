@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="91">
-  <meta name="pnote-built" content="2026-07-11T11:35:00+07:00">
+  <meta name="pnote-build" content="92">
+  <meta name="pnote-built" content="2026-07-11T11:50:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=91"></script>
+  <script src="js/cache-bootstrap.js?v=92"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=91">
+  <link rel="stylesheet" href="css/pnote.css?v=92">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -264,7 +264,7 @@
       <div class="modal-card modal-card-ai" role="dialog" aria-labelledby="ai-note-title">
         <header class="ai-note-head">
           <h2 id="ai-note-title">เพิ่มงานด้วย AI</h2>
-          <p id="ai-note-lead" class="ai-note-lead">กรอกเอง หรือวางข้อความ/แนบไฟล์ แล้วกดสรุปด้วย AI — จบในหน้านี้</p>
+          <p id="ai-note-lead" class="ai-note-lead">กรอกเอง หรือวางข้อความ/แนบไฟล์ แล้วกดสรุปด้วย AI</p>
         </header>
 
         <div class="ai-note-step">
@@ -287,37 +287,38 @@
             <div id="ai-note-tag-chips" class="ai-note-tag-chips" aria-label="แท็ก"></div>
           </div>
 
-          <div class="ai-note-meta-row">
-            <label class="ai-note-meta-field" for="ai-note-draft-schedule">
-              <span>กำหนด</span>
+          <div class="ai-note-fields">
+            <label class="ai-note-field ai-note-field-full" for="ai-note-draft-schedule">
+              <span>กำหนดเวลา</span>
               <input id="ai-note-draft-schedule" class="ai-note-schedule" type="datetime-local">
             </label>
-            <label class="ai-note-meta-field" for="ai-note-draft-priority">
-              <span>สำคัญ</span>
-              <select id="ai-note-draft-priority" class="ai-note-select">
-                <option value="normal">ทั่วไป</option>
-                <option value="important">สำคัญ</option>
-                <option value="urgent">เร่งด่วน</option>
-                <option value="critical">สำคัญ+ด่วน</option>
-              </select>
-            </label>
+            <div class="ai-note-fields-row">
+              <label class="ai-note-field" for="ai-note-draft-priority">
+                <span>ความสำคัญ</span>
+                <select id="ai-note-draft-priority" class="ai-note-select">
+                  <option value="normal">ทั่วไป</option>
+                  <option value="important">สำคัญ</option>
+                  <option value="urgent">เร่งด่วน</option>
+                  <option value="critical">สำคัญ+ด่วน</option>
+                </select>
+              </label>
+              <label class="ai-note-field" for="ai-note-draft-recurrence">
+                <span>ทำซ้ำ</span>
+                <select id="ai-note-draft-recurrence" class="ai-note-select">
+                  <option value="">ไม่ซ้ำ</option>
+                  <option value="daily">ทุกวัน</option>
+                  <option value="weekly">ทุกสัปดาห์</option>
+                  <option value="monthly">ทุกเดือน</option>
+                  <option value="yearly">ทุกปี</option>
+                </select>
+              </label>
+            </div>
           </div>
-          <label class="ai-note-meta-field ai-note-recurrence-field" for="ai-note-draft-recurrence">
-            <span>ทำซ้ำ</span>
-            <select id="ai-note-draft-recurrence" class="ai-note-select">
-              <option value="">ไม่ซ้ำ</option>
-              <option value="daily">ทุกวัน</option>
-              <option value="weekly">ทุกสัปดาห์</option>
-              <option value="monthly">ทุกเดือน</option>
-              <option value="yearly">ทุกปี</option>
-            </select>
-          </label>
         </div>
 
-        <p class="settings-hint ai-note-status" id="ai-note-status" aria-live="polite"></p>
         <div class="modal-actions ai-note-actions">
           <button id="ai-note-cancel-btn" class="btn btn-secondary" type="button">ยกเลิก</button>
-          <button id="ai-note-summarize-btn" class="btn btn-secondary" type="button">สรุปด้วย AI</button>
+          <button id="ai-note-summarize-btn" class="btn btn-secondary ai-note-summarize-btn" type="button" aria-live="polite">สรุปด้วย AI</button>
           <button id="ai-note-confirm-btn" class="btn btn-primary" type="button">สร้าง</button>
         </div>
       </div>
@@ -535,8 +536,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=91"></script>
-  <script src="js/fab-drag.js?v=91"></script>
+  <script src="js/page-nav.js?v=92"></script>
+  <script src="js/fab-drag.js?v=92"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -546,7 +547,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=91"></script>
-  <script src="js/update-watch.js?v=91"></script>
+  <script type="module" src="js/app.js?v=92"></script>
+  <script src="js/update-watch.js?v=92"></script>
 </body>
 </html>
