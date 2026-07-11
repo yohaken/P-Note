@@ -254,17 +254,55 @@ export function noteHasContent(note) {
 export function normalizeAttachments(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter((a) => a && typeof a === 'object' && a.data && a.mimeType)
-    .map((a) => ({
-      id: String(a.id || crypto.randomUUID()),
-      name: String(a.name || 'ไฟล์').slice(0, 120),
-      mimeType: String(a.mimeType || 'application/octet-stream').slice(0, 120),
-      data: String(a.data),
-      size: Number.isFinite(a.size) ? a.size : Math.ceil((String(a.data).length * 3) / 4),
-      kind: a.mimeType && String(a.mimeType).startsWith('image/') ? 'image' : 'file',
-      fullRes: a.fullRes !== false,
-    }))
+    .filter(
+      (a) =>
+        a &&
+        typeof a === 'object' &&
+        a.mimeType &&
+        (a.data || a.storagePath || a.previewUrl),
+    )
+    .map((a) => {
+      const mimeType = String(a.mimeType || 'application/octet-stream').slice(0, 120);
+      const data = a.data ? String(a.data) : '';
+      const storagePath = a.storagePath ? String(a.storagePath) : '';
+      const size = Number.isFinite(a.size)
+        ? a.size
+        : data
+          ? Math.ceil((data.length * 3) / 4)
+          : 0;
+      return {
+        id: String(a.id || crypto.randomUUID()),
+        name: String(a.name || 'ไฟล์').slice(0, 120),
+        mimeType,
+        ...(data ? { data } : {}),
+        ...(storagePath ? { storagePath } : {}),
+        ...(a.previewUrl ? { previewUrl: String(a.previewUrl) } : {}),
+        size,
+        kind:
+          a.kind === 'image' || mimeType.startsWith('image/') ? 'image' : 'file',
+        fullRes: a.fullRes !== false,
+      };
+    })
     .slice(0, 8);
+}
+
+/** Persist shape: prefer cloud path; keep base64 only when no storagePath. */
+export function attachmentsForPersist(raw) {
+  return normalizeAttachments(raw)
+    .map((a) => {
+      const base = {
+        id: a.id,
+        name: a.name,
+        mimeType: a.mimeType,
+        size: a.size,
+        kind: a.kind,
+        fullRes: a.fullRes !== false,
+      };
+      if (a.storagePath) return { ...base, storagePath: a.storagePath };
+      if (a.data) return { ...base, data: a.data };
+      return null;
+    })
+    .filter(Boolean);
 }
 
 export function formatDate(iso) {
@@ -329,7 +367,7 @@ export function normalizeNotesData(data) {
         )
           ? note.notifyRepeat
           : 'none',
-        attachments: normalizeAttachments(note.attachments),
+        attachments: attachmentsForPersist(note.attachments),
         priority: Object.values(NOTE_PRIORITY).includes(note.priority)
           ? note.priority
           : NOTE_PRIORITY.NORMAL,

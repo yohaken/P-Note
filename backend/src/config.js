@@ -19,6 +19,8 @@ export const config = {
     .map((origin) => origin.trim())
     .filter(Boolean),
   gcpProjectId: process.env.GCP_PROJECT_ID || 'mypeer-501909',
+  /** GCS bucket for full-size note attachments (empty = disabled, base64 fallback). */
+  filesBucket: String(process.env.FILES_BUCKET || 'mypeer-501909-pnote-files').trim(),
 };
 
 export function isAllowedOrigin(origin) {

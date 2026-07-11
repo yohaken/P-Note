@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=105';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=106';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -23,6 +23,7 @@ import {
   NOTE_STATUS,
   notePriority,
   normalizeAttachments,
+  attachmentsForPersist,
   previewText,
   PRIORITY_OPTIONS,
   priorityLabel,
@@ -37,7 +38,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=105';
+} from './notes.js?v=106';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -58,7 +59,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=105';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=106';
 import {
   notificationPermission,
   notificationSupported,
@@ -67,13 +68,18 @@ import {
   sendTestNotification,
   syncNoteNotifications,
 } from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=105';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=106';
+import {
+  uploadFileToCloud,
+  getDownloadUrl,
+  deleteCloudFile,
+} from './files.js?v=106';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=105';
+} from './user-context.js?v=106';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -81,7 +87,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=105';
+import { normalizeNotesData } from './notes.js?v=106';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -1803,8 +1809,116 @@ let aiFormMode = 'create';
 let aiEditNoteId = null;
 /** @type {ReturnType<typeof captureAiFormSnapshot>|null} */
 let aiEditBaseline = null;
-/** @type {Array<{ attachment: object, aiPart: object|null }>} */
+/** @type {Array<{ attachment: object, aiPart: object|null, sourceFile?: File|Blob|null, uploadState?: string, uploadProgress?: number }>} */
 let aiPendingMedia = [];
+
+const attachUrlCache = new Map(); // storagePath -> object/https url
+
+function attachmentDataUrl(a) {
+  if (!a?.data) return '';
+  return `data:${a.mimeType};base64,${a.data}`;
+}
+
+function attachmentToBlob(a) {
+  const bin = atob(String(a.data || ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: a.mimeType || 'application/octet-stream' });
+}
+
+/** Resolve a display/download URL: preview → base64 → GCS signed URL. */
+async function resolveAttachmentUrl(a) {
+  if (!a) return '';
+  if (a.previewUrl) return a.previewUrl;
+  if (a.data) return attachmentDataUrl(a);
+  const path = a.storagePath;
+  if (!path) return '';
+  const cached = attachUrlCache.get(path);
+  if (cached) return cached;
+  try {
+    const url = await getDownloadUrl(path);
+    attachUrlCache.set(path, url);
+    return url;
+  } catch (err) {
+    console.warn('attachment url failed', err);
+    return '';
+  }
+}
+
+function setAiMediaUpload(index, patch) {
+  const item = aiPendingMedia[index];
+  if (!item) return;
+  aiPendingMedia[index] = { ...item, ...patch };
+  if (patch.attachment) {
+    aiPendingMedia[index].attachment = { ...item.attachment, ...patch.attachment };
+  }
+  renderAiAttachList();
+}
+
+async function startCloudUpload(index) {
+  const item = aiPendingMedia[index];
+  if (!item?.sourceFile || !item.attachment) return;
+  if (item.uploadState === 'uploading' || item.uploadState === 'done') return;
+  setAiMediaUpload(index, { uploadState: 'uploading', uploadProgress: 0 });
+  try {
+    const result = await uploadFileToCloud(item.sourceFile, {
+      fileId: item.attachment.id,
+      name: item.attachment.name,
+      onProgress: (pct) => {
+        const cur = aiPendingMedia[index];
+        if (!cur || cur.uploadState !== 'uploading') return;
+        aiPendingMedia[index] = { ...cur, uploadProgress: pct };
+        const id = item.attachment.id;
+        document.querySelectorAll('.ai-note-attach-shell').forEach((shell) => {
+          if (shell.dataset.attachId !== id) return;
+          const sub = shell.querySelector('.ai-note-attach-sub');
+          const bar = shell.querySelector('.ai-note-upload-bar-fill');
+          if (sub) sub.textContent = `กำลังอัปโหลด… ${pct}%`;
+          if (bar) bar.style.width = `${pct}%`;
+        });
+      },
+    });
+    const cur = aiPendingMedia[index];
+    if (!cur) return;
+    aiPendingMedia[index] = {
+      ...cur,
+      uploadState: 'done',
+      uploadProgress: 100,
+      sourceFile: null,
+      attachment: {
+        ...cur.attachment,
+        storagePath: result.storagePath,
+        name: result.name || cur.attachment.name,
+        mimeType: result.mimeType || cur.attachment.mimeType,
+        size: result.size || cur.attachment.size,
+        fullRes: true,
+      },
+    };
+    renderAiAttachList();
+  } catch (err) {
+    console.warn('cloud upload failed — keeping local fallback', err);
+    const cur = aiPendingMedia[index];
+    if (!cur) return;
+    if (cur.attachment?.needsCloud && !cur.attachment?.data) {
+      aiPendingMedia[index] = { ...cur, uploadState: 'error', uploadProgress: 0 };
+      setAiNoteStatus('อัปโหลดไม่สำเร็จ', { kind: 'error', restoreMs: 2400 });
+    } else {
+      aiPendingMedia[index] = { ...cur, uploadState: 'fallback', uploadProgress: 0 };
+    }
+    renderAiAttachList();
+  }
+}
+
+async function waitForPendingUploads() {
+  const pending = aiPendingMedia.filter((m) => m.uploadState === 'uploading');
+  if (!pending.length) return;
+  setAiNoteStatus('รออัปโหลดไฟล์…', { kind: 'working' });
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) {
+    if (!aiPendingMedia.some((m) => m.uploadState === 'uploading')) return;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+}
 /** @type {Array<{ name: string, isNew: boolean, on: boolean }>} */
 let aiTagDraft = [];
 
@@ -2118,25 +2232,24 @@ function formatBytes(n) {
 }
 
 function clearAiPendingMedia() {
+  aiPendingMedia.forEach((m) => {
+    const url = m?.attachment?.previewUrl;
+    if (url && String(url).startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore */
+      }
+    }
+  });
   aiPendingMedia = [];
   if (els.aiNoteCamera) els.aiNoteCamera.value = '';
   if (els.aiNoteFile) els.aiNoteFile.value = '';
   renderAiAttachList();
 }
 
-/** @type {{ list: object[], index: number, blobUrl: string|null }} */
-let attachViewerState = { list: [], index: 0, blobUrl: null };
-
-function attachmentDataUrl(a) {
-  return `data:${a.mimeType};base64,${a.data}`;
-}
-
-function attachmentToBlob(a) {
-  const bin = atob(String(a.data || ''));
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-  return new Blob([bytes], { type: a.mimeType || 'application/octet-stream' });
-}
+/** @type {{ list: object[], index: number, blobUrl: string|null, gen: number }} */
+let attachViewerState = { list: [], index: 0, blobUrl: null, gen: 0 };
 
 function revokeAttachViewerBlob() {
   if (attachViewerState.blobUrl) {
@@ -2165,7 +2278,7 @@ function canInlinePreview(a) {
   return null;
 }
 
-function renderAttachViewerContent() {
+async function renderAttachViewerContent() {
   const wrap = els.attachViewerBody;
   if (!wrap) return;
   revokeAttachViewerBlob();
@@ -2173,16 +2286,44 @@ function renderAttachViewerContent() {
   const list = attachViewerState.list;
   const a = list[attachViewerState.index];
   if (!a) return;
-
-  const blob = attachmentToBlob(a);
-  const url = URL.createObjectURL(blob);
-  attachViewerState.blobUrl = url;
+  const gen = ++attachViewerState.gen;
 
   if (els.attachViewerTitle) els.attachViewerTitle.textContent = a.name || 'เอกสาร';
   if (els.attachViewerSub) {
     els.attachViewerSub.textContent = [
       fileKindLabel(a),
       formatBytes(a.size),
+      list.length > 1 ? `${attachViewerState.index + 1}/${list.length}` : '',
+      'กำลังโหลด…',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  let url = '';
+  try {
+    if (a.data) {
+      const blob = attachmentToBlob(a);
+      url = URL.createObjectURL(blob);
+      attachViewerState.blobUrl = url;
+    } else {
+      url = await resolveAttachmentUrl(a);
+    }
+  } catch (err) {
+    console.warn('viewer resolve failed', err);
+  }
+  if (gen !== attachViewerState.gen) return;
+
+  if (!url) {
+    wrap.innerHTML = '<p class="attach-viewer-fallback">โหลดไฟล์ไม่สำเร็จ</p>';
+    return;
+  }
+
+  if (els.attachViewerSub) {
+    els.attachViewerSub.textContent = [
+      fileKindLabel(a),
+      formatBytes(a.size),
+      a.storagePath ? 'เต็ม' : '',
       list.length > 1 ? `${attachViewerState.index + 1}/${list.length}` : '',
     ]
       .filter(Boolean)
@@ -2221,13 +2362,27 @@ function renderAttachViewerContent() {
   if (mode === 'text') {
     const pre = document.createElement('pre');
     pre.className = 'attach-viewer-text';
-    try {
-      const bin = atob(String(a.data || ''));
-      let text = '';
-      for (let i = 0; i < bin.length; i += 1) text += bin[i];
-      pre.textContent = text.slice(0, 200000) || '(ว่าง)';
-    } catch {
-      pre.textContent = '(อ่านข้อความไม่สำเร็จ — ลองดาวน์โหลด)';
+    if (a.data) {
+      try {
+        const bin = atob(String(a.data || ''));
+        let text = '';
+        for (let i = 0; i < bin.length; i += 1) text += bin[i];
+        pre.textContent = text.slice(0, 200000) || '(ว่าง)';
+      } catch {
+        pre.textContent = '(อ่านข้อความไม่สำเร็จ — ลองดาวน์โหลด)';
+      }
+    } else {
+      pre.textContent = 'กำลังโหลดข้อความ…';
+      fetch(url)
+        .then((r) => r.text())
+        .then((t) => {
+          if (gen !== attachViewerState.gen) return;
+          pre.textContent = String(t).slice(0, 200000) || '(ว่าง)';
+        })
+        .catch(() => {
+          if (gen !== attachViewerState.gen) return;
+          pre.textContent = '(อ่านข้อความไม่สำเร็จ — ลองดาวน์โหลด)';
+        });
     }
     wrap.appendChild(pre);
     return;
@@ -2244,6 +2399,8 @@ function renderAttachViewerContent() {
   openBtn.className = 'btn btn-primary';
   openBtn.href = url;
   openBtn.download = a.name || 'file';
+  openBtn.target = '_blank';
+  openBtn.rel = 'noopener';
   openBtn.textContent = 'ดาวน์โหลด / เปิดไฟล์';
   box.appendChild(openBtn);
   wrap.appendChild(box);
@@ -2263,7 +2420,7 @@ function closeAttachViewer() {
   els.attachViewer.hidden = true;
   if (els.attachViewerBody) els.attachViewerBody.innerHTML = '';
   revokeAttachViewerBlob();
-  attachViewerState = { list: [], index: 0, blobUrl: null };
+  attachViewerState = { list: [], index: 0, blobUrl: null, gen: attachViewerState.gen + 1 };
 }
 
 function stepAttachViewer(delta) {
@@ -2299,6 +2456,12 @@ function renderAiAttachList() {
   const list = aiPendingMedia.map((m) => m.attachment).filter(Boolean);
   aiPendingMedia.forEach((item, index) => {
     const a = item.attachment;
+    const uploading = item.uploadState === 'uploading';
+    const shell = document.createElement('div');
+    shell.className = 'ai-note-attach-shell';
+    shell.dataset.attachId = a.id || '';
+    if (uploading) shell.classList.add('is-uploading');
+
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'ai-note-attach-item';
@@ -2308,6 +2471,14 @@ function renderAiAttachList() {
       img.alt = '';
       img.src = a.previewUrl || attachmentDataUrl(a);
       row.appendChild(img);
+    } else if (a.kind === 'image' && a.storagePath) {
+      const img = document.createElement('img');
+      img.alt = '';
+      img.src = '';
+      row.appendChild(img);
+      resolveAttachmentUrl(a).then((url) => {
+        if (url) img.src = url;
+      });
     } else {
       const icon = document.createElement('span');
       icon.className = 'ai-note-attach-file-icon';
@@ -2321,10 +2492,25 @@ function renderAiAttachList() {
     name.textContent = a.name || 'ไฟล์';
     const sub = document.createElement('span');
     sub.className = 'ai-note-attach-sub';
-    const bits = [fileKindLabel(a), formatBytes(a.size), 'แตะเพื่อดู'];
-    if (a.kind === 'image' && a.fullRes) bits.splice(2, 0, 'เต็ม');
+    let statusBit = 'แตะเพื่อดู';
+    if (uploading) statusBit = `กำลังอัปโหลด… ${item.uploadProgress || 0}%`;
+    else if (item.uploadState === 'done' || a.storagePath) statusBit = 'อัปโหลดแล้ว · เต็ม';
+    else if (item.uploadState === 'fallback') statusBit = 'เก็บในเครื่อง';
+    else if (item.uploadState === 'error') statusBit = 'อัปโหลดไม่สำเร็จ';
+    else if (a.kind === 'image' && a.fullRes) statusBit = 'เต็ม · แตะเพื่อดู';
+    const bits = [fileKindLabel(a), formatBytes(a.size), statusBit];
     sub.textContent = bits.join(' · ');
     meta.append(name, sub);
+    if (uploading) {
+      const bar = document.createElement('div');
+      bar.className = 'ai-note-upload-bar';
+      bar.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('div');
+      fill.className = 'ai-note-upload-bar-fill';
+      fill.style.width = `${item.uploadProgress || 0}%`;
+      bar.appendChild(fill);
+      meta.appendChild(bar);
+    }
     row.appendChild(meta);
     const chev = document.createElement('span');
     chev.className = 'ai-note-attach-open';
@@ -2339,6 +2525,17 @@ function renderAiAttachList() {
     rm.textContent = '×';
     rm.addEventListener('click', (e) => {
       e.stopPropagation();
+      const removed = aiPendingMedia[index];
+      if (removed?.attachment?.storagePath) {
+        deleteCloudFile(removed.attachment.storagePath).catch(() => {});
+      }
+      if (removed?.attachment?.previewUrl?.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(removed.attachment.previewUrl);
+        } catch {
+          /* ignore */
+        }
+      }
       aiPendingMedia.splice(index, 1);
       renderAiAttachList();
       setAiNoteStatus(
@@ -2346,9 +2543,6 @@ function renderAiAttachList() {
         { kind: aiPendingMedia.length ? 'done' : 'idle', restoreMs: 1600 },
       );
     });
-    // Wrap row+remove in a container so remove isn't nested oddly
-    const shell = document.createElement('div');
-    shell.className = 'ai-note-attach-shell';
     shell.append(row, rm);
     wrap.appendChild(shell);
   });
@@ -2371,7 +2565,14 @@ function appendCardAttachments(item, note) {
       const img = document.createElement('img');
       img.alt = '';
       img.loading = 'lazy';
-      img.src = attachmentDataUrl(a);
+      if (a.previewUrl || a.data) {
+        img.src = a.previewUrl || attachmentDataUrl(a);
+      } else if (a.storagePath) {
+        img.src = '';
+        resolveAttachmentUrl(a).then((url) => {
+          if (url) img.src = url;
+        });
+      }
       thumb.appendChild(img);
     } else {
       thumb.classList.add('is-file');
@@ -2467,7 +2668,14 @@ function renderEditorAttachments(note) {
     row.className = 'note-attach-item';
     if (a.kind === 'image') {
       const img = document.createElement('img');
-      img.src = attachmentDataUrl(a);
+      if (a.previewUrl || a.data) {
+        img.src = a.previewUrl || attachmentDataUrl(a);
+      } else if (a.storagePath) {
+        img.src = '';
+        resolveAttachmentUrl(a).then((url) => {
+          if (url) img.src = url;
+        });
+      }
       img.alt = a.name || 'รูปแนบ';
       img.loading = 'lazy';
       img.addEventListener('click', () => openAttachViewer(list, index));
@@ -2486,6 +2694,7 @@ function renderEditorAttachments(note) {
     rm.addEventListener('click', () => {
       const active = getActiveNote();
       if (!active) return;
+      if (a.storagePath) deleteCloudFile(a.storagePath).catch(() => {});
       const next = {
         ...active,
         attachments: (active.attachments || []).filter((x) => x.id !== a.id),
@@ -2560,20 +2769,28 @@ async function addAiMediaFiles(fileList) {
     }
     try {
       const prepared = await prepareAiMedia(file);
-      aiPendingMedia.push(prepared);
+      const index = aiPendingMedia.length;
+      aiPendingMedia.push({
+        ...prepared,
+        uploadState: 'pending',
+        uploadProgress: 0,
+      });
+      renderAiAttachList();
+      // Upload original bytes in background — UI already shows preview
+      startCloudUpload(index);
     } catch (err) {
       const code = err?.code || '';
-      if (code === 'too_large') setAiNoteStatus('ไฟล์ใหญ่เกิน', { kind: 'error', restoreMs: 2200 });
+      if (code === 'too_large') setAiNoteStatus('ไฟล์ใหญ่เกิน 40MB', { kind: 'error', restoreMs: 2200 });
       else setAiNoteStatus('ใช้ไฟล์ไม่ได้', { kind: 'error', restoreMs: 2200 });
       console.warn('ai media failed', err);
     }
   }
   renderAiAttachList();
   if (aiPendingMedia.length) {
-    const full = aiPendingMedia.some((m) => m.attachment?.fullRes);
+    const uploading = aiPendingMedia.some((m) => m.uploadState === 'uploading');
     setAiNoteStatus(
-      full ? `แนบ ${aiPendingMedia.length} · เต็ม` : `แนบ ${aiPendingMedia.length}`,
-      { kind: 'done', restoreMs: 2000 },
+      uploading ? `แนบ ${aiPendingMedia.length} · กำลังอัปโหลด…` : `แนบ ${aiPendingMedia.length}`,
+      { kind: uploading ? 'working' : 'done', restoreMs: uploading ? 0 : 2000 },
     );
   }
 }
@@ -2634,18 +2851,15 @@ async function runAiSummarize() {
 async function confirmAiNoteDraft() {
   const title = ensureLeadingEmoji(String(els.aiNoteDraftTitle?.value || '').trim() || 'โน้ต');
   const content = String(els.aiNoteDraftSummary?.value || '').trim();
-  const attachments = normalizeAttachments(
-    aiPendingMedia.map((m) => {
-      const a = m.attachment;
-      return {
-        id: a.id,
-        name: a.name,
-        mimeType: a.mimeType,
-        data: a.data,
-        size: a.size,
-        kind: a.kind,
-      };
-    }),
+
+  if (aiPendingMedia.some((m) => m.uploadState === 'error' && m.attachment?.needsCloud && !m.attachment?.data)) {
+    setAiNoteStatus('มีไฟล์อัปโหลดไม่สำเร็จ', { kind: 'error', restoreMs: 2400 });
+    return;
+  }
+  await waitForPendingUploads();
+
+  const attachments = attachmentsForPersist(
+    aiPendingMedia.map((m) => m.attachment).filter(Boolean),
   );
   if (!title && !content && !attachments.length) {
     setAiNoteStatus('ใส่หัวข้อก่อน', { kind: 'error', restoreMs: 2200 });

@@ -604,10 +604,11 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
 }
 
 /**
- * Keep original file bytes for note attachment (full resolution).
- * Only re-encodes oversized images so sync stays workable.
+ * Inline/base64 fallback cap (Firestore sync). Full originals go to GCS up to MAX_CLOUD_BYTES.
  */
 export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+/** Full-size upload to Google Cloud Storage. */
+export const MAX_CLOUD_BYTES = 40 * 1024 * 1024;
 /** High-res edge for Gemini vision (separate from stored original). */
 export const AI_IMAGE_MAX_EDGE = 4096;
 
@@ -627,9 +628,11 @@ function dataUrlParts(dataUrl) {
 }
 
 /**
- * Read a File/Blob as a note attachment at full quality when possible.
+ * Read a File/Blob as a note attachment.
+ * Prefers instant object-URL preview; embeds base64 only when small enough for offline fallback.
+ * Oversized originals are still uploadable via sourceFile (GCS).
  * @param {File|Blob} file
- * @param {{ maxBytes?: number }} [opts]
+ * @param {{ maxBytes?: number, maxCloudBytes?: number }} [opts]
  */
 export async function readFileAsAttachment(file, opts = {}) {
   if (!file) {
@@ -637,16 +640,23 @@ export async function readFileAsAttachment(file, opts = {}) {
     err.code = 'empty_input';
     throw err;
   }
-  const maxBytes = opts.maxBytes ?? MAX_ATTACHMENT_BYTES;
+  const maxInline = opts.maxBytes ?? MAX_ATTACHMENT_BYTES;
+  const maxCloud = opts.maxCloudBytes ?? MAX_CLOUD_BYTES;
+  if (file.size > maxCloud) {
+    const err = new Error('too_large');
+    err.code = 'too_large';
+    throw err;
+  }
   const name = (file.name || (file.type?.startsWith('image/') ? 'photo.jpg' : 'file')).slice(0, 120);
   const mimeType = file.type || 'application/octet-stream';
   const isImage = mimeType.startsWith('image/');
+  const id = crypto.randomUUID();
 
-  if (file.size <= maxBytes) {
+  if (file.size <= maxInline) {
     const dataUrl = await blobToDataUrl(file);
     const parts = dataUrlParts(dataUrl);
     return {
-      id: crypto.randomUUID(),
+      id,
       name,
       mimeType: parts.mimeType || mimeType,
       data: parts.data,
@@ -658,23 +668,33 @@ export async function readFileAsAttachment(file, opts = {}) {
   }
 
   if (isImage) {
-    // Oversized photo: keep very high quality still (near full res)
+    // Large photo: instant preview from original; compressed base64 only as offline fallback
+    const previewUrl = URL.createObjectURL(file);
     const compressed = await fileToInlineImage(file, { maxEdge: 4096, quality: 0.92 });
     return {
-      id: crypto.randomUUID(),
-      name: name.replace(/\.\w+$/, '') + '.jpg',
-      mimeType: compressed.mimeType,
+      id,
+      name,
+      mimeType,
       data: compressed.data,
-      size: Math.ceil((compressed.data.length * 3) / 4),
+      size: file.size,
       kind: 'image',
-      previewUrl: compressed.previewUrl,
-      fullRes: false,
+      previewUrl,
+      fullRes: true,
+      inlineFallback: true,
     };
   }
 
-  const err = new Error('too_large');
-  err.code = 'too_large';
-  throw err;
+  // Large non-image: metadata + preview icon only; requires cloud upload
+  return {
+    id,
+    name,
+    mimeType,
+    size: file.size,
+    kind: 'file',
+    previewUrl: '',
+    fullRes: true,
+    needsCloud: true,
+  };
 }
 
 /**
@@ -709,7 +729,7 @@ export async function fileToInlineImage(file, opts = {}) {
 }
 
 /**
- * Prepare media for AI note: keep full attachment + optional AI vision part.
+ * Prepare media for AI note: keep full attachment + optional AI vision part + source File for GCS.
  * @param {File|Blob} file
  */
 export async function prepareAiMedia(file) {
@@ -717,9 +737,7 @@ export async function prepareAiMedia(file) {
   let aiPart = null;
 
   if (attachment.kind === 'image') {
-    // Prefer original for AI when under ~4MB payload; else high-res downscale
-    const approxBytes = Math.ceil((attachment.data.length * 3) / 4);
-    if (approxBytes <= 4 * 1024 * 1024) {
+    if (file.size <= 4 * 1024 * 1024 && attachment.data && !attachment.inlineFallback) {
       aiPart = {
         mimeType: attachment.mimeType,
         data: attachment.data,
@@ -727,12 +745,12 @@ export async function prepareAiMedia(file) {
     } else {
       aiPart = await fileToInlineImage(file, { maxEdge: AI_IMAGE_MAX_EDGE, quality: 0.9 });
     }
-  } else if (attachment.mimeType === 'application/pdf') {
+  } else if (attachment.mimeType === 'application/pdf' && attachment.data) {
     const approxBytes = Math.ceil((attachment.data.length * 3) / 4);
     if (approxBytes <= 8 * 1024 * 1024) {
       aiPart = { mimeType: 'application/pdf', data: attachment.data };
     }
   }
 
-  return { attachment, aiPart };
+  return { attachment, aiPart, sourceFile: file };
 }

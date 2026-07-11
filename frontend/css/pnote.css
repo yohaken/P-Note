@@ -1674,6 +1674,26 @@ body.light .priority-badge.priority-urgent {
   color: var(--text-muted);
 }
 
+.ai-note-upload-bar {
+  margin-top: 0.25rem;
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+  overflow: hidden;
+}
+
+.ai-note-upload-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--accent, #2f6fed);
+  transition: width 0.12s linear;
+}
+
+.ai-note-attach-shell.is-uploading .ai-note-attach-item {
+  border-color: color-mix(in srgb, var(--accent, #2f6fed) 45%, var(--border));
+}
+
 .ai-note-attach-open {
   flex: 0 0 auto;
   color: var(--text-muted);
