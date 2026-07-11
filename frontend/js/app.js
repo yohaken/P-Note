@@ -160,7 +160,7 @@ const els = {
   filterTagBtn: document.getElementById('filter-tag-btn'),
   filterTagMenu: document.getElementById('filter-tag-menu'),
   filterDdBackdrop: document.getElementById('filter-dd-backdrop'),
-  dockAiBtn: document.getElementById('dock-ai-btn'),
+  dockAiBtn: null,
   bottomNav: null,
   healthModeBtn: null,
   groupNavBtn: document.getElementById('group-nav-btn'),
@@ -562,7 +562,6 @@ function renderGroupNav() {
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
   if (els.addNoteBtn) els.addNoteBtn.hidden = !isActiveGroup;
-  if (els.dockAiBtn) els.dockAiBtn.hidden = !isActiveGroup;
   updateFilterDockVisibility();
 
   const groupTitle =
@@ -996,10 +995,6 @@ function initFilterDock() {
   els.filterDdBackdrop?.addEventListener('click', closeFilterMenus);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeFilterMenus();
-  });
-  els.dockAiBtn?.addEventListener('click', () => {
-    openAddNoteModal();
-    queueMicrotask(() => els.aiNoteSource?.focus());
   });
 }
 
