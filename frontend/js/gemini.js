@@ -16,6 +16,9 @@ export const FALLBACK_GEMINI_MODELS = [
 const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
 const API_MODELS = `${API_ROOT}/models`;
 
+const PRIORITIES = new Set(['normal', 'important', 'urgent', 'critical']);
+const RECURRENCES = new Set(['daily', 'weekly', 'monthly', 'yearly']);
+
 function extractText(data) {
   const parts = data?.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) return '';
@@ -50,10 +53,20 @@ export function ensureLeadingEmoji(title) {
   try {
     if (/^\p{Extended_Pictographic}/u.test(t)) return t.slice(0, 120);
   } catch {
-    // Older engines without Unicode property escapes
     if (/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(t)) return t.slice(0, 120);
   }
   return `📝 ${t}`.slice(0, 120);
+}
+
+function emptyDraft(summary = '') {
+  return {
+    title: '📝 โน้ตจาก AI',
+    summary: String(summary || '').trim(),
+    tags: [],
+    scheduledAt: null,
+    priority: 'normal',
+    recurrence: null,
+  };
 }
 
 function fallbackDraft(rawText) {
@@ -61,9 +74,65 @@ function fallbackDraft(rawText) {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
-  const title = ensureLeadingEmoji(lines[0] || 'โน้ตจาก AI');
-  const summary = lines.slice(1).join('\n').trim() || String(rawText || '').trim();
-  return { title, summary };
+  return {
+    ...emptyDraft(lines.slice(1).join('\n').trim() || String(rawText || '').trim()),
+    title: ensureLeadingEmoji(lines[0] || 'โน้ตจาก AI'),
+  };
+}
+
+function normalizeTagNames(value) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const raw of value) {
+    const name = String(raw || '')
+      .trim()
+      .replace(/^#/, '')
+      .slice(0, 40);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+
+function normalizeScheduledAt(value) {
+  if (value == null || value === '' || value === false) return null;
+  const s = String(value).trim();
+  if (!s || s === 'null' || s === 'none') return null;
+  const t = Date.parse(s);
+  if (!Number.isFinite(t)) return null;
+  return new Date(t).toISOString();
+}
+
+function normalizePriority(value) {
+  const v = String(value || '').toLowerCase();
+  return PRIORITIES.has(v) ? v : 'normal';
+}
+
+function normalizeRecurrenceValue(value) {
+  if (value == null || value === '' || value === 'none' || value === 'null') return null;
+  const v = String(value).toLowerCase();
+  return RECURRENCES.has(v) ? v : null;
+}
+
+/** Normalize model JSON into a note draft. */
+export function normalizeAiDraft(parsed, fallbackText = '') {
+  if (!parsed || typeof parsed !== 'object') {
+    return fallbackDraft(fallbackText);
+  }
+  const summary = String(parsed.summary || parsed.content || fallbackText || '').trim();
+  return {
+    title: ensureLeadingEmoji(parsed.title || 'โน้ตจาก AI'),
+    summary,
+    tags: normalizeTagNames(parsed.tags || parsed.tagNames),
+    scheduledAt: normalizeScheduledAt(parsed.scheduledAt ?? parsed.dueAt),
+    priority: normalizePriority(parsed.priority),
+    recurrence: normalizeRecurrenceValue(parsed.recurrence),
+  };
 }
 
 function modelScore(id) {
@@ -130,15 +199,16 @@ export async function listGeminiModels(apiKey) {
       if (!methods.includes('generateContent')) continue;
       const id = normalizeModelId(m.name || m.baseModelId);
       if (!id || !id.toLowerCase().includes('gemini')) continue;
-      // Skip embedding / TTS / image-only style ids if they slipped through
       if (/embed|imagen|tts|aqa|gemma/i.test(id)) continue;
       const displayName = String(m.displayName || id).trim();
-      const smart = /pro/i.test(id) ? ' · ฉลาด' : /flash-lite|lite/i.test(id) ? ' · เบา' : /flash/i.test(id) ? ' · เร็ว' : '';
-      out.push({
-        id,
-        displayName,
-        label: `${id}${smart}`,
-      });
+      const smart = /pro/i.test(id)
+        ? ' · ฉลาด'
+        : /flash-lite|lite/i.test(id)
+          ? ' · เบา'
+          : /flash/i.test(id)
+            ? ' · เร็ว'
+            : '';
+      out.push({ id, displayName, label: `${id}${smart}` });
     }
     pageToken = data.nextPageToken || '';
     if (!pageToken) break;
@@ -154,11 +224,52 @@ export async function listGeminiModels(apiKey) {
   return unique;
 }
 
+function buildPrompt({ text, existingTags, nowIso, hasImage }) {
+  const tagList =
+    existingTags.length > 0
+      ? existingTags.map((t) => t.name).join(', ')
+      : '(ยังไม่มีแท็ก — เสนอชื่อแท็กใหม่ได้)';
+
+  return [
+    'คุณช่วยแปลงข้อความ/รูป เป็นโน้ตงานในแอปจดโน้ต',
+    'ตอบเป็น JSON เท่านั้น:',
+    JSON.stringify({
+      title: '🚗 หัวข้อสั้น',
+      summary: 'สรุปสั้น อ่านง่าย',
+      tags: ['งาน', 'ส่วนตัว'],
+      scheduledAt: '2026-07-12T18:00:00+07:00',
+      priority: 'normal',
+      recurrence: null,
+    }),
+    '',
+    'กฎ:',
+    '- title: อีโมจิ 1 ตัวนำหน้า + ช่องว่าง + หัวข้อ (เดินทาง→🚗 ซื้อของ→🛒 งาน→💼 ส่วนตัว→🏠 สุขภาพ→💪 เรียน→📚 ไม่แน่ใจ→📝)',
+    '- summary: สรุปกระชับ ภาษาเดียวกับต้นฉบับ อย่าแต่งเติม',
+    '- tags: 1–3 ชื่อแท็กสั้นๆ ภาษาไทย/อังกฤษ · ใช้แท็กที่มีอยู่ก่อนถ้าเข้ากัน · ไม่มีที่เหมาะให้เสนอชื่อใหม่ (เช่น งาน, ส่วนตัว, บ้าน, สุขภาพ)',
+    '- scheduledAt: ISO 8601 พร้อมโซนเวลา ถ้ามีกำหนดชัด/พอเดาได้ (เช่น พรุ่งนี้ 18:00) · ไม่มีกำหนดใส่ null',
+    '- priority: normal | important | urgent | critical',
+    '- recurrence: null | daily | weekly | monthly | yearly (เฉพาะงานที่ทำซ้ำจริง)',
+    hasImage ? '- ถ้ามีรูป: อ่านข้อความ/บริบทจากรูปแล้วสรุปเป็นงาน' : '',
+    '',
+    `ตอนนี้: ${nowIso}`,
+    `แท็กที่มีอยู่: ${tagList}`,
+    '',
+    text ? `ข้อความต้นฉบับ:\n${text}` : 'ข้อความต้นฉบับ: (ไม่มี — ใช้จากรูป)',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 /**
- * Summarize free text into a note draft { title, summary }.
+ * Summarize text and/or image into a rich note draft.
  * @param {string} apiKey
  * @param {string} rawText
- * @param {{ model?: string }} [opts]
+ * @param {{
+ *   model?: string,
+ *   existingTags?: Array<{ id?: string, name: string }>,
+ *   image?: { mimeType: string, data: string } | null,
+ *   now?: Date,
+ * }} [opts]
  */
 export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
   const key = String(apiKey || '').trim();
@@ -168,7 +279,8 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
     throw err;
   }
   const text = String(rawText || '').trim();
-  if (!text) {
+  const image = opts.image && opts.image.data ? opts.image : null;
+  if (!text && !image) {
     const err = new Error('empty_input');
     err.code = 'empty_input';
     throw err;
@@ -181,21 +293,26 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
 
   const model = String(opts.model || DEFAULT_GEMINI_MODEL).trim() || DEFAULT_GEMINI_MODEL;
   const url = `${API_MODELS}/${encodeURIComponent(model)}:generateContent`;
+  const existingTags = Array.isArray(opts.existingTags) ? opts.existingTags : [];
+  const now = opts.now instanceof Date ? opts.now : new Date();
+  const nowIso = now.toISOString();
 
-  const prompt = [
-    'คุณช่วยสรุปข้อความให้เป็นโน้ต/งานสั้นๆ สำหรับแอปจดโน้ต',
-    'ตอบเป็น JSON เท่านั้น ไม่มีคำอธิบายอื่น:',
-    '{"title":"🚗 หัวข้อสั้น","summary":"สรุปเนื้อหาชัดเจน อ่านง่าย"}',
-    '',
-    'กฎหัวข้อ (สำคัญ):',
-    '- ขึ้นต้นด้วยอีโมจิ 1 ตัวที่สื่อความหมายของงาน ตามด้วยช่องว่าง แล้วข้อความหัวข้อ',
-    '- ตัวอย่าง: เดินทาง/ขับรถ → "🚗 ไปเชียงใหม่" · ซื้อของ → "🛒 ซื้อของเข้าบ้าน" · กิน → "🍽️ จองร้านอาหาร" · งาน/ประชุม → "💼 ประชุมทีม" · เรียน → "📚 อ่านบทที่ 3" · สุขภาพ → "💪 ออกกำลังกาย"',
-    '- ถ้าไม่แน่ใจใช้อีโมจิ 📝',
-    '- ใช้ภาษาเดียวกับต้นฉบับ · อย่าแต่งเติมข้อเท็จจริง',
-    '',
-    'ข้อความต้นฉบับ:',
+  const prompt = buildPrompt({
     text,
-  ].join('\n');
+    existingTags,
+    nowIso,
+    hasImage: Boolean(image),
+  });
+
+  const parts = [{ text: prompt }];
+  if (image) {
+    parts.push({
+      inlineData: {
+        mimeType: image.mimeType || 'image/jpeg',
+        data: image.data,
+      },
+    });
+  }
 
   let res;
   try {
@@ -206,10 +323,10 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
         'x-goog-api-key': key,
       },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts }],
         generationConfig: {
           temperature: 0.35,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 1536,
           responseMimeType: 'application/json',
         },
       }),
@@ -232,15 +349,39 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
 
   const outText = extractText(data);
   const parsed = parseJsonObject(outText);
-  if (parsed && (parsed.title || parsed.summary)) {
-    return {
-      title: ensureLeadingEmoji(parsed.title || 'โน้ตจาก AI'),
-      summary: String(parsed.summary || parsed.content || text).trim(),
-    };
+  if (parsed) return normalizeAiDraft(parsed, text || outText);
+  if (outText) return fallbackDraft(outText);
+  return fallbackDraft(text || 'งานจากรูป');
+}
+
+/**
+ * Resize/compress an image File for Gemini inline upload.
+ * @param {File|Blob} file
+ * @param {{ maxEdge?: number, quality?: number }} [opts]
+ * @returns {Promise<{ mimeType: string, data: string, previewUrl: string }>}
+ */
+export async function fileToInlineImage(file, opts = {}) {
+  const maxEdge = opts.maxEdge || 1280;
+  const quality = opts.quality ?? 0.72;
+  if (!file) {
+    const err = new Error('empty_input');
+    err.code = 'empty_input';
+    throw err;
   }
 
-  if (outText) {
-    return fallbackDraft(outText);
-  }
-  return fallbackDraft(text);
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close?.();
+
+  const mimeType = 'image/jpeg';
+  const dataUrl = canvas.toDataURL(mimeType, quality);
+  const data = dataUrl.split(',')[1] || '';
+  return { mimeType, data, previewUrl: dataUrl };
 }
