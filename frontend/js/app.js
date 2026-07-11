@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=103';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=104';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -13,6 +13,7 @@ import {
   filterNotesByPriority,
   filterNotesByStatus,
   filterNotesByTag,
+  TAG_FILTER_UNTAGGED,
   formatDate,
   getTagsForNote,
   markNoteActive,
@@ -36,7 +37,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=103';
+} from './notes.js?v=104';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -57,7 +58,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=103';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=104';
 import {
   notificationPermission,
   notificationSupported,
@@ -66,12 +67,13 @@ import {
   sendTestNotification,
   syncNoteNotifications,
 } from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=88';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=104';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
-} from './user-context.js?v=88';
+  composeAiMemoryMd,
+} from './user-context.js?v=104';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -79,7 +81,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=103';
+import { normalizeNotesData } from './notes.js?v=104';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -145,6 +147,12 @@ const els = {
   geminiModel: document.getElementById('gemini-model'),
   geminiLoadModelsBtn: document.getElementById('gemini-load-models-btn'),
   geminiModelHint: document.getElementById('gemini-model-hint'),
+  aiProfile: document.getElementById('ai-profile'),
+  aiTagRulesList: document.getElementById('ai-tag-rules-list'),
+  aiTagRuleForm: document.getElementById('ai-tag-rule-form'),
+  aiTagRuleKeywords: document.getElementById('ai-tag-rule-keywords'),
+  aiTagRuleTag: document.getElementById('ai-tag-rule-tag'),
+  aiTagRuleTagList: document.getElementById('ai-tag-rule-tag-list'),
   aiContextRefreshBtn: document.getElementById('ai-context-refresh-btn'),
   aiContextPreview: document.getElementById('ai-context-preview'),
   settingsBtn: document.getElementById('settings-btn'),
@@ -290,8 +298,103 @@ function scheduleUserContextRefresh() {
 
 function fillAiContextPreview() {
   if (!els.aiContextPreview) return;
-  const md = loadUserContextMd() || refreshUserContext(state.notesData).md;
-  els.aiContextPreview.textContent = md || '(ยังไม่มีความจำ)';
+  const learned = loadUserContextMd() || refreshUserContext(state.notesData).md;
+  els.aiContextPreview.textContent =
+    composeAiMemoryMd(learned, state.settings) || '(ยังไม่มีความจำ)';
+}
+
+function currentAiMemoryMd() {
+  const learned = loadUserContextMd() || refreshUserContext(state.notesData).md;
+  return composeAiMemoryMd(learned, state.settings);
+}
+
+function renderAiTagRulesList() {
+  const list = els.aiTagRulesList;
+  if (!list) return;
+  const rules = normalizeAiTagRules(state.settings.aiTagRules);
+  state.settings.aiTagRules = rules;
+  list.innerHTML = '';
+  if (!rules.length) {
+    const empty = document.createElement('p');
+    empty.className = 'settings-hint';
+    empty.style.margin = '0';
+    empty.textContent = 'ยังไม่มีกฎ — เพิ่มด้านล่างได้';
+    list.appendChild(empty);
+    return;
+  }
+  rules.forEach((rule) => {
+    const row = document.createElement('div');
+    row.className = 'ai-tag-rule-row';
+    const body = document.createElement('div');
+    body.className = 'ai-tag-rule-body';
+    const kw = document.createElement('p');
+    kw.className = 'ai-tag-rule-keywords';
+    kw.textContent = rule.keywords.join(', ');
+    const tag = document.createElement('p');
+    tag.className = 'ai-tag-rule-tag';
+    tag.textContent = `→ ${rule.tagName}`;
+    body.append(kw, tag);
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'ai-tag-rule-remove';
+    rm.setAttribute('aria-label', 'ลบกฎ');
+    rm.textContent = '×';
+    rm.addEventListener('click', () => {
+      state.settings.aiTagRules = normalizeAiTagRules(
+        (state.settings.aiTagRules || []).filter((r) => r.id !== rule.id),
+      );
+      saveSettings(state.settings);
+      renderAiTagRulesList();
+      fillAiContextPreview();
+    });
+    row.append(body, rm);
+    list.appendChild(row);
+  });
+}
+
+function fillAiTagRuleDatalist() {
+  const dl = els.aiTagRuleTagList;
+  if (!dl) return;
+  dl.innerHTML = '';
+  (state.notesData.tags || []).forEach((t) => {
+    const opt = document.createElement('option');
+    opt.value = t.name;
+    dl.appendChild(opt);
+  });
+}
+
+function persistAiProfileFromUi() {
+  if (!els.aiProfile) return;
+  const next = normalizeAiProfile(els.aiProfile.value);
+  if (next === (state.settings.aiProfile || '')) return;
+  state.settings.aiProfile = next;
+  saveSettings(state.settings);
+  fillAiContextPreview();
+}
+
+function addAiTagRuleFromForm(event) {
+  event?.preventDefault?.();
+  const keywordsText = String(els.aiTagRuleKeywords?.value || '');
+  const tagName = String(els.aiTagRuleTag?.value || '').trim();
+  const keywords = keywordsText
+    .split(/[,،、|/]+/)
+    .map((k) => k.trim())
+    .filter(Boolean);
+  if (!tagName || !keywords.length) {
+    setStatus('ใส่คำสำคัญและชื่อแท็กก่อน');
+    return;
+  }
+  const next = normalizeAiTagRules([
+    ...(state.settings.aiTagRules || []),
+    { id: `r-${Date.now()}`, tagName, keywords },
+  ]);
+  state.settings.aiTagRules = next;
+  saveSettings(state.settings);
+  if (els.aiTagRuleKeywords) els.aiTagRuleKeywords.value = '';
+  if (els.aiTagRuleTag) els.aiTagRuleTag.value = '';
+  renderAiTagRulesList();
+  fillAiContextPreview();
+  setStatus(`เพิ่มกฎ → ${tagName}`);
 }
 
 function noteIsEmpty(note) {
@@ -807,12 +910,14 @@ function applySavedFilters() {
   const s = state.settings || loadSettings();
   const tags = state.notesData?.tags || [];
   const tagIds = new Set(tags.map((t) => t.id));
-  const tagId = s.tagFilterId && tagIds.has(s.tagFilterId) ? s.tagFilterId : null;
+  let tagId = null;
+  if (s.tagFilterId === TAG_FILTER_UNTAGGED) tagId = TAG_FILTER_UNTAGGED;
+  else if (s.tagFilterId && tagIds.has(s.tagFilterId)) tagId = s.tagFilterId;
   state.tagFilterId = tagId;
   state.priorityFilter = s.priorityFilter || null;
   state.recurrenceFilter = normalizeRecurrenceFilter(s.recurrenceFilter);
   // Keep settings in sync if a deleted tag was dropped
-  if (s.tagFilterId && !tagId) {
+  if (s.tagFilterId && s.tagFilterId !== TAG_FILTER_UNTAGGED && !tagId) {
     state.settings.tagFilterId = null;
     saveSettings(state.settings);
   }
@@ -1047,19 +1152,35 @@ function openTagBarMenu(tagId) {
 function renderTagFilterBar() {
   const tags = orderedFilterTags();
   const currentId = state.tagFilterId || null;
-  const currentTag = currentId ? tags.find((t) => t.id === currentId) : null;
+  const untagged = currentId === TAG_FILTER_UNTAGGED;
+  const currentTag = !untagged && currentId ? tags.find((t) => t.id === currentId) : null;
   if (els.filterTagBtn) {
-    els.filterTagBtn.textContent = currentTag ? `🏷️ ${currentTag.name}` : '🏷️ แท็ก';
-    els.filterTagBtn.classList.toggle('is-active', Boolean(currentTag));
-    els.filterTagBtn.title = currentTag ? `แท็ก · ${currentTag.name}` : 'แท็ก';
+    if (untagged) els.filterTagBtn.textContent = '🏷️ ไม่มีแท็ก';
+    else els.filterTagBtn.textContent = currentTag ? `🏷️ ${currentTag.name}` : '🏷️ แท็ก';
+    els.filterTagBtn.classList.toggle('is-active', Boolean(currentId));
+    els.filterTagBtn.title = untagged
+      ? 'แท็ก · ไม่มีแท็ก'
+      : currentTag
+        ? `แท็ก · ${currentTag.name}`
+        : 'แท็ก';
   }
 
+  const noneCount = countNotesByTag(state.notesData.notes, TAG_FILTER_UNTAGGED);
   const items = [
     {
       label: 'ทั้งหมด',
       selected: !currentId,
       onSelect: () => {
         state.tagFilterId = null;
+        persistFilters();
+        renderNotesList();
+      },
+    },
+    {
+      label: noneCount ? `ไม่มีแท็ก (${noneCount})` : 'ไม่มีแท็ก',
+      selected: untagged,
+      onSelect: () => {
+        state.tagFilterId = TAG_FILTER_UNTAGGED;
         persistFilters();
         renderNotesList();
       },
@@ -1571,6 +1692,9 @@ function openSettings() {
   applyDockScale();
   if (els.geminiApiKey) els.geminiApiKey.value = state.settings.geminiApiKey || '';
   fillGeminiModelSelect(state.settings.geminiModel);
+  if (els.aiProfile) els.aiProfile.value = state.settings.aiProfile || '';
+  fillAiTagRuleDatalist();
+  renderAiTagRulesList();
   fillAiContextPreview();
   applyTheme();
   applyFabDirection();
@@ -1582,6 +1706,7 @@ function openSettings() {
 
 function closeSettings() {
   persistGeminiSettingsFromUi();
+  persistAiProfileFromUi();
   els.settingsOverlay.hidden = true;
 }
 
@@ -2455,13 +2580,14 @@ async function runAiSummarize() {
       model: state.settings.geminiModel,
       existingTags: state.notesData.tags || [],
       images: aiImages,
-      userContextMd: ctx.md || loadUserContextMd(),
+      userContextMd: currentAiMemoryMd() || ctx.md || loadUserContextMd(),
       now: new Date(),
     });
     draft = refineDraftWithContext(
       draft,
       state.notesData,
       `${combined}\n${draft.title || ''}\n${draft.summary || ''}`,
+      { aiTagRules: state.settings.aiTagRules },
     );
     applyAiDraftToForm(draft);
     setAiNoteStatus('สรุปแล้ว', { kind: 'done', restoreMs: 2600 });
@@ -3040,7 +3166,11 @@ async function init() {
   els.geminiLoadModelsBtn?.addEventListener('click', () => {
     loadGeminiModelsFromApi();
   });
+  els.aiProfile?.addEventListener('change', persistAiProfileFromUi);
+  els.aiProfile?.addEventListener('blur', persistAiProfileFromUi);
+  els.aiTagRuleForm?.addEventListener('submit', addAiTagRuleFromForm);
   els.aiContextRefreshBtn?.addEventListener('click', () => {
+    persistAiProfileFromUi();
     const ctx = refreshUserContext(state.notesData);
     fillAiContextPreview();
     setStatus(`รีเฟรชความจำแล้ว · แท็ก ${ctx.tagCount} · โน้ต ${ctx.noteCount}`);

@@ -2,7 +2,7 @@
  * User context memory for AI note drafting.
  * Learns roughly from existing notes/tags and stores a compact .md profile.
  */
-import { NOTE_STATUS, notePriority, NOTE_PRIORITY } from './notes.js?v=88';
+import { NOTE_STATUS, notePriority, NOTE_PRIORITY } from './notes.js?v=104';
 
 /** Keep in sync with STORAGE_KEYS.USER_CONTEXT_MD in config.js */
 const CONTEXT_KEY = 'pnote_user_context_md';
@@ -203,7 +203,7 @@ function renderContextMarkdown({ updatedAt, tagProfiles, recent, noteCount, tagC
     '',
     '## วิธีใช้ความจำนี้',
     '- เลือกแท็กที่มีอยู่ก่อน ถ้าเนื้อหาใกล้เคียงคำที่เจอบ่อยของแท็กนั้น',
-    '- ตัวอย่าง: เนื้อหาเรื่องที่ดิน/โฉนด/ไร่ → ใช้แท็กที่เกี่ยวกับที่ดินถ้ามีในรายการ',
+    '- ถ้ามีส่วน「โปรไฟล์ผู้ใช้」หรือ「กฎแมปคำ → แท็ก」ด้านล่าง ให้ทำตามนั้นก่อนประวัติอัตโนมัติ',
     '- ความสำคัญ: ดูนิสัยแท็ก + คำว่าด่วน/สำคัญในข้อความ',
     '- สร้างแท็กใหม่เฉพาะเมื่อไม่มีแท็กเดิมที่ใกล้เคียง',
     '',
@@ -212,6 +212,57 @@ function renderContextMarkdown({ updatedAt, tagProfiles, recent, noteCount, tagC
   let md = lines.join('\n');
   if (md.length > MAX_MD_CHARS) md = `${md.slice(0, MAX_MD_CHARS - 20)}\n…\n`;
   return md;
+}
+
+/**
+ * Append user-authored profile + keyword→tag rules for Gemini.
+ * @param {string} baseMd
+ * @param {{ aiProfile?: string, aiTagRules?: Array<{ tagName: string, keywords: string[] }> }} settings
+ */
+export function composeAiMemoryMd(baseMd, settings = {}) {
+  const parts = [String(baseMd || '').trim()].filter(Boolean);
+  const profile = String(settings.aiProfile || '').trim();
+  if (profile) {
+    parts.push(`## โปรไฟล์ผู้ใช้ (ตั้งเอง — ใช้อ่านเพื่อตั้งค่าให้ถูก)\n${profile}`);
+  }
+  const rules = Array.isArray(settings.aiTagRules) ? settings.aiTagRules : [];
+  if (rules.length) {
+    const lines = [
+      '## กฎแมปคำ → แท็ก (บังคับเมื่อข้อความเข้าเงื่อนไข)',
+      'ถ้าพบคำเหล่านี้ในต้นฉบับ/สรุป ให้ติดแท็กตามกฎ (ใช้ชื่อแท็กตามที่ระบุ):',
+    ];
+    rules.forEach((r) => {
+      const kws = (r.keywords || []).join(', ');
+      lines.push(`- คำ: ${kws} → แท็ก \`${r.tagName}\``);
+    });
+    parts.push(lines.join('\n'));
+  }
+  let md = parts.join('\n\n');
+  if (md.length > MAX_MD_CHARS + 1200) md = `${md.slice(0, MAX_MD_CHARS + 1180)}\n…\n`;
+  return md;
+}
+
+/** Match manual keyword→tag rules against free text. */
+export function matchAiTagRules(text, rules) {
+  const hay = String(text || '').toLowerCase();
+  if (!hay || !Array.isArray(rules) || !rules.length) return [];
+  const hits = [];
+  const seen = new Set();
+  rules.forEach((rule) => {
+    const tagName = String(rule?.tagName || '').trim();
+    if (!tagName) return;
+    const kws = Array.isArray(rule.keywords) ? rule.keywords : [];
+    const hit = kws.some((kw) => {
+      const k = String(kw || '').trim().toLowerCase();
+      return k && hay.includes(k);
+    });
+    if (!hit) return;
+    const key = tagName.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    hits.push(tagName);
+  });
+  return hits;
 }
 
 export function loadUserContextMd() {
@@ -284,18 +335,18 @@ function maxPriority(a, b) {
 }
 
 /**
- * Refine AI draft using local history: prefer known tags, tune priority.
+ * Refine AI draft using local history + manual keyword→tag rules.
  * @param {object} draft
  * @param {object} notesData
  * @param {string} sourceText
+ * @param {{ aiTagRules?: Array<{ tagName: string, keywords: string[] }> }} [opts]
  */
-export function refineDraftWithContext(draft, notesData, sourceText) {
+export function refineDraftWithContext(draft, notesData, sourceText, opts = {}) {
   const next = { ...draft, tags: Array.isArray(draft.tags) ? [...draft.tags] : [] };
-  const ranked = rankTagsForText(
-    `${sourceText || ''}\n${draft.title || ''}\n${draft.summary || ''}`,
-    notesData,
-  );
+  const blob = `${sourceText || ''}\n${draft.title || ''}\n${draft.summary || ''}`;
+  const ranked = rankTagsForText(blob, notesData);
   const existingNames = new Set((notesData?.tags || []).map((t) => t.name.toLowerCase()));
+  const ruleHits = matchAiTagRules(blob, opts.aiTagRules || []);
 
   // Merge: keep AI tags that match existing (case-insensitive), else swap in top ranked
   const resolved = [];
@@ -312,6 +363,9 @@ export function refineDraftWithContext(draft, notesData, sourceText) {
     seen.add(key);
     resolved.push(finalName);
   };
+
+  // 0) Manual rules from Settings — highest priority
+  for (const name of ruleHits) pushTag(name);
 
   // 1) AI tags that already exist
   for (const name of next.tags) {

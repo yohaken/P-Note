@@ -415,14 +415,25 @@ export function getTagsForNote(note, tags) {
   return tags.filter((tag) => ids.includes(tag.id));
 }
 
+/** Sentinel for filter: notes with no tags */
+export const TAG_FILTER_UNTAGGED = '__untagged__';
+
 export function filterNotesByTag(notes, tagId) {
-  if (!tagId) {
-    return notes;
+  if (!tagId) return notes;
+  if (tagId === TAG_FILTER_UNTAGGED) {
+    return notes.filter((note) => !(Array.isArray(note.tagIds) && note.tagIds.length));
   }
   return notes.filter((note) => (note.tagIds || []).includes(tagId));
 }
 
 export function countNotesByTag(notes, tagId) {
+  if (tagId === TAG_FILTER_UNTAGGED) {
+    return notes.reduce(
+      (total, note) =>
+        total + (isActiveNote(note) && !(Array.isArray(note.tagIds) && note.tagIds.length) ? 1 : 0),
+      0,
+    );
+  }
   return notes.reduce(
     (total, note) =>
       total + (isActiveNote(note) && (note.tagIds || []).includes(tagId) ? 1 : 0),
