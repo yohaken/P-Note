@@ -1789,6 +1789,8 @@ body.light .priority-badge.priority-urgent {
   padding: 0.42rem 0.55rem;
   text-align: left;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -1804,6 +1806,7 @@ body.light .priority-badge.priority-urgent {
   flex: 0 0 auto;
   font-size: 0.95rem;
   line-height: 1;
+  pointer-events: none;
 }
 
 .ai-note-schedule-text {
@@ -1812,6 +1815,7 @@ body.light .priority-badge.priority-urgent {
   display: flex;
   flex-direction: column;
   gap: 0.05rem;
+  pointer-events: none;
 }
 
 .ai-note-schedule-caption {
@@ -1841,6 +1845,7 @@ body.light .priority-badge.priority-urgent {
   font-size: 1.1rem;
   line-height: 1;
   opacity: 0.75;
+  pointer-events: none;
 }
 
 .ai-note-schedule-clear {
@@ -1852,21 +1857,30 @@ body.light .priority-badge.priority-urgent {
   color: var(--text-muted);
   font-size: 1.05rem;
   cursor: pointer;
+  z-index: 2;
 }
 
 .ai-note-schedule-clear[hidden] {
   display: none !important;
 }
 
+/* Full-hit datetime — tap must hit the input (iOS/Safari). */
 .ai-note-schedule-input {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.011;
   border: 0;
-  padding: 0;
   margin: 0;
+  padding: 0;
+  cursor: pointer;
+  z-index: 1;
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  color: transparent;
 }
 
 .ai-note-select {
