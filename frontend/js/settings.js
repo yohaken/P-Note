@@ -13,11 +13,14 @@ export const DEFAULT_NOTIFY_PREFS = {
   tagIds: [],
 };
 
+const DEFAULT_FAB_ORDER = ['pages', 'group', 'ai']; // visual top → bottom (AI nearest dock by default)
+
 const DEFAULTS = {
   theme: 'dark',
   cardDensity: 0,
   dockScale: 50,
   dockOffsetY: 70,
+  fabOrder: [...DEFAULT_FAB_ORDER],
   sortMode: 'updated',
   tagFilterId: null,
   priorityFilter: null,
@@ -65,6 +68,27 @@ function normalizeTagOrder(value) {
   return value.map((id) => String(id)).filter(Boolean);
 }
 
+const FAB_ORDER_IDS = ['pages', 'group', 'ai'];
+
+/** Visual top → bottom. Missing ids appended; unknown dropped. */
+export function normalizeFabOrder(value) {
+  const raw = Array.isArray(value) ? value.map(String) : [];
+  const seen = new Set();
+  const out = [];
+  raw.forEach((id) => {
+    if (FAB_ORDER_IDS.includes(id) && !seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  });
+  FAB_ORDER_IDS.forEach((id) => {
+    if (!seen.has(id)) out.push(id);
+  });
+  return out;
+}
+
+export { DEFAULT_FAB_ORDER };
+
 export function normalizeNotifyPrefs(raw, legacyEnabled) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const early = Number(src.earlyMinutes);
@@ -99,6 +123,7 @@ export function loadSettings() {
         geminiModel: DEFAULTS.geminiModel,
         dockScale: DEFAULTS.dockScale,
         dockOffsetY: DEFAULTS.dockOffsetY,
+        fabOrder: [...DEFAULT_FAB_ORDER],
       };
     }
     const parsed = JSON.parse(raw);
@@ -109,6 +134,7 @@ export function loadSettings() {
       cardDensity: clampPct(parsed.cardDensity),
       dockScale: clampPct(parsed.dockScale, 50),
       dockOffsetY: clampPct(parsed.dockOffsetY, 70),
+      fabOrder: normalizeFabOrder(parsed.fabOrder),
       sortMode: SORT_MODES.includes(parsed.sortMode) ? parsed.sortMode : 'updated',
       tagFilterId: normalizeTagFilterId(parsed.tagFilterId),
       priorityFilter: normalizePriorityFilter(parsed.priorityFilter),
@@ -138,6 +164,7 @@ export function loadSettings() {
       geminiModel: DEFAULTS.geminiModel,
       dockScale: DEFAULTS.dockScale,
       dockOffsetY: DEFAULTS.dockOffsetY,
+      fabOrder: [...DEFAULT_FAB_ORDER],
     };
   }
 }
@@ -149,6 +176,7 @@ export function saveSettings(settings) {
   );
   const next = {
     ...settings,
+    fabOrder: normalizeFabOrder(settings.fabOrder),
     notifyPrefs,
     notificationsEnabled: notifyPrefs.enabled,
     geminiApiKey: String(settings.geminiApiKey || '').trim().slice(0, 200),

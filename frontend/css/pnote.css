@@ -2202,6 +2202,58 @@ body.light .priority-badge.priority-urgent {
   line-height: 1.45;
 }
 
+.fab-order-list {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fab-order-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border);
+  background: var(--surface-2, #2c2c2e);
+}
+
+.fab-order-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.fab-order-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.fab-order-btn {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, #000);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.fab-order-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.fab-order-btn:not(:disabled):active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
 .dock-scale-preview {
   --dock-scale: 1;
   margin-top: 0.55rem;
