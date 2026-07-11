@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="116">
-  <meta name="pnote-built" content="2026-07-11T16:22:48+07:00">
+  <meta name="pnote-build" content="117">
+  <meta name="pnote-built" content="2026-07-11T16:35:56+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=116"></script>
+  <script src="js/cache-bootstrap.js?v=117"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=116">
+  <link rel="stylesheet" href="css/pnote.css?v=117">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -314,6 +314,14 @@
 
           <input id="ai-note-draft-title" class="ai-note-title-input" type="text" maxlength="120" autocomplete="off" placeholder="🚗 หัวข้อ">
           <textarea id="ai-note-draft-summary" class="ai-note-textarea ai-note-summary" rows="3" placeholder="รายละเอียด / สรุป"></textarea>
+
+          <div class="ai-checklist" id="ai-checklist">
+            <div class="ai-checklist-head">
+              <span class="ai-note-meta-label">เช็กลิสต์</span>
+              <button type="button" class="ai-checklist-add" id="ai-checklist-add">+ ข้อ</button>
+            </div>
+            <div id="ai-checklist-list" class="ai-checklist-list" aria-label="รายการย่อย"></div>
+          </div>
 
           <div class="ai-note-meta">
             <span class="ai-note-meta-label">แท็ก</span>
@@ -698,6 +706,32 @@
           </div>
         </details>
 
+        <details class="settings-group" id="backup-settings-row">
+          <summary class="settings-group-summary">สำรอง / นำเข้า</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-last">
+              <p class="settings-hint" style="margin-top:0">
+                ดาวน์โหลด JSON ทั้งก้อนไว้กู้คืน · นำเข้าได้ทั้งแทนที่หรือรวมกับของเดิม (โน้ตซ้ำใช้ตัวที่ใหม่กว่า)
+              </p>
+              <button id="export-notes-btn" class="btn btn-primary" type="button">ดาวน์โหลดสำรอง</button>
+              <button id="import-notes-btn" class="btn btn-secondary" type="button" style="margin-top:0.45rem">เลือกไฟล์นำเข้า…</button>
+              <input id="import-notes-file" type="file" accept="application/json,.json" hidden>
+              <label class="notify-field" for="import-notes-text" style="margin-top:0.75rem">
+                <span>หรือวาง JSON</span>
+                <textarea id="import-notes-text" rows="3" placeholder='{"version":5,"notes":[],"tags":[]}' spellcheck="false"></textarea>
+              </label>
+              <div class="notify-toggle-row" style="margin-top:0.45rem">
+                <span>รวมกับของเดิม</span>
+                <div class="segmented segmented-sm" id="import-merge-seg">
+                  <button type="button" data-import-merge="0">แทนที่</button>
+                  <button type="button" data-import-merge="1" class="active">รวม</button>
+                </div>
+              </div>
+              <button id="import-notes-paste-btn" class="btn btn-secondary" type="button" style="margin-top:0.55rem">นำเข้าจากข้อความ</button>
+            </div>
+          </div>
+        </details>
+
         <details class="settings-group">
           <summary class="settings-group-summary">ฐานข้อมูล / รหัสซิงค์</summary>
           <div class="settings-group-body">
@@ -831,8 +865,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=116"></script>
-  <script src="js/fab-drag.js?v=116"></script>
+  <script src="js/page-nav.js?v=117"></script>
+  <script src="js/fab-drag.js?v=117"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -842,7 +876,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=116"></script>
-  <script src="js/update-watch.js?v=116"></script>
+  <script type="module" src="js/app.js?v=117"></script>
+  <script src="js/update-watch.js?v=117"></script>
 </body>
 </html>

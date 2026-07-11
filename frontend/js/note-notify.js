@@ -5,7 +5,7 @@
  * ทำซ้ำประจำ (recurrence) = advances the note's due date when completed.
  * แจ้งเตือนซ้ำ (notifyRepeat) = nag interval until the note is done — separate.
  */
-import { notePriority, NOTE_PRIORITY } from './notes.js?v=116';
+import { notePriority, NOTE_PRIORITY } from './notes.js?v=117';
 import {
   advanceNotifyFireAt,
   normalizeNotifyRepeat,
@@ -13,7 +13,7 @@ import {
   notifyRepeatLabel,
   reminderFireAtMs,
   remindBeforeLabel,
-} from './schedule.js?v=116';
+} from './schedule.js?v=117';
 
 const NOTIFIED_KEY = 'pnote_notified_map';
 const SW_URL = './sw-notify.js';
@@ -278,10 +278,19 @@ async function showNoteNotification(note, prefs, fireAt) {
 
 function scheduleOne(note, fireAt, prefs) {
   const delay = fireAt - Date.now();
-  if (delay > MAX_TIMER_MS) return false;
   if (timers.has(note.id)) {
     clearTimeout(timers.get(note.id));
     timers.delete(note.id);
+  }
+  // Far future: arm a wake timer, then re-resolve (covers >14d dues while page stays open).
+  if (delay > MAX_TIMER_MS) {
+    const id = setTimeout(() => {
+      timers.delete(note.id);
+      const next = resolveNextFireAt(note, prefs);
+      if (next != null) scheduleOne(note, next, prefs);
+    }, MAX_TIMER_MS);
+    timers.set(note.id, id);
+    return true;
   }
   if (delay <= 0) {
     showNoteNotification(note, prefs, fireAt).then(() => {
@@ -298,14 +307,35 @@ function scheduleOne(note, fireAt, prefs) {
     showNoteNotification(note, prefs, fireAt).then(() => {
       if (normalizeNotifyRepeat(note.notifyRepeat) !== 'none') {
         const next = resolveNextFireAt(note, prefs);
-        if (next != null && next - Date.now() <= MAX_TIMER_MS) {
-          scheduleOne(note, next, prefs);
-        }
+        if (next != null) scheduleOne(note, next, prefs);
       }
     });
   }, delay);
   timers.set(note.id, id);
   return true;
+}
+
+let keepaliveTimer = null;
+
+/** Re-arm notifications periodically while the page stays open. */
+export function startNotifyKeepalive(getNotes, getPrefs, intervalMs = 15 * 60 * 1000) {
+  stopNotifyKeepalive();
+  keepaliveTimer = setInterval(() => {
+    try {
+      const notes = typeof getNotes === 'function' ? getNotes() : getNotes;
+      const prefs = typeof getPrefs === 'function' ? getPrefs() : getPrefs;
+      syncNoteNotifications(notes, prefs);
+    } catch (err) {
+      console.warn('notify keepalive failed', err);
+    }
+  }, Math.max(60 * 1000, intervalMs));
+}
+
+export function stopNotifyKeepalive() {
+  if (keepaliveTimer) {
+    clearInterval(keepaliveTimer);
+    keepaliveTimer = null;
+  }
 }
 
 /**

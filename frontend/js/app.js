@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=116';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=116';
-import { initListSortable } from './sortable.js?v=46';
-import { bindComposableInput } from './text-input.js?v=46';
-import { CONFIG } from './config.js?v=51';
-import { hasAnyNotes, tryAutoImport } from './import-data.js?v=46';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=117';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=117';
+import { initListSortable } from './sortable.js?v=117';
+import { bindComposableInput } from './text-input.js?v=117';
+import { CONFIG } from './config.js?v=117';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=117';
 import {
   addTag,
   countNotesByTag,
@@ -24,6 +24,8 @@ import {
   NOTE_STATUS,
   notePriority,
   normalizeAttachments,
+  normalizeChecklist,
+  checklistProgress,
   attachmentsForPersist,
   previewText,
   PRIORITY_OPTIONS,
@@ -39,7 +41,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=116';
+} from './notes.js?v=117';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -74,8 +76,8 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
-} from './schedule.js?v=116';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=116';
+} from './schedule.js?v=117';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=117';
 import {
   notificationPermission,
   notificationSupported,
@@ -83,30 +85,31 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=116';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=116';
+  startNotifyKeepalive,
+} from './note-notify.js?v=117';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=117';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=116';
-import { createInAppCamera } from './camera.js?v=116';
+} from './files.js?v=117';
+import { createInAppCamera } from './camera.js?v=117';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=116';
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
+} from './user-context.js?v=117';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=117';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=116';
-import { SaveManager } from './sync.js?v=46';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
+} from './remote.js?v=117';
+import { normalizeNotesData } from './notes.js?v=117';
+import { SaveManager } from './sync.js?v=117';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=117';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -122,6 +125,7 @@ const state = {
   view: 'list',
   spaceId: null,
   online: false,
+  syncBaseUpdatedAt: null,
   contextNoteId: null,
   draftNoteId: null,
   tagReorderMode: false,
@@ -310,6 +314,14 @@ const els = {
   copySyncCodeBtn: null,
   applySyncCodeBtn: null,
   gotoCalorieSettingsBtn: document.getElementById('goto-calorie-settings-btn'),
+  exportNotesBtn: document.getElementById('export-notes-btn'),
+  importNotesBtn: document.getElementById('import-notes-btn'),
+  importNotesFile: document.getElementById('import-notes-file'),
+  importNotesText: document.getElementById('import-notes-text'),
+  importNotesPasteBtn: document.getElementById('import-notes-paste-btn'),
+  importMergeSeg: document.getElementById('import-merge-seg'),
+  aiChecklistList: document.getElementById('ai-checklist-list'),
+  aiChecklistAdd: document.getElementById('ai-checklist-add'),
   closeSettingsBtn: document.getElementById('close-settings-btn'),
   noteContextOverlay: document.getElementById('note-context-overlay'),
   noteContextMenu: document.getElementById('note-context-menu'),
@@ -2515,6 +2527,9 @@ let aiEditNoteId = null;
 let aiEditBaseline = null;
 /** @type {Array<{ attachment: object, aiPart: object|null, sourceFile?: File|Blob|null, uploadState?: string, uploadProgress?: number }>} */
 let aiPendingMedia = [];
+/** @type {{ id: string, text: string, done: boolean }[]} */
+let aiChecklistDraft = [];
+let importMergePreferred = true;
 
 const attachUrlCache = new Map(); // storagePath -> object/https url
 
@@ -2729,6 +2744,9 @@ function captureAiFormSnapshot() {
       .map((m) => m.attachment?.id)
       .filter(Boolean)
       .join('|'),
+    checklist: checklistDraftForSave()
+      .map((c) => `${c.id}:${c.done ? 1 : 0}:${c.text}`)
+      .join('|'),
   };
 }
 
@@ -2751,6 +2769,7 @@ function isAiFormDirty() {
       summary ||
       schedule ||
       aiPendingMedia.length ||
+      checklistDraftForSave().length ||
       tagsOn ||
       (priority && priority !== NOTE_PRIORITY.NORMAL) ||
       recurrence ||
@@ -2791,9 +2810,148 @@ function clearAiFormFields() {
   if (els.aiNoteDraftRemind) els.aiNoteDraftRemind.value = 'default';
   if (els.aiNoteDraftNotifyRepeat) els.aiNoteDraftNotifyRepeat.value = 'none';
   clearAiPendingMedia();
+  aiChecklistDraft = [];
+  renderAiChecklist();
   seedExistingTagChips();
   syncAiScheduleDisplay();
   setAiNoteStatus('');
+}
+
+function newChecklistItem(text = '', done = false) {
+  return {
+    id: crypto.randomUUID(),
+    text: String(text || ''),
+    done: Boolean(done),
+  };
+}
+
+function renderAiChecklist() {
+  const list = els.aiChecklistList;
+  if (!list) return;
+  list.innerHTML = '';
+  aiChecklistDraft.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.className = `ai-checklist-row${item.done ? ' is-done' : ''}`;
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = Boolean(item.done);
+    cb.addEventListener('change', () => {
+      aiChecklistDraft[index] = { ...item, done: cb.checked };
+      renderAiChecklist();
+      updateAiCancelBtn();
+    });
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 200;
+    input.placeholder = 'รายการย่อย…';
+    input.value = item.text || '';
+    input.addEventListener('input', () => {
+      aiChecklistDraft[index] = { ...item, text: input.value, done: aiChecklistDraft[index]?.done };
+      updateAiCancelBtn();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        aiChecklistDraft.splice(index + 1, 0, newChecklistItem());
+        renderAiChecklist();
+        const next = list.querySelectorAll('input[type="text"]')[index + 1];
+        next?.focus();
+      }
+    });
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'ai-checklist-remove';
+    rm.setAttribute('aria-label', 'ลบข้อ');
+    rm.textContent = '×';
+    rm.addEventListener('click', () => {
+      aiChecklistDraft.splice(index, 1);
+      renderAiChecklist();
+      updateAiCancelBtn();
+    });
+    row.append(cb, input, rm);
+    list.appendChild(row);
+  });
+}
+
+function checklistDraftForSave() {
+  return normalizeChecklist(
+    aiChecklistDraft
+      .map((c) => ({ ...c, text: String(c.text || '').trim() }))
+      .filter((c) => c.text),
+  );
+}
+
+function exportNotesBackup() {
+  const blob = exportNotesBlob(state.notesData);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `p-note-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  setStatus('ดาวน์โหลดสำรองแล้ว');
+}
+
+async function applyImportedNotes(text, { merge } = {}) {
+  const useMerge = merge ?? importMergePreferred;
+  let next;
+  try {
+    next = importFromText(text, state.notesData, { merge: useMerge });
+  } catch (err) {
+    console.warn('import failed', err);
+    setStatus('นำเข้าไม่สำเร็จ · ตรวจ JSON');
+    return false;
+  }
+  if (!hasAnyNotes(next) && !(Array.isArray(next.tags) && next.tags.length)) {
+    setStatus('ไฟล์ว่างหรือไม่ใช่ข้อมูลโน้ต');
+    return false;
+  }
+  const ok = await showConfirm(
+    useMerge
+      ? `รวมข้อมูลเข้าของเดิม? โน้ต ${next.notes.length} · แท็ก ${next.tags.length}`
+      : `แทนที่ข้อมูลทั้งหมดด้วยสำรองนี้? โน้ต ${next.notes.length} · แท็ก ${next.tags.length}`,
+    { okLabel: useMerge ? 'รวม' : 'แทนที่', danger: !useMerge },
+  );
+  if (!ok) return false;
+  state.notesData = next;
+  state.syncBaseUpdatedAt = next.updatedAt || null;
+  try {
+    await saveManager.saveNow(() => state.notesData);
+  } catch {
+    saveNotes(state.notesData);
+  }
+  renderNotesList();
+  renderTagManager();
+  refreshNoteNotifications();
+  scheduleUserContextRefresh();
+  setStatus(useMerge ? 'รวมสำรองแล้ว' : 'นำเข้าแทนที่แล้ว');
+  return true;
+}
+
+async function safePushRemote(data) {
+  if (!state.spaceId) return pushRemoteNotes(getSpaceId(), data);
+  try {
+    const remoteRaw = await fetchRemoteNotes(state.spaceId);
+    const remote = normalizeNotesData(remoteRaw);
+    const remoteAt = new Date(remote.updatedAt || 0).getTime();
+    const baseAt = new Date(state.syncBaseUpdatedAt || 0).getTime();
+    if (hasAnyNotes(remote) && remoteAt > baseAt + 400) {
+      const merged = mergeNotesByUpdatedAt(data, remote);
+      const saved = await pushRemoteNotes(state.spaceId, merged);
+      state.notesData = merged;
+      state.syncBaseUpdatedAt = saved?.updatedAt || merged.updatedAt;
+      renderNotesList();
+      return saved;
+    }
+  } catch {
+    /* offline or race — fall through to direct push */
+  }
+  const saved = await pushRemoteNotes(state.spaceId, data);
+  state.syncBaseUpdatedAt = saved?.updatedAt || data?.updatedAt || new Date().toISOString();
+  return saved;
 }
 
 function fillAiFormFromNote(note) {
@@ -2840,6 +2998,8 @@ function fillAiFormFromNote(note) {
     aiPart: null,
   }));
   renderAiAttachList();
+  aiChecklistDraft = normalizeChecklist(note.checklist);
+  renderAiChecklist();
   syncAiScheduleDisplay();
   setAiNoteStatus('');
 }
@@ -3616,7 +3776,8 @@ async function confirmAiNoteDraft() {
   const attachments = attachmentsForPersist(
     aiPendingMedia.map((m) => m.attachment).filter(Boolean),
   );
-  if (!title && !content && !attachments.length) {
+  const checklist = checklistDraftForSave();
+  if (!title && !content && !attachments.length && !checklist.length) {
     setAiNoteStatus('ใส่หัวข้อก่อน', { kind: 'error', restoreMs: 2200 });
     return;
   }
@@ -3653,6 +3814,7 @@ async function confirmAiNoteDraft() {
       recurrence,
       remindBefore,
       notifyRepeat,
+      checklist,
     });
     note = { ...note, tagIds, attachments };
     state.notesData = updateNoteInData(data, note);
@@ -3673,13 +3835,14 @@ async function confirmAiNoteDraft() {
     return;
   }
 
-  let note = createNote(title, content);
+  let note = createNote(title || (checklist.length ? 'เช็กลิสต์' : ''), content);
   note = updateNote(note, {
     scheduledAt: scheduleAt,
     priority,
     recurrence,
     remindBefore,
     notifyRepeat,
+    checklist,
   });
   note = { ...note, tagIds, attachments };
 
@@ -3976,6 +4139,37 @@ async function loadSpaceData(spaceId, localData) {
     }
   }
 
+  if (remoteHas && localHas) {
+    const merged = mergeNotesByUpdatedAt(localData, remote);
+    if (localNeedsRemotePush(localData, remote)) {
+      try {
+        await pushRemoteNotes(spaceId, merged);
+        return {
+          data: merged,
+          online: true,
+          migrated: false,
+          merged: true,
+          scheduleSnap: remoteVer < 5,
+        };
+      } catch {
+        return {
+          data: merged,
+          online: false,
+          migrated: false,
+          merged: true,
+          scheduleSnap: remoteVer < 5,
+        };
+      }
+    }
+    return {
+      data: merged,
+      online: true,
+      migrated: false,
+      merged: true,
+      scheduleSnap: remoteVer < 5,
+    };
+  }
+
   return {
     data: remote,
     online: true,
@@ -3996,6 +4190,7 @@ async function bootstrapData() {
 
   state.notesData = result.data;
   state.online = result.online;
+  state.syncBaseUpdatedAt = result.data?.updatedAt || null;
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
@@ -4003,7 +4198,7 @@ async function bootstrapData() {
 
   saveManager.configure({
     onStatus: (message) => setStatus(message),
-    remotePush: (data) => pushRemoteNotes(state.spaceId, data),
+    remotePush: (data) => safePushRemote(data),
   });
 
   const didScheduleSnap =
@@ -4404,6 +4599,44 @@ async function init() {
   els.gotoCalorieSettingsBtn?.addEventListener('click', () => {
     window.location.href = './index.html#settings';
   });
+  els.exportNotesBtn?.addEventListener('click', exportNotesBackup);
+  els.importNotesBtn?.addEventListener('click', () => els.importNotesFile?.click());
+  els.importNotesFile?.addEventListener('change', async () => {
+    const file = els.importNotesFile.files?.[0];
+    if (els.importNotesFile) els.importNotesFile.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      await applyImportedNotes(text);
+    } catch (err) {
+      console.warn('import file failed', err);
+      setStatus('อ่านไฟล์ไม่สำเร็จ');
+    }
+  });
+  els.importNotesPasteBtn?.addEventListener('click', async () => {
+    const text = String(els.importNotesText?.value || '').trim();
+    if (!text) {
+      setStatus('วาง JSON ก่อน');
+      return;
+    }
+    const ok = await applyImportedNotes(text);
+    if (ok && els.importNotesText) els.importNotesText.value = '';
+  });
+  els.importMergeSeg?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-import-merge]');
+    if (!btn) return;
+    importMergePreferred = btn.dataset.importMerge === '1';
+    els.importMergeSeg.querySelectorAll('[data-import-merge]').forEach((b) => {
+      b.classList.toggle('active', b === btn);
+    });
+  });
+  els.aiChecklistAdd?.addEventListener('click', () => {
+    aiChecklistDraft.push(newChecklistItem());
+    renderAiChecklist();
+    updateAiCancelBtn();
+    const inputs = els.aiChecklistList?.querySelectorAll('input[type="text"]');
+    inputs?.[inputs.length - 1]?.focus();
+  });
 
   els.groupActiveBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.ACTIVE));
   els.groupDoneBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.DONE));
@@ -4520,6 +4753,9 @@ async function init() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refreshNoteNotifications();
   });
+  window.addEventListener('pageshow', () => refreshNoteNotifications());
+  window.addEventListener('focus', () => refreshNoteNotifications());
+  window.addEventListener('online', () => refreshNoteNotifications());
 
   // Block iOS pinch/gesture zoom so the fixed layout never overflows its edges.
   document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -4532,6 +4768,10 @@ async function init() {
       await registerNotifyServiceWorker();
       if (notificationPermission() === 'granted') refreshNoteNotifications();
     }
+    startNotifyKeepalive(
+      () => filterNotesByStatus(state.notesData.notes, NOTE_STATUS.ACTIVE),
+      () => getNotifyPrefs(),
+    );
   });
 }
 
