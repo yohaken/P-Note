@@ -72,7 +72,7 @@ import {
   loadUserContextMd,
   refineDraftWithContext,
 } from './user-context.js?v=88';
-import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -142,24 +142,36 @@ const els = {
   appVersion: document.getElementById('app-version'),
   appTitle: document.getElementById('app-title'),
   appBuilt: document.getElementById('app-built'),
-  tagFilterBar: document.getElementById('tag-filter-bar'),
-  priorityFilterBar: document.getElementById('priority-filter-bar'),
-  recurrenceFilterBar: document.getElementById('recurrence-filter-bar'),
+  tagFilterBar: null,
+  priorityFilterBar: null,
+  recurrenceFilterBar: null,
   editorPriority: document.getElementById('editor-priority'),
-  sortBar: document.getElementById('sort-bar'),
-  barsTop: document.getElementById('bars-top'),
-  barsBottom: document.getElementById('bars-bottom'),
+  sortBar: null,
+  barsTop: null,
+  barsBottom: null,
+  filterDock: document.getElementById('filter-dock'),
+  filterDockFilters: document.querySelector('.filter-dock-filters'),
+  filterSortBtn: document.getElementById('filter-sort-btn'),
+  filterSortMenu: document.getElementById('filter-sort-menu'),
+  filterPriorityBtn: document.getElementById('filter-priority-btn'),
+  filterPriorityMenu: document.getElementById('filter-priority-menu'),
+  filterRecurrenceBtn: document.getElementById('filter-recurrence-btn'),
+  filterRecurrenceMenu: document.getElementById('filter-recurrence-menu'),
+  filterTagBtn: document.getElementById('filter-tag-btn'),
+  filterTagMenu: document.getElementById('filter-tag-menu'),
+  filterDdBackdrop: document.getElementById('filter-dd-backdrop'),
+  dockAiBtn: document.getElementById('dock-ai-btn'),
   bottomNav: null,
   healthModeBtn: null,
   groupNavBtn: document.getElementById('group-nav-btn'),
-  sortWrap: document.querySelector('.movable-bar[data-bar="sort"]'),
-  tagWrap: document.querySelector('.movable-bar[data-bar="tag"]'),
-  priorityWrap: document.querySelector('.movable-bar[data-bar="priority"]'),
-  recurrenceWrap: document.querySelector('.movable-bar[data-bar="recurrence"]'),
+  sortWrap: null,
+  tagWrap: null,
+  priorityWrap: null,
+  recurrenceWrap: null,
   resetBarsBtn: document.getElementById('reset-bars-btn'),
-  sortUpdatedBtn: document.getElementById('sort-updated-btn'),
-  sortScheduleBtn: document.getElementById('sort-schedule-btn'),
-  sortManualBtn: document.getElementById('sort-manual-btn'),
+  sortUpdatedBtn: null,
+  sortScheduleBtn: null,
+  sortManualBtn: null,
   groupActiveBtn: document.getElementById('group-active-btn'),
   groupDoneBtn: document.getElementById('group-done-btn'),
   groupTrashBtn: document.getElementById('group-trash-btn'),
@@ -225,6 +237,7 @@ function showView(view) {
   els.editorView.hidden = view !== 'editor';
   const fabStack = document.getElementById('fabStack');
   if (fabStack) fabStack.hidden = view !== 'list';
+  updateFilterDockVisibility();
 }
 
 function setLoading(visible, message = 'กำลังโหลด...') {
@@ -548,12 +561,9 @@ function renderGroupNav() {
   els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
-  if (els.sortWrap) els.sortWrap.hidden = !isActiveGroup;
-  if (els.priorityWrap) els.priorityWrap.hidden = !isActiveGroup;
-  if (els.recurrenceWrap) els.recurrenceWrap.hidden = !isActiveGroup;
-  // Always show tag bar on Active so long-press "ทั้งหมด" can open tag settings
-  if (els.tagWrap) els.tagWrap.hidden = !isActiveGroup;
-  els.addNoteBtn.hidden = !isActiveGroup;
+  if (els.addNoteBtn) els.addNoteBtn.hidden = !isActiveGroup;
+  if (els.dockAiBtn) els.dockAiBtn.hidden = !isActiveGroup;
+  updateFilterDockVisibility();
 
   const groupTitle =
     state.listGroup === NOTE_STATUS.DONE
@@ -568,10 +578,112 @@ function renderGroupNav() {
   }
 }
 
+const SORT_FILTER_OPTIONS = [
+  { id: 'updated', label: 'ล่าสุด', button: '📅 ล่าสุด' },
+  { id: 'schedule', label: 'ตามกำหนด', button: '📅 ตามกำหนด' },
+  { id: 'manual', label: 'อิสระ', button: '📅 อิสระ' },
+];
+
+function updateFilterDockVisibility() {
+  if (!els.filterDock) return;
+  const show = state.view === 'list' && state.listGroup === NOTE_STATUS.ACTIVE;
+  els.filterDock.hidden = !show;
+  if (!show) closeFilterMenus();
+  applyDockOffset();
+}
+
+function closeFilterMenus() {
+  ['filterSortMenu', 'filterPriorityMenu', 'filterRecurrenceMenu', 'filterTagMenu'].forEach((key) => {
+    const menu = els[key];
+    if (menu) menu.hidden = true;
+  });
+  ['filterSortBtn', 'filterPriorityBtn', 'filterRecurrenceBtn', 'filterTagBtn'].forEach((key) => {
+    const btn = els[key];
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
+  if (els.filterDdBackdrop) els.filterDdBackdrop.hidden = true;
+}
+
+function positionFilterMenu(menuEl, btnEl) {
+  if (!menuEl || !btnEl) return;
+  const rect = btnEl.getBoundingClientRect();
+  const gap = 8;
+  const vw = window.innerWidth || document.documentElement.clientWidth || 320;
+  const alignEnd = menuEl.classList.contains('filter-dd-menu-end');
+
+  menuEl.style.left = '0px';
+  menuEl.style.right = 'auto';
+  menuEl.style.top = '0px';
+  menuEl.style.bottom = 'auto';
+  menuEl.hidden = false;
+
+  const menuRect = menuEl.getBoundingClientRect();
+  let left = alignEnd ? rect.right - menuRect.width : rect.left;
+  left = Math.max(8, Math.min(left, vw - menuRect.width - 8));
+  const bottom = Math.max(8, window.innerHeight - rect.top + gap);
+
+  menuEl.style.left = `${Math.round(left)}px`;
+  menuEl.style.bottom = `${Math.round(bottom)}px`;
+  menuEl.style.top = 'auto';
+}
+
+function openFilterMenu(menuEl, btnEl) {
+  const wasOpen = menuEl && !menuEl.hidden;
+  closeFilterMenus();
+  if (!menuEl || !btnEl || wasOpen) return;
+  btnEl.setAttribute('aria-expanded', 'true');
+  if (els.filterDdBackdrop) els.filterDdBackdrop.hidden = false;
+  positionFilterMenu(menuEl, btnEl);
+}
+
+function fillFilterMenu(menuEl, items) {
+  if (!menuEl) return;
+  menuEl.innerHTML = '';
+  items.forEach((item) => {
+    if (item.sep) {
+      const sep = document.createElement('div');
+      sep.className = 'filter-dd-sep';
+      sep.setAttribute('role', 'separator');
+      menuEl.appendChild(sep);
+      return;
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `filter-dd-item${item.selected ? ' is-selected' : ''}`;
+    btn.setAttribute('role', 'option');
+    btn.setAttribute('aria-selected', item.selected ? 'true' : 'false');
+    const label = document.createElement('span');
+    label.textContent = item.label;
+    btn.appendChild(label);
+    if (item.selected) {
+      const check = document.createElement('span');
+      check.className = 'filter-dd-item-check';
+      check.textContent = '✓';
+      btn.appendChild(check);
+    }
+    btn.addEventListener('click', () => {
+      closeFilterMenus();
+      item.onSelect?.();
+    });
+    menuEl.appendChild(btn);
+  });
+}
+
 function renderSortBar() {
-  els.sortUpdatedBtn.classList.toggle('active', state.sortMode === 'updated');
-  els.sortScheduleBtn.classList.toggle('active', state.sortMode === 'schedule');
-  els.sortManualBtn.classList.toggle('active', state.sortMode === 'manual');
+  const opt = SORT_FILTER_OPTIONS.find((o) => o.id === state.sortMode) || SORT_FILTER_OPTIONS[0];
+  if (els.filterSortBtn) {
+    els.filterSortBtn.textContent = opt.button;
+    els.filterSortBtn.classList.toggle('is-active', state.sortMode !== 'updated');
+    els.filterSortBtn.title = `กำหนดเวลา · ${opt.label}`;
+  }
+  fillFilterMenu(
+    els.filterSortMenu,
+    SORT_FILTER_OPTIONS.map((o) => ({
+      label: o.label,
+      selected: state.sortMode === o.id,
+      onSelect: () => setSortMode(o.id),
+    })),
+  );
 }
 
 function isManualMode() {
@@ -609,35 +721,34 @@ function setSortMode(mode) {
 }
 
 function renderPriorityFilterBar() {
-  if (state.listGroup !== NOTE_STATUS.ACTIVE || !els.priorityFilterBar) return;
-
-  els.priorityFilterBar.innerHTML = '';
-
-  const allChip = document.createElement('button');
-  allChip.type = 'button';
-  allChip.className = `priority-chip${state.priorityFilter ? '' : ' active'}`;
-  allChip.textContent = 'ทั้งหมด';
-  allChip.addEventListener('click', () => {
-    state.priorityFilter = null;
-    persistFilters();
-    renderNotesList();
-  });
-  els.priorityFilterBar.appendChild(allChip);
-
-  PRIORITY_OPTIONS.forEach((opt) => {
-    const active = state.priorityFilter === opt.id;
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = `priority-chip priority-${opt.id}${active ? ' active' : ''}`;
-    const count = countNotesByPriority(state.notesData.notes, opt.id);
-    chip.textContent = count ? `${opt.short} (${count})` : opt.short;
-    chip.addEventListener('click', () => {
-      state.priorityFilter = active ? null : opt.id;
-      persistFilters();
-      renderNotesList();
-    });
-    els.priorityFilterBar.appendChild(chip);
-  });
+  const current = state.priorityFilter || null;
+  const opt = PRIORITY_OPTIONS.find((o) => o.id === current);
+  if (els.filterPriorityBtn) {
+    els.filterPriorityBtn.textContent = opt ? `⚠️ ${opt.short}` : '⚠️ ความสำคัญ';
+    els.filterPriorityBtn.classList.toggle('is-active', Boolean(current));
+    els.filterPriorityBtn.title = opt ? `ความสำคัญ · ${opt.label}` : 'ความสำคัญ';
+  }
+  const items = [
+    {
+      label: 'ทั้งหมด',
+      selected: !current,
+      onSelect: () => {
+        state.priorityFilter = null;
+        persistFilters();
+        renderNotesList();
+      },
+    },
+    ...PRIORITY_OPTIONS.map((o) => ({
+      label: o.label,
+      selected: current === o.id,
+      onSelect: () => {
+        state.priorityFilter = o.id;
+        persistFilters();
+        renderNotesList();
+      },
+    })),
+  ];
+  fillFilterMenu(els.filterPriorityMenu, items);
 }
 
 function priorityBadgeHtml(note) {
@@ -707,30 +818,34 @@ function setActiveNoteRecurrence(recurrence) {
 }
 
 function renderRecurrenceFilterBar() {
-  if (state.listGroup !== NOTE_STATUS.ACTIVE || !els.recurrenceFilterBar) return;
-
-  els.recurrenceFilterBar.innerHTML = '';
-  const groupNotes = notesForCurrentGroup();
   const current = normalizeRecurrenceFilter(state.recurrenceFilter);
-
-  RECURRENCE_FILTER_OPTIONS.forEach((opt) => {
-    const active = current === opt.id;
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = `recurrence-filter-chip${active ? ' active' : ''}`;
-    if (opt.id) {
-      const n = countNotesByRecurrence(groupNotes, opt.id);
-      chip.textContent = n ? `${opt.label} (${n})` : opt.label;
-    } else {
-      chip.textContent = opt.label;
-    }
-    chip.addEventListener('click', () => {
-      state.recurrenceFilter = active ? null : opt.id;
-      persistFilters();
-      renderNotesList();
-    });
-    els.recurrenceFilterBar.appendChild(chip);
-  });
+  const opt = RECURRENCE_FILTER_OPTIONS.find((o) => o.id === current);
+  const isFiltered = Boolean(current);
+  if (els.filterRecurrenceBtn) {
+    els.filterRecurrenceBtn.textContent = isFiltered && opt ? `🔁 ${opt.label}` : '🔁 การซ้ำ';
+    els.filterRecurrenceBtn.classList.toggle('is-active', isFiltered);
+    els.filterRecurrenceBtn.title = isFiltered && opt ? `การซ้ำ · ${opt.label}` : 'การซ้ำ';
+  }
+  const groupNotes = notesForCurrentGroup();
+  fillFilterMenu(
+    els.filterRecurrenceMenu,
+    RECURRENCE_FILTER_OPTIONS.map((o) => {
+      let label = o.label;
+      if (o.id) {
+        const n = countNotesByRecurrence(groupNotes, o.id);
+        if (n) label = `${o.label} (${n})`;
+      }
+      return {
+        label,
+        selected: current === o.id,
+        onSelect: () => {
+          state.recurrenceFilter = o.id;
+          persistFilters();
+          renderNotesList();
+        },
+      };
+    }),
+  );
 }
 
 /** Tags in saved filter-bar order (unknown ids appended). */
@@ -761,17 +876,14 @@ function closeTagBarMenu() {
 
 function enableTagReorderMode() {
   state.tagReorderMode = true;
-  if (els.tagWrap) els.tagWrap.classList.add('tag-reorder-mode');
-  setStatus('ลากแท็กเพื่อจัดลำดับ · แตะพื้นหลังเมื่อเสร็จ');
-  renderTagFilterBar();
+  setStatus('จัดลำดับแท็กได้ในหน้าจัดการแท็ก');
+  openTagManager();
+  state.tagReorderMode = false;
 }
 
 function disableTagReorderMode() {
   if (!state.tagReorderMode) return;
   state.tagReorderMode = false;
-  if (els.tagWrap) els.tagWrap.classList.remove('tag-reorder-mode');
-  setStatus('บันทึกลำดับแท็กแล้ว');
-  renderTagFilterBar();
 }
 
 function openTagBarMenu(tagId) {
@@ -808,17 +920,6 @@ function openTagBarMenu(tagId) {
     action: () => openTagManager(),
   });
 
-  if ((state.notesData.tags || []).length > 1) {
-    items.push({
-      id: 'reorder',
-      label: state.tagReorderMode ? 'เลิกจัดลำดับ' : 'จัดลำดับแท็ก',
-      action: () => {
-        if (state.tagReorderMode) disableTagReorderMode();
-        else enableTagReorderMode();
-      },
-    });
-  }
-
   state.contextNoteId = null;
   els.noteContextMenu.innerHTML = '';
   items.forEach((item) => {
@@ -835,6 +936,71 @@ function openTagBarMenu(tagId) {
 
   if (els.noteContextOverlay) els.noteContextOverlay.hidden = false;
   positionContextMenu(els.noteContextMenu);
+}
+
+function renderTagFilterBar() {
+  const tags = orderedFilterTags();
+  const currentId = state.tagFilterId || null;
+  const currentTag = currentId ? tags.find((t) => t.id === currentId) : null;
+  if (els.filterTagBtn) {
+    els.filterTagBtn.textContent = currentTag ? `🏷️ ${currentTag.name}` : '🏷️ แท็ก';
+    els.filterTagBtn.classList.toggle('is-active', Boolean(currentTag));
+    els.filterTagBtn.title = currentTag ? `แท็ก · ${currentTag.name}` : 'แท็ก';
+  }
+
+  const items = [
+    {
+      label: 'ทั้งหมด',
+      selected: !currentId,
+      onSelect: () => {
+        state.tagFilterId = null;
+        persistFilters();
+        renderNotesList();
+      },
+    },
+    ...tags.map((tag) => {
+      const n = countNotesByTag(state.notesData.notes, tag.id);
+      return {
+        label: n ? `${tag.name} (${n})` : tag.name,
+        selected: currentId === tag.id,
+        onSelect: () => {
+          state.tagFilterId = tag.id;
+          persistFilters();
+          renderNotesList();
+        },
+      };
+    }),
+    { sep: true },
+    {
+      label: 'จัดการแท็ก…',
+      selected: false,
+      onSelect: () => openTagManager(),
+    },
+  ];
+  fillFilterMenu(els.filterTagMenu, items);
+}
+
+function initFilterDock() {
+  const bindings = [
+    [els.filterSortBtn, els.filterSortMenu],
+    [els.filterPriorityBtn, els.filterPriorityMenu],
+    [els.filterRecurrenceBtn, els.filterRecurrenceMenu],
+    [els.filterTagBtn, els.filterTagMenu],
+  ];
+  bindings.forEach(([btn, menu]) => {
+    btn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFilterMenu(menu, btn);
+    });
+  });
+  els.filterDdBackdrop?.addEventListener('click', closeFilterMenus);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeFilterMenus();
+  });
+  els.dockAiBtn?.addEventListener('click', () => {
+    openAddNoteModal();
+    queueMicrotask(() => els.aiNoteSource?.focus());
+  });
 }
 
 /**
@@ -965,51 +1131,6 @@ function bindTagChipGestures(chip, tagId) {
     },
     true,
   );
-}
-
-function renderTagFilterBar() {
-  if (state.listGroup !== NOTE_STATUS.ACTIVE) return;
-  if (!els.tagFilterBar) return;
-
-  const tags = orderedFilterTags();
-  els.tagFilterBar.innerHTML = '';
-
-  // Always show ทั้งหมด so long-press can open tag settings even with no tags yet
-  const allChip = document.createElement('button');
-  allChip.type = 'button';
-  allChip.className = `tag-filter-chip${state.tagFilterId ? '' : ' active'}`;
-  allChip.textContent = 'ทั้งหมด';
-  allChip.title = 'แตะ = แสดงทั้งหมด · ค้าง = ตั้งค่าแท็ก';
-  allChip.addEventListener('click', () => {
-    state.tagFilterId = null;
-    persistFilters();
-    renderNotesList();
-  });
-  bindTagChipGestures(allChip, null);
-  els.tagFilterBar.appendChild(allChip);
-
-  tags.forEach((tag) => {
-    const active = state.tagFilterId === tag.id;
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = `tag-filter-chip${active ? ' active' : ''}`;
-    chip.dataset.tagId = tag.id;
-    chip.style.setProperty('--tag', safeTagColor(tag.color));
-    chip.textContent = `${tag.name} (${countNotesByTag(state.notesData.notes, tag.id)})`;
-    chip.title = 'แตะ = กรอง · ค้าง = ตั้งค่า · ค้างแล้วลาก = เรียงลำดับ';
-    chip.addEventListener('click', () => {
-      state.tagFilterId = active ? null : tag.id;
-      persistFilters();
-      renderNotesList();
-    });
-    bindTagChipGestures(chip, tag.id);
-    els.tagFilterBar.appendChild(chip);
-  });
-
-  if (els.tagWrap) {
-    els.tagWrap.hidden = false;
-    els.tagWrap.classList.toggle('tag-reorder-mode', Boolean(state.tagReorderMode));
-  }
 }
 
 function scheduleBadgeHtml(note) {
@@ -1195,17 +1316,20 @@ function reorderNotes(orderedIds) {
 }
 
 function applyDockOffset() {
-  const bars = els.barsBottom;
-  if (!bars) return;
-  const h = bars.hidden ? 0 : Math.ceil(bars.getBoundingClientRect().height || bars.offsetHeight || 0);
+  const dock = els.filterDock;
+  if (!dock || dock.hidden) {
+    document.documentElement.style.setProperty('--filters-dock-h', '0px');
+    return;
+  }
+  const h = Math.ceil(dock.getBoundingClientRect().height || dock.offsetHeight || 0);
   document.documentElement.style.setProperty('--filters-dock-h', `${h}px`);
 }
 
 let filtersDockObserver = null;
 function ensureFiltersDockObserver() {
-  if (filtersDockObserver || !els.barsBottom || typeof ResizeObserver === 'undefined') return;
+  if (filtersDockObserver || !els.filterDock || typeof ResizeObserver === 'undefined') return;
   filtersDockObserver = new ResizeObserver(() => applyDockOffset());
-  filtersDockObserver.observe(els.barsBottom);
+  filtersDockObserver.observe(els.filterDock);
 }
 
 function renderNotesList() {
@@ -2017,7 +2141,7 @@ function persistBarLayout(layout) {
 }
 
 function reapplyBarLayout() {
-  applyBarLayout(state.settings.barLayout || DEFAULT_BAR_LAYOUT, els.barsTop, els.barsBottom);
+  /* Filter dock is fixed; movable bar layout is retired. */
 }
 
 function setListGroup(group) {
@@ -2357,7 +2481,7 @@ async function init() {
       applyBarThickness();
     });
   }
-  els.resetBarsBtn.addEventListener('click', () => {
+  els.resetBarsBtn?.addEventListener('click', () => {
     state.settings.barLayout = [...DEFAULT_BAR_LAYOUT];
     saveSettings(state.settings);
     reapplyBarLayout();
@@ -2404,10 +2528,6 @@ async function init() {
 
   els.manageTagsBtn.addEventListener('click', openTagManager);
   els.backBtn.addEventListener('click', backToList);
-
-  els.sortUpdatedBtn.addEventListener('click', () => setSortMode('updated'));
-  els.sortScheduleBtn.addEventListener('click', () => setSortMode('schedule'));
-  els.sortManualBtn.addEventListener('click', () => setSortMode('manual'));
 
   initListSortable(els.notesList, {
     isEnabled: isManualMode,
@@ -2480,14 +2600,7 @@ async function init() {
   document.addEventListener('gesturechange', (event) => event.preventDefault());
 
   initSwipeBack();
-  initBarDrag({
-    topZone: els.barsTop,
-    bottomZone: els.barsBottom,
-    onChange: (layout) => {
-      persistBarLayout(layout);
-      renderNotesList();
-    },
-  });
+  initFilterDock();
   bootstrapData().then(async () => {
     if (getNotifyPrefs().enabled) {
       await registerNotifyServiceWorker();
