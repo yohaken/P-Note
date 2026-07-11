@@ -16,6 +16,8 @@ export const STORAGE_KEYS = {
   ACTIVE_BUILD: 'pnote_active_build',
   LOCAL_DATA: 'pnote_local_data',
   SETTINGS: 'pnote_settings',
+  /** Compact markdown memory of user note/tag habits for AI */
+  USER_CONTEXT_MD: 'pnote_user_context_md',
   /** Shared sync code for Calorie + Note (one DB space). */
   SPACE_ID: 'pnote_space_id',
   /** Legacy calorie-only key — migrated into SPACE_ID. */

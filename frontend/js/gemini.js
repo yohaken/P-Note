@@ -224,14 +224,16 @@ export async function listGeminiModels(apiKey) {
   return unique;
 }
 
-function buildPrompt({ text, existingTags, nowIso, hasImage }) {
+function buildPrompt({ text, existingTags, nowIso, hasImage, userContextMd }) {
   const tagList =
     existingTags.length > 0
       ? existingTags.map((t) => t.name).join(', ')
       : '(ยังไม่มีแท็ก — เสนอชื่อแท็กใหม่ได้)';
 
+  const memory = String(userContextMd || '').trim();
+
   return [
-    'คุณช่วยแปลงข้อความ/รูป เป็นโน้ตงานในแอปจดโน้ต',
+    'คุณช่วยแปลงข้อความ/รูป เป็นโน้ตงานในแอปจดโน้ตของผู้ใช้นี้',
     'ตอบเป็น JSON เท่านั้น:',
     JSON.stringify({
       title: '🚗 หัวข้อสั้น',
@@ -243,17 +245,20 @@ function buildPrompt({ text, existingTags, nowIso, hasImage }) {
     }),
     '',
     'กฎ:',
-    '- title: อีโมจิ 1 ตัวนำหน้า + ช่องว่าง + หัวข้อ (เดินทาง→🚗 ซื้อของ→🛒 งาน→💼 ส่วนตัว→🏠 สุขภาพ→💪 เรียน→📚 ไม่แน่ใจ→📝)',
+    '- title: อีโมจิ 1 ตัวนำหน้า + ช่องว่าง + หัวข้อ (เดินทาง→🚗 ซื้อของ→🛒 งาน→💼 ส่วนตัว→🏠 ที่ดิน/อสังหา→🏞️ สุขภาพ→💪 เรียน→📚 ไม่แน่ใจ→📝)',
     '- summary: สรุปกระชับ ภาษาเดียวกับต้นฉบับ อย่าแต่งเติม',
-    '- tags: 1–3 ชื่อแท็กสั้นๆ ภาษาไทย/อังกฤษ · ใช้แท็กที่มีอยู่ก่อนถ้าเข้ากัน · ไม่มีที่เหมาะให้เสนอชื่อใหม่ (เช่น งาน, ส่วนตัว, บ้าน, สุขภาพ)',
-    '- scheduledAt: ISO 8601 พร้อมโซนเวลา ถ้ามีกำหนดชัด/พอเดาได้ (เช่น พรุ่งนี้ 18:00) · ไม่มีกำหนดใส่ null',
-    '- priority: normal | important | urgent | critical',
+    '- tags: 1–3 ชื่อ · ใช้แท็กที่มีอยู่ก่อนถ้าเข้ากับบริบท/ความจำผู้ใช้ · สร้างใหม่เฉพาะเมื่อไม่มีที่ใกล้เคียง',
+    '- priority: normal | important | urgent | critical ตามความน่าจะเป็นจากข้อความ + นิสัยในความจำผู้ใช้',
+    '- scheduledAt: ISO 8601 พร้อมโซนเวลา ถ้ามีกำหนดชัด/พอเดาได้ · ไม่มีใส่ null',
     '- recurrence: null | daily | weekly | monthly | yearly (เฉพาะงานที่ทำซ้ำจริง)',
     hasImage ? '- ถ้ามีรูป: อ่านข้อความ/บริบทจากรูปแล้วสรุปเป็นงาน' : '',
     '',
     `ตอนนี้: ${nowIso}`,
     `แท็กที่มีอยู่: ${tagList}`,
     '',
+    memory
+      ? `## ความจำผู้ใช้ (จากประวัติในแอป — ใช้เป็นบริบท)\n${memory}\n`
+      : '## ความจำผู้ใช้\n(ยังน้อย — เดาจากข้อความและแท็กที่มี)\n',
     text ? `ข้อความต้นฉบับ:\n${text}` : 'ข้อความต้นฉบับ: (ไม่มี — ใช้จากรูป)',
   ]
     .filter(Boolean)
@@ -268,6 +273,7 @@ function buildPrompt({ text, existingTags, nowIso, hasImage }) {
  *   model?: string,
  *   existingTags?: Array<{ id?: string, name: string }>,
  *   image?: { mimeType: string, data: string } | null,
+ *   userContextMd?: string,
  *   now?: Date,
  * }} [opts]
  */
@@ -306,6 +312,7 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
     existingTags,
     nowIso,
     hasImage: images.length > 0,
+    userContextMd: opts.userContextMd || '',
   });
 
   const parts = [{ text: prompt }];
