@@ -1562,6 +1562,31 @@ body.light .priority-badge.priority-urgent {
   white-space: nowrap;
 }
 
+.ai-context-details {
+  margin-top: 0.45rem;
+}
+
+.ai-context-details summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ai-context-preview {
+  margin: 0.4rem 0 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 0.5rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .tag-add-row {
   display: flex;
   gap: 0.5rem;

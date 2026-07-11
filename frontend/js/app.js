@@ -36,7 +36,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=85';
+} from './notes.js?v=86';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -56,8 +56,8 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=85';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=85';
+} from './schedule.js?v=86';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=86';
 import {
   notificationPermission,
   notificationSupported,
@@ -65,8 +65,13 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=85';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=85';
+} from './note-notify.js?v=86';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=86';
+import {
+  refreshUserContext,
+  loadUserContextMd,
+  refineDraftWithContext,
+} from './user-context.js?v=86';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -74,7 +79,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=85';
+import { normalizeNotesData } from './notes.js?v=86';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -131,6 +136,8 @@ const els = {
   geminiModel: document.getElementById('gemini-model'),
   geminiLoadModelsBtn: document.getElementById('gemini-load-models-btn'),
   geminiModelHint: document.getElementById('gemini-model-hint'),
+  aiContextRefreshBtn: document.getElementById('ai-context-refresh-btn'),
+  aiContextPreview: document.getElementById('ai-context-preview'),
   settingsBtn: document.getElementById('settings-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
   openDrawerBtn: document.getElementById('group-nav-btn'),
@@ -236,6 +243,25 @@ function setStatus(_message, _target = 'both') {
 function autosave() {
   saveManager.scheduleSave(() => state.notesData);
   refreshNoteNotifications();
+  scheduleUserContextRefresh();
+}
+
+let userContextTimer = null;
+function scheduleUserContextRefresh() {
+  if (userContextTimer) clearTimeout(userContextTimer);
+  userContextTimer = setTimeout(() => {
+    try {
+      refreshUserContext(state.notesData);
+    } catch (err) {
+      console.warn('user context refresh failed', err);
+    }
+  }, 900);
+}
+
+function fillAiContextPreview() {
+  if (!els.aiContextPreview) return;
+  const md = loadUserContextMd() || refreshUserContext(state.notesData).md;
+  els.aiContextPreview.textContent = md || '(ยังไม่มีความจำ)';
 }
 
 function noteIsEmpty(note) {
@@ -1305,6 +1331,7 @@ function openSettings() {
   els.cardDensitySlider.value = String(state.settings.cardDensity);
   if (els.geminiApiKey) els.geminiApiKey.value = state.settings.geminiApiKey || '';
   fillGeminiModelSelect(state.settings.geminiModel);
+  fillAiContextPreview();
   applyTheme();
   applyFabDirection();
   applyNotifySettingsUi();
@@ -1666,17 +1693,24 @@ async function runAiSummarize() {
   const aiImages = aiPendingMedia.map((m) => m.aiPart).filter(Boolean);
   setAiNoteStatus(aiImages.length ? 'กำลังอ่านไฟล์และสรุป…' : 'กำลังสรุป…');
   try {
-    const draft = await summarizeToNoteDraft(apiKey, source, {
+    const ctx = refreshUserContext(state.notesData);
+    let draft = await summarizeToNoteDraft(apiKey, source, {
       model: state.settings.geminiModel,
       existingTags: state.notesData.tags || [],
       images: aiImages,
+      userContextMd: ctx.md || loadUserContextMd(),
       now: new Date(),
     });
+    draft = refineDraftWithContext(
+      draft,
+      state.notesData,
+      `${source}\n${draft.title || ''}\n${draft.summary || ''}`,
+    );
     applyAiDraftToForm(draft);
     showAiNoteStep('review');
     const bits = [];
     if (aiPendingMedia.length) bits.push(`แนบ ${aiPendingMedia.length}`);
-    if (draft.tags?.length) bits.push(`แท็ก ${draft.tags.length}`);
+    if (draft.tags?.length) bits.push(`แท็ก ${draft.tags.join(', ')}`);
     if (draft.scheduledAt) bits.push('มีกำหนด');
     if (draft.priority && draft.priority !== 'normal') bits.push(priorityLabel(draft.priority));
     setAiNoteStatus(bits.length ? `ตรวจแล้วสร้าง · ${bits.join(' · ')}` : 'ตรวจแล้วกดสร้าง');
@@ -1750,6 +1784,7 @@ async function confirmAiNoteDraft() {
   renderNotesList();
   renderTagFilterBar();
   renderTagManager();
+  scheduleUserContextRefresh();
   setStatus(attachments.length ? 'สร้างโน้ตจาก AI พร้อมไฟล์แนบ' : 'สร้างโน้ตจาก AI แล้ว');
 }
 
@@ -2050,6 +2085,7 @@ async function bootstrapData() {
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
+  try { refreshUserContext(state.notesData); } catch {}
 
   saveManager.configure({
     onStatus: (message) => setStatus(message),
@@ -2231,6 +2267,11 @@ async function init() {
   els.geminiModel?.addEventListener('change', persistGeminiSettingsFromUi);
   els.geminiLoadModelsBtn?.addEventListener('click', () => {
     loadGeminiModelsFromApi();
+  });
+  els.aiContextRefreshBtn?.addEventListener('click', () => {
+    const ctx = refreshUserContext(state.notesData);
+    fillAiContextPreview();
+    setStatus(`รีเฟรชความจำแล้ว · แท็ก ${ctx.tagCount} · โน้ต ${ctx.noteCount}`);
   });
   els.settingsBtn.addEventListener('click', openSettings);
   els.closeSettingsBtn.addEventListener('click', closeSettings);
