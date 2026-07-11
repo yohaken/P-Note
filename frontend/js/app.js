@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=95';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=96';
 import {
   notificationPermission,
   notificationSupported,
@@ -1818,6 +1818,8 @@ function renderAiAttachList() {
   });
   updateAiCancelBtn();
 }
+
+function renderAiTagChips() {
   const wrap = els.aiNoteTagChips;
   if (!wrap) return;
   wrap.innerHTML = '';
