@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=75';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=77';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -52,7 +52,15 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=71';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=71';
+import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=77';
+import {
+  notificationPermission,
+  notificationSupported,
+  registerNotifyServiceWorker,
+  requestNotificationPermission,
+  sendTestNotification,
+  syncNoteNotifications,
+} from './note-notify.js?v=77';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -144,6 +152,10 @@ const els = {
   themeLightBtn: document.getElementById('theme-light-btn'),
   fabDirVerticalBtn: document.getElementById('fab-dir-vertical-btn'),
   fabDirHorizontalBtn: document.getElementById('fab-dir-horizontal-btn'),
+  notifyOffBtn: document.getElementById('notify-off-btn'),
+  notifyOnBtn: document.getElementById('notify-on-btn'),
+  notifyHint: document.getElementById('notify-hint'),
+  notifyTestBtn: document.getElementById('notify-test-btn'),
   thicknessSort: document.getElementById('thickness-sort'),
   thicknessTag: document.getElementById('thickness-tag'),
   thicknessPriority: document.getElementById('thickness-priority'),
@@ -182,6 +194,7 @@ function setStatus(_message, _target = 'both') {
 
 function autosave() {
   saveManager.scheduleSave(() => state.notesData);
+  refreshNoteNotifications();
 }
 
 function noteIsEmpty(note) {
@@ -225,6 +238,60 @@ function applyFabDirection() {
   const horizontal = dir === 'horizontal';
   els.fabDirVerticalBtn?.classList.toggle('active', !horizontal);
   els.fabDirHorizontalBtn?.classList.toggle('active', horizontal);
+}
+
+function refreshNoteNotifications() {
+  const active = filterNotesByStatus(state.notesData.notes || [], NOTE_STATUS.ACTIVE);
+  syncNoteNotifications(active, {
+    enabled: Boolean(state.settings.notificationsEnabled),
+  });
+}
+
+function applyNotifySettingsUi() {
+  const on = Boolean(state.settings.notificationsEnabled);
+  els.notifyOffBtn?.classList.toggle('active', !on);
+  els.notifyOnBtn?.classList.toggle('active', on);
+  if (!els.notifyHint) return;
+  if (!notificationSupported()) {
+    els.notifyHint.textContent = 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนระบบ';
+    return;
+  }
+  const perm = notificationPermission();
+  if (on && perm === 'granted') {
+    els.notifyHint.textContent =
+      'เปิดแล้ว · โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนเครื่อง (ทำงานดีสุดเมื่อเปิดแอป/ติดตั้งบนโฮม)';
+  } else if (on && perm === 'denied') {
+    els.notifyHint.textContent = 'ระบบบล็อกการแจ้งเตือน — เปิดสิทธิ์ในตั้งค่าเครื่อง/เบราว์เซอร์';
+  } else if (on) {
+    els.notifyHint.textContent = 'รออนุญาตการแจ้งเตือนจากเครื่อง…';
+  } else {
+    els.notifyHint.textContent =
+      'โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · แนะนำติดตั้ง P-Note บนหน้าจอโฮม';
+  }
+}
+
+async function setNotificationsEnabled(enabled) {
+  if (enabled) {
+    if (!notificationSupported()) {
+      setStatus('เครื่องนี้ไม่รองรับการแจ้งเตือน');
+      applyNotifySettingsUi();
+      return;
+    }
+    await registerNotifyServiceWorker();
+    const perm = await requestNotificationPermission();
+    if (perm !== 'granted') {
+      state.settings.notificationsEnabled = false;
+      saveSettings(state.settings);
+      applyNotifySettingsUi();
+      setStatus(perm === 'denied' ? 'ไม่ได้รับอนุญาตแจ้งเตือน' : 'ยังไม่ได้เปิดแจ้งเตือน');
+      return;
+    }
+  }
+  state.settings.notificationsEnabled = Boolean(enabled);
+  saveSettings(state.settings);
+  applyNotifySettingsUi();
+  refreshNoteNotifications();
+  setStatus(enabled ? 'เปิดแจ้งเตือนเครื่องแล้ว' : 'ปิดแจ้งเตือนเครื่องแล้ว');
 }
 
 function barWrapper(bar) {
@@ -304,6 +371,7 @@ function commitData(newData) {
   renderNotesList();
   renderEditorTags();
   renderTagManager();
+  refreshNoteNotifications();
 }
 
 function notesForCurrentGroup() {
@@ -1092,6 +1160,7 @@ function openSettings() {
   els.cardDensitySlider.value = String(state.settings.cardDensity);
   applyTheme();
   applyFabDirection();
+  applyNotifySettingsUi();
   applyBarThickness();
 }
 
@@ -1557,6 +1626,18 @@ async function init() {
   els.fabDirHorizontalBtn?.addEventListener('click', () => setFabDir('horizontal'));
   applyFabDirection();
 
+  els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
+  els.notifyOnBtn?.addEventListener('click', () => setNotificationsEnabled(true));
+  els.notifyTestBtn?.addEventListener('click', async () => {
+    const result = await sendTestNotification();
+    if (result.ok) setStatus('ส่งแจ้งเตือนทดสอบแล้ว');
+    else if (result.reason === 'denied') setStatus('ระบบบล็อกการแจ้งเตือน');
+    else if (result.reason === 'unsupported') setStatus('ไม่รองรับการแจ้งเตือน');
+    else setStatus('ทดสอบแจ้งเตือนไม่สำเร็จ');
+    applyNotifySettingsUi();
+  });
+  applyNotifySettingsUi();
+
   els.cardDensitySlider.addEventListener('input', () => {
     state.settings.cardDensity = Number(els.cardDensitySlider.value);
     saveSettings(state.settings);
@@ -1684,6 +1765,10 @@ async function init() {
     flushEditorToState();
   });
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshNoteNotifications();
+  });
+
   // Block iOS pinch/gesture zoom so the fixed layout never overflows its edges.
   document.addEventListener('gesturestart', (event) => event.preventDefault());
   document.addEventListener('gesturechange', (event) => event.preventDefault());
@@ -1697,7 +1782,12 @@ async function init() {
       renderNotesList();
     },
   });
-  bootstrapData();
+  bootstrapData().then(async () => {
+    if (state.settings.notificationsEnabled) {
+      await registerNotifyServiceWorker();
+      if (notificationPermission() === 'granted') refreshNoteNotifications();
+    }
+  });
 }
 
 init();
