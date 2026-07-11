@@ -3,7 +3,7 @@ import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=46';
 import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
-} from './schedule.js?v=113';
+} from './schedule.js?v=116';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -17,7 +17,7 @@ export const DEFAULT_NOTIFY_PREFS = {
   tagIds: [],
 };
 
-const DEFAULT_FAB_ORDER = ['pages', 'group', 'ai']; // visual top → bottom (AI nearest dock by default)
+const DEFAULT_FAB_ORDER = ['pages', 'group', 'blank', 'ai']; // visual top → bottom (AI nearest dock by default)
 
 const CAMERA_QUALITIES = ['max', 'high', 'medium'];
 const CAMERA_FACINGS = ['environment', 'user'];
@@ -198,7 +198,7 @@ function normalizeTagOrder(value) {
   return value.map((id) => String(id)).filter(Boolean);
 }
 
-const FAB_ORDER_IDS = ['pages', 'group', 'ai'];
+const FAB_ORDER_IDS = ['pages', 'group', 'blank', 'ai'];
 
 /** Visual top → bottom. Missing ids appended; unknown dropped. */
 export function normalizeFabOrder(value) {
@@ -277,6 +277,7 @@ export function loadSettings() {
       tagFilterId: normalizeTagFilterId(parsed.tagFilterId),
       priorityFilter: normalizePriorityFilter(parsed.priorityFilter),
       recurrenceFilter: normalizeRecurrenceFilterSetting(parsed.recurrenceFilter),
+      dueScope: ['today', 'soon', 'overdue'].includes(parsed.dueScope) ? parsed.dueScope : null,
       tagOrder: normalizeTagOrder(parsed.tagOrder),
       barThickness: {
         sort: clampPct(bt.sort),

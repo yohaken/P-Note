@@ -1,5 +1,5 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=115';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=115';
+import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=116';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=116';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -13,6 +13,7 @@ import {
   filterNotesByPriority,
   filterNotesByStatus,
   filterNotesByTag,
+  filterNotesBySearch,
   TAG_FILTER_UNTAGGED,
   formatDate,
   getTagsForNote,
@@ -38,7 +39,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=115';
+} from './notes.js?v=116';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -66,11 +67,15 @@ import {
   defaultDatetimeLocalValue,
   defaultScheduleIso,
   snoozeNote,
+  snoozeNoteTo,
   snoozeScheduledAt,
   SNOOZE_OPTIONS,
   normalizeSnoozeId,
-} from './schedule.js?v=115';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=115';
+  filterNotesByDueScope,
+  normalizeDueScope,
+  DUE_SCOPE_OPTIONS,
+} from './schedule.js?v=116';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=116';
 import {
   notificationPermission,
   notificationSupported,
@@ -78,20 +83,20 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=115';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=115';
+} from './note-notify.js?v=116';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=116';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=115';
-import { createInAppCamera } from './camera.js?v=115';
+} from './files.js?v=116';
+import { createInAppCamera } from './camera.js?v=116';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=115';
+} from './user-context.js?v=116';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -99,7 +104,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=115';
+import { normalizeNotesData } from './notes.js?v=116';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -110,6 +115,8 @@ const state = {
   tagFilterId: null,
   priorityFilter: null,
   recurrenceFilter: null,
+  dueScope: null,
+  searchQuery: '',
   listGroup: NOTE_STATUS.ACTIVE,
   sortMode: 'updated',
   view: 'list',
@@ -129,6 +136,22 @@ const els = {
   notesList: document.getElementById('notes-list'),
   emptyState: document.getElementById('empty-state'),
   emptyStateText: document.getElementById('empty-state-text'),
+  emptyAddBlankBtn: document.getElementById('empty-add-blank-btn'),
+  emptyAddAiBtn: document.getElementById('empty-add-ai-btn'),
+  searchToggleBtn: document.getElementById('search-toggle-btn'),
+  noteSearchRow: document.getElementById('note-search-row'),
+  noteSearchInput: document.getElementById('note-search-input'),
+  noteSearchClear: document.getElementById('note-search-clear'),
+  addBlankBtn: document.getElementById('add-blank-btn'),
+  actionToast: document.getElementById('action-toast'),
+  actionToastMsg: document.getElementById('action-toast-msg'),
+  actionToastUndo: document.getElementById('action-toast-undo'),
+  snoozePickOverlay: document.getElementById('snooze-pick-overlay'),
+  snoozePickInput: document.getElementById('snooze-pick-input'),
+  snoozePickCancel: document.getElementById('snooze-pick-cancel'),
+  snoozePickOk: document.getElementById('snooze-pick-ok'),
+  filterDueBtn: document.getElementById('filter-due-btn'),
+  filterDueMenu: document.getElementById('filter-due-menu'),
   addNoteBtn: document.getElementById('add-note-btn'),
   aiNoteModal: document.getElementById('ai-note-modal'),
   aiNoteSource: document.getElementById('ai-note-source'),
@@ -311,8 +334,48 @@ function setLoading(visible, message = 'กำลังโหลด...') {
   els.loadingOverlay.querySelector('p').textContent = message;
 }
 
-function setStatus(_message, _target = 'both') {
-  // Sync status UI removed — keep hook for SaveManager / callers.
+let undoHandler = null;
+let snoozePickNoteId = null;
+
+function hideActionToast() {
+  if (statusTimer) {
+    clearTimeout(statusTimer);
+    statusTimer = null;
+  }
+  undoHandler = null;
+  if (els.actionToast) {
+    els.actionToast.classList.remove('visible');
+    els.actionToast.hidden = true;
+  }
+  if (els.actionToastUndo) els.actionToastUndo.hidden = true;
+}
+
+function setStatus(message, opts = {}) {
+  const text = String(message || '').trim();
+  if (!text) {
+    hideActionToast();
+    return;
+  }
+  if (!els.actionToast || !els.actionToastMsg) {
+    console.info('[status]', text);
+    return;
+  }
+  if (statusTimer) clearTimeout(statusTimer);
+  undoHandler = typeof opts.undo === 'function' ? opts.undo : null;
+  els.actionToastMsg.textContent = text;
+  if (els.actionToastUndo) {
+    els.actionToastUndo.hidden = !undoHandler;
+  }
+  els.actionToast.hidden = false;
+  requestAnimationFrame(() => els.actionToast?.classList.add('visible'));
+  const ms = Number.isFinite(opts.ms) ? opts.ms : undoHandler ? 5200 : 2800;
+  statusTimer = setTimeout(() => hideActionToast(), ms);
+}
+
+function runUndo() {
+  const fn = undoHandler;
+  hideActionToast();
+  if (fn) fn();
 }
 
 function autosave() {
@@ -576,6 +639,7 @@ function applyFabDirection() {
 
 const FAB_ORDER_LABELS = {
   ai: '✨ AI',
+  blank: '+ โน้ตว่าง',
   pages: '▦ แผ่นงาน',
   group: '☰ กลุ่มงาน',
 };
@@ -859,6 +923,8 @@ function sortedFilteredNotes() {
   notes = filterNotesByPriority(notes, state.priorityFilter);
   notes = filterNotesByRecurrence(notes, state.recurrenceFilter);
   notes = filterNotesByTag(notes, state.tagFilterId);
+  notes = filterNotesByDueScope(notes, state.dueScope);
+  notes = filterNotesBySearch(notes, state.searchQuery, state.notesData.tags || []);
   if (state.sortMode === 'schedule') return sortNotesBySchedule(notes);
   if (state.sortMode === 'manual') return sortNotesManual(notes);
   return sortNotes(notes);
@@ -871,6 +937,7 @@ function renderGroupNav() {
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
   if (els.addNoteBtn) els.addNoteBtn.hidden = !isActiveGroup;
+  if (els.addBlankBtn) els.addBlankBtn.hidden = !isActiveGroup;
   updateFilterDockVisibility();
 
   const groupTitle =
@@ -907,11 +974,11 @@ function syncFilterMenuChrome(open) {
 }
 
 function closeFilterMenus() {
-  ['filterSortMenu', 'filterPriorityMenu', 'filterRecurrenceMenu', 'filterTagMenu'].forEach((key) => {
+  ['filterSortMenu', 'filterPriorityMenu', 'filterRecurrenceMenu', 'filterTagMenu', 'filterDueMenu'].forEach((key) => {
     const menu = els[key];
     if (menu) menu.hidden = true;
   });
-  ['filterSortBtn', 'filterPriorityBtn', 'filterRecurrenceBtn', 'filterTagBtn'].forEach((key) => {
+  ['filterSortBtn', 'filterPriorityBtn', 'filterRecurrenceBtn', 'filterTagBtn', 'filterDueBtn'].forEach((key) => {
     const btn = els[key];
     if (btn) btn.setAttribute('aria-expanded', 'false');
   });
@@ -1012,6 +1079,7 @@ function persistFilters() {
   state.settings.tagFilterId = state.tagFilterId || null;
   state.settings.priorityFilter = state.priorityFilter || null;
   state.settings.recurrenceFilter = state.recurrenceFilter || null;
+  state.settings.dueScope = state.dueScope || null;
   saveSettings(state.settings);
 }
 
@@ -1026,6 +1094,7 @@ function applySavedFilters() {
   state.tagFilterId = tagId;
   state.priorityFilter = s.priorityFilter || null;
   state.recurrenceFilter = normalizeRecurrenceFilter(s.recurrenceFilter);
+  state.dueScope = normalizeDueScope(s.dueScope);
   // Keep settings in sync if a deleted tag was dropped
   if (s.tagFilterId && s.tagFilterId !== TAG_FILTER_UNTAGGED && !tagId) {
     state.settings.tagFilterId = null;
@@ -1038,6 +1107,43 @@ function setSortMode(mode) {
   state.settings.sortMode = mode;
   saveSettings(state.settings);
   renderNotesList();
+}
+
+function countNotesByDueScope(notes, scope) {
+  return filterNotesByDueScope(notes, scope).length;
+}
+
+function renderDueScopeBar() {
+  const current = normalizeDueScope(state.dueScope);
+  const opt = DUE_SCOPE_OPTIONS.find((o) => o.id === current);
+  const isFiltered = Boolean(current);
+  if (els.filterDueBtn) {
+    els.filterDueBtn.textContent = isFiltered && opt ? `📆 ${opt.label}` : '📆 กำหนด';
+    els.filterDueBtn.classList.toggle('is-active', isFiltered);
+    els.filterDueBtn.title = isFiltered && opt
+      ? `กำหนด · ${opt.label} · กดค้าง = ทั้งหมด`
+      : 'กำหนด · กดค้าง = ทั้งหมด';
+  }
+  const groupNotes = notesForCurrentGroup();
+  fillFilterMenu(
+    els.filterDueMenu,
+    DUE_SCOPE_OPTIONS.map((o) => {
+      let label = o.label;
+      if (o.id) {
+        const n = countNotesByDueScope(groupNotes, o.id);
+        if (n) label = `${o.label} (${n})`;
+      }
+      return {
+        label,
+        selected: current === o.id,
+        onSelect: () => {
+          state.dueScope = o.id;
+          persistFilters();
+          renderNotesList();
+        },
+      };
+    }),
+  );
 }
 
 function renderPriorityFilterBar() {
@@ -1383,6 +1489,21 @@ function renderTagFilterBar() {
 
 function initFilterDock() {
   const bindings = [
+    [
+      els.filterDueBtn,
+      els.filterDueMenu,
+      () => {
+        if (!normalizeDueScope(state.dueScope)) {
+          setStatus('กำหนด · ทั้งหมดอยู่แล้ว');
+          return;
+        }
+        state.dueScope = null;
+        persistFilters();
+        renderDueScopeBar();
+        renderNotesList();
+        setStatus('กำหนด · ทั้งหมด');
+      },
+    ],
     [
       els.filterSortBtn,
       els.filterSortMenu,
@@ -1830,9 +1951,54 @@ function openSnoozeMenu(noteId) {
     els.noteContextMenu.appendChild(btn);
   });
 
+  const custom = document.createElement('button');
+  custom.type = 'button';
+  custom.className = 'context-menu-item';
+  custom.textContent = 'เลือกวันเวลา…';
+  custom.addEventListener('click', () => {
+    closeContextMenu();
+    openSnoozePicker(noteId);
+  });
+  els.noteContextMenu.appendChild(custom);
+
   if (els.noteContextOverlay) els.noteContextOverlay.hidden = false;
   positionContextMenu(els.noteContextMenu);
   clearUiTextSelection();
+}
+
+function openSnoozePicker(noteId) {
+  const note = getNoteById(noteId);
+  if (!note || !els.snoozePickOverlay) return;
+  snoozePickNoteId = noteId;
+  const base = snoozeScheduledAt(note.scheduledAt, '1d') || defaultScheduleIso();
+  if (els.snoozePickInput) {
+    els.snoozePickInput.value = toDatetimeLocalValue(base);
+  }
+  els.snoozePickOverlay.hidden = false;
+  queueMicrotask(() => {
+    try {
+      els.snoozePickInput?.focus();
+      els.snoozePickInput?.showPicker?.();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+function closeSnoozePicker() {
+  snoozePickNoteId = null;
+  if (els.snoozePickOverlay) els.snoozePickOverlay.hidden = true;
+}
+
+function confirmSnoozePicker() {
+  const noteId = snoozePickNoteId;
+  const iso = fromDatetimeLocalValue(els.snoozePickInput?.value);
+  closeSnoozePicker();
+  if (!noteId || !iso) {
+    setStatus('เลือกวันเวลาก่อน');
+    return;
+  }
+  applyNoteAction(noteId, 'snooze', { at: iso });
 }
 
 function openContextMenu(noteId) {
@@ -1866,6 +2032,7 @@ async function applyNoteAction(noteId, action, extra = {}) {
   const note = getNoteById(noteId);
   if (!note) return;
 
+  const snapshot = { ...note };
   let updated = note;
   let advanced = false;
   if (action === 'done') {
@@ -1873,12 +2040,16 @@ async function applyNoteAction(noteId, action, extra = {}) {
     updated = result.note;
     advanced = result.advanced;
   } else if (action === 'snooze') {
-    const snoozeId = normalizeSnoozeId(extra.snoozeId);
-    if (!snoozeId) {
-      openSnoozeMenu(noteId);
-      return;
+    if (extra.at) {
+      updated = snoozeNoteTo(note, extra.at);
+    } else {
+      const snoozeId = normalizeSnoozeId(extra.snoozeId);
+      if (!snoozeId) {
+        openSnoozeMenu(noteId);
+        return;
+      }
+      updated = snoozeNote(note, snoozeId);
     }
-    updated = snoozeNote(note, snoozeId);
   } else if (action === 'trash') updated = moveNoteToTrash(note);
   else if (action === 'restore') {
     updated = state.listGroup === NOTE_STATUS.TRASH ? restoreNoteFromTrash(note) : markNoteActive(note);
@@ -1894,15 +2065,24 @@ async function applyNoteAction(noteId, action, extra = {}) {
   autosave();
   renderNotesList();
   refreshNoteNotifications();
+
+  const undo = () => {
+    state.notesData = updateNoteInData(state.notesData, snapshot);
+    autosave();
+    renderNotesList();
+    refreshNoteNotifications();
+    setStatus('เลิกทำแล้ว');
+  };
+
   if (action === 'done') {
-    setStatus(advanced ? 'เลื่อนไปรอบถัดไป' : 'ย้ายไปทำแล้ว');
+    setStatus(advanced ? 'เลื่อนไปรอบถัดไป' : 'ย้ายไปทำแล้ว', { undo });
   } else if (action === 'snooze') {
     const when = formatScheduleWhen(updated.scheduledAt);
-    setStatus(when ? `เลื่อนแล้ว · จะเตือน ${when}` : 'เลื่อนนัดแล้ว');
+    setStatus(when ? `เลื่อนแล้ว · จะเตือน ${when}` : 'เลื่อนนัดแล้ว', { undo });
   } else if (action === 'trash') {
-    setStatus('ย้ายไปถังขยะ');
+    setStatus('ย้ายไปถังขยะ', { undo });
   } else {
-    setStatus('กู้คืนแล้ว');
+    setStatus('กู้คืนแล้ว', { undo });
   }
 }
 
@@ -1969,6 +2149,7 @@ function ensureFiltersDockObserver() {
 
 function renderNotesList() {
   renderGroupNav();
+  renderDueScopeBar();
   renderSortBar();
   renderPriorityFilterBar();
   renderRecurrenceFilterBar();
@@ -2045,9 +2226,16 @@ function renderNotesList() {
     els.notesList.appendChild(item);
   });
 
-  els.emptyStateText.textContent = emptyMessageForGroup();
+  const q = String(state.searchQuery || '').trim();
+  if (!notes.length && q) {
+    els.emptyStateText.textContent = `ไม่พบ “${q}”`;
+  } else {
+    els.emptyStateText.textContent = emptyMessageForGroup();
+  }
   els.emptyState.hidden = notes.length > 0;
-  els.emptyState.querySelector('.btn-primary').hidden = state.listGroup !== NOTE_STATUS.ACTIVE;
+  const emptyPrimary = els.emptyState.querySelector('.btn-primary');
+  if (emptyPrimary) emptyPrimary.hidden = state.listGroup !== NOTE_STATUS.ACTIVE;
+  if (els.emptyAddBlankBtn) els.emptyAddBlankBtn.hidden = state.listGroup !== NOTE_STATUS.ACTIVE;
 }
 
 function renderEditorTags() {
@@ -3248,6 +3436,45 @@ function openAddNoteModal() {
   focusAiSourceField();
 }
 
+/** Blank note — same form, jump straight to title (no AI step required). */
+function openQuickNoteModal() {
+  if (!els.aiNoteModal) return;
+  openAddNoteModal();
+  const titleEl = document.getElementById('ai-note-title');
+  if (titleEl) titleEl.textContent = 'จดโน้ตว่าง';
+  queueMicrotask(() => {
+    if (els.aiNoteDraftTitle) {
+      try {
+        els.aiNoteDraftTitle.focus({ preventScroll: false });
+      } catch {
+        els.aiNoteDraftTitle.focus();
+      }
+    }
+  });
+}
+
+function setSearchOpen(open) {
+  if (!els.noteSearchRow) return;
+  els.noteSearchRow.hidden = !open;
+  els.searchToggleBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  els.searchToggleBtn?.classList.toggle('is-active', open || Boolean(state.searchQuery));
+  if (open) {
+    queueMicrotask(() => els.noteSearchInput?.focus());
+  }
+}
+
+function applySearchQuery(raw) {
+  state.searchQuery = String(raw || '');
+  if (els.noteSearchClear) {
+    els.noteSearchClear.hidden = !String(state.searchQuery).trim();
+  }
+  els.searchToggleBtn?.classList.toggle(
+    'is-active',
+    Boolean(String(state.searchQuery).trim()) || !(els.noteSearchRow?.hidden),
+  );
+  renderNotesList();
+}
+
 function openEditNoteModal(noteId) {
   if (!els.aiNoteModal) return;
   const note = getNoteById(noteId);
@@ -3705,6 +3932,7 @@ function setListGroup(group) {
     state.tagFilterId = null;
     state.priorityFilter = null;
     state.recurrenceFilter = null;
+    state.dueScope = null;
   }
   closeContextMenu();
   closeDrawer();
@@ -3950,6 +4178,33 @@ async function init() {
   initInAppCamera();
 
   els.addNoteBtn.addEventListener('click', openAddNoteModal);
+  els.addBlankBtn?.addEventListener('click', openQuickNoteModal);
+  els.emptyAddAiBtn?.addEventListener('click', openAddNoteModal);
+  els.emptyAddBlankBtn?.addEventListener('click', openQuickNoteModal);
+  els.actionToastUndo?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    runUndo();
+  });
+  els.snoozePickCancel?.addEventListener('click', closeSnoozePicker);
+  els.snoozePickOk?.addEventListener('click', confirmSnoozePicker);
+  els.snoozePickOverlay?.addEventListener('click', (e) => {
+    if (e.target === els.snoozePickOverlay) closeSnoozePicker();
+  });
+  els.searchToggleBtn?.addEventListener('click', () => {
+    const open = Boolean(els.noteSearchRow?.hidden);
+    setSearchOpen(open);
+    if (!open && !String(state.searchQuery || '').trim()) {
+      applySearchQuery('');
+    }
+  });
+  els.noteSearchInput?.addEventListener('input', () => {
+    applySearchQuery(els.noteSearchInput.value);
+  });
+  els.noteSearchClear?.addEventListener('click', () => {
+    if (els.noteSearchInput) els.noteSearchInput.value = '';
+    applySearchQuery('');
+    els.noteSearchInput?.focus();
+  });
   els.aiNoteCancelBtn?.addEventListener('click', onAiCancelOrReset);
   els.aiNotePasteDraftBtn?.addEventListener('click', pasteDraftDetailsIntoSource);
   els.aiNoteSummarizeBtn?.addEventListener('click', () => {

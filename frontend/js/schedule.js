@@ -466,14 +466,22 @@ export function snoozeScheduledAt(iso, snoozeId, now = new Date()) {
 export function snoozeNote(note, snoozeId) {
   const nextAt = snoozeScheduledAt(note?.scheduledAt, snoozeId);
   if (!nextAt) return note;
+  return applySnoozeToNote(note, nextAt);
+}
 
+/** Postpone to an exact ISO datetime (custom picker). */
+export function snoozeNoteTo(note, iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return note;
+  return applySnoozeToNote(note, d.toISOString());
+}
+
+function applySnoozeToNote(note, nextAt) {
   const hasRecurrence = Boolean(normalizeRecurrence(note?.recurrence));
-  // Freeze the pre-snooze due as cycle base (first snooze only).
   let cycleAnchor = normalizeCycleAnchor(note?.cycleAnchor);
   if (hasRecurrence && !cycleAnchor && note?.scheduledAt) {
     cycleAnchor = normalizeCycleAnchor(note.scheduledAt);
   }
-
   return {
     ...note,
     scheduledAt: nextAt,
@@ -488,6 +496,36 @@ export function clearCycleAnchor(note) {
   if (!note?.cycleAnchor) return note;
   return { ...note, cycleAnchor: null };
 }
+
+/**
+ * List scope by due date: all | today | soon (≤7d incl today) | overdue.
+ */
+export function normalizeDueScope(value) {
+  return value === 'today' || value === 'soon' || value === 'overdue' ? value : null;
+}
+
+export function filterNotesByDueScope(notes, scope, now = new Date()) {
+  const s = normalizeDueScope(scope);
+  if (!s) return notes;
+  const today = startOfDay(now).getTime();
+  const soonEnd = today + 7 * 86400000;
+  return notes.filter((note) => {
+    if (!note?.scheduledAt) return false;
+    const day = startOfDay(new Date(note.scheduledAt)).getTime();
+    if (Number.isNaN(day)) return false;
+    if (s === 'overdue') return day < today;
+    if (s === 'today') return day === today;
+    if (s === 'soon') return day >= today && day <= soonEnd;
+    return true;
+  });
+}
+
+export const DUE_SCOPE_OPTIONS = [
+  { id: null, label: 'ทุกกำหนด' },
+  { id: 'today', label: 'วันนี้' },
+  { id: 'soon', label: '7 วัน' },
+  { id: 'overdue', label: 'เลยกำหนด' },
+];
 
 export function sortNotesBySchedule(notes) {
   const withSchedule = notes
