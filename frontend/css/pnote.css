@@ -783,6 +783,9 @@ body.filter-menu-open .filter-dd-backdrop {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
+  border-color: color-mix(in srgb, var(--prio, var(--border)) 45%, var(--border));
+  background: color-mix(in srgb, var(--prio, var(--surface)) 12%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--prio, transparent);
 }
 
 .card-col-due {
@@ -820,12 +823,12 @@ body.filter-menu-open .filter-dd-backdrop {
   line-height: 1.05;
 }
 
-/* far → mid → near → today → overdue */
-.card-col-due.due-far { --due: #6b8f71; }
-.card-col-due.due-mid { --due: #c4a035; }
-.card-col-due.due-near { --due: #e0893a; }
-.card-col-due.due-today { --due: #e85d2c; }
-.card-col-due.due-overdue { --due: #e23b2e; }
+/* Defaults overridden by applyBoxColors() → CSS vars on :root */
+.card-col-due.due-far { --due: var(--due-far, #6b8f71); }
+.card-col-due.due-mid { --due: var(--due-mid, #c4a035); }
+.card-col-due.due-near { --due: var(--due-near, #e0893a); }
+.card-col-due.due-today { --due: var(--due-today, #e85d2c); }
+.card-col-due.due-overdue { --due: var(--due-overdue, #e23b2e); }
 
 .note-card.is-longpress-armed {
   transform: scale(0.985);
@@ -1429,30 +1432,35 @@ body.light .notify-details {
 }
 
 .priority-badge.priority-critical {
-  color: #fecaca;
-  background: rgba(239, 68, 68, 0.22);
+  color: var(--prio-critical, #fecaca);
+  background: color-mix(in srgb, var(--prio-critical, #ef4444) 22%, transparent);
 }
 
 .priority-badge.priority-important {
-  color: #fde68a;
-  background: rgba(245, 158, 11, 0.22);
+  color: var(--prio-important, #fde68a);
+  background: color-mix(in srgb, var(--prio-important, #f59e0b) 22%, transparent);
 }
 
 .priority-badge.priority-urgent {
-  color: #a5f3fc;
-  background: rgba(6, 182, 212, 0.22);
+  color: var(--prio-urgent, #a5f3fc);
+  background: color-mix(in srgb, var(--prio-urgent, #06b6d4) 22%, transparent);
+}
+
+.priority-badge.priority-normal {
+  color: var(--prio-normal, var(--text-muted));
+  background: color-mix(in srgb, var(--prio-normal, #8b929a) 18%, transparent);
 }
 
 body.light .priority-badge.priority-critical {
-  color: #b91c1c;
+  color: var(--prio-critical, #b91c1c);
 }
 
 body.light .priority-badge.priority-important {
-  color: #b45309;
+  color: var(--prio-important, #b45309);
 }
 
 body.light .priority-badge.priority-urgent {
-  color: #0e7490;
+  color: var(--prio-urgent, #0e7490);
 }
 
 .priority-field {
@@ -3046,6 +3054,69 @@ body.light .priority-badge.priority-urgent {
 .notify-toggle-row > span {
   flex: 0 1 auto;
   color: var(--text-muted);
+}
+
+.box-color-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.box-color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.box-color-row input[type='color'] {
+  width: 2.4rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.box-color-preview {
+  display: flex;
+  gap: 0.28rem;
+  margin-top: 0.7rem;
+  align-items: stretch;
+}
+
+.box-color-preview-col {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.box-color-preview-col.is-tag {
+  flex: 0 0 3rem;
+  color: var(--preview-tag, #22c55e);
+  border-left: 3px solid var(--preview-tag, #22c55e);
+}
+
+.box-color-preview-col.is-body {
+  flex: 1;
+  color: var(--preview-prio, #f59e0b);
+  border-color: color-mix(in srgb, var(--preview-prio, #f59e0b) 45%, var(--border));
+  background: color-mix(in srgb, var(--preview-prio, #f59e0b) 12%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--preview-prio, #f59e0b);
+}
+
+.box-color-preview-col.is-due {
+  flex: 0 0 2.6rem;
+  color: var(--preview-due, #e85d2c);
+  border-color: color-mix(in srgb, var(--preview-due, #e85d2c) 55%, var(--border));
+  background: color-mix(in srgb, var(--preview-due, #e85d2c) 16%, var(--surface));
 }
 
 .segmented.segmented-sm button {

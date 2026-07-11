@@ -43,7 +43,56 @@ const DEFAULTS = {
   cameraSaveToDevice: true,
   cameraFacing: 'environment',
   cameraQuality: 'max',
+  /** List box colors — user-defined */
+  priorityColors: null,
+  dueColors: null,
 };
+
+export const DEFAULT_PRIORITY_COLORS = {
+  normal: '#8b929a',
+  important: '#f59e0b',
+  urgent: '#06b6d4',
+  critical: '#ef4444',
+};
+
+export const DEFAULT_DUE_COLORS = {
+  far: '#6b8f71',
+  mid: '#c4a035',
+  near: '#e0893a',
+  today: '#e85d2c',
+  overdue: '#e23b2e',
+};
+
+const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+
+export function safeHexColor(value, fallback) {
+  const v = String(value || '').trim();
+  if (HEX_RE.test(v)) return v.length === 4
+    ? `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`
+    : v.slice(0, 7);
+  return fallback;
+}
+
+export function normalizePriorityColors(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return {
+    normal: safeHexColor(src.normal, DEFAULT_PRIORITY_COLORS.normal),
+    important: safeHexColor(src.important, DEFAULT_PRIORITY_COLORS.important),
+    urgent: safeHexColor(src.urgent, DEFAULT_PRIORITY_COLORS.urgent),
+    critical: safeHexColor(src.critical, DEFAULT_PRIORITY_COLORS.critical),
+  };
+}
+
+export function normalizeDueColors(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return {
+    far: safeHexColor(src.far, DEFAULT_DUE_COLORS.far),
+    mid: safeHexColor(src.mid, DEFAULT_DUE_COLORS.mid),
+    near: safeHexColor(src.near, DEFAULT_DUE_COLORS.near),
+    today: safeHexColor(src.today, DEFAULT_DUE_COLORS.today),
+    overdue: safeHexColor(src.overdue, DEFAULT_DUE_COLORS.overdue),
+  };
+}
 
 /** @returns {'max'|'high'|'medium'} */
 export function normalizeCameraQuality(value) {
@@ -205,6 +254,8 @@ export function loadSettings() {
         cameraSaveToDevice: true,
         cameraFacing: 'environment',
         cameraQuality: 'max',
+        priorityColors: { ...DEFAULT_PRIORITY_COLORS },
+        dueColors: { ...DEFAULT_DUE_COLORS },
       };
     }
     const parsed = JSON.parse(raw);
@@ -237,6 +288,8 @@ export function loadSettings() {
       cameraSaveToDevice: normalizeCameraSaveToDevice(parsed.cameraSaveToDevice),
       cameraFacing: normalizeCameraFacing(parsed.cameraFacing),
       cameraQuality: normalizeCameraQuality(parsed.cameraQuality),
+      priorityColors: normalizePriorityColors(parsed.priorityColors),
+      dueColors: normalizeDueColors(parsed.dueColors),
     };
   } catch {
     return {
@@ -256,6 +309,8 @@ export function loadSettings() {
       cameraSaveToDevice: true,
       cameraFacing: 'environment',
       cameraQuality: 'max',
+      priorityColors: { ...DEFAULT_PRIORITY_COLORS },
+      dueColors: { ...DEFAULT_DUE_COLORS },
     };
   }
 }
@@ -277,6 +332,8 @@ export function saveSettings(settings) {
     cameraSaveToDevice: normalizeCameraSaveToDevice(settings.cameraSaveToDevice),
     cameraFacing: normalizeCameraFacing(settings.cameraFacing),
     cameraQuality: normalizeCameraQuality(settings.cameraQuality),
+    priorityColors: normalizePriorityColors(settings.priorityColors),
+    dueColors: normalizeDueColors(settings.dueColors),
   };
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
