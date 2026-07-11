@@ -28,7 +28,7 @@
     }
     p { margin: 0.4rem 0; line-height: 1.45; }
     .muted { color: #5c6b63; font-size: 0.95rem; }
-    .error { color: #b42318; margin-top: 1rem; }
+    .error { color: #b42318; margin-top: 1rem; white-space: pre-wrap; }
     button {
       margin-top: 1rem;
       border: 0;
@@ -41,6 +41,15 @@
       cursor: pointer;
     }
   </style>
+</head>
+<body>
+  <div class="card">
+    <p class="brand">TellTea</p>
+    <p id="status">กำลังเตรียมเข้าสู่ระบบ...</p>
+    <p class="muted">ใช้บัญชี Google ของร้าน · เปิดใน Safari/Chrome</p>
+    <p id="error" class="error"></p>
+    <button id="retry" type="button" hidden>ลองอีกครั้ง</button>
+  </div>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
     import {
@@ -52,8 +61,17 @@
       GoogleAuthProvider,
       signInWithRedirect,
       getRedirectResult,
+      onAuthStateChanged,
     } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+    } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
+    const RETURN_KEY = "telltea_auth_return";
+    const PENDING_KEY = "telltea_auth_pending";
+    const DEFAULT_RETURN = "https://telltea-shop.web.app/login/";
     const ALLOWED_RETURNS = new Set([
       "https://telltea-shop.web.app",
       "https://telltea-shop.firebaseapp.com",
@@ -78,17 +96,27 @@
       try {
         const url = new URL(raw);
         if (!ALLOWED_RETURNS.has(url.origin)) return null;
-        if (!url.pathname.startsWith("/")) return null;
         return url;
       } catch {
         return null;
       }
     }
 
-    function finishWithGoogleIdToken(idToken, returnUrl) {
-      const target = new URL(returnUrl.toString());
-      target.hash = new URLSearchParams({ google_id_token: idToken }).toString();
-      location.replace(target.toString());
+    function resolveReturnUrl() {
+      const fromQuery = safeReturnUrl(new URLSearchParams(location.search).get("return") || "");
+      if (fromQuery) {
+        sessionStorage.setItem(RETURN_KEY, fromQuery.toString());
+        return fromQuery;
+      }
+      const saved = safeReturnUrl(sessionStorage.getItem(RETURN_KEY) || "");
+      if (saved) return saved;
+      return new URL(DEFAULT_RETURN);
+    }
+
+    function ticketId() {
+      const bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
     }
 
     const app = initializeApp({
@@ -107,43 +135,90 @@
     } catch {
       auth = getAuth(app);
     }
+    const db = getFirestore(app);
+    const returnUrl = resolveReturnUrl();
 
-    const params = new URLSearchParams(location.search);
-    const returnUrl =
-      safeReturnUrl(params.get("return") || "https://telltea-shop.web.app/login/") ||
-      new URL("https://telltea-shop.web.app/login/");
+    async function finishWithGoogleIdToken(idToken) {
+      setStatus("สำเร็จ — กำลังกลับไป TellTea...");
+      const id = ticketId();
+      const exp = Date.now() + 2 * 60 * 1000;
+      await setDoc(doc(db, "loginTickets", id), {
+        idToken,
+        createdAt: Date.now(),
+        exp,
+      });
+      sessionStorage.removeItem(PENDING_KEY);
+      sessionStorage.removeItem(RETURN_KEY);
+      const target = new URL(returnUrl.toString());
+      target.searchParams.set("ticket", id);
+      target.hash = "";
+      location.replace(target.toString());
+    }
+
+    function googleIdTokenFromResult(result) {
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.idToken) return credential.idToken;
+      const oauthIdToken = result?._tokenResponse?.oauthIdToken;
+      return typeof oauthIdToken === "string" ? oauthIdToken : null;
+    }
+
+    async function waitForUser(ms = 2500) {
+      if (auth.currentUser) return auth.currentUser;
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          unsub();
+          resolve(auth.currentUser);
+        }, ms);
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (!user) return;
+          clearTimeout(timer);
+          unsub();
+          resolve(user);
+        });
+      });
+    }
 
     async function startLogin() {
       errorEl.textContent = "";
       retryBtn.hidden = true;
       setStatus("กำลังเปิด Google...");
+      sessionStorage.setItem(RETURN_KEY, returnUrl.toString());
+      sessionStorage.setItem(PENDING_KEY, "1");
 
       const provider = new GoogleAuthProvider();
       provider.addScope("email");
       provider.addScope("profile");
       provider.setCustomParameters({ prompt: "select_account" });
-
-      // Same-origin redirect on *.firebaseapp.com — the only redirect_uri Google
-      // already accepts for this Firebase project. Avoids telltea-shop mismatch.
       await signInWithRedirect(auth, provider);
     }
 
     async function boot() {
       setStatus("กำลังตรวจสอบการล็อกอิน...");
+      const pending = sessionStorage.getItem(PENDING_KEY) === "1";
       try {
+        await auth.authStateReady();
         const result = await getRedirectResult(auth);
         if (result) {
-          const credential = GoogleAuthProvider.credentialFromResult(result);
-          if (!credential?.idToken) {
-            throw new Error("ไม่ได้รับ Google ID token");
-          }
-          setStatus("สำเร็จ — กำลังกลับไป TellTea...");
-          finishWithGoogleIdToken(credential.idToken, returnUrl);
+          const idToken = googleIdTokenFromResult(result);
+          if (!idToken) throw new Error("ไม่ได้รับ Google ID token");
+          await finishWithGoogleIdToken(idToken);
           return;
         }
+
+        // Redirect result can be empty on some mobile browsers even after success.
+        if (pending) {
+          await waitForUser();
+          // Without the OAuth ID token we cannot hop domains — ask user to retry once.
+          sessionStorage.removeItem(PENDING_KEY);
+          showError("ล็อกอินมือถือไม่ครบ — กดลองอีกครั้ง");
+          setStatus("ต้องลองอีกครั้ง");
+          return;
+        }
+
         await startLogin();
       } catch (err) {
         console.error(err);
+        sessionStorage.removeItem(PENDING_KEY);
         showError(err?.message || "ล็อกอินไม่สำเร็จ");
         setStatus("ล็อกอินไม่สำเร็จ");
       }
@@ -157,14 +232,5 @@
 
     void boot();
   </script>
-</head>
-<body>
-  <div class="card">
-    <p class="brand">TellTea</p>
-    <p id="status">กำลังเตรียมเข้าสู่ระบบ...</p>
-    <p class="muted">ใช้บัญชี Google ของร้าน · เปิดใน Safari/Chrome</p>
-    <p id="error" class="error"></p>
-    <button id="retry" type="button" hidden>ลองอีกครั้ง</button>
-  </div>
 </body>
 </html>
