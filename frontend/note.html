@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="82">
-  <meta name="pnote-built" content="2026-07-11T09:22:24+07:00">
+  <meta name="pnote-build" content="83">
+  <meta name="pnote-built" content="2026-07-11T09:33:33+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=82"></script>
+  <script src="js/cache-bootstrap.js?v=83"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=82">
+  <link rel="stylesheet" href="css/pnote.css?v=83">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -313,7 +313,8 @@
 
         <div id="ai-note-step-review" class="ai-note-step" hidden>
           <label class="schedule-label" for="ai-note-draft-title">หัวข้อ</label>
-          <input id="ai-note-draft-title" class="ai-note-title-input" type="text" maxlength="120" autocomplete="off" placeholder="หัวข้อโน้ต">
+          <input id="ai-note-draft-title" class="ai-note-title-input" type="text" maxlength="120" autocomplete="off" placeholder="🚗 หัวข้อพร้อมอีโมจิ">
+          <p class="settings-hint ai-note-emoji-hint">อีโมจินำหน้าตามบริบท เช่น เดินทาง → 🚗 · ซื้อของ → 🛒 · แก้ได้ก่อนสร้าง</p>
           <label class="schedule-label" for="ai-note-draft-summary">สรุป</label>
           <textarea id="ai-note-draft-summary" class="ai-note-textarea" rows="7" placeholder="สรุปที่ตรวจแล้ว"></textarea>
         </div>
@@ -451,14 +452,19 @@
             <span>API key</span>
             <input id="gemini-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="วางคีย์จาก AI Studio">
           </label>
-          <label class="notify-field" for="gemini-model" style="margin-top:0.45rem">
+          <div class="notify-field" style="margin-top:0.45rem">
             <span>โมเดล</span>
-            <select id="gemini-model" class="notify-select">
-              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-              <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
-            </select>
-          </label>
+            <div class="gemini-model-row">
+              <select id="gemini-model" class="notify-select" aria-label="โมเดล Gemini">
+                <option value="gemini-2.5-pro">gemini-2.5-pro (ฉลาด)</option>
+                <option value="gemini-2.5-flash" selected>gemini-2.5-flash (เร็ว)</option>
+                <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (เบา)</option>
+              </select>
+              <button id="gemini-load-models-btn" class="btn btn-secondary" type="button">โหลดโมเดล</button>
+            </div>
+            <p class="settings-hint" id="gemini-model-hint">กดโหลดโมเดลเพื่อดึงรายการจริงจาก API (รวมรุ่นฉลาดกว่า)</p>
+          </div>
         </div>
         <div class="settings-row">
           <span class="settings-label">ฐานข้อมูล / รหัสซิงค์</span>
@@ -506,8 +512,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=82"></script>
-  <script src="js/fab-drag.js?v=82"></script>
+  <script src="js/page-nav.js?v=83"></script>
+  <script src="js/fab-drag.js?v=83"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -517,7 +523,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=82"></script>
-  <script src="js/update-watch.js?v=82"></script>
+  <script type="module" src="js/app.js?v=83"></script>
+  <script src="js/update-watch.js?v=83"></script>
 </body>
 </html>

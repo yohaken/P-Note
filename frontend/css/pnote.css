@@ -1274,6 +1274,27 @@ body.light .priority-badge.priority-urgent {
   padding: 0.5rem 0.65rem;
 }
 
+.gemini-model-row {
+  display: flex;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+
+.gemini-model-row .notify-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.gemini-model-row .btn {
+  flex-shrink: 0;
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
+}
+
+.ai-note-emoji-hint {
+  margin: 0 0 0.35rem;
+}
+
 .tag-add-row {
   display: flex;
   gap: 0.5rem;

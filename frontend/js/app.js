@@ -35,7 +35,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=82';
+} from './notes.js?v=83';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -55,8 +55,8 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=82';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=82';
+} from './schedule.js?v=83';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=83';
 import {
   notificationPermission,
   notificationSupported,
@@ -64,8 +64,8 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=82';
-import { summarizeToNoteDraft } from './gemini.js?v=82';
+} from './note-notify.js?v=83';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji } from './gemini.js?v=83';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -73,7 +73,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=82';
+import { normalizeNotesData } from './notes.js?v=83';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -118,6 +118,8 @@ const els = {
   aiNoteConfirmBtn: document.getElementById('ai-note-confirm-btn'),
   geminiApiKey: document.getElementById('gemini-api-key'),
   geminiModel: document.getElementById('gemini-model'),
+  geminiLoadModelsBtn: document.getElementById('gemini-load-models-btn'),
+  geminiModelHint: document.getElementById('gemini-model-hint'),
   settingsBtn: document.getElementById('settings-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
   openDrawerBtn: document.getElementById('group-nav-btn'),
@@ -1287,7 +1289,7 @@ function openSettings() {
   els.settingsOverlay.hidden = false;
   els.cardDensitySlider.value = String(state.settings.cardDensity);
   if (els.geminiApiKey) els.geminiApiKey.value = state.settings.geminiApiKey || '';
-  if (els.geminiModel) els.geminiModel.value = normalizeGeminiModel(state.settings.geminiModel);
+  fillGeminiModelSelect(state.settings.geminiModel);
   applyTheme();
   applyFabDirection();
   applyNotifySettingsUi();
@@ -1307,6 +1309,82 @@ function persistGeminiSettingsFromUi() {
   state.settings.geminiApiKey = key;
   state.settings.geminiModel = model;
   saveSettings(state.settings);
+}
+
+/** @type {Array<{ id: string, label: string }>|null} */
+let geminiModelsCache = null;
+
+function fillGeminiModelSelect(selectedId) {
+  const sel = els.geminiModel;
+  if (!sel) return;
+  const wanted = normalizeGeminiModel(selectedId || state.settings.geminiModel);
+  const list =
+    geminiModelsCache && geminiModelsCache.length
+      ? geminiModelsCache
+      : FALLBACK_GEMINI_MODELS;
+  sel.innerHTML = '';
+  let hasWanted = false;
+  list.forEach((m) => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.label || m.id;
+    if (m.id === wanted) {
+      opt.selected = true;
+      hasWanted = true;
+    }
+    sel.appendChild(opt);
+  });
+  if (!hasWanted && wanted) {
+    const opt = document.createElement('option');
+    opt.value = wanted;
+    opt.textContent = wanted;
+    opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+async function loadGeminiModelsFromApi() {
+  persistGeminiSettingsFromUi();
+  const key = String(state.settings.geminiApiKey || els.geminiApiKey?.value || '').trim();
+  if (!key) {
+    if (els.geminiModelHint) els.geminiModelHint.textContent = 'ใส่ API key ก่อน แล้วกดโหลดโมเดล';
+    setStatus('ใส่ Gemini API key ก่อน');
+    els.geminiApiKey?.focus();
+    return;
+  }
+  if (els.geminiLoadModelsBtn) els.geminiLoadModelsBtn.disabled = true;
+  if (els.geminiModelHint) els.geminiModelHint.textContent = 'กำลังโหลดโมเดลจาก API…';
+  try {
+    const models = await listGeminiModels(key);
+    if (!models.length) {
+      geminiModelsCache = null;
+      fillGeminiModelSelect(state.settings.geminiModel);
+      if (els.geminiModelHint) els.geminiModelHint.textContent = 'ไม่พบโมเดล generateContent — ใช้รายการสำรอง';
+      return;
+    }
+    geminiModelsCache = models;
+    const keep = state.settings.geminiModel;
+    fillGeminiModelSelect(keep);
+    persistGeminiSettingsFromUi();
+    if (els.geminiModelHint) {
+      els.geminiModelHint.textContent = `โหลดแล้ว ${models.length} โมเดล · เลือกตัวที่ฉลาดกว่าได้ (เช่น pro)`;
+    }
+    setStatus(`โหลดโมเดล Gemini ${models.length} รายการ`);
+  } catch (err) {
+    const code = err?.code || '';
+    const msg =
+      code === 'bad_key'
+        ? 'API key ไม่ถูกต้องหรือถูกจำกัด'
+        : code === 'network'
+          ? 'เชื่อมต่อโหลดโมเดลไม่ได้'
+          : err?.message
+            ? String(err.message).slice(0, 100)
+            : 'โหลดโมเดลไม่สำเร็จ';
+    if (els.geminiModelHint) els.geminiModelHint.textContent = msg;
+    setStatus(msg);
+  } finally {
+    if (els.geminiLoadModelsBtn) els.geminiLoadModelsBtn.disabled = false;
+  }
 }
 
 let aiNoteBusy = false;
@@ -1388,18 +1466,30 @@ async function runAiSummarize() {
   }
 }
 
-function confirmAiNoteDraft() {
-  const title = String(els.aiNoteDraftTitle?.value || '').trim();
+async function confirmAiNoteDraft() {
+  const title = ensureLeadingEmoji(String(els.aiNoteDraftTitle?.value || '').trim() || 'โน้ตจาก AI');
   const content = String(els.aiNoteDraftSummary?.value || '').trim();
   if (!title && !content) {
     setAiNoteStatus('ใส่หัวข้อหรือสรุปอย่างน้อยอย่างหนึ่ง');
     return;
   }
-  const note = createNote(title || 'โน้ตจาก AI', content);
-  state.notesData.notes.unshift(note);
-  state.draftNoteId = note.id;
+  const note = createNote(title, content);
+  state.notesData = {
+    ...state.notesData,
+    notes: [note, ...state.notesData.notes],
+    updatedAt: new Date().toISOString(),
+  };
+  // Has content — not a disposable empty draft; persist immediately.
+  state.draftNoteId = null;
   closeAiNoteModal();
   openEditor(note.id);
+  try {
+    await saveManager.saveNow(() => state.notesData);
+  } catch (err) {
+    console.warn('AI note save failed', err);
+    autosave();
+  }
+  renderNotesList();
   setStatus('สร้างโน้ตจาก AI แล้ว');
 }
 
@@ -1862,6 +1952,9 @@ async function init() {
   });
   els.geminiApiKey?.addEventListener('change', persistGeminiSettingsFromUi);
   els.geminiModel?.addEventListener('change', persistGeminiSettingsFromUi);
+  els.geminiLoadModelsBtn?.addEventListener('click', () => {
+    loadGeminiModelsFromApi();
+  });
   els.settingsBtn.addEventListener('click', openSettings);
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
