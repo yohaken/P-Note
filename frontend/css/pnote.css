@@ -589,6 +589,41 @@ body.selection-mode .fab-stack {
   visibility: hidden;
   pointer-events: none;
 }
+.undo-fab {
+  position: fixed;
+  left: max(0.75rem, env(safe-area-inset-left, 0px));
+  bottom: calc(var(--filters-dock-h, 3rem) + 0.55rem);
+  z-index: 55;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-2, #2c2c2e);
+  color: var(--text, #fff);
+  font-size: 1.15rem;
+  font-weight: 700;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.undo-fab[hidden] {
+  display: none !important;
+}
+.undo-fab:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+.undo-fab:not(:disabled):active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+body.selection-mode .undo-fab {
+  bottom: calc(var(--filters-dock-h, 3rem) + 0.55rem);
+}
 .note-card.is-select-mode {
   cursor: pointer;
 }

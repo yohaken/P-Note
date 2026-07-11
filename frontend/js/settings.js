@@ -3,7 +3,7 @@ import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=46';
 import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
-} from './schedule.js?v=120';
+} from './schedule.js?v=121';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -17,10 +17,12 @@ export const DEFAULT_NOTIFY_PREFS = {
   tagIds: [],
 };
 
-const DEFAULT_FAB_ORDER = ['pages', 'group', 'blank', 'ai']; // visual top → bottom (AI nearest dock by default)
+const DEFAULT_FAB_ORDER = ['pages', 'group', 'ai']; // visual top → bottom (AI nearest dock by default)
 
 const CAMERA_QUALITIES = ['max', 'high', 'medium'];
 const CAMERA_FACINGS = ['environment', 'user'];
+
+export const DEFAULT_FILTER_ORDER = ['due', 'sort', 'priority', 'recurrence', 'tag'];
 
 const DEFAULTS = {
   theme: 'dark',
@@ -28,6 +30,7 @@ const DEFAULTS = {
   dockScale: 50,
   dockOffsetY: 70,
   fabOrder: [...DEFAULT_FAB_ORDER],
+  filterOrder: [...DEFAULT_FILTER_ORDER],
   sortMode: 'updated',
   tagFilterId: null,
   priorityFilter: null,
@@ -198,7 +201,7 @@ function normalizeTagOrder(value) {
   return value.map((id) => String(id)).filter(Boolean);
 }
 
-const FAB_ORDER_IDS = ['pages', 'group', 'blank', 'ai'];
+const FAB_ORDER_IDS = ['pages', 'group', 'ai'];
 
 /** Visual top → bottom. Missing ids appended; unknown dropped. */
 export function normalizeFabOrder(value) {
@@ -212,6 +215,25 @@ export function normalizeFabOrder(value) {
     }
   });
   FAB_ORDER_IDS.forEach((id) => {
+    if (!seen.has(id)) out.push(id);
+  });
+  return out;
+}
+
+const FILTER_ORDER_IDS = [...DEFAULT_FILTER_ORDER];
+
+/** Left → right on the filter dock. */
+export function normalizeFilterOrder(value) {
+  const raw = Array.isArray(value) ? value.map(String) : [];
+  const seen = new Set();
+  const out = [];
+  raw.forEach((id) => {
+    if (FILTER_ORDER_IDS.includes(id) && !seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  });
+  FILTER_ORDER_IDS.forEach((id) => {
     if (!seen.has(id)) out.push(id);
   });
   return out;
@@ -256,6 +278,7 @@ export function loadSettings() {
         dockScale: DEFAULTS.dockScale,
         dockOffsetY: DEFAULTS.dockOffsetY,
         fabOrder: [...DEFAULT_FAB_ORDER],
+        filterOrder: [...DEFAULT_FILTER_ORDER],
         cameraSaveToDevice: true,
         cameraFacing: 'environment',
         cameraQuality: 'max',
@@ -273,6 +296,7 @@ export function loadSettings() {
       dockScale: clampPct(parsed.dockScale, 50),
       dockOffsetY: clampPct(parsed.dockOffsetY, 70),
       fabOrder: normalizeFabOrder(parsed.fabOrder),
+      filterOrder: normalizeFilterOrder(parsed.filterOrder),
       sortMode: SORT_MODES.includes(parsed.sortMode) ? parsed.sortMode : 'updated',
       tagFilterId: normalizeTagFilterId(parsed.tagFilterId),
       priorityFilter: normalizePriorityFilter(parsed.priorityFilter),
@@ -314,6 +338,7 @@ export function loadSettings() {
       dockScale: DEFAULTS.dockScale,
       dockOffsetY: DEFAULTS.dockOffsetY,
       fabOrder: [...DEFAULT_FAB_ORDER],
+      filterOrder: [...DEFAULT_FILTER_ORDER],
       cameraSaveToDevice: true,
       cameraFacing: 'environment',
       cameraQuality: 'max',
@@ -332,6 +357,7 @@ export function saveSettings(settings) {
   const next = {
     ...settings,
     fabOrder: normalizeFabOrder(settings.fabOrder),
+    filterOrder: normalizeFilterOrder(settings.filterOrder),
     notifyPrefs,
     notificationsEnabled: notifyPrefs.enabled,
     geminiApiKey: String(settings.geminiApiKey || '').trim().slice(0, 200),
