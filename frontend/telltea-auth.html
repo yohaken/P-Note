@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex" />
+  <title>TellTea — เข้าสู่ระบบ</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: "Sarabun", "Segoe UI", sans-serif;
+      background: linear-gradient(160deg, #e8f2ec 0%, #f7f3ea 55%, #fff 100%);
+      color: #1f2a24;
+      padding: 1.5rem;
+      box-sizing: border-box;
+    }
+    .card { max-width: 22rem; text-align: center; }
+    .brand {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #2f6b4f;
+      margin: 0 0 0.5rem;
+    }
+    p { margin: 0.4rem 0; line-height: 1.45; }
+    .muted { color: #5c6b63; font-size: 0.95rem; }
+    .error { color: #b42318; margin-top: 1rem; }
+    button {
+      margin-top: 1rem;
+      border: 0;
+      border-radius: 999px;
+      background: #2f6b4f;
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+    }
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+    import {
+      initializeAuth,
+      getAuth,
+      indexedDBLocalPersistence,
+      browserLocalPersistence,
+      browserPopupRedirectResolver,
+      GoogleAuthProvider,
+      signInWithRedirect,
+      getRedirectResult,
+    } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+
+    const ALLOWED_RETURNS = new Set([
+      "https://telltea-shop.web.app",
+      "https://telltea-shop.firebaseapp.com",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ]);
+
+    const statusEl = document.getElementById("status");
+    const errorEl = document.getElementById("error");
+    const retryBtn = document.getElementById("retry");
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function showError(message) {
+      errorEl.textContent = message;
+      retryBtn.hidden = false;
+    }
+
+    function safeReturnUrl(raw) {
+      try {
+        const url = new URL(raw);
+        if (!ALLOWED_RETURNS.has(url.origin)) return null;
+        if (!url.pathname.startsWith("/")) return null;
+        return url;
+      } catch {
+        return null;
+      }
+    }
+
+    function finishWithGoogleIdToken(idToken, returnUrl) {
+      const target = new URL(returnUrl.toString());
+      target.hash = new URLSearchParams({ google_id_token: idToken }).toString();
+      location.replace(target.toString());
+    }
+
+    const app = initializeApp({
+      apiKey: "AIzaSyD_b7TASutFOmoUKskH6yLjmxJzVpTUIn4",
+      authDomain: "mypeer-501909.firebaseapp.com",
+      projectId: "mypeer-501909",
+      appId: "1:470549580687:web:9ecb91bc7812d203b719fa",
+    });
+
+    let auth;
+    try {
+      auth = initializeAuth(app, {
+        persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+        popupRedirectResolver: browserPopupRedirectResolver,
+      });
+    } catch {
+      auth = getAuth(app);
+    }
+
+    const params = new URLSearchParams(location.search);
+    const returnUrl =
+      safeReturnUrl(params.get("return") || "https://telltea-shop.web.app/login/") ||
+      new URL("https://telltea-shop.web.app/login/");
+
+    async function startLogin() {
+      errorEl.textContent = "";
+      retryBtn.hidden = true;
+      setStatus("กำลังเปิด Google...");
+
+      const provider = new GoogleAuthProvider();
+      provider.addScope("email");
+      provider.addScope("profile");
+      provider.setCustomParameters({ prompt: "select_account" });
+
+      // Same-origin redirect on *.firebaseapp.com — the only redirect_uri Google
+      // already accepts for this Firebase project. Avoids telltea-shop mismatch.
+      await signInWithRedirect(auth, provider);
+    }
+
+    async function boot() {
+      setStatus("กำลังตรวจสอบการล็อกอิน...");
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          const credential = GoogleAuthProvider.credentialFromResult(result);
+          if (!credential?.idToken) {
+            throw new Error("ไม่ได้รับ Google ID token");
+          }
+          setStatus("สำเร็จ — กำลังกลับไป TellTea...");
+          finishWithGoogleIdToken(credential.idToken, returnUrl);
+          return;
+        }
+        await startLogin();
+      } catch (err) {
+        console.error(err);
+        showError(err?.message || "ล็อกอินไม่สำเร็จ");
+        setStatus("ล็อกอินไม่สำเร็จ");
+      }
+    }
+
+    retryBtn.addEventListener("click", () => {
+      void startLogin().catch((err) => {
+        showError(err?.message || "ล็อกอินไม่สำเร็จ");
+      });
+    });
+
+    void boot();
+  </script>
+</head>
+<body>
+  <div class="card">
+    <p class="brand">TellTea</p>
+    <p id="status">กำลังเตรียมเข้าสู่ระบบ...</p>
+    <p class="muted">ใช้บัญชี Google ของร้าน · เปิดใน Safari/Chrome</p>
+    <p id="error" class="error"></p>
+    <button id="retry" type="button" hidden>ลองอีกครั้ง</button>
+  </div>
+</body>
+</html>
