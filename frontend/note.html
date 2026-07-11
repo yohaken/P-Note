@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="104">
+  <meta name="pnote-build" content="105">
   <meta name="pnote-built" content="2026-07-11T12:40:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=104"></script>
+  <script src="js/cache-bootstrap.js?v=105"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=104">
+  <link rel="stylesheet" href="css/pnote.css?v=105">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -271,7 +271,21 @@
 
         <div class="ai-note-step">
           <div class="ai-note-input-row">
-            <textarea id="ai-note-source" class="ai-note-textarea" rows="2" placeholder="ข้อความดิบ / วางยาวๆ (ถ้ามี)…"></textarea>
+            <div class="ai-note-source-wrap">
+              <textarea id="ai-note-source" class="ai-note-textarea" rows="2" placeholder="ข้อความดิบ / วางยาวๆ (ถ้ามี)…"></textarea>
+              <button
+                id="ai-note-paste-draft-btn"
+                class="ai-note-paste-draft-btn"
+                type="button"
+                title="วางรายละเอียดที่สรุปแล้ว · แล้วสั่งเพิ่ม/สรุปใหม่ได้"
+                aria-label="วางรายละเอียด"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
+                  <path fill="currentColor" d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm7 1.5V9h4.5L14 4.5zM8.5 12h7v1.4h-7V12zm0 3.2h7v1.4h-7v-1.4zm0 3.2h5v1.4h-5v-1.4z"/>
+                  <path fill="currentColor" d="M16.2 13.2v2.4h2.1L15.8 19l-2.5-3.4h2.1v-2.4h.8z" opacity=".92"/>
+                </svg>
+              </button>
+            </div>
             <div class="ai-note-side">
               <button id="ai-note-camera-btn" class="ai-note-icon-btn" type="button" title="ถ่ายรูปเต็มความละเอียด" aria-label="ถ่ายรูป">📷</button>
               <button id="ai-note-file-btn" class="ai-note-icon-btn" type="button" title="แนบรูปหรือไฟล์" aria-label="แนบไฟล์">📎</button>
@@ -688,8 +702,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=104"></script>
-  <script src="js/fab-drag.js?v=104"></script>
+  <script src="js/page-nav.js?v=105"></script>
+  <script src="js/fab-drag.js?v=105"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -699,7 +713,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=104"></script>
-  <script src="js/update-watch.js?v=104"></script>
+  <script type="module" src="js/app.js?v=105"></script>
+  <script src="js/update-watch.js?v=105"></script>
 </body>
 </html>

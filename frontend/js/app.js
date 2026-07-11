@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=104';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=105';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -37,7 +37,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=104';
+} from './notes.js?v=105';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -58,7 +58,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=104';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=105';
 import {
   notificationPermission,
   notificationSupported,
@@ -67,13 +67,13 @@ import {
   sendTestNotification,
   syncNoteNotifications,
 } from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=104';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=105';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=104';
+} from './user-context.js?v=105';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -81,7 +81,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=104';
+import { normalizeNotesData } from './notes.js?v=105';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -114,6 +114,7 @@ const els = {
   addNoteBtn: document.getElementById('add-note-btn'),
   aiNoteModal: document.getElementById('ai-note-modal'),
   aiNoteSource: document.getElementById('ai-note-source'),
+  aiNotePasteDraftBtn: document.getElementById('ai-note-paste-draft-btn'),
   aiNoteDraftTitle: document.getElementById('ai-note-draft-title'),
   aiNoteDraftSummary: document.getElementById('ai-note-draft-summary'),
   aiNoteDraftSchedule: document.getElementById('ai-note-draft-schedule'),
@@ -2031,6 +2032,30 @@ function resetAiAddForm() {
   focusAiSourceField();
 }
 
+function pasteDraftDetailsIntoSource() {
+  const title = String(els.aiNoteDraftTitle?.value || '').trim();
+  const summary = String(els.aiNoteDraftSummary?.value || '').trim();
+  if (!title && !summary) {
+    setAiNoteStatus('ยังไม่มีรายละเอียดสรุป', { kind: 'error', restoreMs: 2200 });
+    return;
+  }
+  const parts = [];
+  if (title) parts.push(title);
+  if (summary) parts.push(summary);
+  const block = `${parts.join('\n\n')}\n\n`;
+  if (!els.aiNoteSource) return;
+  els.aiNoteSource.value = block;
+  try {
+    els.aiNoteSource.focus({ preventScroll: false });
+    const end = els.aiNoteSource.value.length;
+    els.aiNoteSource.setSelectionRange(end, end);
+  } catch {
+    els.aiNoteSource.focus();
+  }
+  updateAiCancelBtn();
+  setAiNoteStatus('วางแล้ว · ใส่คำสั่งเพิ่มแล้วกดสรุป', { kind: 'done', restoreMs: 2600 });
+}
+
 function focusAiSourceField() {
   const el = els.aiNoteSource;
   if (!el) return;
@@ -3138,6 +3163,7 @@ async function init() {
 
   els.addNoteBtn.addEventListener('click', openAddNoteModal);
   els.aiNoteCancelBtn?.addEventListener('click', onAiCancelOrReset);
+  els.aiNotePasteDraftBtn?.addEventListener('click', pasteDraftDetailsIntoSource);
   els.aiNoteSummarizeBtn?.addEventListener('click', () => {
     runAiSummarize();
   });
