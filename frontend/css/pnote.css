@@ -506,8 +506,9 @@ body.bars-dragging .list-scroll {
   padding: 0.5rem 0.75rem calc(0.75rem + var(--filters-dock-h, 0px));
 }
 
-/* Single-row multi-filter dock (fixed bottom) */
+/* Single-row multi-filter dock (fixed bottom, centered cluster) */
 .filter-dock {
+  --dock-scale: 1;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -525,31 +526,25 @@ body.bars-dragging .list-scroll {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.45rem 0.45rem;
+  justify-content: center;
+  padding: calc(0.22rem * var(--dock-scale)) 0.4rem calc(0.28rem * var(--dock-scale));
   max-width: 100%;
   box-sizing: border-box;
 }
-.filter-dock-filters {
-  flex: 1 1 auto;
-  min-width: 0;
+.filter-dock-cluster {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.3rem;
+  justify-content: center;
+  gap: calc(0.28rem * var(--dock-scale));
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  padding: 0 0.1rem;
 }
-.filter-dock-filters::-webkit-scrollbar {
+.filter-dock-cluster::-webkit-scrollbar {
   display: none;
-}
-.filter-dock-actions {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.3rem;
 }
 .filter-dd {
   position: relative;
@@ -561,14 +556,14 @@ body.bars-dragging .list-scroll {
   background: var(--surface-2);
   color: var(--text);
   font: inherit;
-  font-size: 0.72rem;
+  font-size: calc(0.68rem * var(--dock-scale));
   font-weight: 600;
   line-height: 1.15;
   white-space: nowrap;
-  max-width: 7.5rem;
+  max-width: calc(7.2rem * var(--dock-scale));
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 0.42rem 0.55rem;
+  padding: calc(0.36rem * var(--dock-scale)) calc(0.5rem * var(--dock-scale));
   border-radius: 999px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -641,8 +636,8 @@ body.bars-dragging .list-scroll {
 }
 .filter-dock-action {
   appearance: none;
-  width: 2.7rem;
-  height: 2.7rem;
+  width: calc(2.45rem * var(--dock-scale));
+  height: calc(2.45rem * var(--dock-scale));
   border: none;
   border-radius: 999px;
   background: var(--surface-2);
@@ -654,6 +649,7 @@ body.bars-dragging .list-scroll {
   cursor: pointer;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.22);
   -webkit-tap-highlight-color: transparent;
+  flex: 0 0 auto;
 }
 .filter-dock-action:active {
   transform: scale(0.96);
@@ -667,6 +663,8 @@ body.bars-dragging .list-scroll {
 .filter-dock-ai-icon {
   display: block;
   flex-shrink: 0;
+  width: calc(1.2rem * var(--dock-scale));
+  height: calc(1.2rem * var(--dock-scale));
 }
 .filter-dd-backdrop {
   position: fixed;
@@ -1986,15 +1984,70 @@ body.light .priority-badge.priority-urgent {
 }
 
 .settings-panel h2 {
-  margin: 0 0 0.9rem;
+  margin: 0 0 0.75rem;
   font-size: 1.1rem;
   font-weight: 600;
 }
 
+.settings-group {
+  margin-bottom: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, var(--surface));
+  overflow: hidden;
+}
+
+.settings-group-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.settings-group-summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-group-summary::after {
+  content: '▾';
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.settings-group:not([open]) > .settings-group-summary::after {
+  transform: rotate(-90deg);
+}
+
+.settings-group-body {
+  padding: 0 0.75rem 0.65rem;
+  border-top: 1px solid var(--border);
+}
+
 .settings-row {
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
   border-bottom: 1px solid var(--border);
+}
+
+.settings-row-tight {
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+
+.settings-row-last,
+.settings-group-body > .settings-row:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .settings-label {
@@ -2014,6 +2067,50 @@ body.light .priority-badge.priority-urgent {
   font-size: 0.78rem;
   color: var(--text-muted);
   line-height: 1.45;
+}
+
+.dock-scale-preview {
+  --dock-scale: 1;
+  margin-top: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(0.28rem * var(--dock-scale));
+  padding: 0.55rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-strong);
+  background: var(--bg, #000);
+}
+
+.dock-scale-preview-chip {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: calc(0.68rem * var(--dock-scale));
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+  padding: calc(0.36rem * var(--dock-scale)) calc(0.5rem * var(--dock-scale));
+  border-radius: 999px;
+}
+
+.dock-scale-preview-ai {
+  width: calc(2.45rem * var(--dock-scale));
+  height: calc(2.45rem * var(--dock-scale));
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #4b8dff 0%, #0a84ff 45%, #7c5cff 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(10, 132, 255, 0.35);
+}
+
+.dock-scale-preview-ai svg {
+  width: calc(1.15rem * var(--dock-scale));
+  height: calc(1.15rem * var(--dock-scale));
+  display: block;
 }
 
 .notify-options {

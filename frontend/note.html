@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="92">
-  <meta name="pnote-built" content="2026-07-11T11:50:00+07:00">
+  <meta name="pnote-build" content="93">
+  <meta name="pnote-built" content="2026-07-11T12:00:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=92"></script>
+  <script src="js/cache-bootstrap.js?v=93"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=92">
+  <link rel="stylesheet" href="css/pnote.css?v=93">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -328,95 +328,123 @@
       <div id="settings-backdrop" class="settings-backdrop"></div>
       <div class="settings-panel" role="dialog" aria-labelledby="settings-title">
         <h2 id="settings-title">ตั้งค่า</h2>
-        <div class="settings-row">
-          <span class="settings-label">ธีม</span>
-          <div class="segmented" id="theme-segmented">
-            <button id="theme-dark-btn" type="button" class="active">มืด</button>
-            <button id="theme-light-btn" type="button">สว่าง</button>
-          </div>
-        </div>
-        <div class="settings-row">
-          <span class="settings-label">กลุ่มไอคอน</span>
-          <div class="segmented" id="fab-dir-segmented">
-            <button id="fab-dir-vertical-btn" type="button" class="active">แนวตั้ง</button>
-            <button id="fab-dir-horizontal-btn" type="button">แนวนอน</button>
-          </div>
-          <p class="settings-hint">ใช้ร่วมกันทุกหน้า · จดจำอัตโนมัติ</p>
-        </div>
-        <div class="settings-row" id="notify-settings-row">
-          <span class="settings-label">แจ้งเตือนเครื่อง</span>
-          <div class="segmented" id="notify-segmented">
-            <button id="notify-off-btn" type="button" class="active">ปิด</button>
-            <button id="notify-on-btn" type="button">เปิด</button>
-          </div>
-          <p class="settings-hint" id="notify-hint">
-            โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · แนะนำติดตั้ง P-Note บนหน้าจอโฮม
-          </p>
-          <div id="notify-options" class="notify-options" hidden>
-            <label class="notify-field">
-              <span>ป้ายกำกับ</span>
-              <input id="notify-label" type="text" maxlength="24" placeholder="P-Note" autocomplete="off">
-            </label>
-            <div class="notify-toggle-row">
-              <span>เสียง</span>
-              <div class="segmented segmented-sm" id="notify-sound-seg">
-                <button type="button" data-notify-sound="0">ปิด</button>
-                <button type="button" data-notify-sound="1" class="active">เปิด</button>
+
+        <details class="settings-group" open>
+          <summary class="settings-group-summary">ทั่วไป · หน้าจอ</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-tight">
+              <span class="settings-label">ธีม</span>
+              <div class="segmented" id="theme-segmented">
+                <button id="theme-dark-btn" type="button" class="active">มืด</button>
+                <button id="theme-light-btn" type="button">สว่าง</button>
               </div>
             </div>
-            <div class="notify-toggle-row">
-              <span>สั่น</span>
-              <div class="segmented segmented-sm" id="notify-vibrate-seg">
-                <button type="button" data-notify-vibrate="0">ปิด</button>
-                <button type="button" data-notify-vibrate="1" class="active">เปิด</button>
+            <div class="settings-row settings-row-tight">
+              <span class="settings-label">กลุ่มไอคอน</span>
+              <div class="segmented" id="fab-dir-segmented">
+                <button id="fab-dir-vertical-btn" type="button" class="active">แนวตั้ง</button>
+                <button id="fab-dir-horizontal-btn" type="button">แนวนอน</button>
+              </div>
+              <p class="settings-hint">ใช้ร่วมกันทุกหน้า · จดจำอัตโนมัติ</p>
+            </div>
+            <div class="settings-row settings-row-tight">
+              <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
+              <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
+            </div>
+            <div class="settings-row settings-row-tight settings-row-last">
+              <label class="settings-label" for="dock-scale-slider">ขนาดปุ่มแถบล่าง</label>
+              <input id="dock-scale-slider" type="range" min="0" max="100" value="50" step="5">
+              <p class="settings-hint">เลื่อนเพื่อดูขนาดจริง · จัดกลางจอ</p>
+              <div class="dock-scale-preview" id="dock-scale-preview" aria-hidden="true">
+                <span class="dock-scale-preview-chip">📅 ล่าสุด</span>
+                <span class="dock-scale-preview-chip">⚠️ ความสำคัญ</span>
+                <span class="dock-scale-preview-chip">🔁 การซ้ำ</span>
+                <span class="dock-scale-preview-chip">🏷️ แท็ก</span>
+                <span class="dock-scale-preview-ai" title="AI">
+                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                    <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
+                  </svg>
+                </span>
               </div>
             </div>
-            <div class="notify-toggle-row">
-              <span>ตัวอย่างข้อความ</span>
-              <div class="segmented segmented-sm" id="notify-preview-seg">
-                <button type="button" data-notify-preview="full" class="active">เต็ม</button>
-                <button type="button" data-notify-preview="title">ชื่อ</button>
-                <button type="button" data-notify-preview="hidden">ซ่อน</button>
-              </div>
-            </div>
-            <div class="notify-toggle-row">
-              <span>รูปแบบ</span>
-              <div class="segmented segmented-sm" id="notify-style-seg">
-                <button type="button" data-notify-persistent="0" class="active">แบนเนอร์</button>
-                <button type="button" data-notify-persistent="1">ค้างจอ</button>
-              </div>
-            </div>
-            <div class="notify-toggle-row">
-              <span>แจ้งล่วงหน้า</span>
-              <select id="notify-early" class="notify-select">
-                <option value="0">ตรงเวลา</option>
-                <option value="5">ก่อน 5 นาที</option>
-                <option value="15">ก่อน 15 นาที</option>
-                <option value="30">ก่อน 30 นาที</option>
-                <option value="60">ก่อน 1 ชม.</option>
-              </select>
-            </div>
-            <div class="notify-toggle-row">
-              <span>ความสำคัญขั้นต่ำ</span>
-              <select id="notify-min-priority" class="notify-select">
-                <option value="normal">ทั้งหมด</option>
-                <option value="important">สำคัญขึ้นไป</option>
-                <option value="urgent">เร่งด่วนขึ้นไป</option>
-                <option value="critical">สำคัญเร่งด่วนเท่านั้น</option>
-              </select>
-            </div>
-            <div class="notify-field">
-              <span>แท็กที่แจ้งเตือน</span>
-              <div id="notify-tag-chips" class="notify-tag-chips" aria-label="เลือกแท็ก"></div>
-              <p class="settings-hint">ไม่เลือก = ทุกแท็ก · เลือกแล้วแจ้งเฉพาะโน้ตที่มีแท็กนั้น</p>
-            </div>
-            <button id="notify-test-btn" class="btn btn-secondary" type="button">ทดสอบแจ้งเตือน</button>
           </div>
-        </div>
-        <div class="settings-row">
-          <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
-          <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
-        </div>
+        </details>
+
+        <details class="settings-group" id="notify-settings-row">
+          <summary class="settings-group-summary">แจ้งเตือนเครื่อง</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-last">
+              <div class="segmented" id="notify-segmented">
+                <button id="notify-off-btn" type="button" class="active">ปิด</button>
+                <button id="notify-on-btn" type="button">เปิด</button>
+              </div>
+              <p class="settings-hint" id="notify-hint">
+                โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · แนะนำติดตั้ง P-Note บนหน้าจอโฮม
+              </p>
+              <div id="notify-options" class="notify-options" hidden>
+                <label class="notify-field">
+                  <span>ป้ายกำกับ</span>
+                  <input id="notify-label" type="text" maxlength="24" placeholder="P-Note" autocomplete="off">
+                </label>
+                <div class="notify-toggle-row">
+                  <span>เสียง</span>
+                  <div class="segmented segmented-sm" id="notify-sound-seg">
+                    <button type="button" data-notify-sound="0">ปิด</button>
+                    <button type="button" data-notify-sound="1" class="active">เปิด</button>
+                  </div>
+                </div>
+                <div class="notify-toggle-row">
+                  <span>สั่น</span>
+                  <div class="segmented segmented-sm" id="notify-vibrate-seg">
+                    <button type="button" data-notify-vibrate="0">ปิด</button>
+                    <button type="button" data-notify-vibrate="1" class="active">เปิด</button>
+                  </div>
+                </div>
+                <div class="notify-toggle-row">
+                  <span>ตัวอย่างข้อความ</span>
+                  <div class="segmented segmented-sm" id="notify-preview-seg">
+                    <button type="button" data-notify-preview="full" class="active">เต็ม</button>
+                    <button type="button" data-notify-preview="title">ชื่อ</button>
+                    <button type="button" data-notify-preview="hidden">ซ่อน</button>
+                  </div>
+                </div>
+                <div class="notify-toggle-row">
+                  <span>รูปแบบ</span>
+                  <div class="segmented segmented-sm" id="notify-style-seg">
+                    <button type="button" data-notify-persistent="0" class="active">แบนเนอร์</button>
+                    <button type="button" data-notify-persistent="1">ค้างจอ</button>
+                  </div>
+                </div>
+                <div class="notify-toggle-row">
+                  <span>แจ้งล่วงหน้า</span>
+                  <select id="notify-early" class="notify-select">
+                    <option value="0">ตรงเวลา</option>
+                    <option value="5">ก่อน 5 นาที</option>
+                    <option value="15">ก่อน 15 นาที</option>
+                    <option value="30">ก่อน 30 นาที</option>
+                    <option value="60">ก่อน 1 ชม.</option>
+                  </select>
+                </div>
+                <div class="notify-toggle-row">
+                  <span>ความสำคัญขั้นต่ำ</span>
+                  <select id="notify-min-priority" class="notify-select">
+                    <option value="normal">ทั้งหมด</option>
+                    <option value="important">สำคัญขึ้นไป</option>
+                    <option value="urgent">เร่งด่วนขึ้นไป</option>
+                    <option value="critical">สำคัญเร่งด่วนเท่านั้น</option>
+                  </select>
+                </div>
+                <div class="notify-field">
+                  <span>แท็กที่แจ้งเตือน</span>
+                  <div id="notify-tag-chips" class="notify-tag-chips" aria-label="เลือกแท็ก"></div>
+                  <p class="settings-hint">ไม่เลือก = ทุกแท็ก · เลือกแล้วแจ้งเฉพาะโน้ตที่มีแท็กนั้น</p>
+                </div>
+                <button id="notify-test-btn" class="btn btn-secondary" type="button">ทดสอบแจ้งเตือน</button>
+              </div>
+            </div>
+          </div>
+        </details>
+
         <div class="settings-row" hidden>
           <input id="thickness-sort" type="range" min="0" max="100" value="0" step="1" hidden>
           <input id="thickness-tag" type="range" min="0" max="100" value="0" step="1" hidden>
@@ -424,48 +452,59 @@
           <input id="thickness-recurrence" type="range" min="0" max="100" value="0" step="1" hidden>
           <button id="reset-bars-btn" type="button" hidden>รีเซ็ตตำแหน่งแถบ</button>
         </div>
-        <div class="settings-row" id="gemini-settings-row">
-          <span class="settings-label">Gemini AI</span>
-          <p class="settings-hint">
-            ใช้สรุปข้อความก่อนสร้างโน้ต · คีย์เก็บในเครื่องนี้เท่านั้น ·
-            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">รับ API key</a>
-          </p>
-          <label class="notify-field" for="gemini-api-key">
-            <span>API key</span>
-            <input id="gemini-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="วางคีย์จาก AI Studio">
-          </label>
-          <div class="notify-field" style="margin-top:0.45rem">
-            <span>โมเดล</span>
-            <div class="gemini-model-row">
-              <select id="gemini-model" class="notify-select" aria-label="โมเดล Gemini">
-                <option value="gemini-2.5-pro">gemini-2.5-pro (ฉลาด)</option>
-                <option value="gemini-2.5-flash" selected>gemini-2.5-flash (เร็ว)</option>
-                <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-                <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (เบา)</option>
-              </select>
-              <button id="gemini-load-models-btn" class="btn btn-secondary" type="button">โหลดโมเดล</button>
+
+        <details class="settings-group" id="gemini-settings-row">
+          <summary class="settings-group-summary">Gemini AI</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-last">
+              <p class="settings-hint" style="margin-top:0">
+                ใช้สรุปข้อความก่อนสร้างโน้ต · คีย์เก็บในเครื่องนี้เท่านั้น ·
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">รับ API key</a>
+              </p>
+              <label class="notify-field" for="gemini-api-key">
+                <span>API key</span>
+                <input id="gemini-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="วางคีย์จาก AI Studio">
+              </label>
+              <div class="notify-field" style="margin-top:0.45rem">
+                <span>โมเดล</span>
+                <div class="gemini-model-row">
+                  <select id="gemini-model" class="notify-select" aria-label="โมเดล Gemini">
+                    <option value="gemini-2.5-pro">gemini-2.5-pro (ฉลาด)</option>
+                    <option value="gemini-2.5-flash" selected>gemini-2.5-flash (เร็ว)</option>
+                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (เบา)</option>
+                  </select>
+                  <button id="gemini-load-models-btn" class="btn btn-secondary" type="button">โหลดโมเดล</button>
+                </div>
+                <p class="settings-hint" id="gemini-model-hint">กดโหลดโมเดลเพื่อดึงรายการจริงจาก API (รวมรุ่นฉลาดกว่า)</p>
+              </div>
+              <div class="notify-field" style="margin-top:0.55rem">
+                <span>ความจำผู้ใช้ (AI)</span>
+                <p class="settings-hint">
+                  เรียนรู้จากแท็ก/โน้ตเดิม เก็บเป็นไฟล์ความจำ .md ในเครื่อง · ใช้กรองแท็กและความสำคัญ
+                </p>
+                <button id="ai-context-refresh-btn" class="btn btn-secondary" type="button">รีเฟรชความจำ</button>
+                <details class="ai-context-details">
+                  <summary>ดูความจำ .md</summary>
+                  <pre id="ai-context-preview" class="ai-context-preview"></pre>
+                </details>
+              </div>
             </div>
-            <p class="settings-hint" id="gemini-model-hint">กดโหลดโมเดลเพื่อดึงรายการจริงจาก API (รวมรุ่นฉลาดกว่า)</p>
           </div>
-          <div class="notify-field" style="margin-top:0.55rem">
-            <span>ความจำผู้ใช้ (AI)</span>
-            <p class="settings-hint">
-              เรียนรู้จากแท็ก/โน้ตเดิม เก็บเป็นไฟล์ความจำ .md ในเครื่อง · ใช้กรองแท็กและความสำคัญ
-            </p>
-            <button id="ai-context-refresh-btn" class="btn btn-secondary" type="button">รีเฟรชความจำ</button>
-            <details class="ai-context-details">
-              <summary>ดูความจำ .md</summary>
-              <pre id="ai-context-preview" class="ai-context-preview"></pre>
-            </details>
+        </details>
+
+        <details class="settings-group">
+          <summary class="settings-group-summary">ฐานข้อมูล / รหัสซิงค์</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-last">
+              <p class="settings-hint" style="margin-top:0">
+                Calorie กับ Note ใช้รหัสซิงค์ก้อนเดียวกัน — ตั้งค่าที่หน้าแรก (Calorie) → ตั้งค่า ครั้งเดียวจบ
+              </p>
+              <button id="goto-calorie-settings-btn" class="btn btn-primary" type="button">ไปตั้งค่าที่ Calorie</button>
+            </div>
           </div>
-        </div>
-        <div class="settings-row">
-          <span class="settings-label">ฐานข้อมูล / รหัสซิงค์</span>
-          <p class="settings-hint">
-            Calorie กับ Note ใช้รหัสซิงค์ก้อนเดียวกัน — ตั้งค่าที่หน้าแรก (Calorie) → ตั้งค่า ครั้งเดียวจบ
-          </p>
-          <button id="goto-calorie-settings-btn" class="btn btn-primary" type="button">ไปตั้งค่าที่ Calorie</button>
-        </div>
+        </details>
+
         <button id="close-settings-btn" class="btn btn-secondary settings-close" type="button">ปิด</button>
       </div>
     </div>
@@ -495,7 +534,7 @@
 
   <nav id="filter-dock" class="filter-dock" aria-label="ตัวกรองและทางลัด">
     <div class="filter-dock-inner">
-      <div class="filter-dock-filters" role="toolbar" aria-label="ตัวกรอง">
+      <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรองและเพิ่มงาน">
         <div class="filter-dd" data-filter="sort">
           <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false">📅 ล่าสุด</button>
           <div class="filter-dd-menu" id="filter-sort-menu" role="listbox" hidden></div>
@@ -512,8 +551,6 @@
           <button type="button" class="filter-dd-btn" id="filter-tag-btn" aria-haspopup="listbox" aria-expanded="false">🏷️ แท็ก</button>
           <div class="filter-dd-menu filter-dd-menu-end" id="filter-tag-menu" role="listbox" hidden></div>
         </div>
-      </div>
-      <div class="filter-dock-actions">
         <button type="button" class="filter-dock-action filter-dock-ai" id="add-note-btn" aria-label="เพิ่มงานด้วย AI" title="เพิ่มงานด้วย AI">
           <svg class="filter-dock-ai-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
             <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
@@ -536,8 +573,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=92"></script>
-  <script src="js/fab-drag.js?v=92"></script>
+  <script src="js/page-nav.js?v=93"></script>
+  <script src="js/fab-drag.js?v=93"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -547,7 +584,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=92"></script>
-  <script src="js/update-watch.js?v=92"></script>
+  <script type="module" src="js/app.js?v=93"></script>
+  <script src="js/update-watch.js?v=93"></script>
 </body>
 </html>
