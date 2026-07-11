@@ -318,10 +318,12 @@ export function formatDate(iso) {
   }
 }
 
-// Upgrades any older payload (v1: no tags/tagIds) to the current v2 shape.
-// Idempotent — safe to run on already-migrated data.
+// Upgrades any older payload to the current shape.
+// v5: snap all scheduledAt times to local 09:00 (one-time when version < 5).
 export function normalizeNotesData(data) {
   const base = data && typeof data === 'object' ? data : {};
+  const prevVersion = Number(base.version) || 1;
+  const snapScheduleTimes = prevVersion < 5;
 
   const tags = Array.isArray(base.tags)
     ? base.tags
@@ -337,52 +339,65 @@ export function normalizeNotesData(data) {
   const tagIds = new Set(tags.map((tag) => tag.id));
 
   const notes = Array.isArray(base.notes)
-    ? base.notes.map((note) => ({
-        ...note,
-        tagIds: Array.isArray(note.tagIds)
-          ? note.tagIds.filter((id) => tagIds.has(id))
-          : [],
-        scheduledAt: note.scheduledAt || null,
-        recurrence: ['daily', 'weekly', 'monthly', 'yearly'].includes(note.recurrence)
-          ? note.recurrence
-          : null,
-        remindBefore: [
-          'default',
-          'at',
-          '5m',
-          '15m',
-          '30m',
-          '1h',
-          '2h',
-          '1d',
-          '2d',
-          '1w',
-          '2w',
-          '1mo',
-        ].includes(note.remindBefore)
-          ? note.remindBefore
-          : 'default',
-        notifyRepeat: ['none', 'hourly', 'daily', 'every2d', 'weekly', 'monthly'].includes(
-          note.notifyRepeat,
-        )
-          ? note.notifyRepeat
-          : 'none',
-        attachments: attachmentsForPersist(note.attachments),
-        priority: Object.values(NOTE_PRIORITY).includes(note.priority)
-          ? note.priority
-          : NOTE_PRIORITY.NORMAL,
-        status: [NOTE_STATUS.ACTIVE, NOTE_STATUS.DONE, NOTE_STATUS.TRASH].includes(note.status)
-          ? note.status
-          : NOTE_STATUS.ACTIVE,
-        completedAt: note.completedAt || null,
-        deletedAt: note.deletedAt || null,
-        order: Number.isFinite(note.order) ? note.order : null,
-      }))
+    ? base.notes.map((note) => {
+        let scheduledAt = note.scheduledAt || null;
+        if (snapScheduleTimes && scheduledAt) {
+          const d = new Date(scheduledAt);
+          if (!Number.isNaN(d.getTime())) {
+            d.setHours(9, 0, 0, 0);
+            scheduledAt = d.toISOString();
+          }
+        }
+        return {
+          ...note,
+          tagIds: Array.isArray(note.tagIds)
+            ? note.tagIds.filter((id) => tagIds.has(id))
+            : [],
+          scheduledAt,
+          recurrence: ['daily', 'weekly', 'monthly', 'yearly'].includes(note.recurrence)
+            ? note.recurrence
+            : null,
+          remindBefore: [
+            'default',
+            'at',
+            '5m',
+            '15m',
+            '30m',
+            '1h',
+            '2h',
+            '1d',
+            '2d',
+            '1w',
+            '2w',
+            '1mo',
+          ].includes(note.remindBefore)
+            ? note.remindBefore
+            : 'default',
+          notifyRepeat: ['none', 'hourly', 'daily', 'every2d', 'weekly', 'monthly'].includes(
+            note.notifyRepeat,
+          )
+            ? note.notifyRepeat
+            : 'none',
+          attachments: attachmentsForPersist(note.attachments),
+          priority: Object.values(NOTE_PRIORITY).includes(note.priority)
+            ? note.priority
+            : NOTE_PRIORITY.NORMAL,
+          status: [NOTE_STATUS.ACTIVE, NOTE_STATUS.DONE, NOTE_STATUS.TRASH].includes(note.status)
+            ? note.status
+            : NOTE_STATUS.ACTIVE,
+          completedAt: note.completedAt || null,
+          deletedAt: note.deletedAt || null,
+          order: Number.isFinite(note.order) ? note.order : null,
+        };
+      })
     : [];
 
   return {
-    version: 4,
-    updatedAt: base.updatedAt || new Date().toISOString(),
+    version: 5,
+    updatedAt:
+      snapScheduleTimes && Array.isArray(base.notes) && base.notes.some((n) => n?.scheduledAt)
+        ? new Date().toISOString()
+        : base.updatedAt || new Date().toISOString(),
     tags,
     notes,
   };

@@ -314,6 +314,31 @@ export function formatScheduleDisplay(iso) {
   }
 }
 
+/** Default local time for new/migrated note schedules (แจ้งเตือนมาตรฐาน). */
+export const DEFAULT_SCHEDULE_HOUR = 9;
+export const DEFAULT_SCHEDULE_MINUTE = 0;
+
+/**
+ * Keep the calendar day in local time; set clock to the default schedule hour.
+ * @param {string|Date|number} isoOrDate
+ * @param {{ hour?: number, minute?: number }} [opts]
+ * @returns {string|null} ISO string
+ */
+export function snapToDefaultScheduleTime(isoOrDate, opts = {}) {
+  if (isoOrDate == null || isoOrDate === '') return null;
+  const d = isoOrDate instanceof Date ? new Date(isoOrDate.getTime()) : new Date(isoOrDate);
+  if (Number.isNaN(d.getTime())) return null;
+  const hour = Number.isFinite(opts.hour) ? opts.hour : DEFAULT_SCHEDULE_HOUR;
+  const minute = Number.isFinite(opts.minute) ? opts.minute : DEFAULT_SCHEDULE_MINUTE;
+  d.setHours(hour, minute, 0, 0);
+  return d.toISOString();
+}
+
+/** Today (or given date's day) at the default schedule time, as ISO. */
+export function defaultScheduleIso(fromDate = new Date()) {
+  return snapToDefaultScheduleTime(fromDate);
+}
+
 export function toDatetimeLocalValue(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -323,6 +348,11 @@ export function toDatetimeLocalValue(iso) {
   const h = String(d.getHours()).padStart(2, '0');
   const mi = String(d.getMinutes()).padStart(2, '0');
   return `${y}-${mo}-${da}T${h}:${mi}`;
+}
+
+/** datetime-local value at default hour for a given day (default: today). */
+export function defaultDatetimeLocalValue(fromDate = new Date()) {
+  return toDatetimeLocalValue(defaultScheduleIso(fromDate));
 }
 
 export function fromDatetimeLocalValue(value) {

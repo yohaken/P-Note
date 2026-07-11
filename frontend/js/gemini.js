@@ -309,7 +309,12 @@ function normalizeScheduledAt(value) {
   if (!s || s === 'null' || s === 'none') return null;
   const t = Date.parse(s);
   if (!Number.isFinite(t)) return null;
-  return new Date(t).toISOString();
+  const d = new Date(t);
+  // Date-only / midnight → standard notify time 09:00 local
+  if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
+    d.setHours(9, 0, 0, 0);
+  }
+  return d.toISOString();
 }
 
 function normalizePriority(value) {
@@ -477,7 +482,7 @@ function buildPrompt({ text, existingTags, nowIso, hasImage, userContextMd }) {
       title: '🚗 หัวข้อสั้น',
       summary: 'สรุปสั้น อ่านง่าย',
       tags: ['งาน', 'ส่วนตัว'],
-      scheduledAt: '2026-07-12T18:00:00+07:00',
+      scheduledAt: '2026-07-12T09:00:00+07:00',
       priority: 'normal',
       recurrence: null,
     }),
@@ -490,7 +495,7 @@ function buildPrompt({ text, existingTags, nowIso, hasImage, userContextMd }) {
     '- tags: 1–3 ชื่อ · ใช้แท็กที่มีอยู่ก่อนถ้าเข้ากับบริบท/ความจำผู้ใช้ · ถ้ามีความจำส่วน「กฎแมปคำ → แท็ก」ให้ทำตามก่อน · สร้างใหม่เฉพาะเมื่อไม่มีที่ใกล้เคียง',
     '- อ่าน「โปรไฟล์ผู้ใช้」ในความจำถ้ามี — ใช้ปรับโทน/บริบทธุรกิจให้ถูก',
     '- priority: normal | important | urgent | critical ตามความน่าจะเป็นจากข้อความ + นิสัยในความจำผู้ใช้',
-    '- scheduledAt: ISO 8601 พร้อมโซนเวลา ถ้ามีกำหนดชัด/พอเดาได้ · ไม่มีใส่ null',
+    '- scheduledAt: ISO 8601 พร้อมโซนเวลา ถ้ามีกำหนดชัด/พอเดาได้ · ไม่มีใส่ null · ถ้ามีแค่วันที่ไม่มีเวลาชัด ให้ใช้ 09:00 ตามโซนผู้ใช้',
     '- recurrence: null | daily | weekly | monthly | yearly (เฉพาะงานที่ทำซ้ำจริง)',
     hasImage ? '- ถ้ามีรูป: อ่านข้อความ/บริบทจากรูปแล้วสรุปเป็นงาน' : '',
     '',

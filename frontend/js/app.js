@@ -1,5 +1,5 @@
-import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=108';
+import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=109';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=109';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -38,7 +38,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=108';
+} from './notes.js?v=109';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -58,8 +58,9 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=108';
+  defaultDatetimeLocalValue,
+} from './schedule.js?v=109';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=109';
 import {
   notificationPermission,
   notificationSupported,
@@ -68,19 +69,19 @@ import {
   sendTestNotification,
   syncNoteNotifications,
 } from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=108';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=109';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=108';
-import { createInAppCamera } from './camera.js?v=108';
+} from './files.js?v=109';
+import { createInAppCamera } from './camera.js?v=109';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=108';
+} from './user-context.js?v=109';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -88,7 +89,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=108';
+import { normalizeNotesData } from './notes.js?v=109';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -1036,11 +1037,11 @@ function setActiveNoteRecurrence(recurrence) {
   if (!note) return;
   const nextRecurrence = normalizeRecurrence(recurrence);
   const patch = { recurrence: nextRecurrence };
-  // Choosing a repeat without a date → default to now so กำหนดวันที่ is set.
+  // Choosing a repeat without a date → default to today 09:00 (มาตรฐานแจ้งเตือน).
   if (nextRecurrence && !fromDatetimeLocalValue(els.noteSchedule.value) && !note.scheduledAt) {
-    const nowLocal = toDatetimeLocalValue(new Date().toISOString());
-    els.noteSchedule.value = nowLocal;
-    patch.scheduledAt = fromDatetimeLocalValue(nowLocal);
+    const local = defaultDatetimeLocalValue();
+    els.noteSchedule.value = local;
+    patch.scheduledAt = fromDatetimeLocalValue(local);
   }
   const updated = updateNote(note, patch);
   state.notesData = updateNoteInData(state.notesData, updated);
@@ -3421,35 +3422,48 @@ function setListGroup(group) {
 }
 
 async function loadSpaceData(spaceId, localData) {
-  // Returns { data, online, migrated }
-  let remote = null;
+  // Returns { data, online, migrated, scheduleSnap }
+  let remoteRaw = null;
   try {
-    remote = normalizeNotesData(await fetchRemoteNotes(spaceId));
+    remoteRaw = await fetchRemoteNotes(spaceId);
   } catch {
-    remote = null;
+    remoteRaw = null;
   }
 
-  if (!remote) {
-    // Offline: fall back to local cache + legacy auto-import.
+  if (!remoteRaw) {
     const auto = await tryAutoImport(localData);
-    return { data: auto.data, online: false, migrated: false, autoSource: auto.imported ? auto.source : null };
+    const localVer = Number(localData?.version) || 1;
+    // localData may already be normalized to v5; scheduleSnap handled by caller via peek
+    return {
+      data: auto.data,
+      online: false,
+      migrated: false,
+      autoSource: auto.imported ? auto.source : null,
+      scheduleSnap: false,
+    };
   }
 
+  const remoteVer = Number(remoteRaw.version) || 1;
+  const remote = normalizeNotesData(remoteRaw);
   const remoteHas = hasAnyNotes(remote);
   const localHas = hasAnyNotes(localData);
 
   if (!remoteHas && localHas) {
-    // First move of existing on-device notes into the database.
     const merged = normalizeNotesData(localData);
     try {
       await pushRemoteNotes(spaceId, merged);
-      return { data: merged, online: true, migrated: true };
+      return { data: merged, online: true, migrated: true, scheduleSnap: remoteVer < 5 };
     } catch {
-      return { data: merged, online: false, migrated: false };
+      return { data: merged, online: false, migrated: false, scheduleSnap: remoteVer < 5 };
     }
   }
 
-  return { data: remote, online: true, migrated: false };
+  return {
+    data: remote,
+    online: true,
+    migrated: false,
+    scheduleSnap: remoteVer < 5,
+  };
 }
 
 async function bootstrapData() {
@@ -3458,6 +3472,7 @@ async function bootstrapData() {
   state.settings = loadSettings();
   state.listGroup = NOTE_STATUS.ACTIVE;
 
+  const localVerBefore = peekLocalNotesVersion();
   const localData = loadNotes().data;
   const result = await loadSpaceData(state.spaceId, localData);
 
@@ -3473,6 +3488,19 @@ async function bootstrapData() {
     remotePush: (data) => pushRemoteNotes(state.spaceId, data),
   });
 
+  const didScheduleSnap =
+    localVerBefore < 5 || Boolean(result.scheduleSnap);
+  const hadScheduled = Array.isArray(state.notesData?.notes)
+    && state.notesData.notes.some((n) => n?.scheduledAt);
+
+  if (didScheduleSnap) {
+    try {
+      await saveManager.saveNow(() => state.notesData);
+    } catch (err) {
+      console.warn('schedule snap save failed', err);
+    }
+  }
+
   applyTheme();
   applyCardDensity();
   applyDockScale();
@@ -3484,7 +3512,9 @@ async function bootstrapData() {
   setLoading(false);
   updateAppVersionLabel();
 
-  if (result.migrated) {
+  if (didScheduleSnap && hadScheduled) {
+    setStatus('ปรับเวลาแจ้งเตือนเป็น 09:00 แล้ว');
+  } else if (result.migrated) {
     setStatus('ย้ายโน้ตเข้าฐานข้อมูลแล้ว');
   } else if (!result.online) {
     setStatus(result.autoSource ? 'โหมดออฟไลน์ (กู้คืนข้อมูลเดิม)' : 'โหมดออฟไลน์ (เก็บในเครื่อง)');
@@ -3504,11 +3534,22 @@ async function applySyncCode(code) {
   state.spaceId = normalized;
   setLoading(true, 'กำลังซิงค์...');
   try {
-    const remote = normalizeNotesData(await fetchRemoteNotes(normalized));
+    const remoteRaw = await fetchRemoteNotes(normalized);
+    const remoteVer = Number(remoteRaw?.version) || 1;
+    const remote = normalizeNotesData(remoteRaw);
     state.notesData = remote;
     state.online = true;
     saveNotes(state.notesData);
-    setStatus('สลับพื้นที่ซิงค์แล้ว');
+    if (remoteVer < 5) {
+      try {
+        await saveManager.saveNow(() => state.notesData);
+      } catch (err) {
+        console.warn('sync schedule snap save failed', err);
+      }
+      setStatus('สลับพื้นที่ซิงค์แล้ว · ปรับเวลาเป็น 09:00');
+    } else {
+      setStatus('สลับพื้นที่ซิงค์แล้ว');
+    }
   } catch {
     state.online = false;
     setStatus('เชื่อมต่อไม่ได้ — เก็บในเครื่อง');
