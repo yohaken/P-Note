@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="83">
-  <meta name="pnote-built" content="2026-07-11T09:33:33+07:00">
+  <meta name="pnote-build" content="84">
+  <meta name="pnote-built" content="2026-07-11T09:37:59+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=83"></script>
+  <script src="js/cache-bootstrap.js?v=84"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=83">
+  <link rel="stylesheet" href="css/pnote.css?v=84">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -302,29 +302,68 @@
     </div>
 
     <div id="ai-note-modal" class="modal" hidden>
-      <div class="modal-card modal-card-wide" role="dialog" aria-labelledby="ai-note-title">
-        <h2 id="ai-note-title">เพิ่มงานด้วย AI</h2>
-        <p id="ai-note-lead">วางข้อความ → AI สรุป → ตรวจแล้วค่อยสร้างโน้ต</p>
+      <div class="modal-card modal-card-ai" role="dialog" aria-labelledby="ai-note-title">
+        <header class="ai-note-head">
+          <h2 id="ai-note-title">เพิ่มงานด้วย AI</h2>
+          <p id="ai-note-lead" class="ai-note-lead">สรุป → ตรวจแท็ก/วัน → สร้าง</p>
+        </header>
 
         <div id="ai-note-step-input" class="ai-note-step">
-          <label class="schedule-label" for="ai-note-source">ข้อความต้นฉบับ</label>
-          <textarea id="ai-note-source" class="ai-note-textarea" rows="8" placeholder="วางข้อความยาว / รายการ / บันทึกประชุม..."></textarea>
+          <div class="ai-note-input-row">
+            <textarea id="ai-note-source" class="ai-note-textarea" rows="3" placeholder="วางข้อความ หรือถ่ายรูปงาน…"></textarea>
+            <div class="ai-note-side">
+              <button id="ai-note-camera-btn" class="ai-note-icon-btn" type="button" title="ถ่าย / เลือกรูป" aria-label="ถ่ายหรือเลือกรูป">📷</button>
+            </div>
+          </div>
+          <input id="ai-note-camera" type="file" accept="image/*" capture="environment" hidden>
+          <div id="ai-note-image-preview" class="ai-note-thumb" hidden>
+            <img id="ai-note-thumb-img" alt="รูปที่เลือก">
+            <button id="ai-note-clear-image" class="ai-note-thumb-clear" type="button" aria-label="ลบรูป">×</button>
+          </div>
         </div>
 
         <div id="ai-note-step-review" class="ai-note-step" hidden>
-          <label class="schedule-label" for="ai-note-draft-title">หัวข้อ</label>
-          <input id="ai-note-draft-title" class="ai-note-title-input" type="text" maxlength="120" autocomplete="off" placeholder="🚗 หัวข้อพร้อมอีโมจิ">
-          <p class="settings-hint ai-note-emoji-hint">อีโมจินำหน้าตามบริบท เช่น เดินทาง → 🚗 · ซื้อของ → 🛒 · แก้ได้ก่อนสร้าง</p>
-          <label class="schedule-label" for="ai-note-draft-summary">สรุป</label>
-          <textarea id="ai-note-draft-summary" class="ai-note-textarea" rows="7" placeholder="สรุปที่ตรวจแล้ว"></textarea>
+          <input id="ai-note-draft-title" class="ai-note-title-input" type="text" maxlength="120" autocomplete="off" placeholder="🚗 หัวข้อ">
+          <textarea id="ai-note-draft-summary" class="ai-note-textarea ai-note-summary" rows="3" placeholder="สรุป"></textarea>
+
+          <div class="ai-note-meta">
+            <span class="ai-note-meta-label">แท็ก</span>
+            <div id="ai-note-tag-chips" class="ai-note-tag-chips" aria-label="แท็กที่แนะนำ"></div>
+          </div>
+
+          <div class="ai-note-meta-row">
+            <label class="ai-note-meta-field" for="ai-note-draft-schedule">
+              <span>กำหนด</span>
+              <input id="ai-note-draft-schedule" class="ai-note-schedule" type="datetime-local">
+            </label>
+            <label class="ai-note-meta-field" for="ai-note-draft-priority">
+              <span>สำคัญ</span>
+              <select id="ai-note-draft-priority" class="ai-note-select">
+                <option value="normal">ทั่วไป</option>
+                <option value="important">สำคัญ</option>
+                <option value="urgent">เร่งด่วน</option>
+                <option value="critical">สำคัญ+ด่วน</option>
+              </select>
+            </label>
+          </div>
+          <label class="ai-note-meta-field ai-note-recurrence-field" for="ai-note-draft-recurrence">
+            <span>ทำซ้ำ</span>
+            <select id="ai-note-draft-recurrence" class="ai-note-select">
+              <option value="">ไม่ซ้ำ</option>
+              <option value="daily">ทุกวัน</option>
+              <option value="weekly">ทุกสัปดาห์</option>
+              <option value="monthly">ทุกเดือน</option>
+              <option value="yearly">ทุกปี</option>
+            </select>
+          </label>
         </div>
 
-        <p class="settings-hint" id="ai-note-status" aria-live="polite"></p>
+        <p class="settings-hint ai-note-status" id="ai-note-status" aria-live="polite"></p>
         <div class="modal-actions ai-note-actions">
           <button id="ai-note-cancel-btn" class="btn btn-secondary" type="button">ยกเลิก</button>
-          <button id="ai-note-back-btn" class="btn btn-secondary" type="button" hidden>แก้ต้นฉบับ</button>
-          <button id="ai-note-summarize-btn" class="btn btn-primary" type="button">สรุปด้วย AI</button>
-          <button id="ai-note-confirm-btn" class="btn btn-primary" type="button" hidden>สร้างโน้ต</button>
+          <button id="ai-note-back-btn" class="btn btn-secondary" type="button" hidden>ย้อน</button>
+          <button id="ai-note-summarize-btn" class="btn btn-primary" type="button">สรุป</button>
+          <button id="ai-note-confirm-btn" class="btn btn-primary" type="button" hidden>สร้าง</button>
         </div>
       </div>
     </div>
@@ -512,8 +551,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=83"></script>
-  <script src="js/fab-drag.js?v=83"></script>
+  <script src="js/page-nav.js?v=84"></script>
+  <script src="js/fab-drag.js?v=84"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -523,7 +562,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=83"></script>
-  <script src="js/update-watch.js?v=83"></script>
+  <script type="module" src="js/app.js?v=84"></script>
+  <script src="js/update-watch.js?v=84"></script>
 </body>
 </html>

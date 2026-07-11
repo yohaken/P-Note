@@ -35,7 +35,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=83';
+} from './notes.js?v=84';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -55,8 +55,8 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=83';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=83';
+} from './schedule.js?v=84';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=84';
 import {
   notificationPermission,
   notificationSupported,
@@ -64,8 +64,8 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=83';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji } from './gemini.js?v=83';
+} from './note-notify.js?v=84';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, fileToInlineImage } from './gemini.js?v=84';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -73,7 +73,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=83';
+import { normalizeNotesData } from './notes.js?v=84';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -111,6 +111,15 @@ const els = {
   aiNoteSource: document.getElementById('ai-note-source'),
   aiNoteDraftTitle: document.getElementById('ai-note-draft-title'),
   aiNoteDraftSummary: document.getElementById('ai-note-draft-summary'),
+  aiNoteDraftSchedule: document.getElementById('ai-note-draft-schedule'),
+  aiNoteDraftPriority: document.getElementById('ai-note-draft-priority'),
+  aiNoteDraftRecurrence: document.getElementById('ai-note-draft-recurrence'),
+  aiNoteTagChips: document.getElementById('ai-note-tag-chips'),
+  aiNoteCameraBtn: document.getElementById('ai-note-camera-btn'),
+  aiNoteCamera: document.getElementById('ai-note-camera'),
+  aiNoteImagePreview: document.getElementById('ai-note-image-preview'),
+  aiNoteThumbImg: document.getElementById('ai-note-thumb-img'),
+  aiNoteClearImage: document.getElementById('ai-note-clear-image'),
   aiNoteStatus: document.getElementById('ai-note-status'),
   aiNoteCancelBtn: document.getElementById('ai-note-cancel-btn'),
   aiNoteBackBtn: document.getElementById('ai-note-back-btn'),
@@ -1388,6 +1397,10 @@ async function loadGeminiModelsFromApi() {
 }
 
 let aiNoteBusy = false;
+/** @type {{ mimeType: string, data: string, previewUrl: string } | null} */
+let aiNoteImage = null;
+/** @type {Array<{ name: string, isNew: boolean, on: boolean }>} */
+let aiTagDraft = [];
 
 function setAiNoteStatus(message) {
   if (els.aiNoteStatus) els.aiNoteStatus.textContent = message || '';
@@ -1402,6 +1415,60 @@ function showAiNoteStep(step) {
   if (els.aiNoteBackBtn) els.aiNoteBackBtn.hidden = !review;
 }
 
+function clearAiNoteImage() {
+  aiNoteImage = null;
+  if (els.aiNoteCamera) els.aiNoteCamera.value = '';
+  if (els.aiNoteThumbImg) els.aiNoteThumbImg.removeAttribute('src');
+  if (els.aiNoteImagePreview) els.aiNoteImagePreview.hidden = true;
+}
+
+function renderAiTagChips() {
+  const wrap = els.aiNoteTagChips;
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  aiTagDraft.forEach((item, index) => {
+    const existing = (state.notesData.tags || []).find(
+      (t) => t.name.toLowerCase() === item.name.toLowerCase(),
+    );
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `ai-note-tag-chip${item.on ? ' is-on' : ''}${item.isNew ? ' is-new' : ''}`;
+    btn.textContent = item.name;
+    btn.style.setProperty('--tag', safeTagColor(existing?.color));
+    btn.addEventListener('click', () => {
+      aiTagDraft[index].on = !aiTagDraft[index].on;
+      renderAiTagChips();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function applyAiDraftToForm(draft) {
+  if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = draft.title || '';
+  if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = draft.summary || '';
+  if (els.aiNoteDraftSchedule) {
+    els.aiNoteDraftSchedule.value = toDatetimeLocalValue(draft.scheduledAt);
+  }
+  if (els.aiNoteDraftPriority) {
+    const p = draft.priority;
+    els.aiNoteDraftPriority.value = Object.values(NOTE_PRIORITY).includes(p)
+      ? p
+      : NOTE_PRIORITY.NORMAL;
+  }
+  if (els.aiNoteDraftRecurrence) {
+    els.aiNoteDraftRecurrence.value = normalizeRecurrence(draft.recurrence) || '';
+  }
+  const existingNames = new Set(
+    (state.notesData.tags || []).map((t) => t.name.toLowerCase()),
+  );
+  aiTagDraft = (draft.tags || []).map((name) => ({
+    name,
+    isNew: !existingNames.has(name.toLowerCase()),
+    on: true,
+  }));
+  renderAiTagChips();
+}
+
 function openAiNoteModal() {
   if (!els.aiNoteModal) return;
   if (!String(state.settings.geminiApiKey || '').trim()) {
@@ -1413,6 +1480,12 @@ function openAiNoteModal() {
   if (els.aiNoteSource) els.aiNoteSource.value = '';
   if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = '';
   if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = '';
+  if (els.aiNoteDraftSchedule) els.aiNoteDraftSchedule.value = '';
+  if (els.aiNoteDraftPriority) els.aiNoteDraftPriority.value = NOTE_PRIORITY.NORMAL;
+  if (els.aiNoteDraftRecurrence) els.aiNoteDraftRecurrence.value = '';
+  aiTagDraft = [];
+  renderAiTagChips();
+  clearAiNoteImage();
   setAiNoteStatus('');
   showAiNoteStep('input');
   els.aiNoteModal.hidden = false;
@@ -1423,16 +1496,32 @@ function closeAiNoteModal() {
   if (!els.aiNoteModal) return;
   els.aiNoteModal.hidden = true;
   aiNoteBusy = false;
+  clearAiNoteImage();
   if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = false;
   if (els.aiNoteConfirmBtn) els.aiNoteConfirmBtn.disabled = false;
   setAiNoteStatus('');
 }
 
+async function onAiCameraPicked(file) {
+  if (!file) return;
+  try {
+    setAiNoteStatus('กำลังเตรียมรูป…');
+    aiNoteImage = await fileToInlineImage(file);
+    if (els.aiNoteThumbImg) els.aiNoteThumbImg.src = aiNoteImage.previewUrl;
+    if (els.aiNoteImagePreview) els.aiNoteImagePreview.hidden = false;
+    setAiNoteStatus('มีรูปแล้ว · กดสรุปได้');
+  } catch (err) {
+    clearAiNoteImage();
+    setAiNoteStatus('ใช้รูปนี้ไม่ได้');
+    console.warn('ai image failed', err);
+  }
+}
+
 async function runAiSummarize() {
   if (aiNoteBusy) return;
   const source = String(els.aiNoteSource?.value || '').trim();
-  if (!source) {
-    setAiNoteStatus('วางข้อความก่อนสรุป');
+  if (!source && !aiNoteImage) {
+    setAiNoteStatus('ใส่ข้อความหรือถ่ายรูปก่อน');
     return;
   }
   const apiKey = String(state.settings.geminiApiKey || '').trim();
@@ -1442,21 +1531,29 @@ async function runAiSummarize() {
   }
   aiNoteBusy = true;
   if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = true;
-  setAiNoteStatus('กำลังสรุป…');
+  setAiNoteStatus(aiNoteImage ? 'กำลังอ่านรูปและสรุป…' : 'กำลังสรุป…');
   try {
     const draft = await summarizeToNoteDraft(apiKey, source, {
       model: state.settings.geminiModel,
+      existingTags: state.notesData.tags || [],
+      image: aiNoteImage
+        ? { mimeType: aiNoteImage.mimeType, data: aiNoteImage.data }
+        : null,
+      now: new Date(),
     });
-    if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = draft.title || '';
-    if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = draft.summary || '';
+    applyAiDraftToForm(draft);
     showAiNoteStep('review');
-    setAiNoteStatus('ตรวจสรุปแล้วกดสร้างโน้ต');
+    const bits = [];
+    if (draft.tags?.length) bits.push(`แท็ก ${draft.tags.length}`);
+    if (draft.scheduledAt) bits.push('มีกำหนด');
+    if (draft.priority && draft.priority !== 'normal') bits.push(priorityLabel(draft.priority));
+    setAiNoteStatus(bits.length ? `ตรวจแล้วสร้าง · ${bits.join(' · ')}` : 'ตรวจแล้วกดสร้าง');
     els.aiNoteDraftTitle?.focus();
   } catch (err) {
     const code = err?.code || '';
     if (code === 'missing_api_key') setAiNoteStatus('ยังไม่มี API key');
-    else if (code === 'empty_input') setAiNoteStatus('วางข้อความก่อนสรุป');
-    else if (code === 'too_long') setAiNoteStatus('ข้อความยาวเกินไป (ตัดเหลือ ~12,000 ตัวอักษร)');
+    else if (code === 'empty_input') setAiNoteStatus('ใส่ข้อความหรือถ่ายรูปก่อน');
+    else if (code === 'too_long') setAiNoteStatus('ข้อความยาวเกินไป');
     else if (code === 'bad_key') setAiNoteStatus('API key ไม่ถูกต้องหรือถูกจำกัด');
     else if (code === 'network') setAiNoteStatus('เชื่อมต่อ Gemini ไม่ได้');
     else setAiNoteStatus(err?.message ? String(err.message).slice(0, 120) : 'สรุปไม่สำเร็จ');
@@ -1473,13 +1570,29 @@ async function confirmAiNoteDraft() {
     setAiNoteStatus('ใส่หัวข้อหรือสรุปอย่างน้อยอย่างหนึ่ง');
     return;
   }
-  const note = createNote(title, content);
+
+  let data = state.notesData;
+  const tagIds = [];
+  for (const item of aiTagDraft) {
+    if (!item.on) continue;
+    const result = addTag(data, item.name);
+    data = result.data;
+    if (result.tag) tagIds.push(result.tag.id);
+  }
+
+  let note = createNote(title, content);
+  note = updateNote(note, {
+    scheduledAt: fromDatetimeLocalValue(els.aiNoteDraftSchedule?.value),
+    priority: els.aiNoteDraftPriority?.value,
+    recurrence: els.aiNoteDraftRecurrence?.value || null,
+  });
+  note = { ...note, tagIds };
+
   state.notesData = {
-    ...state.notesData,
-    notes: [note, ...state.notesData.notes],
+    ...data,
+    notes: [note, ...data.notes],
     updatedAt: new Date().toISOString(),
   };
-  // Has content — not a disposable empty draft; persist immediately.
   state.draftNoteId = null;
   closeAiNoteModal();
   openEditor(note.id);
@@ -1490,6 +1603,8 @@ async function confirmAiNoteDraft() {
     autosave();
   }
   renderNotesList();
+  renderTagFilterBar();
+  renderTagManager();
   setStatus('สร้างโน้ตจาก AI แล้ว');
 }
 
@@ -1940,7 +2055,7 @@ async function init() {
   els.aiNoteCancelBtn?.addEventListener('click', closeAiNoteModal);
   els.aiNoteBackBtn?.addEventListener('click', () => {
     showAiNoteStep('input');
-    setAiNoteStatus('');
+    setAiNoteStatus(aiNoteImage ? 'มีรูปแล้ว · แก้ข้อความได้' : '');
     els.aiNoteSource?.focus();
   });
   els.aiNoteSummarizeBtn?.addEventListener('click', () => {
@@ -1949,6 +2064,17 @@ async function init() {
   els.aiNoteConfirmBtn?.addEventListener('click', confirmAiNoteDraft);
   els.aiNoteModal?.addEventListener('click', (e) => {
     if (e.target === els.aiNoteModal) closeAiNoteModal();
+  });
+  els.aiNoteCameraBtn?.addEventListener('click', () => {
+    els.aiNoteCamera?.click();
+  });
+  els.aiNoteCamera?.addEventListener('change', () => {
+    const file = els.aiNoteCamera.files?.[0];
+    onAiCameraPicked(file);
+  });
+  els.aiNoteClearImage?.addEventListener('click', () => {
+    clearAiNoteImage();
+    setAiNoteStatus('');
   });
   els.geminiApiKey?.addEventListener('change', persistGeminiSettingsFromUi);
   els.geminiModel?.addEventListener('change', persistGeminiSettingsFromUi);
