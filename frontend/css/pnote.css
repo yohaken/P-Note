@@ -2227,6 +2227,99 @@ body.light .priority-badge.priority-urgent {
   padding: 0.5rem 0.55rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
+  background: var(--bg, #000);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-profile-input {
+  width: 100%;
+  margin-top: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, var(--surface));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  padding: 0.55rem 0.65rem;
+  resize: vertical;
+  min-height: 4.2rem;
+}
+
+.ai-tag-rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0.45rem;
+}
+
+.ai-tag-rule-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 0.4rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, var(--surface));
+}
+
+.ai-tag-rule-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-tag-rule-keywords {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.ai-tag-rule-tag {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: var(--accent, #0a84ff);
+  font-weight: 600;
+}
+
+.ai-tag-rule-remove {
+  width: 1.85rem;
+  height: 1.85rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ai-tag-rule-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+}
+
+.ai-tag-rule-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg, #000);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.ai-tag-rule-form .btn {
+  justify-self: start;
+  padding: 0.4rem 0.75rem;
+}
   background: var(--surface);
   color: var(--text-muted);
   font-size: 0.68rem;

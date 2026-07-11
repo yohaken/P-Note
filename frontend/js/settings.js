@@ -32,11 +32,54 @@ const DEFAULTS = {
   /** Google AI Studio key — stored on this device only */
   geminiApiKey: '',
   geminiModel: 'gemini-2.5-flash',
+  /** Free-text profile Gemini should read when drafting notes */
+  aiProfile: '',
+  /** Manual keyword → tag rules, e.g. ที่ดิน/รังวัด → peerland */
+  aiTagRules: [],
 };
 
 export function normalizeGeminiModel(value) {
   const v = String(value || '').trim().slice(0, 80);
   return v || DEFAULTS.geminiModel;
+}
+
+export function normalizeAiProfile(value) {
+  return String(value || '').trim().slice(0, 2000);
+}
+
+/** @returns {Array<{ id: string, tagName: string, keywords: string[] }>} */
+export function normalizeAiTagRules(value) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  const seen = new Set();
+  value.forEach((raw) => {
+    if (!raw || typeof raw !== 'object') return;
+    const tagName = String(raw.tagName || '').trim().slice(0, 40);
+    if (!tagName) return;
+    const keywords = Array.isArray(raw.keywords)
+      ? raw.keywords
+          .map((k) => String(k || '').trim().slice(0, 40))
+          .filter(Boolean)
+      : String(raw.keywordsText || '')
+          .split(/[,،、|/]+/)
+          .map((k) => k.trim().slice(0, 40))
+          .filter(Boolean);
+    const uniqKw = [];
+    const kwSeen = new Set();
+    keywords.forEach((k) => {
+      const key = k.toLowerCase();
+      if (kwSeen.has(key)) return;
+      kwSeen.add(key);
+      uniqKw.push(k);
+    });
+    if (!uniqKw.length) return;
+    const id = String(raw.id || `${tagName}:${uniqKw.join('|')}`).slice(0, 80);
+    const dedupe = `${tagName.toLowerCase()}::${uniqKw.map((k) => k.toLowerCase()).sort().join('|')}`;
+    if (seen.has(dedupe)) return;
+    seen.add(dedupe);
+    out.push({ id, tagName, keywords: uniqKw.slice(0, 12) });
+  });
+  return out.slice(0, 40);
 }
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
@@ -121,6 +164,8 @@ export function loadSettings() {
         notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
         geminiApiKey: '',
         geminiModel: DEFAULTS.geminiModel,
+        aiProfile: '',
+        aiTagRules: [],
         dockScale: DEFAULTS.dockScale,
         dockOffsetY: DEFAULTS.dockOffsetY,
         fabOrder: [...DEFAULT_FAB_ORDER],
@@ -151,6 +196,8 @@ export function loadSettings() {
       notifyPrefs,
       geminiApiKey: String(parsed.geminiApiKey || '').trim().slice(0, 200),
       geminiModel: normalizeGeminiModel(parsed.geminiModel),
+      aiProfile: normalizeAiProfile(parsed.aiProfile),
+      aiTagRules: normalizeAiTagRules(parsed.aiTagRules),
     };
   } catch {
     return {
@@ -162,6 +209,8 @@ export function loadSettings() {
       notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
       geminiApiKey: '',
       geminiModel: DEFAULTS.geminiModel,
+      aiProfile: '',
+      aiTagRules: [],
       dockScale: DEFAULTS.dockScale,
       dockOffsetY: DEFAULTS.dockOffsetY,
       fabOrder: [...DEFAULT_FAB_ORDER],
@@ -181,6 +230,8 @@ export function saveSettings(settings) {
     notificationsEnabled: notifyPrefs.enabled,
     geminiApiKey: String(settings.geminiApiKey || '').trim().slice(0, 200),
     geminiModel: normalizeGeminiModel(settings.geminiModel),
+    aiProfile: normalizeAiProfile(settings.aiProfile),
+    aiTagRules: normalizeAiTagRules(settings.aiTagRules),
   };
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }

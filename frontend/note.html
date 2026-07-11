@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="103">
+  <meta name="pnote-build" content="104">
   <meta name="pnote-built" content="2026-07-11T12:40:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=103"></script>
+  <script src="js/cache-bootstrap.js?v=104"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=103">
+  <link rel="stylesheet" href="css/pnote.css?v=104">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -549,13 +549,39 @@
                 <p class="settings-hint" id="gemini-model-hint">กดโหลดโมเดลเพื่อดึงรายการจริงจาก API (รวมรุ่นฉลาดกว่า)</p>
               </div>
               <div class="notify-field" style="margin-top:0.55rem">
+                <span>โปรไฟล์ของฉัน (ให้ Gemini อ่าน)</span>
+                <p class="settings-hint">
+                  บอกสั้นๆ ว่าคุณทำอะไร / ธุรกิจอะไร · AI จะใช้ตอนสรุปและติดแท็ก
+                </p>
+                <textarea
+                  id="ai-profile"
+                  class="ai-profile-input"
+                  rows="3"
+                  maxlength="2000"
+                  placeholder="เช่น ทำธุรกิจที่ดิน Peerland · งานรังวัด/โฉนด · ใช้แท็ก peerland สำหรับงานที่ดิน"
+                ></textarea>
+              </div>
+              <div class="notify-field" style="margin-top:0.65rem">
+                <span>กฎแมปคำ → แท็ก</span>
+                <p class="settings-hint">
+                  ตัวอย่าง: คำว่า ที่ดิน, รังวัด, ธุรกิจที่ดิน → แท็ก peerland
+                </p>
+                <div id="ai-tag-rules-list" class="ai-tag-rules-list" aria-label="กฎแมปแท็ก"></div>
+                <form id="ai-tag-rule-form" class="ai-tag-rule-form">
+                  <input id="ai-tag-rule-keywords" class="ai-tag-rule-input" type="text" maxlength="200" placeholder="คำสำคัญ คั่นด้วยจุลภาค" autocomplete="off">
+                  <input id="ai-tag-rule-tag" class="ai-tag-rule-input" type="text" maxlength="40" placeholder="ชื่อแท็ก เช่น peerland" list="ai-tag-rule-tag-list" autocomplete="off">
+                  <datalist id="ai-tag-rule-tag-list"></datalist>
+                  <button id="ai-tag-rule-add" class="btn btn-secondary" type="submit">เพิ่มกฎ</button>
+                </form>
+              </div>
+              <div class="notify-field" style="margin-top:0.55rem">
                 <span>ความจำผู้ใช้ (AI)</span>
                 <p class="settings-hint">
-                  เรียนรู้จากแท็ก/โน้ตเดิม เก็บเป็นไฟล์ความจำ .md ในเครื่อง · ใช้กรองแท็กและความสำคัญ
+                  เรียนรู้จากแท็ก/โน้ตเดิม + โปรไฟล์/กฎด้านบน · เก็บในเครื่อง
                 </p>
                 <button id="ai-context-refresh-btn" class="btn btn-secondary" type="button">รีเฟรชความจำ</button>
                 <details class="ai-context-details">
-                  <summary>ดูความจำ .md</summary>
+                  <summary>ดูความจำที่ Gemini อ่าน</summary>
                   <pre id="ai-context-preview" class="ai-context-preview"></pre>
                 </details>
               </div>
@@ -662,8 +688,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=103"></script>
-  <script src="js/fab-drag.js?v=103"></script>
+  <script src="js/page-nav.js?v=104"></script>
+  <script src="js/fab-drag.js?v=104"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -673,7 +699,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=103"></script>
-  <script src="js/update-watch.js?v=103"></script>
+  <script type="module" src="js/app.js?v=104"></script>
+  <script src="js/update-watch.js?v=104"></script>
 </body>
 </html>
