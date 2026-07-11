@@ -1,3 +1,5 @@
+import { normalizeNotifyRepeat, normalizeRecurrence } from './schedule.js?v=113';
+
 export const TAG_PALETTE = [
   '#6c63ff',
   '#22c55e',
@@ -175,8 +177,7 @@ export function updateNote(note, { title, content, scheduledAt, recurrence, prio
     next.scheduledAt = scheduledAt || null;
   }
   if (recurrence !== undefined) {
-    const allowed = ['daily', 'weekly', 'monthly', 'yearly'];
-    next.recurrence = allowed.includes(recurrence) ? recurrence : null;
+    next.recurrence = normalizeRecurrence(recurrence);
   }
   if (remindBefore !== undefined) {
     const allowed = [
@@ -196,8 +197,7 @@ export function updateNote(note, { title, content, scheduledAt, recurrence, prio
     next.remindBefore = allowed.includes(remindBefore) ? remindBefore : 'default';
   }
   if (notifyRepeat !== undefined) {
-    const allowed = ['none', 'hourly', 'daily', 'every2d', 'weekly', 'monthly'];
-    next.notifyRepeat = allowed.includes(notifyRepeat) ? notifyRepeat : 'none';
+    next.notifyRepeat = normalizeNotifyRepeat(notifyRepeat);
   }
   if (priority !== undefined) {
     next.priority = Object.values(NOTE_PRIORITY).includes(priority)
@@ -354,9 +354,7 @@ export function normalizeNotesData(data) {
             ? note.tagIds.filter((id) => tagIds.has(id))
             : [],
           scheduledAt,
-          recurrence: ['daily', 'weekly', 'monthly', 'yearly'].includes(note.recurrence)
-            ? note.recurrence
-            : null,
+          recurrence: normalizeRecurrence(note.recurrence),
           remindBefore: [
             'default',
             'at',
@@ -373,11 +371,7 @@ export function normalizeNotesData(data) {
           ].includes(note.remindBefore)
             ? note.remindBefore
             : 'default',
-          notifyRepeat: ['none', 'hourly', 'daily', 'every2d', 'weekly', 'monthly'].includes(
-            note.notifyRepeat,
-          )
-            ? note.notifyRepeat
-            : 'none',
+          notifyRepeat: normalizeNotifyRepeat(note.notifyRepeat),
           attachments: attachmentsForPersist(note.attachments),
           priority: Object.values(NOTE_PRIORITY).includes(note.priority)
             ? note.priority

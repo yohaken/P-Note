@@ -1,4 +1,4 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=112';
+import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=113';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=112';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
@@ -38,7 +38,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=112';
+} from './notes.js?v=113';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -53,15 +53,20 @@ import {
   remindBeforeLabel,
   notifyRepeatLabel,
   recurrenceLabel,
-  RECURRENCE_FILTER_OPTIONS,
-  RECURRENCE_OPTIONS,
+  monthIntervalFromId,
+  buildRecurrenceSelectOptions,
+  buildNotifyRepeatSelectOptions,
+  buildRecurrenceChipOptions,
+  buildRecurrenceFilterOptions,
+  normalizeMonthPresets,
   relativeDayLabel,
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
   defaultDatetimeLocalValue,
-} from './schedule.js?v=112';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=112';
+  defaultScheduleIso,
+} from './schedule.js?v=113';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=113';
 import {
   notificationPermission,
   notificationSupported,
@@ -69,8 +74,8 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=112';
+} from './note-notify.js?v=113';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=113';
 import {
   uploadFileToCloud,
   getDownloadUrl,
@@ -90,7 +95,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=112';
+import { normalizeNotesData } from './notes.js?v=113';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -266,6 +271,7 @@ const els = {
   notifyLabel: document.getElementById('notify-label'),
   notifyEarly: document.getElementById('notify-early'),
   notifyMinPriority: document.getElementById('notify-min-priority'),
+  notifyMonthPresets: document.getElementById('notify-month-presets'),
   notifyTagChips: document.getElementById('notify-tag-chips'),
   notifyTestBtn: document.getElementById('notify-test-btn'),
   thicknessSort: document.getElementById('thickness-sort'),
@@ -682,6 +688,9 @@ function applyNotifySettingsUi() {
   }
   if (els.notifyEarly) els.notifyEarly.value = String(prefs.earlyMinutes || 0);
   if (els.notifyMinPriority) els.notifyMinPriority.value = prefs.minPriority || 'normal';
+  if (els.notifyMonthPresets && document.activeElement !== els.notifyMonthPresets) {
+    els.notifyMonthPresets.value = getMonthPresets().join(', ');
+  }
 
   document.querySelectorAll('[data-notify-sound]').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.notifySound === (prefs.sound ? '1' : '0'));
@@ -1092,6 +1101,53 @@ function setActiveNotePriority(priority) {
   renderEditorPriority();
 }
 
+function getMonthPresets() {
+  return normalizeMonthPresets(state.settings?.notifyMonthPresets);
+}
+
+function fillSelectOptions(select, options, preferredValue) {
+  if (!select) return;
+  const cur = preferredValue !== undefined ? preferredValue : select.value;
+  select.innerHTML = '';
+  options.forEach((item) => {
+    const opt = document.createElement('option');
+    opt.value = item.id == null ? '' : String(item.id);
+    opt.textContent = item.label;
+    select.appendChild(opt);
+  });
+  const values = new Set([...select.options].map((o) => o.value));
+  if (cur != null && cur !== '' && !values.has(String(cur))) {
+    const opt = document.createElement('option');
+    opt.value = String(cur);
+    const months = monthIntervalFromId(cur);
+    opt.textContent = months ? `ทุก ${months} เดือน` : String(cur);
+    select.appendChild(opt);
+  }
+  if (cur != null && cur !== undefined) {
+    select.value = String(cur);
+  }
+}
+
+function refreshScheduleSelectOptions() {
+  const presets = getMonthPresets();
+  const notifyOpts = buildNotifyRepeatSelectOptions(presets);
+  const recurOpts = buildRecurrenceSelectOptions(presets);
+  fillSelectOptions(els.noteNotifyRepeat, notifyOpts, els.noteNotifyRepeat?.value || 'none');
+  fillSelectOptions(els.aiNoteDraftNotifyRepeat, notifyOpts, els.aiNoteDraftNotifyRepeat?.value || 'none');
+  fillSelectOptions(els.aiNoteDraftRecurrence, recurOpts, els.aiNoteDraftRecurrence?.value || '');
+}
+
+/** If recurrence / notify-repeat needs an anchor and schedule is empty → today 09:00. */
+function ensureAiScheduleAnchor() {
+  if (!els.aiNoteDraftSchedule) return;
+  if (els.aiNoteDraftSchedule.value) return;
+  const recurrence = normalizeRecurrence(els.aiNoteDraftRecurrence?.value);
+  const notifyRepeat = normalizeNotifyRepeat(els.aiNoteDraftNotifyRepeat?.value);
+  if (!recurrence && notifyRepeat === 'none') return;
+  els.aiNoteDraftSchedule.value = defaultDatetimeLocalValue();
+  syncAiScheduleDisplay();
+}
+
 function renderEditorRecurrence() {
   if (!els.editorRecurrence) return;
   els.editorRecurrence.innerHTML = '';
@@ -1099,7 +1155,19 @@ function renderEditorRecurrence() {
   if (!note) return;
 
   const current = normalizeRecurrence(note.recurrence);
-  RECURRENCE_OPTIONS.forEach((opt) => {
+  const options = buildRecurrenceChipOptions(getMonthPresets());
+  // Keep a custom everyNmo chip visible if not in presets.
+  if (current && !options.some((o) => o.id === current)) {
+    const months = monthIntervalFromId(current);
+    if (months) {
+      options.splice(options.length - 1, 0, {
+        id: current,
+        label: `ทุก ${months} เดือน`,
+        short: `${months} ด.`,
+      });
+    }
+  }
+  options.forEach((opt) => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = `recurrence-chip${current === opt.id ? ' active' : ''}`;
@@ -1128,7 +1196,8 @@ function setActiveNoteRecurrence(recurrence) {
 
 function renderRecurrenceFilterBar() {
   const current = normalizeRecurrenceFilter(state.recurrenceFilter);
-  const opt = RECURRENCE_FILTER_OPTIONS.find((o) => o.id === current);
+  const filterOptions = buildRecurrenceFilterOptions(getMonthPresets());
+  const opt = filterOptions.find((o) => o.id === current);
   const isFiltered = Boolean(current);
   if (els.filterRecurrenceBtn) {
     els.filterRecurrenceBtn.textContent = isFiltered && opt ? `🔁 ${opt.label}` : '🔁 การซ้ำ';
@@ -1140,7 +1209,7 @@ function renderRecurrenceFilterBar() {
   const groupNotes = notesForCurrentGroup();
   fillFilterMenu(
     els.filterRecurrenceMenu,
-    RECURRENCE_FILTER_OPTIONS.map((o) => {
+    filterOptions.map((o) => {
       let label = o.label;
       if (o.id) {
         const n = countNotesByRecurrence(groupNotes, o.id);
@@ -1974,6 +2043,7 @@ function openSettings() {
   renderTagManager();
   applyNotifySettingsUi();
   applyBarThickness();
+  refreshScheduleSelectOptions();
 }
 
 function applyCameraSettingsUi() {
@@ -2446,6 +2516,7 @@ function updateAiCancelBtn() {
 }
 
 function clearAiFormFields() {
+  refreshScheduleSelectOptions();
   if (els.aiNoteSource) els.aiNoteSource.value = '';
   if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = '';
   if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = '';
@@ -2462,6 +2533,7 @@ function clearAiFormFields() {
 
 function fillAiFormFromNote(note) {
   if (!note) return;
+  refreshScheduleSelectOptions();
   if (els.aiNoteSource) els.aiNoteSource.value = '';
   if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = note.title || '';
   if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = note.content || '';
@@ -2470,13 +2542,21 @@ function fillAiFormFromNote(note) {
   }
   if (els.aiNoteDraftPriority) els.aiNoteDraftPriority.value = notePriority(note);
   if (els.aiNoteDraftRecurrence) {
-    els.aiNoteDraftRecurrence.value = normalizeRecurrence(note.recurrence) || '';
+    fillSelectOptions(
+      els.aiNoteDraftRecurrence,
+      buildRecurrenceSelectOptions(getMonthPresets()),
+      normalizeRecurrence(note.recurrence) || '',
+    );
   }
   if (els.aiNoteDraftRemind) {
     els.aiNoteDraftRemind.value = normalizeRemindBefore(note.remindBefore);
   }
   if (els.aiNoteDraftNotifyRepeat) {
-    els.aiNoteDraftNotifyRepeat.value = normalizeNotifyRepeat(note.notifyRepeat);
+    fillSelectOptions(
+      els.aiNoteDraftNotifyRepeat,
+      buildNotifyRepeatSelectOptions(getMonthPresets()),
+      normalizeNotifyRepeat(note.notifyRepeat),
+    );
   }
 
   const noteTagIds = new Set(note.tagIds || []);
@@ -2581,6 +2661,8 @@ function bindAiFormDirtyWatchers() {
       el.addEventListener('input', bump);
       el.addEventListener('change', bump);
     });
+  els.aiNoteDraftRecurrence?.addEventListener('change', ensureAiScheduleAnchor);
+  els.aiNoteDraftNotifyRepeat?.addEventListener('change', ensureAiScheduleAnchor);
 }
 
 function seedExistingTagChips() {
@@ -3244,11 +3326,14 @@ async function confirmAiNoteDraft() {
     if (result.tag) tagIds.push(result.tag.id);
   }
 
-  const scheduleAt = fromDatetimeLocalValue(els.aiNoteDraftSchedule?.value);
+  let scheduleAt = fromDatetimeLocalValue(els.aiNoteDraftSchedule?.value);
   const priority = els.aiNoteDraftPriority?.value;
-  const recurrence = els.aiNoteDraftRecurrence?.value || null;
+  const recurrence = normalizeRecurrence(els.aiNoteDraftRecurrence?.value);
   const remindBefore = normalizeRemindBefore(els.aiNoteDraftRemind?.value);
   const notifyRepeat = normalizeNotifyRepeat(els.aiNoteDraftNotifyRepeat?.value);
+  if ((recurrence || notifyRepeat !== 'none') && !scheduleAt) {
+    scheduleAt = defaultScheduleIso();
+  }
 
   if (aiFormMode === 'edit' && aiEditNoteId) {
     const existing = getNoteById(aiEditNoteId);
@@ -3782,6 +3867,7 @@ function initSwipeBack() {
 
 async function init() {
   applyTheme();
+  refreshScheduleSelectOptions();
   // Update polling: js/update-watch.js (shared with Calorie). No SW in this shell.
   initAttachViewer();
   initInAppCamera();
@@ -3890,6 +3976,21 @@ async function init() {
   });
   els.notifyMinPriority?.addEventListener('change', () => {
     persistNotifyPrefs({ minPriority: els.notifyMinPriority.value || 'normal' });
+  });
+  els.notifyMonthPresets?.addEventListener('change', () => {
+    state.settings.notifyMonthPresets = normalizeMonthPresets(els.notifyMonthPresets.value);
+    saveSettings(state.settings);
+    els.notifyMonthPresets.value = getMonthPresets().join(', ');
+    refreshScheduleSelectOptions();
+    renderRecurrenceFilterBar();
+  });
+  els.notifyMonthPresets?.addEventListener('blur', () => {
+    if (!els.notifyMonthPresets) return;
+    state.settings.notifyMonthPresets = normalizeMonthPresets(els.notifyMonthPresets.value);
+    saveSettings(state.settings);
+    els.notifyMonthPresets.value = getMonthPresets().join(', ');
+    refreshScheduleSelectOptions();
+    renderRecurrenceFilterBar();
   });
   document.getElementById('notify-sound-seg')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-notify-sound]');
@@ -4060,6 +4161,10 @@ async function init() {
     flushEditorToState();
   });
   els.noteNotifyRepeat?.addEventListener('change', () => {
+    const repeat = normalizeNotifyRepeat(els.noteNotifyRepeat?.value);
+    if (repeat !== 'none' && !els.noteSchedule.value) {
+      els.noteSchedule.value = defaultDatetimeLocalValue();
+    }
     updateNotifyDetailsPreview();
     flushEditorToState();
   });

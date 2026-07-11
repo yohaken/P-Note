@@ -1,5 +1,9 @@
 import { STORAGE_KEYS } from './config.js?v=51';
 import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=46';
+import {
+  normalizeMonthPresets,
+  normalizeRecurrenceFilter,
+} from './schedule.js?v=113';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -46,6 +50,8 @@ const DEFAULTS = {
   /** List box colors — user-defined */
   priorityColors: null,
   dueColors: null,
+  /** Month intervals offered in ทำซ้ำ / แจ้งเตือนซ้ำ (e.g. 3,5,6) */
+  notifyMonthPresets: [3, 5, 6],
 };
 
 export const DEFAULT_PRIORITY_COLORS = {
@@ -166,7 +172,6 @@ export function normalizeAiTagRules(value) {
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
 const PRIORITY_FILTERS = ['normal', 'important', 'urgent', 'critical'];
-const RECURRENCE_FILTERS = ['none', 'any', 'daily', 'weekly', 'monthly', 'yearly'];
 const PREVIEW_MODES = ['full', 'title', 'hidden'];
 const EARLY_MINUTES = [0, 5, 15, 30, 60];
 
@@ -185,7 +190,7 @@ function normalizePriorityFilter(value) {
 }
 
 function normalizeRecurrenceFilterSetting(value) {
-  return RECURRENCE_FILTERS.includes(value) ? value : null;
+  return normalizeRecurrenceFilter(value);
 }
 
 function normalizeTagOrder(value) {
@@ -256,6 +261,7 @@ export function loadSettings() {
         cameraQuality: 'max',
         priorityColors: { ...DEFAULT_PRIORITY_COLORS },
         dueColors: { ...DEFAULT_DUE_COLORS },
+        notifyMonthPresets: [3, 5, 6],
       };
     }
     const parsed = JSON.parse(raw);
@@ -290,6 +296,7 @@ export function loadSettings() {
       cameraQuality: normalizeCameraQuality(parsed.cameraQuality),
       priorityColors: normalizePriorityColors(parsed.priorityColors),
       dueColors: normalizeDueColors(parsed.dueColors),
+      notifyMonthPresets: normalizeMonthPresets(parsed.notifyMonthPresets),
     };
   } catch {
     return {
@@ -311,6 +318,7 @@ export function loadSettings() {
       cameraQuality: 'max',
       priorityColors: { ...DEFAULT_PRIORITY_COLORS },
       dueColors: { ...DEFAULT_DUE_COLORS },
+      notifyMonthPresets: [3, 5, 6],
     };
   }
 }
@@ -334,6 +342,7 @@ export function saveSettings(settings) {
     cameraQuality: normalizeCameraQuality(settings.cameraQuality),
     priorityColors: normalizePriorityColors(settings.priorityColors),
     dueColors: normalizeDueColors(settings.dueColors),
+    notifyMonthPresets: normalizeMonthPresets(settings.notifyMonthPresets),
   };
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
