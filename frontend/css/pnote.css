@@ -590,6 +590,9 @@ body.filter-menu-open .filter-dd-backdrop {
   opacity: 0.88;
   transform: scale(0.98);
 }
+.filter-dd-btn.is-filter-reset {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #2f6fed) 55%, transparent);
+}
 .filter-dd-menu {
   position: fixed;
   min-width: 11rem;
