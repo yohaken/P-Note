@@ -118,6 +118,8 @@ export function attachNoteCardInteractions(card, handlers) {
       suppressClick = false;
       return;
     }
+    // Left tag column has its own filter action.
+    if (event.target.closest?.('.card-col-tags, .card-tag-name')) return;
     handlers.onTap();
   };
 
