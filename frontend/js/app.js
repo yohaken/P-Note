@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=99';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=100';
 import {
   notificationPermission,
   notificationSupported,
@@ -117,6 +117,9 @@ const els = {
   aiNoteDraftSchedule: document.getElementById('ai-note-draft-schedule'),
   aiNoteDraftPriority: document.getElementById('ai-note-draft-priority'),
   aiNoteDraftRecurrence: document.getElementById('ai-note-draft-recurrence'),
+  aiNoteDraftRemind: document.getElementById('ai-note-draft-remind'),
+  aiNoteDraftNotifyRepeat: document.getElementById('ai-note-draft-notify-repeat'),
+  aiNoteNotifyRow: document.getElementById('ai-note-notify-row'),
   aiNoteTagChips: document.getElementById('ai-note-tag-chips'),
   aiNoteCameraBtn: document.getElementById('ai-note-camera-btn'),
   aiNoteCamera: document.getElementById('ai-note-camera'),
@@ -1713,6 +1716,9 @@ function syncAiScheduleDisplay() {
   if (els.aiNoteScheduleBtn) {
     els.aiNoteScheduleBtn.classList.toggle('has-value', Boolean(raw));
   }
+  if (els.aiNoteNotifyRow) {
+    els.aiNoteNotifyRow.classList.toggle('is-disabled', !raw);
+  }
   updateAiCancelBtn();
 }
 
@@ -1737,6 +1743,8 @@ function captureAiFormSnapshot() {
     schedule: els.aiNoteDraftSchedule?.value || '',
     priority: els.aiNoteDraftPriority?.value || NOTE_PRIORITY.NORMAL,
     recurrence: els.aiNoteDraftRecurrence?.value || '',
+    remindBefore: normalizeRemindBefore(els.aiNoteDraftRemind?.value),
+    notifyRepeat: normalizeNotifyRepeat(els.aiNoteDraftNotifyRepeat?.value),
     tagOns: aiTagDraft
       .filter((t) => t.on)
       .map((t) => t.name.toLowerCase())
@@ -1759,6 +1767,8 @@ function isAiFormDirty() {
   const schedule = els.aiNoteDraftSchedule?.value || '';
   const priority = els.aiNoteDraftPriority?.value || NOTE_PRIORITY.NORMAL;
   const recurrence = els.aiNoteDraftRecurrence?.value || '';
+  const remindBefore = normalizeRemindBefore(els.aiNoteDraftRemind?.value);
+  const notifyRepeat = normalizeNotifyRepeat(els.aiNoteDraftNotifyRepeat?.value);
   const tagsOn = aiTagDraft.some((t) => t.on);
   return Boolean(
     source ||
@@ -1768,7 +1778,9 @@ function isAiFormDirty() {
       aiPendingMedia.length ||
       tagsOn ||
       (priority && priority !== NOTE_PRIORITY.NORMAL) ||
-      recurrence,
+      recurrence ||
+      remindBefore !== 'default' ||
+      notifyRepeat !== 'none',
   );
 }
 
@@ -1800,6 +1812,8 @@ function clearAiFormFields() {
   if (els.aiNoteDraftSchedule) els.aiNoteDraftSchedule.value = '';
   if (els.aiNoteDraftPriority) els.aiNoteDraftPriority.value = NOTE_PRIORITY.NORMAL;
   if (els.aiNoteDraftRecurrence) els.aiNoteDraftRecurrence.value = '';
+  if (els.aiNoteDraftRemind) els.aiNoteDraftRemind.value = 'default';
+  if (els.aiNoteDraftNotifyRepeat) els.aiNoteDraftNotifyRepeat.value = 'none';
   clearAiPendingMedia();
   seedExistingTagChips();
   syncAiScheduleDisplay();
@@ -1817,6 +1831,12 @@ function fillAiFormFromNote(note) {
   if (els.aiNoteDraftPriority) els.aiNoteDraftPriority.value = notePriority(note);
   if (els.aiNoteDraftRecurrence) {
     els.aiNoteDraftRecurrence.value = normalizeRecurrence(note.recurrence) || '';
+  }
+  if (els.aiNoteDraftRemind) {
+    els.aiNoteDraftRemind.value = normalizeRemindBefore(note.remindBefore);
+  }
+  if (els.aiNoteDraftNotifyRepeat) {
+    els.aiNoteDraftNotifyRepeat.value = normalizeNotifyRepeat(note.notifyRepeat);
   }
 
   const noteTagIds = new Set(note.tagIds || []);
@@ -1883,7 +1903,15 @@ function onAiCancelOrReset() {
 
 function bindAiFormDirtyWatchers() {
   const bump = () => updateAiCancelBtn();
-  [els.aiNoteSource, els.aiNoteDraftTitle, els.aiNoteDraftSummary, els.aiNoteDraftPriority, els.aiNoteDraftRecurrence]
+  [
+    els.aiNoteSource,
+    els.aiNoteDraftTitle,
+    els.aiNoteDraftSummary,
+    els.aiNoteDraftPriority,
+    els.aiNoteDraftRecurrence,
+    els.aiNoteDraftRemind,
+    els.aiNoteDraftNotifyRepeat,
+  ]
     .filter(Boolean)
     .forEach((el) => {
       el.addEventListener('input', bump);
@@ -2246,6 +2274,8 @@ async function confirmAiNoteDraft() {
   const scheduleAt = fromDatetimeLocalValue(els.aiNoteDraftSchedule?.value);
   const priority = els.aiNoteDraftPriority?.value;
   const recurrence = els.aiNoteDraftRecurrence?.value || null;
+  const remindBefore = normalizeRemindBefore(els.aiNoteDraftRemind?.value);
+  const notifyRepeat = normalizeNotifyRepeat(els.aiNoteDraftNotifyRepeat?.value);
 
   if (aiFormMode === 'edit' && aiEditNoteId) {
     const existing = getNoteById(aiEditNoteId);
@@ -2259,6 +2289,8 @@ async function confirmAiNoteDraft() {
       scheduledAt: scheduleAt,
       priority,
       recurrence,
+      remindBefore,
+      notifyRepeat,
     });
     note = { ...note, tagIds, attachments };
     state.notesData = updateNoteInData(data, note);
@@ -2273,6 +2305,7 @@ async function confirmAiNoteDraft() {
     renderNotesList();
     renderTagFilterBar();
     renderTagManager();
+    refreshNoteNotifications();
     scheduleUserContextRefresh();
     setStatus('บันทึกแล้ว');
     return;
@@ -2283,6 +2316,8 @@ async function confirmAiNoteDraft() {
     scheduledAt: scheduleAt,
     priority,
     recurrence,
+    remindBefore,
+    notifyRepeat,
   });
   note = { ...note, tagIds, attachments };
 
@@ -2302,6 +2337,7 @@ async function confirmAiNoteDraft() {
   renderNotesList();
   renderTagFilterBar();
   renderTagManager();
+  refreshNoteNotifications();
   scheduleUserContextRefresh();
   setStatus(attachments.length ? 'สร้างโน้ตพร้อมไฟล์แนบ' : 'สร้างโน้ตแล้ว');
 }
