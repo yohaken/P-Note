@@ -277,6 +277,47 @@ export function getScheduleStatus(scheduledAt) {
   return 'upcoming';
 }
 
+/**
+ * How close a schedule is — for the list proximity column.
+ * @returns {{ label: string, level: 'none'|'far'|'mid'|'near'|'today'|'overdue', days: number|null }}
+ */
+export function scheduleProximity(scheduledAt, now = new Date()) {
+  if (!scheduledAt) {
+    return { label: '', level: 'none', days: null };
+  }
+  const due = new Date(scheduledAt);
+  if (Number.isNaN(due.getTime())) {
+    return { label: '', level: 'none', days: null };
+  }
+  const today = startOfDay(now).getTime();
+  const day = startOfDay(due).getTime();
+  const days = Math.round((day - today) / 86400000);
+
+  if (days < 0) {
+    const n = Math.abs(days);
+    return {
+      label: n === 1 ? 'เลย 1ว' : `เลย ${n}ว`,
+      level: 'overdue',
+      days,
+    };
+  }
+  if (days === 0) {
+    const msLeft = due.getTime() - now.getTime();
+    if (msLeft <= 0) {
+      return { label: 'ถึงแล้ว', level: 'overdue', days: 0 };
+    }
+    const hours = Math.max(1, Math.round(msLeft / 3600000));
+    if (hours < 24) {
+      return { label: `อีก ${hours}ชม`, level: 'today', days: 0 };
+    }
+    return { label: 'วันนี้', level: 'today', days: 0 };
+  }
+  if (days === 1) return { label: 'พรุ่ง', level: 'near', days: 1 };
+  if (days === 2) return { label: 'อีก 2ว', level: 'near', days: 2 };
+  if (days <= 7) return { label: `อีก ${days}ว`, level: 'mid', days };
+  return { label: `อีก ${days}ว`, level: 'far', days };
+}
+
 export function relativeDayLabel(iso) {
   if (!iso) return '';
   const today = startOfDay().getTime();
