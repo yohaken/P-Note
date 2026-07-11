@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=80';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=81';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -35,7 +35,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=80';
+} from './notes.js?v=82';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -45,6 +45,9 @@ import {
   normalizeRecurrence,
   normalizeRecurrenceFilter,
   normalizeRemindBefore,
+  normalizeNotifyRepeat,
+  remindBeforeLabel,
+  notifyRepeatLabel,
   recurrenceLabel,
   RECURRENCE_FILTER_OPTIONS,
   RECURRENCE_OPTIONS,
@@ -52,8 +55,8 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=80';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, saveSettings, thicknessStyleVars } from './settings.js?v=80';
+} from './schedule.js?v=82';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars } from './settings.js?v=82';
 import {
   notificationPermission,
   notificationSupported,
@@ -61,7 +64,8 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=80';
+} from './note-notify.js?v=82';
+import { summarizeToNoteDraft } from './gemini.js?v=82';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -69,7 +73,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=61';
+import { normalizeNotesData } from './notes.js?v=82';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -100,6 +104,20 @@ const els = {
   emptyState: document.getElementById('empty-state'),
   emptyStateText: document.getElementById('empty-state-text'),
   addNoteBtn: document.getElementById('add-note-btn'),
+  addAiNoteBtn: document.getElementById('add-ai-note-btn'),
+  aiNoteModal: document.getElementById('ai-note-modal'),
+  aiNoteStepInput: document.getElementById('ai-note-step-input'),
+  aiNoteStepReview: document.getElementById('ai-note-step-review'),
+  aiNoteSource: document.getElementById('ai-note-source'),
+  aiNoteDraftTitle: document.getElementById('ai-note-draft-title'),
+  aiNoteDraftSummary: document.getElementById('ai-note-draft-summary'),
+  aiNoteStatus: document.getElementById('ai-note-status'),
+  aiNoteCancelBtn: document.getElementById('ai-note-cancel-btn'),
+  aiNoteBackBtn: document.getElementById('ai-note-back-btn'),
+  aiNoteSummarizeBtn: document.getElementById('ai-note-summarize-btn'),
+  aiNoteConfirmBtn: document.getElementById('ai-note-confirm-btn'),
+  geminiApiKey: document.getElementById('gemini-api-key'),
+  geminiModel: document.getElementById('gemini-model'),
   settingsBtn: document.getElementById('settings-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
   openDrawerBtn: document.getElementById('group-nav-btn'),
@@ -135,6 +153,9 @@ const els = {
   noteContent: document.getElementById('note-content'),
   noteSchedule: document.getElementById('note-schedule'),
   noteRemindBefore: document.getElementById('note-remind-before'),
+  noteNotifyRepeat: document.getElementById('note-notify-repeat'),
+  noteNotifyPreview: document.getElementById('note-notify-preview'),
+  noteNotifyDetails: document.getElementById('note-notify-details'),
   editorRecurrence: document.getElementById('editor-recurrence'),
   clearScheduleBtn: document.getElementById('clear-schedule-btn'),
   editorTags: document.getElementById('editor-tags'),
@@ -436,9 +457,27 @@ function persistLocalChanges() {
     scheduledAt: fromDatetimeLocalValue(els.noteSchedule.value),
     recurrence: normalizeRecurrence(note.recurrence),
     remindBefore: normalizeRemindBefore(els.noteRemindBefore?.value),
+    notifyRepeat: normalizeNotifyRepeat(els.noteNotifyRepeat?.value),
   });
 
   state.notesData = updateNoteInData(state.notesData, updated);
+  updateNotifyDetailsPreview();
+}
+
+function updateNotifyDetailsPreview() {
+  if (!els.noteNotifyPreview) return;
+  const hasSchedule = Boolean(els.noteSchedule?.value);
+  const remind = normalizeRemindBefore(els.noteRemindBefore?.value);
+  const repeat = normalizeNotifyRepeat(els.noteNotifyRepeat?.value);
+  if (!hasSchedule) {
+    els.noteNotifyPreview.textContent = 'ตั้งวันที่ก่อน';
+    return;
+  }
+  const parts = [];
+  parts.push(remindBeforeLabel(remind));
+  if (repeat !== 'none') parts.push(notifyRepeatLabel(repeat));
+  else parts.push('ครั้งเดียว');
+  els.noteNotifyPreview.textContent = parts.join(' · ');
 }
 
 function commitData(newData) {
@@ -476,6 +515,7 @@ function renderGroupNav() {
   // Always show tag bar on Active so long-press "ทั้งหมด" can open tag settings
   if (els.tagWrap) els.tagWrap.hidden = !isActiveGroup;
   els.addNoteBtn.hidden = !isActiveGroup;
+  if (els.addAiNoteBtn) els.addAiNoteBtn.hidden = !isActiveGroup;
 
   const groupTitle =
     state.listGroup === NOTE_STATUS.DONE
@@ -1246,6 +1286,8 @@ function closeTagManager() {
 function openSettings() {
   els.settingsOverlay.hidden = false;
   els.cardDensitySlider.value = String(state.settings.cardDensity);
+  if (els.geminiApiKey) els.geminiApiKey.value = state.settings.geminiApiKey || '';
+  if (els.geminiModel) els.geminiModel.value = normalizeGeminiModel(state.settings.geminiModel);
   applyTheme();
   applyFabDirection();
   applyNotifySettingsUi();
@@ -1253,7 +1295,112 @@ function openSettings() {
 }
 
 function closeSettings() {
+  persistGeminiSettingsFromUi();
   els.settingsOverlay.hidden = true;
+}
+
+function persistGeminiSettingsFromUi() {
+  if (!els.geminiApiKey && !els.geminiModel) return;
+  const key = String(els.geminiApiKey?.value || '').trim().slice(0, 200);
+  const model = normalizeGeminiModel(els.geminiModel?.value);
+  if (key === (state.settings.geminiApiKey || '') && model === state.settings.geminiModel) return;
+  state.settings.geminiApiKey = key;
+  state.settings.geminiModel = model;
+  saveSettings(state.settings);
+}
+
+let aiNoteBusy = false;
+
+function setAiNoteStatus(message) {
+  if (els.aiNoteStatus) els.aiNoteStatus.textContent = message || '';
+}
+
+function showAiNoteStep(step) {
+  const review = step === 'review';
+  if (els.aiNoteStepInput) els.aiNoteStepInput.hidden = review;
+  if (els.aiNoteStepReview) els.aiNoteStepReview.hidden = !review;
+  if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.hidden = review;
+  if (els.aiNoteConfirmBtn) els.aiNoteConfirmBtn.hidden = !review;
+  if (els.aiNoteBackBtn) els.aiNoteBackBtn.hidden = !review;
+}
+
+function openAiNoteModal() {
+  if (!els.aiNoteModal) return;
+  if (!String(state.settings.geminiApiKey || '').trim()) {
+    setStatus('ตั้งค่า Gemini API key ก่อน');
+    openSettings();
+    els.geminiApiKey?.focus();
+    return;
+  }
+  if (els.aiNoteSource) els.aiNoteSource.value = '';
+  if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = '';
+  if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = '';
+  setAiNoteStatus('');
+  showAiNoteStep('input');
+  els.aiNoteModal.hidden = false;
+  queueMicrotask(() => els.aiNoteSource?.focus());
+}
+
+function closeAiNoteModal() {
+  if (!els.aiNoteModal) return;
+  els.aiNoteModal.hidden = true;
+  aiNoteBusy = false;
+  if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = false;
+  if (els.aiNoteConfirmBtn) els.aiNoteConfirmBtn.disabled = false;
+  setAiNoteStatus('');
+}
+
+async function runAiSummarize() {
+  if (aiNoteBusy) return;
+  const source = String(els.aiNoteSource?.value || '').trim();
+  if (!source) {
+    setAiNoteStatus('วางข้อความก่อนสรุป');
+    return;
+  }
+  const apiKey = String(state.settings.geminiApiKey || '').trim();
+  if (!apiKey) {
+    setAiNoteStatus('ยังไม่มี API key — ไปตั้งค่า');
+    return;
+  }
+  aiNoteBusy = true;
+  if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = true;
+  setAiNoteStatus('กำลังสรุป…');
+  try {
+    const draft = await summarizeToNoteDraft(apiKey, source, {
+      model: state.settings.geminiModel,
+    });
+    if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = draft.title || '';
+    if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = draft.summary || '';
+    showAiNoteStep('review');
+    setAiNoteStatus('ตรวจสรุปแล้วกดสร้างโน้ต');
+    els.aiNoteDraftTitle?.focus();
+  } catch (err) {
+    const code = err?.code || '';
+    if (code === 'missing_api_key') setAiNoteStatus('ยังไม่มี API key');
+    else if (code === 'empty_input') setAiNoteStatus('วางข้อความก่อนสรุป');
+    else if (code === 'too_long') setAiNoteStatus('ข้อความยาวเกินไป (ตัดเหลือ ~12,000 ตัวอักษร)');
+    else if (code === 'bad_key') setAiNoteStatus('API key ไม่ถูกต้องหรือถูกจำกัด');
+    else if (code === 'network') setAiNoteStatus('เชื่อมต่อ Gemini ไม่ได้');
+    else setAiNoteStatus(err?.message ? String(err.message).slice(0, 120) : 'สรุปไม่สำเร็จ');
+  } finally {
+    aiNoteBusy = false;
+    if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = false;
+  }
+}
+
+function confirmAiNoteDraft() {
+  const title = String(els.aiNoteDraftTitle?.value || '').trim();
+  const content = String(els.aiNoteDraftSummary?.value || '').trim();
+  if (!title && !content) {
+    setAiNoteStatus('ใส่หัวข้อหรือสรุปอย่างน้อยอย่างหนึ่ง');
+    return;
+  }
+  const note = createNote(title || 'โน้ตจาก AI', content);
+  state.notesData.notes.unshift(note);
+  state.draftNoteId = note.id;
+  closeAiNoteModal();
+  openEditor(note.id);
+  setStatus('สร้างโน้ตจาก AI แล้ว');
 }
 
 function moveTagOrder(index, delta) {
@@ -1415,6 +1562,11 @@ function openEditor(noteId) {
   if (els.noteRemindBefore) {
     els.noteRemindBefore.value = normalizeRemindBefore(note.remindBefore);
   }
+  if (els.noteNotifyRepeat) {
+    els.noteNotifyRepeat.value = normalizeNotifyRepeat(note.notifyRepeat);
+  }
+  if (els.noteNotifyDetails) els.noteNotifyDetails.open = false;
+  updateNotifyDetailsPreview();
   setStatus('');
   showView('editor');
   renderEditorTags();
@@ -1626,6 +1778,7 @@ function initSwipeBack() {
       if (
         !els.settingsOverlay.hidden ||
         !els.tagModal.hidden ||
+        (els.aiNoteModal && !els.aiNoteModal.hidden) ||
         (els.noteContextOverlay && !els.noteContextOverlay.hidden) ||
         (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden)
       ) {
@@ -1669,6 +1822,7 @@ function initSwipeBack() {
       if (currentMode === 'edge') {
         if (dx > 70 && dy < 55) {
           if (!els.settingsOverlay.hidden) closeSettings();
+          else if (els.aiNoteModal && !els.aiNoteModal.hidden) closeAiNoteModal();
           else if (!els.tagModal.hidden) closeTagManager();
           else if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) finishConfirm(false);
           else if (els.noteContextOverlay && !els.noteContextOverlay.hidden) closeContextMenu();
@@ -1692,6 +1846,22 @@ async function init() {
   // Update polling: js/update-watch.js (shared with Calorie). No SW in this shell.
 
   els.addNoteBtn.addEventListener('click', openNewNote);
+  els.addAiNoteBtn?.addEventListener('click', openAiNoteModal);
+  els.aiNoteCancelBtn?.addEventListener('click', closeAiNoteModal);
+  els.aiNoteBackBtn?.addEventListener('click', () => {
+    showAiNoteStep('input');
+    setAiNoteStatus('');
+    els.aiNoteSource?.focus();
+  });
+  els.aiNoteSummarizeBtn?.addEventListener('click', () => {
+    runAiSummarize();
+  });
+  els.aiNoteConfirmBtn?.addEventListener('click', confirmAiNoteDraft);
+  els.aiNoteModal?.addEventListener('click', (e) => {
+    if (e.target === els.aiNoteModal) closeAiNoteModal();
+  });
+  els.geminiApiKey?.addEventListener('change', persistGeminiSettingsFromUi);
+  els.geminiModel?.addEventListener('change', persistGeminiSettingsFromUi);
   els.settingsBtn.addEventListener('click', openSettings);
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
@@ -1875,15 +2045,28 @@ async function init() {
   bindComposableInput(els.noteTitle, { onCommit: flushEditorToState });
   bindComposableInput(els.noteContent, { onCommit: flushEditorToState });
   els.noteSchedule.addEventListener('change', flushEditorToState);
-  els.noteRemindBefore?.addEventListener('change', flushEditorToState);
+  els.noteRemindBefore?.addEventListener('change', () => {
+    updateNotifyDetailsPreview();
+    flushEditorToState();
+  });
+  els.noteNotifyRepeat?.addEventListener('change', () => {
+    updateNotifyDetailsPreview();
+    flushEditorToState();
+  });
   els.clearScheduleBtn.addEventListener('click', () => {
     els.noteSchedule.value = '';
     if (els.noteRemindBefore) els.noteRemindBefore.value = 'default';
+    if (els.noteNotifyRepeat) els.noteNotifyRepeat.value = 'none';
     const note = getActiveNote();
     if (note) {
-      const updated = updateNote(note, { scheduledAt: null, remindBefore: 'default' });
+      const updated = updateNote(note, {
+        scheduledAt: null,
+        remindBefore: 'default',
+        notifyRepeat: 'none',
+      });
       state.notesData = updateNoteInData(state.notesData, updated);
     }
+    updateNotifyDetailsPreview();
     flushEditorToState();
   });
 
