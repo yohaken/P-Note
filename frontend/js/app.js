@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=81';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=101';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=100';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=101';
 import {
   notificationPermission,
   notificationSupported,
@@ -719,6 +719,8 @@ function openFilterMenu(menuEl, btnEl) {
   btnEl.setAttribute('aria-expanded', 'true');
   if (els.filterDdBackdrop) els.filterDdBackdrop.hidden = false;
   positionFilterMenu(menuEl, btnEl);
+  clearUiTextSelection();
+  requestAnimationFrame(clearUiTextSelection);
 }
 
 function fillFilterMenu(menuEl, items) {
@@ -1021,6 +1023,7 @@ function openTagBarMenu(tagId) {
 
   if (els.noteContextOverlay) els.noteContextOverlay.hidden = false;
   positionContextMenu(els.noteContextMenu);
+  clearUiTextSelection();
 }
 
 function renderTagFilterBar() {
@@ -1323,6 +1326,7 @@ function openContextMenu(noteId) {
 
   if (els.noteContextOverlay) els.noteContextOverlay.hidden = false;
   positionContextMenu(els.noteContextMenu);
+  clearUiTextSelection();
 }
 
 async function applyNoteAction(noteId, action) {
@@ -2951,6 +2955,19 @@ async function init() {
       disableTagReorderMode();
     }
   });
+
+  // Block iOS/system text callout on our custom menus & filter dock.
+  const blockNativeContext = (event) => {
+    const t = event.target;
+    if (
+      t?.closest?.(
+        '.context-menu, .note-center-overlay, .filter-dock, .filter-dd-menu, .note-card, .pages-menu',
+      )
+    ) {
+      event.preventDefault();
+    }
+  };
+  document.addEventListener('contextmenu', blockNativeContext, { capture: true });
 
   if (els.noteConfirmCancel) {
     els.noteConfirmCancel.addEventListener('click', () => finishConfirm(false));
