@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=101';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=102';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=101';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=102';
 import {
   notificationPermission,
   notificationSupported,
@@ -677,6 +677,12 @@ function updateFilterDockVisibility() {
   applyDockOffset();
 }
 
+function syncFilterMenuChrome(open) {
+  document.body.classList.toggle('filter-menu-open', Boolean(open));
+  const stack = document.getElementById('fabStack');
+  if (stack) stack.classList.toggle('is-hidden-for-filter', Boolean(open));
+}
+
 function closeFilterMenus() {
   ['filterSortMenu', 'filterPriorityMenu', 'filterRecurrenceMenu', 'filterTagMenu'].forEach((key) => {
     const menu = els[key];
@@ -687,6 +693,7 @@ function closeFilterMenus() {
     if (btn) btn.setAttribute('aria-expanded', 'false');
   });
   if (els.filterDdBackdrop) els.filterDdBackdrop.hidden = true;
+  syncFilterMenuChrome(false);
 }
 
 function positionFilterMenu(menuEl, btnEl) {
@@ -718,6 +725,7 @@ function openFilterMenu(menuEl, btnEl) {
   if (!menuEl || !btnEl || wasOpen) return;
   btnEl.setAttribute('aria-expanded', 'true');
   if (els.filterDdBackdrop) els.filterDdBackdrop.hidden = false;
+  syncFilterMenuChrome(true);
   positionFilterMenu(menuEl, btnEl);
   clearUiTextSelection();
   requestAnimationFrame(clearUiTextSelection);

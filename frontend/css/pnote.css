@@ -525,6 +525,12 @@ body.bars-dragging .list-scroll {
 .filter-dock[hidden] {
   display: none !important;
 }
+body.filter-menu-open .filter-dock {
+  z-index: 62;
+}
+body.filter-menu-open .filter-dd-backdrop {
+  z-index: 61;
+}
 .filter-dock-inner {
   display: flex;
   flex-direction: row;
