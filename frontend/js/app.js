@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=78';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=80';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -35,7 +35,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=61';
+} from './notes.js?v=80';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -44,6 +44,7 @@ import {
   getScheduleStatus,
   normalizeRecurrence,
   normalizeRecurrenceFilter,
+  normalizeRemindBefore,
   recurrenceLabel,
   RECURRENCE_FILTER_OPTIONS,
   RECURRENCE_OPTIONS,
@@ -51,8 +52,8 @@ import {
   shortDate,
   sortNotesBySchedule,
   toDatetimeLocalValue,
-} from './schedule.js?v=71';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, saveSettings, thicknessStyleVars } from './settings.js?v=78';
+} from './schedule.js?v=80';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, saveSettings, thicknessStyleVars } from './settings.js?v=80';
 import {
   notificationPermission,
   notificationSupported,
@@ -60,7 +61,7 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=78';
+} from './note-notify.js?v=80';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -133,6 +134,7 @@ const els = {
   noteTitle: document.getElementById('note-title'),
   noteContent: document.getElementById('note-content'),
   noteSchedule: document.getElementById('note-schedule'),
+  noteRemindBefore: document.getElementById('note-remind-before'),
   editorRecurrence: document.getElementById('editor-recurrence'),
   clearScheduleBtn: document.getElementById('clear-schedule-btn'),
   editorTags: document.getElementById('editor-tags'),
@@ -433,6 +435,7 @@ function persistLocalChanges() {
     content: els.noteContent.value,
     scheduledAt: fromDatetimeLocalValue(els.noteSchedule.value),
     recurrence: normalizeRecurrence(note.recurrence),
+    remindBefore: normalizeRemindBefore(els.noteRemindBefore?.value),
   });
 
   state.notesData = updateNoteInData(state.notesData, updated);
@@ -1409,6 +1412,9 @@ function openEditor(noteId) {
   els.noteTitle.value = note.title;
   els.noteContent.value = note.content;
   els.noteSchedule.value = toDatetimeLocalValue(note.scheduledAt);
+  if (els.noteRemindBefore) {
+    els.noteRemindBefore.value = normalizeRemindBefore(note.remindBefore);
+  }
   setStatus('');
   showView('editor');
   renderEditorTags();
@@ -1869,11 +1875,13 @@ async function init() {
   bindComposableInput(els.noteTitle, { onCommit: flushEditorToState });
   bindComposableInput(els.noteContent, { onCommit: flushEditorToState });
   els.noteSchedule.addEventListener('change', flushEditorToState);
+  els.noteRemindBefore?.addEventListener('change', flushEditorToState);
   els.clearScheduleBtn.addEventListener('click', () => {
     els.noteSchedule.value = '';
+    if (els.noteRemindBefore) els.noteRemindBefore.value = 'default';
     const note = getActiveNote();
     if (note) {
-      const updated = updateNote(note, { scheduledAt: null });
+      const updated = updateNote(note, { scheduledAt: null, remindBefore: 'default' });
       state.notesData = updateNoteInData(state.notesData, updated);
     }
     flushEditorToState();

@@ -765,7 +765,8 @@ body.reordering-active .list-scroll {
 }
 
 .schedule-field > .schedule-label + .schedule-label,
-.schedule-field > .editor-recurrence + .schedule-label {
+.schedule-field > .editor-recurrence + .schedule-label,
+.schedule-field > .schedule-input-row + .schedule-label {
   margin-top: 0.45rem;
 }
 
@@ -808,8 +809,27 @@ body.reordering-active .list-scroll {
   color-scheme: dark;
 }
 
+.note-remind-before {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.55rem 0.65rem;
+}
+
+.schedule-remind-hint {
+  margin: 0.15rem 0 0;
+}
+
 body.light .note-schedule {
   color-scheme: light;
+}
+
+body.light .note-remind-before {
+  background: var(--surface);
 }
 
 .editor-footer {
