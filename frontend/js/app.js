@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=97';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=98';
 import {
   notificationPermission,
   notificationSupported,
@@ -209,6 +209,7 @@ const els = {
   themeLightBtn: document.getElementById('theme-light-btn'),
   fabDirVerticalBtn: document.getElementById('fab-dir-vertical-btn'),
   fabDirHorizontalBtn: document.getElementById('fab-dir-horizontal-btn'),
+  fabOrderList: document.getElementById('fab-order-list'),
   notifyOffBtn: document.getElementById('notify-off-btn'),
   notifyOnBtn: document.getElementById('notify-on-btn'),
   notifyHint: document.getElementById('notify-hint'),
@@ -347,6 +348,58 @@ function applyFabDirection() {
   const horizontal = dir === 'horizontal';
   els.fabDirVerticalBtn?.classList.toggle('active', !horizontal);
   els.fabDirHorizontalBtn?.classList.toggle('active', horizontal);
+}
+
+const FAB_ORDER_LABELS = {
+  ai: '✨ AI',
+  pages: '▦ แผ่นงาน',
+  group: '☰ กลุ่มงาน',
+};
+
+/** Settings list = visual top → bottom. Stack uses column/row-reverse → DOM = reverse. */
+function applyFabOrder() {
+  const stack = document.getElementById('fabStack');
+  if (!stack) return;
+  const visual = normalizeFabOrder(state.settings.fabOrder);
+  state.settings.fabOrder = visual;
+  [...visual].reverse().forEach((id) => {
+    const btn = stack.querySelector(`[data-fab-id="${CSS.escape(id)}"]`);
+    if (btn) stack.appendChild(btn);
+  });
+}
+
+function renderFabOrderList() {
+  const list = els.fabOrderList;
+  if (!list) return;
+  const order = normalizeFabOrder(state.settings.fabOrder);
+  list.innerHTML = order
+    .map((id, i) => {
+      const label = FAB_ORDER_LABELS[id] || id;
+      const upDisabled = i === 0 ? ' disabled' : '';
+      const downDisabled = i === order.length - 1 ? ' disabled' : '';
+      return `<div class="fab-order-row" data-fab-order-id="${id}">
+        <span class="fab-order-label">${label}</span>
+        <div class="fab-order-actions">
+          <button type="button" class="fab-order-btn" data-fab-move="up" aria-label="เลื่อนขึ้น"${upDisabled}>↑</button>
+          <button type="button" class="fab-order-btn" data-fab-move="down" aria-label="เลื่อนลง"${downDisabled}>↓</button>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+function moveFabInOrder(id, direction) {
+  const order = normalizeFabOrder(state.settings.fabOrder);
+  const i = order.indexOf(id);
+  if (i < 0) return;
+  const j = direction === 'up' ? i - 1 : i + 1;
+  if (j < 0 || j >= order.length) return;
+  const next = [...order];
+  [next[i], next[j]] = [next[j], next[i]];
+  state.settings.fabOrder = next;
+  saveSettings(state.settings);
+  applyFabOrder();
+  renderFabOrderList();
 }
 
 function getNotifyPrefs() {
@@ -1479,6 +1532,7 @@ function openSettings() {
   fillAiContextPreview();
   applyTheme();
   applyFabDirection();
+  renderFabOrderList();
   applyNotifySettingsUi();
   applyBarThickness();
 }
@@ -2528,6 +2582,7 @@ async function bootstrapData() {
   applyTheme();
   applyCardDensity();
   applyDockScale();
+  applyFabOrder();
   reapplyBarLayout();
   applyBarThickness();
   renderNotesList();
@@ -2725,6 +2780,15 @@ async function init() {
   els.fabDirVerticalBtn?.addEventListener('click', () => setFabDir('vertical'));
   els.fabDirHorizontalBtn?.addEventListener('click', () => setFabDir('horizontal'));
   applyFabDirection();
+  applyFabOrder();
+  renderFabOrderList();
+  els.fabOrderList?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-fab-move]');
+    if (!btn || btn.disabled) return;
+    const row = btn.closest('[data-fab-order-id]');
+    if (!row) return;
+    moveFabInOrder(row.dataset.fabOrderId, btn.dataset.fabMove);
+  });
 
   els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
   els.notifyOnBtn?.addEventListener('click', () => setNotificationsEnabled(true));

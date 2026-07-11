@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="97">
+  <meta name="pnote-build" content="98">
   <meta name="pnote-built" content="2026-07-11T12:40:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=97"></script>
+  <script src="js/cache-bootstrap.js?v=98"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=97">
+  <link rel="stylesheet" href="css/pnote.css?v=98">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -83,6 +83,16 @@
       background: var(--accent, #0a84ff);
       color: #fff;
     }
+    .fab-ai {
+      background: linear-gradient(145deg, #4b8dff 0%, #0a84ff 45%, #7c5cff 100%) !important;
+      color: #fff !important;
+      box-shadow: 0 2px 12px rgba(10, 132, 255, 0.4);
+    }
+    .fab-ai-icon {
+      display: block;
+      width: 1.2rem;
+      height: 1.2rem;
+    }
     .pages-menu-overlay {
       position: fixed;
       inset: 0;
@@ -139,7 +149,10 @@
     body.light .fab-pages,
     body.light .fab-action,
     body.light .pages-menu { background: var(--surface); color: var(--text); }
-    body.light #add-note-btn.fab-action,
+    body.light .fab-ai {
+      background: linear-gradient(145deg, #4b8dff 0%, #007aff 45%, #7c5cff 100%) !important;
+      color: #fff !important;
+    }
     body.light .fab-action.active {
       background: var(--accent, #007aff);
       color: #fff;
@@ -359,6 +372,9 @@
                 <button id="fab-dir-horizontal-btn" type="button">แนวนอน</button>
               </div>
               <p class="settings-hint">ใช้ร่วมกันทุกหน้า · จดจำอัตโนมัติ</p>
+              <span class="settings-label" style="margin-top:0.65rem">ลำดับไอคอน (บน → ล่าง)</span>
+              <p class="settings-hint" style="margin-top:0.2rem">เลื่อน ↑↓ เพื่อจัดเอง · ไอคอนล่างสุดใกล้แถบกรองที่สุด</p>
+              <div id="fab-order-list" class="fab-order-list" aria-label="ลำดับไอคอน"></div>
             </div>
             <div class="settings-row settings-row-tight">
               <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
@@ -373,11 +389,6 @@
                 <span class="dock-scale-preview-chip">⚠️ ความสำคัญ</span>
                 <span class="dock-scale-preview-chip">🔁 การซ้ำ</span>
                 <span class="dock-scale-preview-chip">🏷️ แท็ก</span>
-                <span class="dock-scale-preview-ai" title="AI">
-                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                    <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
-                  </svg>
-                </span>
               </div>
             </div>
             <div class="settings-row settings-row-tight settings-row-last">
@@ -550,9 +561,9 @@
     </div>
   </div>
 
-  <nav id="filter-dock" class="filter-dock" aria-label="ตัวกรองและทางลัด">
+  <nav id="filter-dock" class="filter-dock" aria-label="ตัวกรอง">
     <div class="filter-dock-inner">
-      <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรองและเพิ่มงาน">
+      <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรอง">
         <div class="filter-dd" data-filter="sort">
           <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false">📅 ล่าสุด</button>
           <div class="filter-dd-menu" id="filter-sort-menu" role="listbox" hidden></div>
@@ -569,21 +580,21 @@
           <button type="button" class="filter-dd-btn" id="filter-tag-btn" aria-haspopup="listbox" aria-expanded="false">🏷️ แท็ก</button>
           <div class="filter-dd-menu filter-dd-menu-end" id="filter-tag-menu" role="listbox" hidden></div>
         </div>
-        <button type="button" class="filter-dock-action filter-dock-ai" id="add-note-btn" aria-label="เพิ่มงานด้วย AI" title="เพิ่มงานด้วย AI">
-          <svg class="filter-dock-ai-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-            <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
-            <path fill="currentColor" d="M18.2 14.2l.72 2.76L21.7 17.7l-2.78.72-.72 2.78-.72-2.78-2.78-.72 2.78-.74.72-2.76z" opacity=".92"/>
-            <path fill="currentColor" d="M6.1 15.4l.5 1.9 1.9.5-1.9.5-.5 1.9-.5-1.9-1.9-.5 1.9-.5.5-1.9z" opacity=".85"/>
-          </svg>
-        </button>
       </div>
     </div>
   </nav>
   <div id="filter-dd-backdrop" class="filter-dd-backdrop" hidden></div>
 
   <div class="fab-stack" id="fabStack" aria-label="ทางลัด">
-    <button type="button" class="fab-pages" id="fabPages" aria-label="แผ่นงาน" title="แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน">▦</button>
-    <button type="button" class="fab-action" id="group-nav-btn" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน">☰</button>
+    <button type="button" class="fab-action fab-ai" id="add-note-btn" data-fab-id="ai" aria-label="เพิ่มงานด้วย AI" title="เพิ่มงานด้วย AI">
+      <svg class="fab-ai-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
+        <path fill="currentColor" d="M18.2 14.2l.72 2.76L21.7 17.7l-2.78.72-.72 2.78-.72-2.78-2.78-.72 2.78-.74.72-2.76z" opacity=".92"/>
+        <path fill="currentColor" d="M6.1 15.4l.5 1.9 1.9.5-1.9.5-.5 1.9-.5-1.9-1.9-.5 1.9-.5.5-1.9z" opacity=".85"/>
+      </svg>
+    </button>
+    <button type="button" class="fab-pages" id="fabPages" data-fab-id="pages" aria-label="แผ่นงาน" title="แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน">▦</button>
+    <button type="button" class="fab-action" id="group-nav-btn" data-fab-id="group" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน">☰</button>
   </div>
   <div class="pages-menu-overlay" id="pagesMenuOverlay" hidden>
     <div class="pages-menu" role="menu" aria-label="แผ่นงาน">
@@ -591,8 +602,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=97"></script>
-  <script src="js/fab-drag.js?v=97"></script>
+  <script src="js/page-nav.js?v=98"></script>
+  <script src="js/fab-drag.js?v=98"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -602,7 +613,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=97"></script>
-  <script src="js/update-watch.js?v=97"></script>
+  <script type="module" src="js/app.js?v=98"></script>
+  <script src="js/update-watch.js?v=98"></script>
 </body>
 </html>
