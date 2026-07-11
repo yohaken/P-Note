@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="93">
-  <meta name="pnote-built" content="2026-07-11T12:00:00+07:00">
+  <meta name="pnote-build" content="94">
+  <meta name="pnote-built" content="2026-07-11T12:15:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=93"></script>
+  <script src="js/cache-bootstrap.js?v=94"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=93">
+  <link rel="stylesheet" href="css/pnote.css?v=94">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -264,7 +264,6 @@
       <div class="modal-card modal-card-ai" role="dialog" aria-labelledby="ai-note-title">
         <header class="ai-note-head">
           <h2 id="ai-note-title">เพิ่มงานด้วย AI</h2>
-          <p id="ai-note-lead" class="ai-note-lead">กรอกเอง หรือวางข้อความ/แนบไฟล์ แล้วกดสรุปด้วย AI</p>
         </header>
 
         <div class="ai-note-step">
@@ -279,6 +278,18 @@
           <input id="ai-note-file" type="file" accept="image/*,application/pdf,.pdf,.txt,.doc,.docx,.png,.jpg,.jpeg,.heic,.webp" multiple hidden>
           <div id="ai-note-attach-list" class="ai-note-attach-list" hidden></div>
 
+          <div class="modal-actions ai-note-actions">
+            <button id="ai-note-cancel-btn" class="btn btn-secondary" type="button">ยกเลิก</button>
+            <button id="ai-note-summarize-btn" class="btn ai-note-summarize-btn" type="button" aria-live="polite" title="สรุปด้วย AI">
+              <svg class="ai-sum-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
+                <path fill="currentColor" d="M18.2 14.2l.72 2.76L21.7 17.7l-2.78.72-.72 2.78-.72-2.78-2.78-.72 2.78-.74.72-2.76z" opacity=".9"/>
+              </svg>
+              <span class="ai-sum-label">สรุป</span>
+            </button>
+            <button id="ai-note-confirm-btn" class="btn btn-primary" type="button">สร้าง</button>
+          </div>
+
           <input id="ai-note-draft-title" class="ai-note-title-input" type="text" maxlength="120" autocomplete="off" placeholder="🚗 หัวข้อ">
           <textarea id="ai-note-draft-summary" class="ai-note-textarea ai-note-summary" rows="3" placeholder="รายละเอียด / สรุป"></textarea>
 
@@ -288,10 +299,18 @@
           </div>
 
           <div class="ai-note-fields">
-            <label class="ai-note-field ai-note-field-full" for="ai-note-draft-schedule">
-              <span>กำหนดเวลา</span>
-              <input id="ai-note-draft-schedule" class="ai-note-schedule" type="datetime-local">
-            </label>
+            <div class="ai-note-schedule-row">
+              <button type="button" class="ai-note-schedule-btn" id="ai-note-schedule-btn" aria-label="กำหนดเวลา">
+                <span class="ai-note-schedule-ico" aria-hidden="true">📅</span>
+                <span class="ai-note-schedule-text">
+                  <span class="ai-note-schedule-caption">กำหนดเวลา</span>
+                  <span class="ai-note-schedule-value" id="ai-note-schedule-value">ยังไม่ตั้ง</span>
+                </span>
+                <span class="ai-note-schedule-chev" aria-hidden="true">›</span>
+              </button>
+              <button type="button" class="ai-note-schedule-clear" id="ai-note-schedule-clear" hidden aria-label="ล้างกำหนดเวลา">×</button>
+              <input id="ai-note-draft-schedule" class="ai-note-schedule-input" type="datetime-local" tabindex="-1" aria-hidden="true">
+            </div>
             <div class="ai-note-fields-row">
               <label class="ai-note-field" for="ai-note-draft-priority">
                 <span>ความสำคัญ</span>
@@ -314,12 +333,6 @@
               </label>
             </div>
           </div>
-        </div>
-
-        <div class="modal-actions ai-note-actions">
-          <button id="ai-note-cancel-btn" class="btn btn-secondary" type="button">ยกเลิก</button>
-          <button id="ai-note-summarize-btn" class="btn btn-secondary ai-note-summarize-btn" type="button" aria-live="polite">สรุปด้วย AI</button>
-          <button id="ai-note-confirm-btn" class="btn btn-primary" type="button">สร้าง</button>
         </div>
       </div>
     </div>
@@ -351,7 +364,7 @@
               <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
               <input id="card-density-slider" type="range" min="0" max="100" value="0" step="5">
             </div>
-            <div class="settings-row settings-row-tight settings-row-last">
+            <div class="settings-row settings-row-tight">
               <label class="settings-label" for="dock-scale-slider">ขนาดปุ่มแถบล่าง</label>
               <input id="dock-scale-slider" type="range" min="0" max="100" value="50" step="5">
               <p class="settings-hint">เลื่อนเพื่อดูขนาดจริง · จัดกลางจอ</p>
@@ -366,6 +379,11 @@
                   </svg>
                 </span>
               </div>
+            </div>
+            <div class="settings-row settings-row-tight settings-row-last">
+              <label class="settings-label" for="dock-offset-y-slider">ตำแหน่งแถบล่าง (บน–ล่าง)</label>
+              <input id="dock-offset-y-slider" type="range" min="0" max="100" value="70" step="5">
+              <p class="settings-hint">เลื่อนขวา = ดันลงใกล้ขอบจอ · ใช้พื้นที่ว่างด้านล่าง</p>
             </div>
           </div>
         </details>
@@ -573,8 +591,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=93"></script>
-  <script src="js/fab-drag.js?v=93"></script>
+  <script src="js/page-nav.js?v=94"></script>
+  <script src="js/fab-drag.js?v=94"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -584,7 +602,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=93"></script>
-  <script src="js/update-watch.js?v=93"></script>
+  <script type="module" src="js/app.js?v=94"></script>
+  <script src="js/update-watch.js?v=94"></script>
 </body>
 </html>
