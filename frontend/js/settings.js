@@ -1,6 +1,18 @@
 import { STORAGE_KEYS } from './config.js?v=51';
 import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=46';
 
+export const DEFAULT_NOTIFY_PREFS = {
+  enabled: false,
+  label: 'P-Note',
+  sound: true,
+  vibrate: true,
+  preview: 'full', // full | title | hidden
+  persistent: false,
+  earlyMinutes: 0,
+  minPriority: 'normal',
+  tagIds: [],
+};
+
 const DEFAULTS = {
   theme: 'dark',
   cardDensity: 0,
@@ -11,11 +23,14 @@ const DEFAULTS = {
   tagOrder: [],
   barThickness: { sort: 0, tag: 0, priority: 0, recurrence: 0 },
   notificationsEnabled: false,
+  notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
 };
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
 const PRIORITY_FILTERS = ['normal', 'important', 'urgent', 'critical'];
 const RECURRENCE_FILTERS = ['none', 'any', 'daily', 'weekly', 'monthly', 'yearly'];
+const PREVIEW_MODES = ['full', 'title', 'hidden'];
+const EARLY_MINUTES = [0, 5, 15, 30, 60];
 
 function clampPct(value, fallback = 0) {
   const n = Number(value);
@@ -40,6 +55,26 @@ function normalizeTagOrder(value) {
   return value.map((id) => String(id)).filter(Boolean);
 }
 
+export function normalizeNotifyPrefs(raw, legacyEnabled) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const early = Number(src.earlyMinutes);
+  const enabled =
+    typeof src.enabled === 'boolean'
+      ? src.enabled
+      : Boolean(legacyEnabled);
+  return {
+    enabled,
+    label: String(src.label || DEFAULT_NOTIFY_PREFS.label).trim().slice(0, 24) || 'P-Note',
+    sound: src.sound !== false,
+    vibrate: src.vibrate !== false,
+    preview: PREVIEW_MODES.includes(src.preview) ? src.preview : 'full',
+    persistent: Boolean(src.persistent),
+    earlyMinutes: EARLY_MINUTES.includes(early) ? early : 0,
+    minPriority: PRIORITY_FILTERS.includes(src.minPriority) ? src.minPriority : 'normal',
+    tagIds: Array.isArray(src.tagIds) ? src.tagIds.map(String).filter(Boolean) : [],
+  };
+}
+
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -49,10 +84,12 @@ export function loadSettings() {
         tagOrder: [],
         barThickness: { ...DEFAULTS.barThickness },
         barLayout: [...DEFAULT_BAR_LAYOUT],
+        notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
       };
     }
     const parsed = JSON.parse(raw);
     const bt = parsed.barThickness || {};
+    const notifyPrefs = normalizeNotifyPrefs(parsed.notifyPrefs, parsed.notificationsEnabled);
     return {
       theme: parsed.theme === 'light' ? 'light' : 'dark',
       cardDensity: clampPct(parsed.cardDensity),
@@ -68,7 +105,8 @@ export function loadSettings() {
         recurrence: clampPct(bt.recurrence),
       },
       barLayout: normalizeLayout(parsed.barLayout),
-      notificationsEnabled: Boolean(parsed.notificationsEnabled),
+      notificationsEnabled: notifyPrefs.enabled,
+      notifyPrefs,
     };
   } catch {
     return {
@@ -77,12 +115,22 @@ export function loadSettings() {
       barThickness: { ...DEFAULTS.barThickness },
       barLayout: [...DEFAULT_BAR_LAYOUT],
       notificationsEnabled: false,
+      notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
     };
   }
 }
 
 export function saveSettings(settings) {
-  localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+  const notifyPrefs = normalizeNotifyPrefs(
+    settings.notifyPrefs,
+    settings.notificationsEnabled,
+  );
+  const next = {
+    ...settings,
+    notifyPrefs,
+    notificationsEnabled: notifyPrefs.enabled,
+  };
+  localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
 
 export function densityToCssUnit(percent) {
@@ -92,7 +140,6 @@ export function densityToCssUnit(percent) {
 /** Map thickness 0..100 (thin) → bar padding + chip scale (wider range, ultra-thin at 100). */
 export function thicknessToPadRem(percent) {
   const p = Math.min(100, Math.max(0, percent)) / 100;
-  // 0 → 0.48rem, 100 → 0
   return `${(0.48 * (1 - p)).toFixed(3)}rem`;
 }
 
