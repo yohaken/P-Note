@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=107';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=108';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -38,7 +38,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=107';
+} from './notes.js?v=108';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -59,7 +59,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=107';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=108';
 import {
   notificationPermission,
   notificationSupported,
@@ -68,19 +68,19 @@ import {
   sendTestNotification,
   syncNoteNotifications,
 } from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=107';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=108';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=107';
-import { createInAppCamera } from './camera.js?v=107';
+} from './files.js?v=108';
+import { createInAppCamera } from './camera.js?v=108';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=107';
+} from './user-context.js?v=108';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -88,7 +88,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=107';
+import { normalizeNotesData } from './notes.js?v=108';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -901,7 +901,7 @@ function renderSortBar() {
   if (els.filterSortBtn) {
     els.filterSortBtn.textContent = opt.button;
     els.filterSortBtn.classList.toggle('is-active', state.sortMode !== 'updated');
-    els.filterSortBtn.title = `กำหนดเวลา · ${opt.label}`;
+    els.filterSortBtn.title = `กำหนดเวลา · ${opt.label} · กดค้าง = ล่าสุด`;
   }
   fillFilterMenu(
     els.filterSortMenu,
@@ -955,7 +955,9 @@ function renderPriorityFilterBar() {
   if (els.filterPriorityBtn) {
     els.filterPriorityBtn.textContent = opt ? `⚠️ ${opt.short}` : '⚠️ ความสำคัญ';
     els.filterPriorityBtn.classList.toggle('is-active', Boolean(current));
-    els.filterPriorityBtn.title = opt ? `ความสำคัญ · ${opt.label}` : 'ความสำคัญ';
+    els.filterPriorityBtn.title = opt
+      ? `ความสำคัญ · ${opt.label} · กดค้าง = ทั้งหมด`
+      : 'ความสำคัญ · กดค้าง = ทั้งหมด';
   }
   const items = [
     {
@@ -1053,7 +1055,9 @@ function renderRecurrenceFilterBar() {
   if (els.filterRecurrenceBtn) {
     els.filterRecurrenceBtn.textContent = isFiltered && opt ? `🔁 ${opt.label}` : '🔁 การซ้ำ';
     els.filterRecurrenceBtn.classList.toggle('is-active', isFiltered);
-    els.filterRecurrenceBtn.title = isFiltered && opt ? `การซ้ำ · ${opt.label}` : 'การซ้ำ';
+    els.filterRecurrenceBtn.title = isFiltered && opt
+      ? `การซ้ำ · ${opt.label} · กดค้าง = ทั้งหมด`
+      : 'การซ้ำ · กดค้าง = ทั้งหมด';
   }
   const groupNotes = notesForCurrentGroup();
   fillFilterMenu(
@@ -1178,10 +1182,10 @@ function renderTagFilterBar() {
     else els.filterTagBtn.textContent = currentTag ? `🏷️ ${currentTag.name}` : '🏷️ แท็ก';
     els.filterTagBtn.classList.toggle('is-active', Boolean(currentId));
     els.filterTagBtn.title = untagged
-      ? 'แท็ก · ไม่มีแท็ก'
+      ? 'แท็ก · ไม่มีแท็ก · กดค้าง = ทั้งหมด'
       : currentTag
-        ? `แท็ก · ${currentTag.name}`
-        : 'แท็ก';
+        ? `แท็ก · ${currentTag.name} · กดค้าง = ทั้งหมด`
+        : 'แท็ก · กดค้าง = ทั้งหมด';
   }
 
   const noneCount = countNotesByTag(state.notesData.notes, TAG_FILTER_UNTAGGED);
@@ -1228,17 +1232,137 @@ function renderTagFilterBar() {
 
 function initFilterDock() {
   const bindings = [
-    [els.filterSortBtn, els.filterSortMenu],
-    [els.filterPriorityBtn, els.filterPriorityMenu],
-    [els.filterRecurrenceBtn, els.filterRecurrenceMenu],
-    [els.filterTagBtn, els.filterTagMenu],
+    [
+      els.filterSortBtn,
+      els.filterSortMenu,
+      () => {
+        if (state.sortMode === 'updated') {
+          setStatus('เรียงล่าสุดอยู่แล้ว');
+          return;
+        }
+        setSortMode('updated');
+        renderSortBar();
+        setStatus('เรียง · ล่าสุด');
+      },
+    ],
+    [
+      els.filterPriorityBtn,
+      els.filterPriorityMenu,
+      () => {
+        if (!state.priorityFilter) {
+          setStatus('ความสำคัญ · ทั้งหมดอยู่แล้ว');
+          return;
+        }
+        state.priorityFilter = null;
+        persistFilters();
+        renderPriorityFilterBar();
+        renderNotesList();
+        setStatus('ความสำคัญ · ทั้งหมด');
+      },
+    ],
+    [
+      els.filterRecurrenceBtn,
+      els.filterRecurrenceMenu,
+      () => {
+        if (!normalizeRecurrenceFilter(state.recurrenceFilter)) {
+          setStatus('การซ้ำ · ทั้งหมดอยู่แล้ว');
+          return;
+        }
+        state.recurrenceFilter = null;
+        persistFilters();
+        renderRecurrenceFilterBar();
+        renderNotesList();
+        setStatus('การซ้ำ · ทั้งหมด');
+      },
+    ],
+    [
+      els.filterTagBtn,
+      els.filterTagMenu,
+      () => {
+        if (!state.tagFilterId) {
+          setStatus('แท็ก · ทั้งหมดอยู่แล้ว');
+          return;
+        }
+        state.tagFilterId = null;
+        persistFilters();
+        renderTagFilterBar();
+        renderNotesList();
+        setStatus('แท็ก · ทั้งหมด');
+      },
+    ],
   ];
-  bindings.forEach(([btn, menu]) => {
-    btn?.addEventListener('click', (e) => {
+
+  bindings.forEach(([btn, menu, resetFn]) => {
+    if (!btn) return;
+    let suppressClick = false;
+    let timer = null;
+    let pointerId = null;
+    let startX = 0;
+    let startY = 0;
+    const LONG_MS = 420;
+    const MOVE_PX = 12;
+
+    const clearTimer = () => {
+      clearTimeout(timer);
+      timer = null;
+    };
+
+    btn.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      clearTimer();
+      pointerId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      try {
+        btn.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      timer = setTimeout(() => {
+        timer = null;
+        suppressClick = true;
+        btn.classList.add('is-filter-reset');
+        closeFilterMenus();
+        resetFn();
+        if (navigator.vibrate) {
+          try {
+            navigator.vibrate(12);
+          } catch {
+            /* ignore */
+          }
+        }
+        setTimeout(() => btn.classList.remove('is-filter-reset'), 220);
+      }, LONG_MS);
+    });
+
+    const endPointer = (e) => {
+      if (pointerId != null && e.pointerId !== pointerId) return;
+      clearTimer();
+      pointerId = null;
+      try {
+        btn.releasePointerCapture?.(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    btn.addEventListener('pointermove', (e) => {
+      if (pointerId == null || e.pointerId !== pointerId || !timer) return;
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) > MOVE_PX) clearTimer();
+    });
+    btn.addEventListener('pointerup', endPointer);
+    btn.addEventListener('pointercancel', endPointer);
+
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (suppressClick) {
+        suppressClick = false;
+        return;
+      }
       openFilterMenu(menu, btn);
     });
   });
+
   els.filterDdBackdrop?.addEventListener('click', closeFilterMenus);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeFilterMenus();
