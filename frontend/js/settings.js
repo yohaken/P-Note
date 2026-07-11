@@ -29,10 +29,9 @@ const DEFAULTS = {
   geminiModel: 'gemini-2.5-flash',
 };
 
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite'];
-
 export function normalizeGeminiModel(value) {
-  return GEMINI_MODELS.includes(value) ? value : DEFAULTS.geminiModel;
+  const v = String(value || '').trim().slice(0, 80);
+  return v || DEFAULTS.geminiModel;
 }
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
