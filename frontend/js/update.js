@@ -13,8 +13,15 @@ export function parseBuildFromHtml(html) {
   return match ? match[1] : null;
 }
 
+function currentPageUrl() {
+  const path = window.location.pathname || '/';
+  if (path.endsWith('/')) return `${path}index.html`;
+  if (!/\.html?$/i.test(path)) return `${path.replace(/\/?$/, '/')}index.html`;
+  return path;
+}
+
 export async function fetchRemoteBuild() {
-  const res = await fetch(`./index.html?_=${Date.now()}`, {
+  const res = await fetch(`${currentPageUrl()}?_=${Date.now()}`, {
     cache: 'no-store',
     credentials: 'same-origin',
     headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
@@ -72,7 +79,8 @@ export async function checkForAppUpdate(localBuild) {
   if (applying) return false;
   try {
     const remoteBuild = await fetchRemoteBuild();
-    if (!remoteBuild || remoteBuild === localBuild) return false;
+    if (!remoteBuild) return false;
+    if (Number(remoteBuild) <= Number(localBuild || 0)) return false;
     await applyAppUpdate();
     return true;
   } catch {

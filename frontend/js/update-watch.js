@@ -1,7 +1,7 @@
 /**
- * Poll remote index.html for <meta name="pnote-build"> changes.
- * When the build id differs from this page, show a toast, purge caches, and reload.
- * Same behavior as the original P-Note update watcher.
+ * Poll this page's HTML for <meta name="pnote-build"> changes.
+ * Reload only when the remote build is newer than the one in the DOM
+ * (never on mismatch with a different page like index vs note).
  */
 (function updateWatch() {
   var BUILD_META_RE = /meta\s+name=["']pnote-build["']\s+content=["'](\d+)["']/i;
@@ -22,8 +22,16 @@
     return new Promise(function (resolve) { setTimeout(resolve, ms); });
   }
 
+  /** Fetch the current document (index.html or note.html), not always index. */
+  function currentPageUrl() {
+    var path = window.location.pathname || '/';
+    if (path.endsWith('/')) return path + 'index.html';
+    if (!/\.html?$/i.test(path)) return path.replace(/\/?$/, '/') + 'index.html';
+    return path;
+  }
+
   async function fetchRemoteBuild() {
-    var res = await fetch('./index.html?_=' + Date.now(), {
+    var res = await fetch(currentPageUrl() + '?_=' + Date.now(), {
       cache: 'no-store',
       credentials: 'same-origin',
       headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
@@ -76,7 +84,9 @@
     try {
       var localBuild = getLocalBuild();
       var remoteBuild = await fetchRemoteBuild();
-      if (!remoteBuild || remoteBuild === localBuild) return false;
+      if (!remoteBuild) return false;
+      // Only upgrade — never reload when remote is older/equal (stops index↔note loops).
+      if (Number(remoteBuild) <= Number(localBuild || 0)) return false;
       await applyAppUpdate();
       return true;
     } catch (e) {
