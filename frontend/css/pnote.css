@@ -3344,6 +3344,15 @@ body.light .priority-badge.priority-urgent {
   display: none !important;
 }
 
+.context-menu-hint {
+  padding: 0.35rem 0.65rem 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.2rem;
+}
+
 .context-menu-item {
   display: block;
   width: 100%;

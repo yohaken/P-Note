@@ -1,4 +1,4 @@
-import { normalizeNotifyRepeat, normalizeRecurrence } from './schedule.js?v=113';
+import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=115';
 
 export const TAG_PALETTE = [
   '#6c63ff',
@@ -175,6 +175,8 @@ export function updateNote(note, { title, content, scheduledAt, recurrence, prio
   };
   if (scheduledAt !== undefined) {
     next.scheduledAt = scheduledAt || null;
+    // Manual due change replaces a postpone — series base resets to the new date.
+    if (scheduledAt !== note.scheduledAt) next.cycleAnchor = null;
   }
   if (recurrence !== undefined) {
     next.recurrence = normalizeRecurrence(recurrence);
@@ -354,6 +356,7 @@ export function normalizeNotesData(data) {
             ? note.tagIds.filter((id) => tagIds.has(id))
             : [],
           scheduledAt,
+          cycleAnchor: normalizeCycleAnchor(note.cycleAnchor),
           recurrence: normalizeRecurrence(note.recurrence),
           remindBefore: [
             'default',
