@@ -10,6 +10,7 @@ const DEFAULTS = {
   recurrenceFilter: null,
   tagOrder: [],
   barThickness: { sort: 0, tag: 0, priority: 0, recurrence: 0 },
+  notificationsEnabled: false,
 };
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
@@ -67,6 +68,7 @@ export function loadSettings() {
         recurrence: clampPct(bt.recurrence),
       },
       barLayout: normalizeLayout(parsed.barLayout),
+      notificationsEnabled: Boolean(parsed.notificationsEnabled),
     };
   } catch {
     return {
@@ -74,6 +76,7 @@ export function loadSettings() {
       tagOrder: [],
       barThickness: { ...DEFAULTS.barThickness },
       barLayout: [...DEFAULT_BAR_LAYOUT],
+      notificationsEnabled: false,
     };
   }
 }
