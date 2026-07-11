@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=121';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=121';
-import { initListSortable } from './sortable.js?v=121';
-import { bindComposableInput } from './text-input.js?v=121';
-import { CONFIG } from './config.js?v=121';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=121';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=122';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=122';
+import { initListSortable } from './sortable.js?v=122';
+import { bindComposableInput } from './text-input.js?v=122';
+import { CONFIG } from './config.js?v=122';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=122';
 import {
   addTag,
   countNotesByTag,
@@ -41,7 +41,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=121';
+} from './notes.js?v=122';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -76,8 +76,8 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
-} from './schedule.js?v=121';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=121';
+} from './schedule.js?v=122';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=122';
 import {
   notificationPermission,
   notificationSupported,
@@ -86,30 +86,30 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=121';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=121';
+} from './note-notify.js?v=122';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=122';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=121';
-import { createInAppCamera } from './camera.js?v=121';
+} from './files.js?v=122';
+import { createInAppCamera } from './camera.js?v=122';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=121';
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=121';
+} from './user-context.js?v=122';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=122';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=121';
-import { normalizeNotesData } from './notes.js?v=121';
-import { SaveManager } from './sync.js?v=121';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=121';
+} from './remote.js?v=122';
+import { normalizeNotesData } from './notes.js?v=122';
+import { SaveManager } from './sync.js?v=122';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -1385,7 +1385,57 @@ function persistFilters() {
   state.settings.priorityFilter = state.priorityFilter || null;
   state.settings.recurrenceFilter = state.recurrenceFilter || null;
   state.settings.dueScope = state.dueScope || null;
+  state.settings.sortMode = state.sortMode || 'updated';
   saveSettings(state.settings);
+}
+
+function snapshotListViewPrefs() {
+  return {
+    tagFilterId: state.tagFilterId || null,
+    priorityFilter: state.priorityFilter || null,
+    recurrenceFilter: state.recurrenceFilter || null,
+    dueScope: state.dueScope || null,
+    sortMode: state.sortMode || 'updated',
+  };
+}
+
+function sameListViewPrefs(a, b) {
+  return (
+    a.tagFilterId === b.tagFilterId &&
+    a.priorityFilter === b.priorityFilter &&
+    a.recurrenceFilter === b.recurrenceFilter &&
+    a.dueScope === b.dueScope &&
+    a.sortMode === b.sortMode
+  );
+}
+
+function restoreListViewPrefs(snap) {
+  if (!snap) return;
+  state.tagFilterId = snap.tagFilterId;
+  state.priorityFilter = snap.priorityFilter;
+  state.recurrenceFilter = snap.recurrenceFilter;
+  state.dueScope = snap.dueScope;
+  state.sortMode = snap.sortMode || 'updated';
+  persistFilters();
+  renderNotesList();
+}
+
+/** Apply list filter/sort change with Undo (bottom-left ↩). */
+function commitListViewChange(mutator, statusMsg) {
+  const prev = snapshotListViewPrefs();
+  mutator();
+  const next = snapshotListViewPrefs();
+  if (sameListViewPrefs(prev, next)) return false;
+  persistFilters();
+  renderNotesList();
+  const text = String(statusMsg || 'อัปเดตตัวกรอง').trim();
+  setStatus(text, {
+    undo: () => {
+      restoreListViewPrefs(prev);
+      setStatus('เลิกทำตัวกรองแล้ว');
+    },
+  });
+  return true;
 }
 
 /** Restore last filters from settings; drop stale tag ids. */
@@ -1408,10 +1458,11 @@ function applySavedFilters() {
 }
 
 function setSortMode(mode) {
-  state.sortMode = mode;
-  state.settings.sortMode = mode;
-  saveSettings(state.settings);
-  renderNotesList();
+  const opt = SORT_FILTER_OPTIONS.find((o) => o.id === mode);
+  const label = opt?.label || mode;
+  commitListViewChange(() => {
+    state.sortMode = mode;
+  }, `เรียง · ${label}`);
 }
 
 function countNotesByDueScope(notes, scope) {
@@ -1442,9 +1493,10 @@ function renderDueScopeBar() {
         label,
         selected: current === o.id,
         onSelect: () => {
-          state.dueScope = o.id;
-          persistFilters();
-          renderNotesList();
+          const label = o.id && DUE_SCOPE_OPTIONS.find((x) => x.id === o.id)?.label;
+          commitListViewChange(() => {
+            state.dueScope = o.id;
+          }, label ? `กำหนด · ${label}` : 'กำหนด · ทั้งหมด');
         },
       };
     }),
@@ -1466,18 +1518,18 @@ function renderPriorityFilterBar() {
       label: 'ทั้งหมด',
       selected: !current,
       onSelect: () => {
-        state.priorityFilter = null;
-        persistFilters();
-        renderNotesList();
+        commitListViewChange(() => {
+          state.priorityFilter = null;
+        }, 'ความสำคัญ · ทั้งหมด');
       },
     },
     ...PRIORITY_OPTIONS.map((o) => ({
       label: o.label,
       selected: current === o.id,
       onSelect: () => {
-        state.priorityFilter = o.id;
-        persistFilters();
-        renderNotesList();
+        commitListViewChange(() => {
+          state.priorityFilter = o.id;
+        }, `ความสำคัญ · ${o.label}`);
       },
     })),
   ];
@@ -1634,9 +1686,12 @@ function renderRecurrenceFilterBar() {
         label,
         selected: current === o.id,
         onSelect: () => {
-          state.recurrenceFilter = o.id;
-          persistFilters();
-          renderNotesList();
+          const label = o.id
+            ? filterOptions.find((x) => x.id === o.id)?.label
+            : 'ทั้งหมด';
+          commitListViewChange(() => {
+            state.recurrenceFilter = o.id;
+          }, `การซ้ำ · ${label || 'ทั้งหมด'}`);
         },
       };
     }),
@@ -1756,18 +1811,18 @@ function renderTagFilterBar() {
       label: 'ทั้งหมด',
       selected: !currentId,
       onSelect: () => {
-        state.tagFilterId = null;
-        persistFilters();
-        renderNotesList();
+        commitListViewChange(() => {
+          state.tagFilterId = null;
+        }, 'แท็ก · ทั้งหมด');
       },
     },
     {
       label: noneCount ? `ไม่มีแท็ก (${noneCount})` : 'ไม่มีแท็ก',
       selected: untagged,
       onSelect: () => {
-        state.tagFilterId = TAG_FILTER_UNTAGGED;
-        persistFilters();
-        renderNotesList();
+        commitListViewChange(() => {
+          state.tagFilterId = TAG_FILTER_UNTAGGED;
+        }, 'แท็ก · ไม่มีแท็ก');
       },
     },
     ...tags.map((tag) => {
@@ -1776,9 +1831,9 @@ function renderTagFilterBar() {
         label: n ? `${tag.name} (${n})` : tag.name,
         selected: currentId === tag.id,
         onSelect: () => {
-          state.tagFilterId = tag.id;
-          persistFilters();
-          renderNotesList();
+          commitListViewChange(() => {
+            state.tagFilterId = tag.id;
+          }, `แท็ก · ${tag.name}`);
         },
       };
     }),
@@ -1802,11 +1857,9 @@ function initFilterDock() {
           setStatus('กำหนด · ทั้งหมดอยู่แล้ว');
           return;
         }
-        state.dueScope = null;
-        persistFilters();
-        renderDueScopeBar();
-        renderNotesList();
-        setStatus('กำหนด · ทั้งหมด');
+        commitListViewChange(() => {
+          state.dueScope = null;
+        }, 'กำหนด · ทั้งหมด');
       },
     ],
     [
@@ -1818,8 +1871,6 @@ function initFilterDock() {
           return;
         }
         setSortMode('updated');
-        renderSortBar();
-        setStatus('เรียง · ล่าสุด');
       },
     ],
     [
@@ -1830,11 +1881,9 @@ function initFilterDock() {
           setStatus('ความสำคัญ · ทั้งหมดอยู่แล้ว');
           return;
         }
-        state.priorityFilter = null;
-        persistFilters();
-        renderPriorityFilterBar();
-        renderNotesList();
-        setStatus('ความสำคัญ · ทั้งหมด');
+        commitListViewChange(() => {
+          state.priorityFilter = null;
+        }, 'ความสำคัญ · ทั้งหมด');
       },
     ],
     [
@@ -1845,11 +1894,9 @@ function initFilterDock() {
           setStatus('การซ้ำ · ทั้งหมดอยู่แล้ว');
           return;
         }
-        state.recurrenceFilter = null;
-        persistFilters();
-        renderRecurrenceFilterBar();
-        renderNotesList();
-        setStatus('การซ้ำ · ทั้งหมด');
+        commitListViewChange(() => {
+          state.recurrenceFilter = null;
+        }, 'การซ้ำ · ทั้งหมด');
       },
     ],
     [
@@ -1860,11 +1907,9 @@ function initFilterDock() {
           setStatus('แท็ก · ทั้งหมดอยู่แล้ว');
           return;
         }
-        state.tagFilterId = null;
-        persistFilters();
-        renderTagFilterBar();
-        renderNotesList();
-        setStatus('แท็ก · ทั้งหมด');
+        commitListViewChange(() => {
+          state.tagFilterId = null;
+        }, 'แท็ก · ทั้งหมด');
       },
     ],
   ];
@@ -2172,16 +2217,14 @@ function applyTagFilterFromCard(tagId) {
   if (!tag) return;
 
   if (state.tagFilterId === tagId) {
-    state.tagFilterId = null;
-    persistFilters();
-    renderNotesList();
-    setStatus('แท็ก · ทั้งหมด');
+    commitListViewChange(() => {
+      state.tagFilterId = null;
+    }, 'แท็ก · ทั้งหมด');
     return;
   }
-  state.tagFilterId = tagId;
-  persistFilters();
-  renderNotesList();
-  setStatus(`แท็ก · ${tag.name}`);
+  commitListViewChange(() => {
+    state.tagFilterId = tagId;
+  }, `แท็ก · ${tag.name}`);
 }
 
 function initNotesListTagFilter() {
