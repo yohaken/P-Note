@@ -1114,7 +1114,17 @@ function reorderNotes(orderedIds) {
 }
 
 function applyDockOffset() {
-  // Bottom nav is in normal document flow now — no absolute FAB offset needed.
+  const bars = els.barsBottom;
+  if (!bars) return;
+  const h = bars.hidden ? 0 : Math.ceil(bars.getBoundingClientRect().height || bars.offsetHeight || 0);
+  document.documentElement.style.setProperty('--filters-dock-h', `${h}px`);
+}
+
+let filtersDockObserver = null;
+function ensureFiltersDockObserver() {
+  if (filtersDockObserver || !els.barsBottom || typeof ResizeObserver === 'undefined') return;
+  filtersDockObserver = new ResizeObserver(() => applyDockOffset());
+  filtersDockObserver.observe(els.barsBottom);
 }
 
 function renderNotesList() {
@@ -1124,7 +1134,9 @@ function renderNotesList() {
   renderRecurrenceFilterBar();
   renderTagFilterBar();
   applyCardDensity();
+  ensureFiltersDockObserver();
   applyDockOffset();
+  requestAnimationFrame(applyDockOffset);
 
   const notes = sortedFilteredNotes();
   els.notesList.innerHTML = '';
