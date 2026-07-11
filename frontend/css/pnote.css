@@ -514,7 +514,8 @@ body.bars-dragging .list-scroll {
   bottom: 0;
   left: 0;
   width: 100%;
-  z-index: 50;
+  /* Above FAB (55) so filter taps are never stolen */
+  z-index: 56;
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding-top: calc(0.12rem + var(--dock-lift));
@@ -530,6 +531,9 @@ body.filter-menu-open .filter-dock {
 }
 body.filter-menu-open .filter-dd-backdrop {
   z-index: 61;
+}
+body.filter-menu-open .filter-dd-menu:not([hidden]) {
+  z-index: 70;
 }
 .filter-dock-inner {
   display: flex;
@@ -548,7 +552,7 @@ body.filter-menu-open .filter-dd-backdrop {
   gap: calc(0.28rem * var(--dock-scale));
   max-width: 100%;
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  /* Avoid -webkit-overflow-scrolling: touch — it makes iOS clip fixed descendants. */
   scrollbar-width: none;
   padding: 0 0.1rem;
 }
@@ -575,6 +579,7 @@ body.filter-menu-open .filter-dd-backdrop {
   padding: calc(0.36rem * var(--dock-scale)) calc(0.5rem * var(--dock-scale));
   border-radius: 999px;
   cursor: pointer;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
@@ -690,6 +695,7 @@ body.filter-menu-open .filter-dd-backdrop {
 .filter-dd-backdrop {
   position: fixed;
   inset: 0;
+  /* Below dock (56) so a stuck-open backdrop never blocks filter taps */
   z-index: 45;
   background: transparent;
 }

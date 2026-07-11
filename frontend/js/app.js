@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=117';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=117';
-import { initListSortable } from './sortable.js?v=117';
-import { bindComposableInput } from './text-input.js?v=117';
-import { CONFIG } from './config.js?v=117';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=117';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=118';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=118';
+import { initListSortable } from './sortable.js?v=118';
+import { bindComposableInput } from './text-input.js?v=118';
+import { CONFIG } from './config.js?v=118';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=118';
 import {
   addTag,
   countNotesByTag,
@@ -41,7 +41,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=117';
+} from './notes.js?v=118';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -76,8 +76,8 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
-} from './schedule.js?v=117';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=117';
+} from './schedule.js?v=118';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=118';
 import {
   notificationPermission,
   notificationSupported,
@@ -86,30 +86,30 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=117';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=117';
+} from './note-notify.js?v=118';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=118';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=117';
-import { createInAppCamera } from './camera.js?v=117';
+} from './files.js?v=118';
+import { createInAppCamera } from './camera.js?v=118';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=117';
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=117';
+} from './user-context.js?v=118';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=118';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=117';
-import { normalizeNotesData } from './notes.js?v=117';
-import { SaveManager } from './sync.js?v=117';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=117';
+} from './remote.js?v=118';
+import { normalizeNotesData } from './notes.js?v=118';
+import { SaveManager } from './sync.js?v=118';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=118';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -1577,12 +1577,14 @@ function initFilterDock() {
   ];
 
   bindings.forEach(([btn, menu, resetFn]) => {
-    if (!btn) return;
+    if (!btn || !menu) return;
     let suppressClick = false;
+    let openedByPointer = false;
     let timer = null;
     let pointerId = null;
     let startX = 0;
     let startY = 0;
+    let moved = false;
     const LONG_MS = 420;
     const MOVE_PX = 12;
 
@@ -1591,20 +1593,59 @@ function initFilterDock() {
       timer = null;
     };
 
+    const detachWindow = () => {
+      window.removeEventListener('pointermove', onMove, true);
+      window.removeEventListener('pointerup', onWinUp, true);
+      window.removeEventListener('pointercancel', onWinUp, true);
+    };
+
+    const onMove = (e) => {
+      if (pointerId == null || e.pointerId !== pointerId) return;
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) > MOVE_PX) {
+        moved = true;
+        clearTimer();
+      }
+    };
+
+    const onWinUp = (e) => {
+      if (pointerId == null || e.pointerId !== pointerId) return;
+      const wasMoved = moved;
+      const longPressed = suppressClick;
+      clearTimer();
+      pointerId = null;
+      detachWindow();
+      if (longPressed || wasMoved) return;
+      const r = btn.getBoundingClientRect();
+      const pad = 10;
+      if (
+        e.clientX < r.left - pad ||
+        e.clientX > r.right + pad ||
+        e.clientY < r.top - pad ||
+        e.clientY > r.bottom + pad
+      ) {
+        return;
+      }
+      openedByPointer = true;
+      openFilterMenu(menu, btn);
+    };
+
     btn.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       clearTimer();
+      detachWindow();
       pointerId = e.pointerId;
       startX = e.clientX;
       startY = e.clientY;
-      try {
-        btn.setPointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
-      }
+      moved = false;
+      openedByPointer = false;
+      // Do not setPointerCapture — on iOS it often swallows the following click.
+      window.addEventListener('pointermove', onMove, true);
+      window.addEventListener('pointerup', onWinUp, true);
+      window.addEventListener('pointercancel', onWinUp, true);
       timer = setTimeout(() => {
         timer = null;
         suppressClick = true;
+        openedByPointer = true;
         btn.classList.add('is-filter-reset');
         closeFilterMenus();
         resetFn();
@@ -1619,26 +1660,14 @@ function initFilterDock() {
       }, LONG_MS);
     });
 
-    const endPointer = (e) => {
-      if (pointerId != null && e.pointerId !== pointerId) return;
-      clearTimer();
-      pointerId = null;
-      try {
-        btn.releasePointerCapture?.(e.pointerId);
-      } catch {
-        /* ignore */
-      }
-    };
-
-    btn.addEventListener('pointermove', (e) => {
-      if (pointerId == null || e.pointerId !== pointerId || !timer) return;
-      if (Math.hypot(e.clientX - startX, e.clientY - startY) > MOVE_PX) clearTimer();
-    });
-    btn.addEventListener('pointerup', endPointer);
-    btn.addEventListener('pointercancel', endPointer);
-
     btn.addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
+      if (openedByPointer) {
+        openedByPointer = false;
+        suppressClick = false;
+        return;
+      }
       if (suppressClick) {
         suppressClick = false;
         return;
@@ -4180,59 +4209,75 @@ async function loadSpaceData(spaceId, localData) {
 
 async function bootstrapData() {
   setLoading(true, 'กำลังเชื่อมต่อฐานข้อมูล...');
-  state.spaceId = getSpaceId();
-  state.settings = loadSettings();
-  state.listGroup = NOTE_STATUS.ACTIVE;
+  try {
+    state.spaceId = getSpaceId();
+    state.settings = loadSettings();
+    state.listGroup = NOTE_STATUS.ACTIVE;
 
-  const localVerBefore = peekLocalNotesVersion();
-  const localData = loadNotes().data;
-  const result = await loadSpaceData(state.spaceId, localData);
+    const localVerBefore = peekLocalNotesVersion();
+    const localData = loadNotes().data;
+    const result = await loadSpaceData(state.spaceId, localData);
 
-  state.notesData = result.data;
-  state.online = result.online;
-  state.syncBaseUpdatedAt = result.data?.updatedAt || null;
-  state.sortMode = state.settings.sortMode || 'updated';
-  applySavedFilters();
-  saveNotes(state.notesData);
-  try { refreshUserContext(state.notesData); } catch {}
+    state.notesData = result.data;
+    state.online = result.online;
+    state.syncBaseUpdatedAt = result.data?.updatedAt || null;
+    state.sortMode = state.settings.sortMode || 'updated';
+    applySavedFilters();
+    saveNotes(state.notesData);
+    try { refreshUserContext(state.notesData); } catch {}
 
-  saveManager.configure({
-    onStatus: (message) => setStatus(message),
-    remotePush: (data) => safePushRemote(data),
-  });
+    saveManager.configure({
+      onStatus: (message) => setStatus(message),
+      remotePush: (data) => safePushRemote(data),
+    });
 
-  const didScheduleSnap =
-    localVerBefore < 5 || Boolean(result.scheduleSnap);
-  const hadScheduled = Array.isArray(state.notesData?.notes)
-    && state.notesData.notes.some((n) => n?.scheduledAt);
+    const didScheduleSnap =
+      localVerBefore < 5 || Boolean(result.scheduleSnap);
+    const hadScheduled = Array.isArray(state.notesData?.notes)
+      && state.notesData.notes.some((n) => n?.scheduledAt);
 
-  if (didScheduleSnap) {
-    try {
-      await saveManager.saveNow(() => state.notesData);
-    } catch (err) {
-      console.warn('schedule snap save failed', err);
+    if (didScheduleSnap) {
+      try {
+        await saveManager.saveNow(() => state.notesData);
+      } catch (err) {
+        console.warn('schedule snap save failed', err);
+      }
     }
-  }
 
-  applyTheme();
-  applyCardDensity();
-  applyDockScale();
-  applyFabOrder();
-  reapplyBarLayout();
-  applyBarThickness();
-  renderNotesList();
-  showView('list');
-  setLoading(false);
-  updateAppVersionLabel();
+    applyTheme();
+    applyCardDensity();
+    applyDockScale();
+    applyFabOrder();
+    reapplyBarLayout();
+    applyBarThickness();
+    renderNotesList();
+    showView('list');
+    updateAppVersionLabel();
 
-  if (didScheduleSnap && hadScheduled) {
-    setStatus('ปรับเวลาแจ้งเตือนเป็น 09:00 แล้ว');
-  } else if (result.migrated) {
-    setStatus('ย้ายโน้ตเข้าฐานข้อมูลแล้ว');
-  } else if (!result.online) {
-    setStatus(result.autoSource ? 'โหมดออฟไลน์ (กู้คืนข้อมูลเดิม)' : 'โหมดออฟไลน์ (เก็บในเครื่อง)');
-  } else {
-    setStatus('เชื่อมฐานข้อมูลแล้ว');
+    if (didScheduleSnap && hadScheduled) {
+      setStatus('ปรับเวลาแจ้งเตือนเป็น 09:00 แล้ว');
+    } else if (result.migrated) {
+      setStatus('ย้ายโน้ตเข้าฐานข้อมูลแล้ว');
+    } else if (!result.online) {
+      setStatus(result.autoSource ? 'โหมดออฟไลน์ (กู้คืนข้อมูลเดิม)' : 'โหมดออฟไลน์ (เก็บในเครื่อง)');
+    } else {
+      setStatus('เชื่อมฐานข้อมูลแล้ว');
+    }
+  } catch (err) {
+    console.warn('bootstrap failed', err);
+    try {
+      state.notesData = loadNotes().data;
+      state.settings = state.settings || loadSettings();
+      applyTheme();
+      renderNotesList();
+      showView('list');
+      setStatus('โหลดไม่สำเร็จ — ใช้ข้อมูลในเครื่อง');
+    } catch (fallbackErr) {
+      console.warn('bootstrap fallback failed', fallbackErr);
+      setStatus('โหลดไม่สำเร็จ');
+    }
+  } finally {
+    setLoading(false);
   }
 }
 
