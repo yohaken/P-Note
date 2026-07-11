@@ -25,25 +25,100 @@ function extractText(data) {
   return parts.map((p) => (typeof p?.text === 'string' ? p.text : '')).join('').trim();
 }
 
-function parseJsonObject(text) {
+function extractJsonField(body, field) {
+  const re = new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'i');
+  const m = String(body || '').match(re);
+  if (!m) return null;
+  try {
+    return JSON.parse(`"${m[1]}"`);
+  } catch {
+    return m[1]
+      .replace(/\\n/g, '\n')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  }
+}
+
+function extractJsonArrayField(body, field) {
+  const re = new RegExp(`"${field}"\\s*:\\s*(\\[(.*?)\\])`, 'is');
+  const m = String(body || '').match(re);
+  if (!m) return null;
+  try {
+    const arr = JSON.parse(m[1]);
+    return Array.isArray(arr) ? arr : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Parse model output into a plain object; tolerate fences / trailing junk. */
+export function parseJsonObject(text) {
   const raw = String(text || '').trim();
   if (!raw) return null;
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const body = (fenced ? fenced[1] : raw).trim();
-  try {
-    return JSON.parse(body);
-  } catch {
-    const start = body.indexOf('{');
-    const end = body.lastIndexOf('}');
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(body.slice(start, end + 1));
-      } catch {
-        return null;
-      }
+  let body = (fenced ? fenced[1] : raw).trim();
+  // Strip BOM / leading prose before first {
+  const brace = body.indexOf('{');
+  if (brace > 0) body = body.slice(brace);
+  const end = body.lastIndexOf('}');
+  if (end > 0) body = body.slice(0, end + 1);
+
+  const tryParse = (s) => {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return null;
     }
-    return null;
+  };
+
+  let parsed = tryParse(body);
+  if (parsed && typeof parsed === 'object') return parsed;
+
+  // Trailing commas
+  parsed = tryParse(body.replace(/,\s*([}\]])/g, '$1'));
+  if (parsed && typeof parsed === 'object') return parsed;
+
+  // Field-level salvage when JSON is truncated/broken
+  const title = extractJsonField(body, 'title');
+  const summary = extractJsonField(body, 'summary') || extractJsonField(body, 'content');
+  if (title || summary) {
+    return {
+      title: title || '',
+      summary: summary || '',
+      tags: extractJsonArrayField(body, 'tags') || extractJsonArrayField(body, 'tagNames') || [],
+      scheduledAt: extractJsonField(body, 'scheduledAt') || extractJsonField(body, 'dueAt'),
+      priority: extractJsonField(body, 'priority'),
+      recurrence: extractJsonField(body, 'recurrence'),
+    };
   }
+  return null;
+}
+
+const JSONISH_TITLE = /^[\s{[\],":}\\]+$/;
+const JSON_KEY_WORDS = /^(title|summary|content|tags|priority|scheduledat|recurrence|null|true|false)$/i;
+
+/** True if string looks like JSON debris, not a human title. */
+export function isJunkTitle(value) {
+  const t = String(value || '').trim();
+  if (!t) return true;
+  if (t.length <= 2 && /[{}\[\]",:]/.test(t)) return true;
+  if (JSONISH_TITLE.test(t)) return true;
+  if (/^[{[]/.test(t) && /[}\]]$/.test(t) && t.includes(':')) return true;
+  if (JSON_KEY_WORDS.test(t.replace(/^📝\s*/, ''))) return true;
+  // Mostly punctuation / braces
+  let letters = t;
+  try {
+    letters = t.replace(/[\p{Extended_Pictographic}\s]/gu, '');
+  } catch {
+    letters = t.replace(/\s/g, '');
+  }
+  try {
+    if (letters && !/[\p{L}\p{N}]/u.test(letters)) return true;
+  } catch {
+    if (letters && !/[A-Za-z0-9\u0E00-\u0E7F]/.test(letters)) return true;
+  }
+  if (/^[{[]/.test(t) || /^",?\s*$/.test(t) || /^,\s*$/.test(t)) return true;
+  return false;
 }
 
 /** Strip markdown / technical wrappers from AI titles. */
@@ -54,7 +129,6 @@ export function sanitizeNoteTitle(raw) {
     .replace(/\n+/g, ' ')
     .trim();
 
-  // Repeated unwrap of common wrappers
   for (let i = 0; i < 4; i += 1) {
     const prev = t;
     t = t.replace(/^["'`“”‘’«»]+|["'`“”‘’«»]+$/g, '').trim();
@@ -65,18 +139,56 @@ export function sanitizeNoteTitle(raw) {
     t = t.replace(/^\[+|\]+$/g, '').trim();
     t = t.replace(/^\(+|\)+$/g, '').trim();
     t = t.replace(/^【+|】+$/g, '').trim();
+    t = t.replace(/^\{+\s*|\s*\}+$/g, '').trim();
     if (t === prev) break;
   }
 
-  // Drop leftover markdown markers anywhere
   t = t.replace(/\*\*/g, '').replace(/__/g, '').replace(/`/g, '');
-  t = t.replace(/^[\s|*_#>\-–—•·]+/, '').trim();
+  t = t.replace(/^[\s|*_#>\-–—•·{},[\]]+/, '').trim();
+  t = t.replace(/[\s|*_#>\-–—•·{},[\]]+$/, '').trim();
   t = t.replace(/\s+/g, ' ').trim();
-
-  // If model returned "emoji: text" with a code-like token, keep human text
   t = t.replace(/^:[a-z0-9_+-]+:\s*/i, '').trim();
+  // Drop leading JSON crumbs like `{ ,` or `"title":`
+  t = t.replace(/^[{}\[\]",:]+/, '').trim();
+  t = t.replace(/^title\s*[:=]\s*/i, '').trim();
 
+  // Must contain real letters/numbers — emoji-only or punctuation-only is junk
+  let textOnly = t;
+  try {
+    textOnly = t
+      .replace(/\p{Extended_Pictographic}/gu, '')
+      .replace(/[\uFE0F\u200D]/g, '')
+      .trim();
+  } catch {
+    textOnly = t.replace(/[\u{1F300}-\u{1FAFF}]/gu, '').trim();
+  }
+  let hasWord = false;
+  try {
+    hasWord = /[\p{L}\p{N}]/u.test(textOnly);
+  } catch {
+    hasWord = /[A-Za-z0-9\u0E00-\u0E7F]/.test(textOnly);
+  }
+  if (!hasWord) return '';
+
+  if (isJunkTitle(textOnly)) return '';
   return t.slice(0, 120);
+}
+
+export function sanitizeNoteSummary(raw) {
+  let t = String(raw ?? '')
+    .replace(/\r/g, '')
+    .replace(/\\n/g, '\n')
+    .trim();
+  // If whole summary is raw JSON, don't show it
+  if (/^\s*[{[]/.test(t) && /[}\]]\s*$/.test(t) && /"(title|summary|tags)"/.test(t)) {
+    return '';
+  }
+  t = t.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
+  // Unwrap accidental quotes
+  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+    t = t.slice(1, -1).trim();
+  }
+  return t.slice(0, 8000);
 }
 
 function isLeadingEmojiChar(ch) {
@@ -91,9 +203,8 @@ function isLeadingEmojiChar(ch) {
 /** Clean title + ensure one real emoji prefix (no markdown / technical marks). */
 export function ensureLeadingEmoji(title) {
   let t = sanitizeNoteTitle(title);
-  if (!t) return '📝 โน้ต';
+  if (!t || isJunkTitle(t)) return '📝 โน้ต';
 
-  // Pull leading emoji cluster (emoji + optional ZWJ/VS)
   let emoji = '';
   let rest = t;
   try {
@@ -110,28 +221,44 @@ export function ensureLeadingEmoji(title) {
     }
   }
 
-  // Reject technical-looking "emoji" leftovers (rare symbols used as bullets)
-  if (emoji && /^[*#_`|\\/<>{}[\]§†‡※]+$/.test(emoji)) {
+  if (emoji && /^[*#_`|\\/<>{}[\]§†‡※,."']+$/.test(emoji)) {
     emoji = '';
     rest = sanitizeNoteTitle(t);
   }
 
-  if (!rest) rest = 'โน้ต';
-  // Avoid double emoji if rest somehow still starts with one
+  if (!rest || isJunkTitle(rest)) rest = 'โน้ต';
   try {
     rest = rest.replace(/^\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s*/u, '').trim() || rest;
   } catch {
     /* ignore */
   }
+  if (isJunkTitle(rest)) rest = 'โน้ต';
 
-  const out = `${emoji || '📝'} ${rest}`.replace(/\s+/g, ' ').trim();
-  return out.slice(0, 120);
+  return `${emoji || '📝'} ${rest}`.replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+
+function humanLineFromText(rawText) {
+  const lines = String(rawText || '')
+    .split(/\r?\n/)
+    .map((l) => sanitizeNoteTitle(l))
+    .filter((l) => l && !isJunkTitle(l) && !/^[{[]/.test(l) && !/"title"\s*:/i.test(l));
+  let line = lines[0] || '';
+  if (!line) return '';
+  // Prefer a short headline: first clause / ~40 chars
+  const cut = line.split(/[.!?。！？\n]/)[0] || line;
+  line = cut.trim();
+  if (line.length > 42) {
+    const slice = line.slice(0, 42);
+    const sp = Math.max(slice.lastIndexOf(' '), slice.lastIndexOf('า'));
+    line = (sp > 16 ? slice.slice(0, sp) : slice).trim();
+  }
+  return line;
 }
 
 function emptyDraft(summary = '') {
   return {
-    title: ensureLeadingEmoji('โน้ต'),
-    summary: String(summary || '').trim(),
+    title: '📝 โน้ต',
+    summary: sanitizeNoteSummary(summary),
     tags: [],
     scheduledAt: null,
     priority: 'normal',
@@ -139,14 +266,21 @@ function emptyDraft(summary = '') {
   };
 }
 
-function fallbackDraft(rawText) {
-  const lines = String(rawText || '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+function fallbackDraft(rawText, sourceText = '') {
+  const fromSource = humanLineFromText(sourceText);
+  const fromRaw = humanLineFromText(rawText);
+  const titleBase = fromSource || fromRaw || 'โน้ต';
+  let summary = sanitizeNoteSummary(sourceText || '');
+  if (!summary) {
+    const lines = String(rawText || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !/^[{[]/.test(l) && !/"title"\s*:/i.test(l));
+    summary = sanitizeNoteSummary(lines.slice(1).join('\n') || lines[0] || '');
+  }
   return {
-    ...emptyDraft(lines.slice(1).join('\n').trim() || String(rawText || '').trim()),
-    title: ensureLeadingEmoji(lines[0] || 'โน้ต'),
+    ...emptyDraft(summary),
+    title: ensureLeadingEmoji(titleBase),
   };
 }
 
@@ -159,7 +293,7 @@ function normalizeTagNames(value) {
       .trim()
       .replace(/^#/, '')
       .slice(0, 40);
-    if (!name) continue;
+    if (!name || isJunkTitle(name) || JSON_KEY_WORDS.test(name)) continue;
     const key = name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -189,20 +323,54 @@ function normalizeRecurrenceValue(value) {
   return RECURRENCES.has(v) ? v : null;
 }
 
-/** Normalize model JSON into a note draft. */
+/**
+ * Normalize model JSON (or salvage object) into a user-facing note draft.
+ * @param {object|null} parsed
+ * @param {string} [fallbackText] original user text preferred over raw model dump
+ */
 export function normalizeAiDraft(parsed, fallbackText = '') {
   if (!parsed || typeof parsed !== 'object') {
-    return fallbackDraft(fallbackText);
+    return fallbackDraft('', fallbackText);
   }
-  const summary = String(parsed.summary || parsed.content || fallbackText || '').trim();
+
+  let titleRaw = parsed.title;
+  let summaryRaw = parsed.summary || parsed.content || '';
+
+  const cleanedTitle = sanitizeNoteTitle(titleRaw);
+  if (!cleanedTitle) {
+    titleRaw = humanLineFromText(fallbackText) || humanLineFromText(summaryRaw) || 'โน้ต';
+  } else {
+    titleRaw = cleanedTitle;
+  }
+
+  let summary = sanitizeNoteSummary(summaryRaw);
+  if (!summary || isJunkTitle(summary) || (/^\s*\{/.test(summary) && /[{:]/.test(summary))) {
+    summary = sanitizeNoteSummary(fallbackText);
+  }
+  // Never put raw JSON blob into summary
+  if (/^\s*\{/.test(summary) && /"title"\s*:/.test(summary)) {
+    summary = sanitizeNoteSummary(fallbackText);
+  }
+  // JSON-looking one-liners like `{ "a": 1 }`
+  if (/^\s*\{[\s\S]*\}\s*$/.test(summary) && /:/.test(summary) && !/[\u0E00-\u0E7F]/.test(summary)) {
+    summary = sanitizeNoteSummary(fallbackText);
+  }
+
   return {
-    title: ensureLeadingEmoji(parsed.title || 'โน้ต'),
+    title: ensureLeadingEmoji(titleRaw),
     summary,
     tags: normalizeTagNames(parsed.tags || parsed.tagNames),
     scheduledAt: normalizeScheduledAt(parsed.scheduledAt ?? parsed.dueAt),
     priority: normalizePriority(parsed.priority),
     recurrence: normalizeRecurrenceValue(parsed.recurrence),
   };
+}
+
+/** Full pipeline: model text → draft (for tests + summarize). */
+export function draftFromModelText(modelText, sourceText = '') {
+  const parsed = parseJsonObject(modelText);
+  if (parsed) return normalizeAiDraft(parsed, sourceText || '');
+  return fallbackDraft(modelText, sourceText || '');
 }
 
 function modelScore(id) {
@@ -431,10 +599,7 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
   }
 
   const outText = extractText(data);
-  const parsed = parseJsonObject(outText);
-  if (parsed) return normalizeAiDraft(parsed, text || outText);
-  if (outText) return fallbackDraft(outText);
-  return fallbackDraft(text || 'งานจากรูป');
+  return draftFromModelText(outText, text || '');
 }
 
 /**
