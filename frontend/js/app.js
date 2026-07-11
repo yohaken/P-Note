@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=96';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=97';
 import {
   notificationPermission,
   notificationSupported,
@@ -1575,6 +1575,11 @@ async function loadGeminiModelsFromApi() {
 }
 
 let aiNoteBusy = false;
+/** @type {'create'|'edit'} */
+let aiFormMode = 'create';
+let aiEditNoteId = null;
+/** @type {ReturnType<typeof captureAiFormSnapshot>|null} */
+let aiEditBaseline = null;
 /** @type {Array<{ attachment: object, aiPart: object|null }>} */
 let aiPendingMedia = [];
 /** @type {Array<{ name: string, isNew: boolean, on: boolean }>} */
@@ -1661,7 +1666,30 @@ function initAiScheduleControls() {
   syncAiScheduleDisplay();
 }
 
+function captureAiFormSnapshot() {
+  return {
+    source: String(els.aiNoteSource?.value || ''),
+    title: String(els.aiNoteDraftTitle?.value || ''),
+    summary: String(els.aiNoteDraftSummary?.value || ''),
+    schedule: els.aiNoteDraftSchedule?.value || '',
+    priority: els.aiNoteDraftPriority?.value || NOTE_PRIORITY.NORMAL,
+    recurrence: els.aiNoteDraftRecurrence?.value || '',
+    tagOns: aiTagDraft
+      .filter((t) => t.on)
+      .map((t) => t.name.toLowerCase())
+      .sort()
+      .join('|'),
+    mediaIds: aiPendingMedia
+      .map((m) => m.attachment?.id)
+      .filter(Boolean)
+      .join('|'),
+  };
+}
+
 function isAiFormDirty() {
+  if (aiFormMode === 'edit' && aiEditBaseline) {
+    return JSON.stringify(captureAiFormSnapshot()) !== JSON.stringify(aiEditBaseline);
+  }
   const source = String(els.aiNoteSource?.value || '').trim();
   const title = String(els.aiNoteDraftTitle?.value || '').trim();
   const summary = String(els.aiNoteDraftSummary?.value || '').trim();
@@ -1681,16 +1709,28 @@ function isAiFormDirty() {
   );
 }
 
+function updateAiFormChrome() {
+  const titleEl = document.getElementById('ai-note-title');
+  if (titleEl) {
+    titleEl.textContent = aiFormMode === 'edit' ? 'แก้ไขงาน · AI' : 'เพิ่มงานด้วย AI';
+  }
+  if (els.aiNoteConfirmBtn) {
+    els.aiNoteConfirmBtn.textContent = aiFormMode === 'edit' ? 'บันทึก' : 'สร้าง';
+  }
+  updateAiCancelBtn();
+}
+
 function updateAiCancelBtn() {
   const btn = els.aiNoteCancelBtn;
   if (!btn) return;
   const dirty = isAiFormDirty();
-  btn.textContent = dirty ? 'เริ่มใหม่' : 'ยกเลิก';
+  const resetLabel = aiFormMode === 'edit' ? 'คืนค่าเดิม' : 'เริ่มใหม่';
+  btn.textContent = dirty ? resetLabel : 'ยกเลิก';
   btn.dataset.mode = dirty ? 'reset' : 'cancel';
-  btn.setAttribute('aria-label', dirty ? 'เริ่มใหม่ เคลียร์ฟอร์ม' : 'ยกเลิก');
+  btn.setAttribute('aria-label', dirty ? resetLabel : 'ยกเลิก');
 }
 
-function resetAiAddForm() {
+function clearAiFormFields() {
   if (els.aiNoteSource) els.aiNoteSource.value = '';
   if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = '';
   if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = '';
@@ -1701,7 +1741,54 @@ function resetAiAddForm() {
   seedExistingTagChips();
   syncAiScheduleDisplay();
   setAiNoteStatus('');
-  updateAiCancelBtn();
+}
+
+function fillAiFormFromNote(note) {
+  if (!note) return;
+  if (els.aiNoteSource) els.aiNoteSource.value = '';
+  if (els.aiNoteDraftTitle) els.aiNoteDraftTitle.value = note.title || '';
+  if (els.aiNoteDraftSummary) els.aiNoteDraftSummary.value = note.content || '';
+  if (els.aiNoteDraftSchedule) {
+    els.aiNoteDraftSchedule.value = toDatetimeLocalValue(note.scheduledAt);
+  }
+  if (els.aiNoteDraftPriority) els.aiNoteDraftPriority.value = notePriority(note);
+  if (els.aiNoteDraftRecurrence) {
+    els.aiNoteDraftRecurrence.value = normalizeRecurrence(note.recurrence) || '';
+  }
+
+  const noteTagIds = new Set(note.tagIds || []);
+  const tags = state.notesData.tags || [];
+  aiTagDraft = tags.map((t) => ({
+    name: t.name,
+    isNew: false,
+    on: noteTagIds.has(t.id),
+  }));
+  // Keep selected tags first for visibility
+  aiTagDraft.sort((a, b) => Number(b.on) - Number(a.on));
+  renderAiTagChips();
+
+  aiPendingMedia = normalizeAttachments(note.attachments).map((a) => ({
+    attachment: { ...a },
+    aiPart: null,
+  }));
+  renderAiAttachList();
+  syncAiScheduleDisplay();
+  setAiNoteStatus('');
+}
+
+function resetAiAddForm() {
+  if (aiFormMode === 'edit' && aiEditNoteId) {
+    const note = getNoteById(aiEditNoteId);
+    if (note) {
+      fillAiFormFromNote(note);
+      aiEditBaseline = captureAiFormSnapshot();
+      updateAiFormChrome();
+      focusAiSourceField();
+      return;
+    }
+  }
+  clearAiFormFields();
+  updateAiFormChrome();
   focusAiSourceField();
 }
 
@@ -1723,7 +1810,9 @@ function focusAiSourceField() {
 function onAiCancelOrReset() {
   if (els.aiNoteCancelBtn?.dataset.mode === 'reset') {
     resetAiAddForm();
-    setStatus('เคลียร์ฟอร์มแล้ว · พร้อมกรอกใหม่');
+    setStatus(
+      aiFormMode === 'edit' ? 'คืนค่าเดิมของโน้ตแล้ว' : 'เคลียร์ฟอร์มแล้ว · พร้อมกรอกใหม่',
+    );
     return;
   }
   closeAiNoteModal();
@@ -1933,19 +2022,51 @@ function renderEditorAttachments(note) {
 
 function openAddNoteModal() {
   if (!els.aiNoteModal) return;
-  resetAiAddForm();
+  aiFormMode = 'create';
+  aiEditNoteId = null;
+  aiEditBaseline = null;
+  clearAiFormFields();
+  updateAiFormChrome();
   els.aiNoteModal.hidden = false;
   focusAiSourceField();
+}
+
+function openEditNoteModal(noteId) {
+  if (!els.aiNoteModal) return;
+  const note = getNoteById(noteId);
+  if (!note) return;
+  aiFormMode = 'edit';
+  aiEditNoteId = noteId;
+  fillAiFormFromNote(note);
+  aiEditBaseline = captureAiFormSnapshot();
+  updateAiFormChrome();
+  els.aiNoteModal.hidden = false;
+  // Prefer title for edit; fall back to source for voice dictation.
+  queueMicrotask(() => {
+    if (els.aiNoteDraftTitle) {
+      try {
+        els.aiNoteDraftTitle.focus({ preventScroll: false });
+      } catch {
+        els.aiNoteDraftTitle.focus();
+      }
+    } else {
+      focusAiSourceField();
+    }
+  });
 }
 
 function closeAiNoteModal() {
   if (!els.aiNoteModal) return;
   els.aiNoteModal.hidden = true;
   aiNoteBusy = false;
+  aiFormMode = 'create';
+  aiEditNoteId = null;
+  aiEditBaseline = null;
   clearAiPendingMedia();
   if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = false;
   if (els.aiNoteConfirmBtn) els.aiNoteConfirmBtn.disabled = false;
   setAiNoteStatus('');
+  updateAiFormChrome();
 }
 
 async function addAiMediaFiles(fileList) {
@@ -2059,11 +2180,46 @@ async function confirmAiNoteDraft() {
     if (result.tag) tagIds.push(result.tag.id);
   }
 
+  const scheduleAt = fromDatetimeLocalValue(els.aiNoteDraftSchedule?.value);
+  const priority = els.aiNoteDraftPriority?.value;
+  const recurrence = els.aiNoteDraftRecurrence?.value || null;
+
+  if (aiFormMode === 'edit' && aiEditNoteId) {
+    const existing = getNoteById(aiEditNoteId);
+    if (!existing) {
+      setAiNoteStatus('ไม่พบโน้ต', { kind: 'error', restoreMs: 2200 });
+      return;
+    }
+    let note = updateNote(existing, {
+      title,
+      content,
+      scheduledAt: scheduleAt,
+      priority,
+      recurrence,
+    });
+    note = { ...note, tagIds, attachments };
+    state.notesData = updateNoteInData(data, note);
+    state.draftNoteId = null;
+    closeAiNoteModal();
+    try {
+      await saveManager.saveNow(() => state.notesData);
+    } catch (err) {
+      console.warn('note save failed', err);
+      autosave();
+    }
+    renderNotesList();
+    renderTagFilterBar();
+    renderTagManager();
+    scheduleUserContextRefresh();
+    setStatus('บันทึกแล้ว');
+    return;
+  }
+
   let note = createNote(title, content);
   note = updateNote(note, {
-    scheduledAt: fromDatetimeLocalValue(els.aiNoteDraftSchedule?.value),
-    priority: els.aiNoteDraftPriority?.value,
-    recurrence: els.aiNoteDraftRecurrence?.value || null,
+    scheduledAt: scheduleAt,
+    priority,
+    recurrence,
   });
   note = { ...note, tagIds, attachments };
 
@@ -2240,27 +2396,8 @@ function renderTagManager() {
 }
 
 function openEditor(noteId) {
-  const note = getNoteById(noteId);
-  if (!note) return;
-
-  state.activeNoteId = noteId;
-  els.noteTitle.value = note.title;
-  els.noteContent.value = note.content;
-  els.noteSchedule.value = toDatetimeLocalValue(note.scheduledAt);
-  if (els.noteRemindBefore) {
-    els.noteRemindBefore.value = normalizeRemindBefore(note.remindBefore);
-  }
-  if (els.noteNotifyRepeat) {
-    els.noteNotifyRepeat.value = normalizeNotifyRepeat(note.notifyRepeat);
-  }
-  if (els.noteNotifyDetails) els.noteNotifyDetails.open = false;
-  updateNotifyDetailsPreview();
-  renderEditorAttachments(note);
-  setStatus('');
-  showView('editor');
-  renderEditorTags();
-  renderEditorPriority();
-  renderEditorRecurrence();
+  // Unified AI form is the editor for all notes.
+  openEditNoteModal(noteId);
 }
 
 function discardDraftIfEmpty() {
