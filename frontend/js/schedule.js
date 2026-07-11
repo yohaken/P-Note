@@ -296,7 +296,7 @@ export function scheduleProximity(scheduledAt, now = new Date()) {
   if (days < 0) {
     const n = Math.abs(days);
     return {
-      label: n === 1 ? 'เลย 1ว' : `เลย ${n}ว`,
+      label: `−${n}ว`,
       level: 'overdue',
       days,
     };
@@ -304,18 +304,17 @@ export function scheduleProximity(scheduledAt, now = new Date()) {
   if (days === 0) {
     const msLeft = due.getTime() - now.getTime();
     if (msLeft <= 0) {
-      return { label: 'ถึงแล้ว', level: 'overdue', days: 0 };
+      return { label: 'ถึง', level: 'overdue', days: 0 };
     }
     const hours = Math.max(1, Math.round(msLeft / 3600000));
     if (hours < 24) {
-      return { label: `อีก ${hours}ชม`, level: 'today', days: 0 };
+      return { label: `${hours}ชม`, level: 'today', days: 0 };
     }
     return { label: 'วันนี้', level: 'today', days: 0 };
   }
   if (days === 1) return { label: 'พรุ่ง', level: 'near', days: 1 };
-  if (days === 2) return { label: 'อีก 2ว', level: 'near', days: 2 };
-  if (days <= 7) return { label: `อีก ${days}ว`, level: 'mid', days };
-  return { label: `อีก ${days}ว`, level: 'far', days };
+  if (days <= 7) return { label: `${days}ว`, level: days <= 2 ? 'near' : 'mid', days };
+  return { label: `${days}ว`, level: 'far', days };
 }
 
 export function relativeDayLabel(iso) {

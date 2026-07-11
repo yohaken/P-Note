@@ -1,5 +1,5 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=110';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=110';
+import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=111';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=111';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -38,7 +38,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=110';
+} from './notes.js?v=111';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -60,8 +60,8 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
   defaultDatetimeLocalValue,
-} from './schedule.js?v=110';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=110';
+} from './schedule.js?v=111';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=111';
 import {
   notificationPermission,
   notificationSupported,
@@ -70,19 +70,19 @@ import {
   sendTestNotification,
   syncNoteNotifications,
 } from './note-notify.js?v=88';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=110';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=111';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=110';
-import { createInAppCamera } from './camera.js?v=110';
+} from './files.js?v=111';
+import { createInAppCamera } from './camera.js?v=111';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=110';
+} from './user-context.js?v=111';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -90,7 +90,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=110';
+import { normalizeNotesData } from './notes.js?v=111';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -1534,9 +1534,8 @@ function proximityCellHtml(note) {
     }
   })();
   return `
-    <div class="card-col card-col-due due-${escapeHtml(prox.level)}" title="${escapeHtml(relativeDayLabel(note.scheduledAt))}">
+    <div class="card-col card-col-due due-${escapeHtml(prox.level)}" title="${escapeHtml([relativeDayLabel(note.scheduledAt), time].filter(Boolean).join(' · '))}">
       <span class="due-count">${escapeHtml(prox.label)}</span>
-      ${time ? `<span class="due-time">${escapeHtml(time)}</span>` : ''}
     </div>
   `;
 }
@@ -1550,13 +1549,13 @@ function tagsCellHtml(tags) {
     `;
   }
   const names = tags
-    .slice(0, 3)
+    .slice(0, 2)
     .map(
       (tag) =>
         `<span class="card-tag-name" style="--tag:${safeTagColor(tag.color)}">${escapeHtml(tag.name)}</span>`,
     )
     .join('');
-  const more = tags.length > 3 ? `<span class="card-tag-more">+${tags.length - 3}</span>` : '';
+  const more = tags.length > 2 ? `<span class="card-tag-more">+${tags.length - 2}</span>` : '';
   return `<div class="card-col card-col-tags">${names}${more}</div>`;
 }
 
