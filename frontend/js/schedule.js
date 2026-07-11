@@ -8,11 +8,15 @@ export const RECURRENCE = {
   YEARLY: 'yearly',
 };
 
+/** Built-in recurrence chips; month presets from settings are merged in UI. */
 export const RECURRENCE_OPTIONS = [
   { id: null, label: 'ไม่ทำซ้ำ', short: '' },
   { id: 'daily', label: 'ทุกวัน', short: 'ทุกวัน' },
   { id: 'weekly', label: 'ทุกสัปดาห์', short: 'ทุกสัปดาห์' },
   { id: 'monthly', label: 'ทุกเดือน', short: 'ทุกเดือน' },
+  { id: 'every3mo', label: 'ทุก 3 เดือน', short: '3 ด.' },
+  { id: 'every5mo', label: 'ทุก 5 เดือน', short: '5 ด.' },
+  { id: 'every6mo', label: 'ทุก 6 เดือน', short: '6 ด.' },
   { id: 'yearly', label: 'ทุกปี', short: 'ทุกปี' },
 ];
 
@@ -24,13 +28,36 @@ export const RECURRENCE_FILTER_OPTIONS = [
   { id: 'daily', label: 'ทุกวัน' },
   { id: 'weekly', label: 'ทุกสัปดาห์' },
   { id: 'monthly', label: 'ทุกเดือน' },
+  { id: 'every3mo', label: 'ทุก 3 เดือน' },
+  { id: 'every5mo', label: 'ทุก 5 เดือน' },
+  { id: 'every6mo', label: 'ทุก 6 เดือน' },
   { id: 'yearly', label: 'ทุกปี' },
 ];
 
+const FIXED_RECURRENCE = new Set(['daily', 'weekly', 'monthly', 'yearly']);
+const MONTH_INTERVAL_RE = /^every(\d+)mo$/;
+
+/** @returns {number|null} months for everyNmo / monthly */
+export function monthIntervalFromId(value) {
+  if (value === 'monthly') return 1;
+  const m = String(value || '').match(MONTH_INTERVAL_RE);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n >= 2 && n <= 36 ? n : null;
+}
+
+export function everyMonthsId(months) {
+  const n = Math.round(Number(months));
+  if (!Number.isFinite(n) || n < 1 || n > 36) return null;
+  if (n === 1) return 'monthly';
+  return `every${n}mo`;
+}
+
 export function normalizeRecurrence(value) {
-  if (value === 'daily' || value === 'weekly' || value === 'monthly' || value === 'yearly') {
-    return value;
-  }
+  if (value == null || value === '' || value === 'none' || value === 'null') return null;
+  const v = String(value);
+  if (FIXED_RECURRENCE.has(v)) return v;
+  if (monthIntervalFromId(v) != null) return v;
   return null;
 }
 
@@ -45,6 +72,7 @@ export function normalizeRecurrenceFilter(value) {
   ) {
     return value;
   }
+  if (monthIntervalFromId(value) != null) return value;
   return null;
 }
 
@@ -78,6 +106,7 @@ export function remindBeforeLabel(value) {
 /**
  * Notification nag interval — separate from note recurrence (ทำซ้ำประจำ).
  * Reminders-style: keep pinging until the note is done.
+ * Month intervals: monthly | everyNmo (N=2..36), counted from scheduled start (มาตรฐาน 09:00).
  */
 export const NOTIFY_REPEAT_OPTIONS = [
   { id: 'none', label: 'ครั้งเดียว' },
@@ -86,17 +115,27 @@ export const NOTIFY_REPEAT_OPTIONS = [
   { id: 'every2d', label: 'ทุก 2 วัน' },
   { id: 'weekly', label: 'ทุกสัปดาห์' },
   { id: 'monthly', label: 'ทุกเดือน' },
+  { id: 'every3mo', label: 'ทุก 3 เดือน' },
+  { id: 'every5mo', label: 'ทุก 5 เดือน' },
+  { id: 'every6mo', label: 'ทุก 6 เดือน' },
 ];
 
-const NOTIFY_REPEAT_IDS = new Set(NOTIFY_REPEAT_OPTIONS.map((o) => o.id));
+const FIXED_NOTIFY_REPEAT = new Set(['none', 'hourly', 'daily', 'every2d', 'weekly', 'monthly']);
 
 export function normalizeNotifyRepeat(value) {
-  return NOTIFY_REPEAT_IDS.has(value) ? value : 'none';
+  const v = String(value || 'none');
+  if (FIXED_NOTIFY_REPEAT.has(v)) return v;
+  if (monthIntervalFromId(v) != null) return v;
+  return 'none';
 }
 
 export function notifyRepeatLabel(value) {
   const id = normalizeNotifyRepeat(value);
-  return NOTIFY_REPEAT_OPTIONS.find((o) => o.id === id)?.label || 'ครั้งเดียว';
+  const known = NOTIFY_REPEAT_OPTIONS.find((o) => o.id === id);
+  if (known) return known.label;
+  const months = monthIntervalFromId(id);
+  if (months) return `ทุก ${months} เดือน`;
+  return 'ครั้งเดียว';
 }
 
 export function notifyRepeatIntervalMs(value) {
@@ -105,11 +144,12 @@ export function notifyRepeatIntervalMs(value) {
   if (id === 'daily') return 24 * 60 * 60 * 1000;
   if (id === 'every2d') return 2 * 24 * 60 * 60 * 1000;
   if (id === 'weekly') return 7 * 24 * 60 * 60 * 1000;
-  if (id === 'monthly') return 30 * 24 * 60 * 60 * 1000; // approx; monthly step uses calendar below
+  const months = monthIntervalFromId(id);
+  if (months) return months * 30 * 24 * 60 * 60 * 1000;
   return 0;
 }
 
-/** Advance a fire timestamp by notify-repeat unit. */
+/** Advance a fire timestamp by notify-repeat unit (calendar months for everyNmo). */
 export function advanceNotifyFireAt(fireAtMs, notifyRepeat) {
   const id = normalizeNotifyRepeat(notifyRepeat);
   if (id === 'none' || !Number.isFinite(fireAtMs)) return null;
@@ -118,8 +158,11 @@ export function advanceNotifyFireAt(fireAtMs, notifyRepeat) {
   else if (id === 'daily') d.setDate(d.getDate() + 1);
   else if (id === 'every2d') d.setDate(d.getDate() + 2);
   else if (id === 'weekly') d.setDate(d.getDate() + 7);
-  else if (id === 'monthly') d.setMonth(d.getMonth() + 1);
-  else return null;
+  else {
+    const months = monthIntervalFromId(id);
+    if (!months) return null;
+    d.setMonth(d.getMonth() + months);
+  }
   return d.getTime();
 }
 
@@ -173,9 +216,13 @@ export function countNotesByRecurrence(notes, filter) {
 }
 
 export function recurrenceLabel(value, { short = false } = {}) {
-  const opt = RECURRENCE_OPTIONS.find((o) => o.id === normalizeRecurrence(value));
-  if (!opt || !opt.id) return '';
-  return short ? opt.short : opt.label;
+  const id = normalizeRecurrence(value);
+  if (!id) return '';
+  const opt = RECURRENCE_OPTIONS.find((o) => o.id === id);
+  if (opt) return short ? opt.short : opt.label;
+  const months = monthIntervalFromId(id);
+  if (months) return short ? `${months} ด.` : `ทุก ${months} เดือน`;
+  return '';
 }
 
 /** Advance scheduledAt by one recurrence step. */
@@ -186,9 +233,101 @@ export function nextOccurrenceIso(iso, freq) {
   if (Number.isNaN(d.getTime())) return null;
   if (recurrence === 'daily') d.setDate(d.getDate() + 1);
   else if (recurrence === 'weekly') d.setDate(d.getDate() + 7);
-  else if (recurrence === 'monthly') d.setMonth(d.getMonth() + 1);
   else if (recurrence === 'yearly') d.setFullYear(d.getFullYear() + 1);
+  else {
+    const months = monthIntervalFromId(recurrence);
+    if (!months) return iso || null;
+    d.setMonth(d.getMonth() + months);
+  }
   return d.toISOString();
+}
+
+/**
+ * Build recurrence / notify-repeat option lists including user month presets.
+ * @param {number[]} [monthPresets]
+ */
+export function buildRecurrenceSelectOptions(monthPresets = [3, 5, 6]) {
+  const base = [
+    { id: '', label: 'ไม่ซ้ำ' },
+    { id: 'daily', label: 'ทุกวัน' },
+    { id: 'weekly', label: 'ทุกสัปดาห์' },
+    { id: 'monthly', label: 'ทุกเดือน' },
+  ];
+  const months = normalizeMonthPresets(monthPresets);
+  months.forEach((n) => {
+    base.push({ id: everyMonthsId(n), label: `ทุก ${n} เดือน` });
+  });
+  base.push({ id: 'yearly', label: 'ทุกปี' });
+  return base;
+}
+
+export function buildNotifyRepeatSelectOptions(monthPresets = [3, 5, 6]) {
+  const base = [
+    { id: 'none', label: 'ครั้งเดียว' },
+    { id: 'hourly', label: 'ทุกชั่วโมง' },
+    { id: 'daily', label: 'ทุกวัน' },
+    { id: 'every2d', label: 'ทุก 2 วัน' },
+    { id: 'weekly', label: 'ทุกสัปดาห์' },
+    { id: 'monthly', label: 'ทุกเดือน' },
+  ];
+  normalizeMonthPresets(monthPresets).forEach((n) => {
+    base.push({ id: everyMonthsId(n), label: `ทุก ${n} เดือน` });
+  });
+  return base;
+}
+
+/** Editor chips: ไม่ทำซ้ำ + frequencies + month presets + yearly. */
+export function buildRecurrenceChipOptions(monthPresets = [3, 5, 6]) {
+  const base = [
+    { id: null, label: 'ไม่ทำซ้ำ', short: '' },
+    { id: 'daily', label: 'ทุกวัน', short: 'ทุกวัน' },
+    { id: 'weekly', label: 'ทุกสัปดาห์', short: 'ทุกสัปดาห์' },
+    { id: 'monthly', label: 'ทุกเดือน', short: 'ทุกเดือน' },
+  ];
+  normalizeMonthPresets(monthPresets).forEach((n) => {
+    base.push({ id: everyMonthsId(n), label: `ทุก ${n} เดือน`, short: `${n} ด.` });
+  });
+  base.push({ id: 'yearly', label: 'ทุกปี', short: 'ทุกปี' });
+  return base;
+}
+
+/** List filter menu options including user month presets. */
+export function buildRecurrenceFilterOptions(monthPresets = [3, 5, 6]) {
+  const base = [
+    { id: null, label: 'ทั้งหมด' },
+    { id: 'none', label: 'ไม่ทำซ้ำ' },
+    { id: 'any', label: 'ทำประจำ' },
+    { id: 'daily', label: 'ทุกวัน' },
+    { id: 'weekly', label: 'ทุกสัปดาห์' },
+    { id: 'monthly', label: 'ทุกเดือน' },
+  ];
+  normalizeMonthPresets(monthPresets).forEach((n) => {
+    base.push({ id: everyMonthsId(n), label: `ทุก ${n} เดือน` });
+  });
+  base.push({ id: 'yearly', label: 'ทุกปี' });
+  return base;
+}
+
+/** @param {unknown} raw @returns {number[]} */
+export function normalizeMonthPresets(raw) {
+  const fallback = [3, 5, 6];
+  const list = Array.isArray(raw)
+    ? raw
+    : String(raw || '')
+        .split(/[,|\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+  const out = [];
+  const seen = new Set();
+  list.forEach((v) => {
+    const n = Math.round(Number(v));
+    if (!Number.isFinite(n) || n < 2 || n > 36) return;
+    if (seen.has(n)) return;
+    seen.add(n);
+    out.push(n);
+  });
+  out.sort((a, b) => a - b);
+  return out.length ? out.slice(0, 12) : fallback;
 }
 
 /** Next occurrence on or after today (keeps time-of-day from the base). */

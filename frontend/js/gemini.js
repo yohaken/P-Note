@@ -17,7 +17,8 @@ const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
 const API_MODELS = `${API_ROOT}/models`;
 
 const PRIORITIES = new Set(['normal', 'important', 'urgent', 'critical']);
-const RECURRENCES = new Set(['daily', 'weekly', 'monthly', 'yearly']);
+const RECURRENCE_FIXED = new Set(['daily', 'weekly', 'monthly', 'yearly']);
+const EVERY_N_MO_RE = /^every(\d+)mo$/;
 
 function extractText(data) {
   const parts = data?.candidates?.[0]?.content?.parts;
@@ -325,7 +326,13 @@ function normalizePriority(value) {
 function normalizeRecurrenceValue(value) {
   if (value == null || value === '' || value === 'none' || value === 'null') return null;
   const v = String(value).toLowerCase();
-  return RECURRENCES.has(v) ? v : null;
+  if (RECURRENCE_FIXED.has(v)) return v;
+  const m = v.match(EVERY_N_MO_RE);
+  if (m) {
+    const n = Number(m[1]);
+    if (Number.isFinite(n) && n >= 2 && n <= 36) return `every${n}mo`;
+  }
+  return null;
 }
 
 /**
@@ -496,7 +503,7 @@ function buildPrompt({ text, existingTags, nowIso, hasImage, userContextMd }) {
     '- อ่าน「โปรไฟล์ผู้ใช้」ในความจำถ้ามี — ใช้ปรับโทน/บริบทธุรกิจให้ถูก',
     '- priority: normal | important | urgent | critical ตามความน่าจะเป็นจากข้อความ + นิสัยในความจำผู้ใช้',
     '- scheduledAt: ISO 8601 พร้อมโซนเวลา ถ้ามีกำหนดชัด/พอเดาได้ · ไม่มีใส่ null · ถ้ามีแค่วันที่ไม่มีเวลาชัด ให้ใช้ 09:00 ตามโซนผู้ใช้',
-    '- recurrence: null | daily | weekly | monthly | yearly (เฉพาะงานที่ทำซ้ำจริง)',
+    '- recurrence: null | daily | weekly | monthly | yearly | every3mo | every5mo | every6mo (เฉพาะงานที่ทำซ้ำจริง · everyNmo = ทุก N เดือน)',
     hasImage ? '- ถ้ามีรูป: อ่านข้อความ/บริบทจากรูปแล้วสรุปเป็นงาน' : '',
     '',
     `ตอนนี้: ${nowIso}`,
