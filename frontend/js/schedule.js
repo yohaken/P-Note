@@ -76,6 +76,54 @@ export function remindBeforeLabel(value) {
 }
 
 /**
+ * Notification nag interval — separate from note recurrence (ทำซ้ำประจำ).
+ * Reminders-style: keep pinging until the note is done.
+ */
+export const NOTIFY_REPEAT_OPTIONS = [
+  { id: 'none', label: 'ครั้งเดียว' },
+  { id: 'hourly', label: 'ทุกชั่วโมง' },
+  { id: 'daily', label: 'ทุกวัน' },
+  { id: 'every2d', label: 'ทุก 2 วัน' },
+  { id: 'weekly', label: 'ทุกสัปดาห์' },
+  { id: 'monthly', label: 'ทุกเดือน' },
+];
+
+const NOTIFY_REPEAT_IDS = new Set(NOTIFY_REPEAT_OPTIONS.map((o) => o.id));
+
+export function normalizeNotifyRepeat(value) {
+  return NOTIFY_REPEAT_IDS.has(value) ? value : 'none';
+}
+
+export function notifyRepeatLabel(value) {
+  const id = normalizeNotifyRepeat(value);
+  return NOTIFY_REPEAT_OPTIONS.find((o) => o.id === id)?.label || 'ครั้งเดียว';
+}
+
+export function notifyRepeatIntervalMs(value) {
+  const id = normalizeNotifyRepeat(value);
+  if (id === 'hourly') return 60 * 60 * 1000;
+  if (id === 'daily') return 24 * 60 * 60 * 1000;
+  if (id === 'every2d') return 2 * 24 * 60 * 60 * 1000;
+  if (id === 'weekly') return 7 * 24 * 60 * 60 * 1000;
+  if (id === 'monthly') return 30 * 24 * 60 * 60 * 1000; // approx; monthly step uses calendar below
+  return 0;
+}
+
+/** Advance a fire timestamp by notify-repeat unit. */
+export function advanceNotifyFireAt(fireAtMs, notifyRepeat) {
+  const id = normalizeNotifyRepeat(notifyRepeat);
+  if (id === 'none' || !Number.isFinite(fireAtMs)) return null;
+  const d = new Date(fireAtMs);
+  if (id === 'hourly') d.setHours(d.getHours() + 1);
+  else if (id === 'daily') d.setDate(d.getDate() + 1);
+  else if (id === 'every2d') d.setDate(d.getDate() + 2);
+  else if (id === 'weekly') d.setDate(d.getDate() + 7);
+  else if (id === 'monthly') d.setMonth(d.getMonth() + 1);
+  else return null;
+  return d.getTime();
+}
+
+/**
  * When to fire the device notification for a note.
  * @param {string} scheduledAt ISO
  * @param {string} remindBefore

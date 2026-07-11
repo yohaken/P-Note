@@ -142,6 +142,7 @@ export function createNote(title = '', content = '') {
     scheduledAt: null,
     recurrence: null,
     remindBefore: 'default',
+    notifyRepeat: 'none',
     priority: NOTE_PRIORITY.NORMAL,
     status: NOTE_STATUS.ACTIVE,
     completedAt: null,
@@ -162,7 +163,7 @@ export function createTag(name, color) {
   };
 }
 
-export function updateNote(note, { title, content, scheduledAt, recurrence, priority, remindBefore }) {
+export function updateNote(note, { title, content, scheduledAt, recurrence, priority, remindBefore, notifyRepeat }) {
   const next = {
     ...note,
     title: title !== undefined ? title.trim() : note.title,
@@ -192,6 +193,10 @@ export function updateNote(note, { title, content, scheduledAt, recurrence, prio
       '1mo',
     ];
     next.remindBefore = allowed.includes(remindBefore) ? remindBefore : 'default';
+  }
+  if (notifyRepeat !== undefined) {
+    const allowed = ['none', 'hourly', 'daily', 'every2d', 'weekly', 'monthly'];
+    next.notifyRepeat = allowed.includes(notifyRepeat) ? notifyRepeat : 'none';
   }
   if (priority !== undefined) {
     next.priority = Object.values(NOTE_PRIORITY).includes(priority)
@@ -293,6 +298,11 @@ export function normalizeNotesData(data) {
         ].includes(note.remindBefore)
           ? note.remindBefore
           : 'default',
+        notifyRepeat: ['none', 'hourly', 'daily', 'every2d', 'weekly', 'monthly'].includes(
+          note.notifyRepeat,
+        )
+          ? note.notifyRepeat
+          : 'none',
         priority: Object.values(NOTE_PRIORITY).includes(note.priority)
           ? note.priority
           : NOTE_PRIORITY.NORMAL,

@@ -24,7 +24,16 @@ const DEFAULTS = {
   barThickness: { sort: 0, tag: 0, priority: 0, recurrence: 0 },
   notificationsEnabled: false,
   notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
+  /** Google AI Studio key — stored on this device only */
+  geminiApiKey: '',
+  geminiModel: 'gemini-2.5-flash',
 };
+
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite'];
+
+export function normalizeGeminiModel(value) {
+  return GEMINI_MODELS.includes(value) ? value : DEFAULTS.geminiModel;
+}
 
 const SORT_MODES = ['updated', 'schedule', 'manual'];
 const PRIORITY_FILTERS = ['normal', 'important', 'urgent', 'critical'];
@@ -85,6 +94,8 @@ export function loadSettings() {
         barThickness: { ...DEFAULTS.barThickness },
         barLayout: [...DEFAULT_BAR_LAYOUT],
         notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
+        geminiApiKey: '',
+        geminiModel: DEFAULTS.geminiModel,
       };
     }
     const parsed = JSON.parse(raw);
@@ -107,6 +118,8 @@ export function loadSettings() {
       barLayout: normalizeLayout(parsed.barLayout),
       notificationsEnabled: notifyPrefs.enabled,
       notifyPrefs,
+      geminiApiKey: String(parsed.geminiApiKey || '').trim().slice(0, 200),
+      geminiModel: normalizeGeminiModel(parsed.geminiModel),
     };
   } catch {
     return {
@@ -116,6 +129,8 @@ export function loadSettings() {
       barLayout: [...DEFAULT_BAR_LAYOUT],
       notificationsEnabled: false,
       notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
+      geminiApiKey: '',
+      geminiModel: DEFAULTS.geminiModel,
     };
   }
 }
@@ -129,6 +144,8 @@ export function saveSettings(settings) {
     ...settings,
     notifyPrefs,
     notificationsEnabled: notifyPrefs.enabled,
+    geminiApiKey: String(settings.geminiApiKey || '').trim().slice(0, 200),
+    geminiModel: normalizeGeminiModel(settings.geminiModel),
   };
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
