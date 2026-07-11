@@ -2,7 +2,7 @@
  * User context memory for AI note drafting.
  * Learns roughly from existing notes/tags and stores a compact .md profile.
  */
-import { NOTE_STATUS, notePriority, NOTE_PRIORITY } from './notes.js?v=86';
+import { NOTE_STATUS, notePriority, NOTE_PRIORITY } from './notes.js?v=87';
 
 /** Keep in sync with STORAGE_KEYS.USER_CONTEXT_MD in config.js */
 const CONTEXT_KEY = 'pnote_user_context_md';

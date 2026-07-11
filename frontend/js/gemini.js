@@ -46,21 +46,91 @@ function parseJsonObject(text) {
   }
 }
 
-/** Ensure title starts with one emoji (vibe cue in the list). */
-export function ensureLeadingEmoji(title) {
-  const t = String(title || '').trim();
-  if (!t) return '📝 โน้ตจาก AI';
-  try {
-    if (/^\p{Extended_Pictographic}/u.test(t)) return t.slice(0, 120);
-  } catch {
-    if (/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(t)) return t.slice(0, 120);
+/** Strip markdown / technical wrappers from AI titles. */
+export function sanitizeNoteTitle(raw) {
+  let t = String(raw ?? '')
+    .replace(/\r/g, '')
+    .replace(/\\n/g, ' ')
+    .replace(/\n+/g, ' ')
+    .trim();
+
+  // Repeated unwrap of common wrappers
+  for (let i = 0; i < 4; i += 1) {
+    const prev = t;
+    t = t.replace(/^["'`“”‘’«»]+|["'`“”‘’«»]+$/g, '').trim();
+    t = t.replace(/^#+\s*/, '').trim();
+    t = t.replace(/^\*\*\s*|\s*\*\*$/g, '').trim();
+    t = t.replace(/^__\s*|\s*__$/g, '').trim();
+    t = t.replace(/^`+|`+$/g, '').trim();
+    t = t.replace(/^\[+|\]+$/g, '').trim();
+    t = t.replace(/^\(+|\)+$/g, '').trim();
+    t = t.replace(/^【+|】+$/g, '').trim();
+    if (t === prev) break;
   }
-  return `📝 ${t}`.slice(0, 120);
+
+  // Drop leftover markdown markers anywhere
+  t = t.replace(/\*\*/g, '').replace(/__/g, '').replace(/`/g, '');
+  t = t.replace(/^[\s|*_#>\-–—•·]+/, '').trim();
+  t = t.replace(/\s+/g, ' ').trim();
+
+  // If model returned "emoji: text" with a code-like token, keep human text
+  t = t.replace(/^:[a-z0-9_+-]+:\s*/i, '').trim();
+
+  return t.slice(0, 120);
+}
+
+function isLeadingEmojiChar(ch) {
+  if (!ch) return false;
+  try {
+    return /\p{Extended_Pictographic}/u.test(ch);
+  } catch {
+    return /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(ch);
+  }
+}
+
+/** Clean title + ensure one real emoji prefix (no markdown / technical marks). */
+export function ensureLeadingEmoji(title) {
+  let t = sanitizeNoteTitle(title);
+  if (!t) return '📝 โน้ต';
+
+  // Pull leading emoji cluster (emoji + optional ZWJ/VS)
+  let emoji = '';
+  let rest = t;
+  try {
+    const m = t.match(/^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*(.*)$/u);
+    if (m) {
+      emoji = m[1];
+      rest = sanitizeNoteTitle(m[2]);
+    }
+  } catch {
+    const first = [...t][0];
+    if (isLeadingEmojiChar(first)) {
+      emoji = first;
+      rest = sanitizeNoteTitle(t.slice(first.length));
+    }
+  }
+
+  // Reject technical-looking "emoji" leftovers (rare symbols used as bullets)
+  if (emoji && /^[*#_`|\\/<>{}[\]§†‡※]+$/.test(emoji)) {
+    emoji = '';
+    rest = sanitizeNoteTitle(t);
+  }
+
+  if (!rest) rest = 'โน้ต';
+  // Avoid double emoji if rest somehow still starts with one
+  try {
+    rest = rest.replace(/^\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s*/u, '').trim() || rest;
+  } catch {
+    /* ignore */
+  }
+
+  const out = `${emoji || '📝'} ${rest}`.replace(/\s+/g, ' ').trim();
+  return out.slice(0, 120);
 }
 
 function emptyDraft(summary = '') {
   return {
-    title: '📝 โน้ตจาก AI',
+    title: ensureLeadingEmoji('โน้ต'),
     summary: String(summary || '').trim(),
     tags: [],
     scheduledAt: null,
@@ -76,7 +146,7 @@ function fallbackDraft(rawText) {
     .filter(Boolean);
   return {
     ...emptyDraft(lines.slice(1).join('\n').trim() || String(rawText || '').trim()),
-    title: ensureLeadingEmoji(lines[0] || 'โน้ตจาก AI'),
+    title: ensureLeadingEmoji(lines[0] || 'โน้ต'),
   };
 }
 
@@ -126,7 +196,7 @@ export function normalizeAiDraft(parsed, fallbackText = '') {
   }
   const summary = String(parsed.summary || parsed.content || fallbackText || '').trim();
   return {
-    title: ensureLeadingEmoji(parsed.title || 'โน้ตจาก AI'),
+    title: ensureLeadingEmoji(parsed.title || 'โน้ต'),
     summary,
     tags: normalizeTagNames(parsed.tags || parsed.tagNames),
     scheduledAt: normalizeScheduledAt(parsed.scheduledAt ?? parsed.dueAt),
@@ -245,7 +315,9 @@ function buildPrompt({ text, existingTags, nowIso, hasImage, userContextMd }) {
     }),
     '',
     'กฎ:',
-    '- title: อีโมจิ 1 ตัวนำหน้า + ช่องว่าง + หัวข้อ (เดินทาง→🚗 ซื้อของ→🛒 งาน→💼 ส่วนตัว→🏠 ที่ดิน/อสังหา→🏞️ สุขภาพ→💪 เรียน→📚 ไม่แน่ใจ→📝)',
+    '- title: รูปแบบตายตัว = อีโมจิจริง 1 ตัว + ช่องว่าง 1 ช่อง + ข้อความธรรมดาเท่านั้น',
+    '- ตัวอย่างถูก: "🏞️ ตรวจโฉนดที่ดิน" · "💼 ประชุมทีม"',
+    '- ห้าม: markdown (** # `), อัญประกาศครอบทั้งประโยค, โค้ด, สัญลักษณ์เทคนิค, หลายอีโมจิ, หรือขึ้นต้นด้วยเครื่องหมายพิเศษ',
     '- summary: สรุปกระชับ ภาษาเดียวกับต้นฉบับ อย่าแต่งเติม',
     '- tags: 1–3 ชื่อ · ใช้แท็กที่มีอยู่ก่อนถ้าเข้ากับบริบท/ความจำผู้ใช้ · สร้างใหม่เฉพาะเมื่อไม่มีที่ใกล้เคียง',
     '- priority: normal | important | urgent | critical ตามความน่าจะเป็นจากข้อความ + นิสัยในความจำผู้ใช้',
