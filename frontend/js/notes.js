@@ -139,6 +139,7 @@ export function createNote(title = '', content = '') {
     title: title.trim(),
     content,
     tagIds: [],
+    attachments: [],
     scheduledAt: null,
     recurrence: null,
     remindBefore: 'default',
@@ -233,12 +234,36 @@ export function applyManualOrder(data, orderedIds) {
 
 export function previewText(note) {
   const text = String(note.content || '').replace(/\s+/g, ' ').trim();
-  if (!text) return '';
-  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+  if (text) {
+    return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+  }
+  const n = Array.isArray(note.attachments) ? note.attachments.length : 0;
+  if (n === 1) {
+    const a = note.attachments[0];
+    return a?.mimeType?.startsWith('image/') ? '📷 รูปแนบ' : `📎 ${a?.name || 'ไฟล์แนบ'}`;
+  }
+  if (n > 1) return `📎 ไฟล์แนบ ${n} รายการ`;
+  return '';
 }
 
 export function noteHasContent(note) {
   return Boolean(previewText(note));
+}
+
+/** @param {unknown} raw */
+export function normalizeAttachments(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((a) => a && typeof a === 'object' && a.data && a.mimeType)
+    .map((a) => ({
+      id: String(a.id || crypto.randomUUID()),
+      name: String(a.name || 'ไฟล์').slice(0, 120),
+      mimeType: String(a.mimeType || 'application/octet-stream').slice(0, 120),
+      data: String(a.data),
+      size: Number.isFinite(a.size) ? a.size : Math.ceil((String(a.data).length * 3) / 4),
+      kind: a.mimeType && String(a.mimeType).startsWith('image/') ? 'image' : 'file',
+    }))
+    .slice(0, 8);
 }
 
 export function formatDate(iso) {
@@ -303,6 +328,7 @@ export function normalizeNotesData(data) {
         )
           ? note.notifyRepeat
           : 'none',
+        attachments: normalizeAttachments(note.attachments),
         priority: Object.values(NOTE_PRIORITY).includes(note.priority)
           ? note.priority
           : NOTE_PRIORITY.NORMAL,

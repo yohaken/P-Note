@@ -279,8 +279,12 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
     throw err;
   }
   const text = String(rawText || '').trim();
-  const image = opts.image && opts.image.data ? opts.image : null;
-  if (!text && !image) {
+  const images = Array.isArray(opts.images)
+    ? opts.images.filter((i) => i && i.data)
+    : opts.image && opts.image.data
+      ? [opts.image]
+      : [];
+  if (!text && !images.length) {
     const err = new Error('empty_input');
     err.code = 'empty_input';
     throw err;
@@ -301,11 +305,11 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
     text,
     existingTags,
     nowIso,
-    hasImage: Boolean(image),
+    hasImage: images.length > 0,
   });
 
   const parts = [{ text: prompt }];
-  if (image) {
+  for (const image of images) {
     parts.push({
       inlineData: {
         mimeType: image.mimeType || 'image/jpeg',
@@ -355,14 +359,87 @@ export async function summarizeToNoteDraft(apiKey, rawText, opts = {}) {
 }
 
 /**
- * Resize/compress an image File for Gemini inline upload.
+ * Keep original file bytes for note attachment (full resolution).
+ * Only re-encodes oversized images so sync stays workable.
+ */
+export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+/** High-res edge for Gemini vision (separate from stored original). */
+export const AI_IMAGE_MAX_EDGE = 4096;
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('read_failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function dataUrlParts(dataUrl) {
+  const m = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) return { mimeType: 'application/octet-stream', data: '' };
+  return { mimeType: m[1], data: m[2] };
+}
+
+/**
+ * Read a File/Blob as a note attachment at full quality when possible.
+ * @param {File|Blob} file
+ * @param {{ maxBytes?: number }} [opts]
+ */
+export async function readFileAsAttachment(file, opts = {}) {
+  if (!file) {
+    const err = new Error('empty_input');
+    err.code = 'empty_input';
+    throw err;
+  }
+  const maxBytes = opts.maxBytes ?? MAX_ATTACHMENT_BYTES;
+  const name = (file.name || (file.type?.startsWith('image/') ? 'photo.jpg' : 'file')).slice(0, 120);
+  const mimeType = file.type || 'application/octet-stream';
+  const isImage = mimeType.startsWith('image/');
+
+  if (file.size <= maxBytes) {
+    const dataUrl = await blobToDataUrl(file);
+    const parts = dataUrlParts(dataUrl);
+    return {
+      id: crypto.randomUUID(),
+      name,
+      mimeType: parts.mimeType || mimeType,
+      data: parts.data,
+      size: file.size,
+      kind: isImage ? 'image' : 'file',
+      previewUrl: isImage ? dataUrl : '',
+      fullRes: true,
+    };
+  }
+
+  if (isImage) {
+    // Oversized photo: keep very high quality still (near full res)
+    const compressed = await fileToInlineImage(file, { maxEdge: 4096, quality: 0.92 });
+    return {
+      id: crypto.randomUUID(),
+      name: name.replace(/\.\w+$/, '') + '.jpg',
+      mimeType: compressed.mimeType,
+      data: compressed.data,
+      size: Math.ceil((compressed.data.length * 3) / 4),
+      kind: 'image',
+      previewUrl: compressed.previewUrl,
+      fullRes: false,
+    };
+  }
+
+  const err = new Error('too_large');
+  err.code = 'too_large';
+  throw err;
+}
+
+/**
+ * Resize/compress an image for Gemini only (does not replace the stored original).
  * @param {File|Blob} file
  * @param {{ maxEdge?: number, quality?: number }} [opts]
- * @returns {Promise<{ mimeType: string, data: string, previewUrl: string }>}
  */
 export async function fileToInlineImage(file, opts = {}) {
-  const maxEdge = opts.maxEdge || 1280;
-  const quality = opts.quality ?? 0.72;
+  const maxEdge = opts.maxEdge || AI_IMAGE_MAX_EDGE;
+  const quality = opts.quality ?? 0.9;
   if (!file) {
     const err = new Error('empty_input');
     err.code = 'empty_input';
@@ -384,4 +461,33 @@ export async function fileToInlineImage(file, opts = {}) {
   const dataUrl = canvas.toDataURL(mimeType, quality);
   const data = dataUrl.split(',')[1] || '';
   return { mimeType, data, previewUrl: dataUrl };
+}
+
+/**
+ * Prepare media for AI note: keep full attachment + optional AI vision part.
+ * @param {File|Blob} file
+ */
+export async function prepareAiMedia(file) {
+  const attachment = await readFileAsAttachment(file);
+  let aiPart = null;
+
+  if (attachment.kind === 'image') {
+    // Prefer original for AI when under ~4MB payload; else high-res downscale
+    const approxBytes = Math.ceil((attachment.data.length * 3) / 4);
+    if (approxBytes <= 4 * 1024 * 1024) {
+      aiPart = {
+        mimeType: attachment.mimeType,
+        data: attachment.data,
+      };
+    } else {
+      aiPart = await fileToInlineImage(file, { maxEdge: AI_IMAGE_MAX_EDGE, quality: 0.9 });
+    }
+  } else if (attachment.mimeType === 'application/pdf') {
+    const approxBytes = Math.ceil((attachment.data.length * 3) / 4);
+    if (approxBytes <= 8 * 1024 * 1024) {
+      aiPart = { mimeType: 'application/pdf', data: attachment.data };
+    }
+  }
+
+  return { attachment, aiPart };
 }
