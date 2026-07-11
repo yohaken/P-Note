@@ -1338,6 +1338,92 @@ body.light .priority-badge.priority-urgent {
   line-height: 1.45;
 }
 
+.notify-options {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.notify-options[hidden] {
+  display: none !important;
+}
+
+.notify-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.notify-field input[type='text'] {
+  width: 100%;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: var(--bg, #000);
+  color: var(--text);
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.notify-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.notify-toggle-row > span {
+  flex: 0 1 auto;
+  color: var(--text-muted);
+}
+
+.segmented.segmented-sm button {
+  padding: 0.28rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.notify-select {
+  max-width: 58%;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: var(--bg, #000);
+  color: var(--text);
+  padding: 0.35rem 0.45rem;
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.notify-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.notify-tag-chip {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.72rem;
+  background: var(--bg, #000);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.notify-tag-chip.active {
+  color: #fff;
+  background: var(--tag, var(--accent));
+  border-color: transparent;
+}
+
 .settings-close {
   width: 100%;
   margin-top: 0.5rem;

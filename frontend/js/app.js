@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes } from './local.js?v=46';
-import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=77';
+import { attachNoteCardInteractions, positionContextMenu } from './context-menu.js?v=78';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -52,7 +52,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=71';
-import { densityToCssUnit, loadSettings, saveSettings, thicknessStyleVars } from './settings.js?v=77';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, saveSettings, thicknessStyleVars } from './settings.js?v=78';
 import {
   notificationPermission,
   notificationSupported,
@@ -60,7 +60,7 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=77';
+} from './note-notify.js?v=78';
 import { DEFAULT_BAR_LAYOUT, applyBarLayout, initBarDrag } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -155,6 +155,11 @@ const els = {
   notifyOffBtn: document.getElementById('notify-off-btn'),
   notifyOnBtn: document.getElementById('notify-on-btn'),
   notifyHint: document.getElementById('notify-hint'),
+  notifyOptions: document.getElementById('notify-options'),
+  notifyLabel: document.getElementById('notify-label'),
+  notifyEarly: document.getElementById('notify-early'),
+  notifyMinPriority: document.getElementById('notify-min-priority'),
+  notifyTagChips: document.getElementById('notify-tag-chips'),
   notifyTestBtn: document.getElementById('notify-test-btn'),
   thicknessSort: document.getElementById('thickness-sort'),
   thicknessTag: document.getElementById('thickness-tag'),
@@ -240,17 +245,91 @@ function applyFabDirection() {
   els.fabDirHorizontalBtn?.classList.toggle('active', horizontal);
 }
 
+function getNotifyPrefs() {
+  return normalizeNotifyPrefs(
+    state.settings.notifyPrefs,
+    state.settings.notificationsEnabled,
+  );
+}
+
+function persistNotifyPrefs(patch = {}) {
+  const next = normalizeNotifyPrefs(
+    { ...getNotifyPrefs(), ...patch },
+    state.settings.notificationsEnabled,
+  );
+  state.settings.notifyPrefs = next;
+  state.settings.notificationsEnabled = next.enabled;
+  saveSettings(state.settings);
+  applyNotifySettingsUi();
+  refreshNoteNotifications();
+}
+
 function refreshNoteNotifications() {
   const active = filterNotesByStatus(state.notesData.notes || [], NOTE_STATUS.ACTIVE);
-  syncNoteNotifications(active, {
-    enabled: Boolean(state.settings.notificationsEnabled),
+  syncNoteNotifications(active, getNotifyPrefs());
+}
+
+function renderNotifyTagChips() {
+  if (!els.notifyTagChips) return;
+  const prefs = getNotifyPrefs();
+  const selected = new Set(prefs.tagIds || []);
+  const tags = orderedFilterTags();
+  els.notifyTagChips.innerHTML = '';
+  if (!tags.length) {
+    const empty = document.createElement('span');
+    empty.className = 'settings-hint';
+    empty.style.margin = '0';
+    empty.textContent = 'ยังไม่มีแท็ก';
+    els.notifyTagChips.appendChild(empty);
+    return;
+  }
+  tags.forEach((tag) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `notify-tag-chip${selected.has(tag.id) ? ' active' : ''}`;
+    btn.style.setProperty('--tag', safeTagColor(tag.color));
+    btn.textContent = tag.name;
+    btn.addEventListener('click', () => {
+      const cur = new Set(getNotifyPrefs().tagIds || []);
+      if (cur.has(tag.id)) cur.delete(tag.id);
+      else cur.add(tag.id);
+      persistNotifyPrefs({ tagIds: [...cur] });
+    });
+    els.notifyTagChips.appendChild(btn);
   });
 }
 
 function applyNotifySettingsUi() {
-  const on = Boolean(state.settings.notificationsEnabled);
+  const prefs = getNotifyPrefs();
+  const on = Boolean(prefs.enabled);
   els.notifyOffBtn?.classList.toggle('active', !on);
   els.notifyOnBtn?.classList.toggle('active', on);
+  if (els.notifyOptions) els.notifyOptions.hidden = !on;
+
+  if (els.notifyLabel && document.activeElement !== els.notifyLabel) {
+    els.notifyLabel.value = prefs.label || 'P-Note';
+  }
+  if (els.notifyEarly) els.notifyEarly.value = String(prefs.earlyMinutes || 0);
+  if (els.notifyMinPriority) els.notifyMinPriority.value = prefs.minPriority || 'normal';
+
+  document.querySelectorAll('[data-notify-sound]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.notifySound === (prefs.sound ? '1' : '0'));
+  });
+  document.querySelectorAll('[data-notify-vibrate]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.notifyVibrate === (prefs.vibrate ? '1' : '0'));
+  });
+  document.querySelectorAll('[data-notify-preview]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.notifyPreview === prefs.preview);
+  });
+  document.querySelectorAll('[data-notify-persistent]').forEach((btn) => {
+    btn.classList.toggle(
+      'active',
+      btn.dataset.notifyPersistent === (prefs.persistent ? '1' : '0'),
+    );
+  });
+
+  renderNotifyTagChips();
+
   if (!els.notifyHint) return;
   if (!notificationSupported()) {
     els.notifyHint.textContent = 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนระบบ';
@@ -258,8 +337,7 @@ function applyNotifySettingsUi() {
   }
   const perm = notificationPermission();
   if (on && perm === 'granted') {
-    els.notifyHint.textContent =
-      'เปิดแล้ว · โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนเครื่อง (ทำงานดีสุดเมื่อเปิดแอป/ติดตั้งบนโฮม)';
+    els.notifyHint.textContent = 'เปิดแล้ว · ปรับรายละเอียดด้านล่างได้ตามมาตรฐานการแจ้งเตือน';
   } else if (on && perm === 'denied') {
     els.notifyHint.textContent = 'ระบบบล็อกการแจ้งเตือน — เปิดสิทธิ์ในตั้งค่าเครื่อง/เบราว์เซอร์';
   } else if (on) {
@@ -280,17 +358,12 @@ async function setNotificationsEnabled(enabled) {
     await registerNotifyServiceWorker();
     const perm = await requestNotificationPermission();
     if (perm !== 'granted') {
-      state.settings.notificationsEnabled = false;
-      saveSettings(state.settings);
-      applyNotifySettingsUi();
+      persistNotifyPrefs({ enabled: false });
       setStatus(perm === 'denied' ? 'ไม่ได้รับอนุญาตแจ้งเตือน' : 'ยังไม่ได้เปิดแจ้งเตือน');
       return;
     }
   }
-  state.settings.notificationsEnabled = Boolean(enabled);
-  saveSettings(state.settings);
-  applyNotifySettingsUi();
-  refreshNoteNotifications();
+  persistNotifyPrefs({ enabled: Boolean(enabled) });
   setStatus(enabled ? 'เปิดแจ้งเตือนเครื่องแล้ว' : 'ปิดแจ้งเตือนเครื่องแล้ว');
 }
 
@@ -1628,8 +1701,37 @@ async function init() {
 
   els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
   els.notifyOnBtn?.addEventListener('click', () => setNotificationsEnabled(true));
+  els.notifyLabel?.addEventListener('change', () => {
+    persistNotifyPrefs({ label: els.notifyLabel.value.trim() || 'P-Note' });
+  });
+  els.notifyEarly?.addEventListener('change', () => {
+    persistNotifyPrefs({ earlyMinutes: Number(els.notifyEarly.value) || 0 });
+  });
+  els.notifyMinPriority?.addEventListener('change', () => {
+    persistNotifyPrefs({ minPriority: els.notifyMinPriority.value || 'normal' });
+  });
+  document.getElementById('notify-sound-seg')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-notify-sound]');
+    if (!btn) return;
+    persistNotifyPrefs({ sound: btn.dataset.notifySound === '1' });
+  });
+  document.getElementById('notify-vibrate-seg')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-notify-vibrate]');
+    if (!btn) return;
+    persistNotifyPrefs({ vibrate: btn.dataset.notifyVibrate === '1' });
+  });
+  document.getElementById('notify-preview-seg')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-notify-preview]');
+    if (!btn) return;
+    persistNotifyPrefs({ preview: btn.dataset.notifyPreview || 'full' });
+  });
+  document.getElementById('notify-style-seg')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-notify-persistent]');
+    if (!btn) return;
+    persistNotifyPrefs({ persistent: btn.dataset.notifyPersistent === '1' });
+  });
   els.notifyTestBtn?.addEventListener('click', async () => {
-    const result = await sendTestNotification();
+    const result = await sendTestNotification(getNotifyPrefs());
     if (result.ok) setStatus('ส่งแจ้งเตือนทดสอบแล้ว');
     else if (result.reason === 'denied') setStatus('ระบบบล็อกการแจ้งเตือน');
     else if (result.reason === 'unsupported') setStatus('ไม่รองรับการแจ้งเตือน');
@@ -1783,7 +1885,7 @@ async function init() {
     },
   });
   bootstrapData().then(async () => {
-    if (state.settings.notificationsEnabled) {
+    if (getNotifyPrefs().enabled) {
       await registerNotifyServiceWorker();
       if (notificationPermission() === 'granted') refreshNoteNotifications();
     }

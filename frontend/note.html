@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="77">
+  <meta name="pnote-build" content="78">
   <meta name="pnote-built" content="2026-07-11T02:15:00+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=77"></script>
+  <script src="js/cache-bootstrap.js?v=78"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=77">
+  <link rel="stylesheet" href="css/pnote.css?v=78">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -281,7 +281,7 @@
           </div>
           <p class="settings-hint">ใช้ร่วมกันทุกหน้า · จดจำอัตโนมัติ</p>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" id="notify-settings-row">
           <span class="settings-label">แจ้งเตือนเครื่อง</span>
           <div class="segmented" id="notify-segmented">
             <button id="notify-off-btn" type="button" class="active">ปิด</button>
@@ -290,9 +290,66 @@
           <p class="settings-hint" id="notify-hint">
             โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · แนะนำติดตั้ง P-Note บนหน้าจอโฮม
           </p>
-          <button id="notify-test-btn" class="btn btn-secondary" type="button" style="margin-top:0.45rem">
-            ทดสอบแจ้งเตือน
-          </button>
+          <div id="notify-options" class="notify-options" hidden>
+            <label class="notify-field">
+              <span>ป้ายกำกับ</span>
+              <input id="notify-label" type="text" maxlength="24" placeholder="P-Note" autocomplete="off">
+            </label>
+            <div class="notify-toggle-row">
+              <span>เสียง</span>
+              <div class="segmented segmented-sm" id="notify-sound-seg">
+                <button type="button" data-notify-sound="0">ปิด</button>
+                <button type="button" data-notify-sound="1" class="active">เปิด</button>
+              </div>
+            </div>
+            <div class="notify-toggle-row">
+              <span>สั่น</span>
+              <div class="segmented segmented-sm" id="notify-vibrate-seg">
+                <button type="button" data-notify-vibrate="0">ปิด</button>
+                <button type="button" data-notify-vibrate="1" class="active">เปิด</button>
+              </div>
+            </div>
+            <div class="notify-toggle-row">
+              <span>ตัวอย่างข้อความ</span>
+              <div class="segmented segmented-sm" id="notify-preview-seg">
+                <button type="button" data-notify-preview="full" class="active">เต็ม</button>
+                <button type="button" data-notify-preview="title">ชื่อ</button>
+                <button type="button" data-notify-preview="hidden">ซ่อน</button>
+              </div>
+            </div>
+            <div class="notify-toggle-row">
+              <span>รูปแบบ</span>
+              <div class="segmented segmented-sm" id="notify-style-seg">
+                <button type="button" data-notify-persistent="0" class="active">แบนเนอร์</button>
+                <button type="button" data-notify-persistent="1">ค้างจอ</button>
+              </div>
+            </div>
+            <div class="notify-toggle-row">
+              <span>แจ้งล่วงหน้า</span>
+              <select id="notify-early" class="notify-select">
+                <option value="0">ตรงเวลา</option>
+                <option value="5">ก่อน 5 นาที</option>
+                <option value="15">ก่อน 15 นาที</option>
+                <option value="30">ก่อน 30 นาที</option>
+                <option value="60">ก่อน 1 ชม.</option>
+              </select>
+            </div>
+            <div class="notify-toggle-row">
+              <span>ความสำคัญขั้นต่ำ</span>
+              <select id="notify-min-priority" class="notify-select">
+                <option value="normal">ทั้งหมด</option>
+                <option value="important">สำคัญขึ้นไป</option>
+                <option value="urgent">เร่งด่วนขึ้นไป</option>
+                <option value="critical">สำคัญเร่งด่วนเท่านั้น</option>
+              </select>
+            </div>
+            <div class="notify-field">
+              <span>แท็กที่แจ้งเตือน</span>
+              <div id="notify-tag-chips" class="notify-tag-chips" aria-label="เลือกแท็ก"></div>
+              <p class="settings-hint">ไม่เลือก = ทุกแท็ก · เลือกแล้วแจ้งเฉพาะโน้ตที่มีแท็กนั้น</p>
+            </div>
+            <button id="notify-test-btn" class="btn btn-secondary" type="button">ทดสอบแจ้งเตือน</button>
+          </div>
         </div>
         <div class="settings-row">
           <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
@@ -363,8 +420,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=77"></script>
-  <script src="js/fab-drag.js?v=77"></script>
+  <script src="js/page-nav.js?v=78"></script>
+  <script src="js/fab-drag.js?v=78"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -374,7 +431,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=77"></script>
-  <script src="js/update-watch.js?v=77"></script>
+  <script type="module" src="js/app.js?v=78"></script>
+  <script src="js/update-watch.js?v=78"></script>
 </body>
 </html>

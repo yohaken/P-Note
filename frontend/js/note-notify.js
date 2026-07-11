@@ -1,15 +1,24 @@
 /**
  * Device notifications for note schedules.
  * Uses Notification API + a lightweight SW (no caching).
- * Best when the PWA is open or recently used; iOS needs Home Screen install.
  */
+import { notePriority, NOTE_PRIORITY } from './notes.js?v=61';
+
 const NOTIFIED_KEY = 'pnote_notified_map';
 const SW_URL = './sw-notify.js';
-const MAX_TIMER_MS = 6 * 24 * 60 * 60 * 1000; // browsers clamp long timers
-const PAST_GRACE_MS = 3 * 60 * 60 * 1000; // still alert if overdue within 3h
+const MAX_TIMER_MS = 6 * 24 * 60 * 60 * 1000;
+const PAST_GRACE_MS = 3 * 60 * 60 * 1000;
+
+const PRIORITY_RANK = {
+  [NOTE_PRIORITY.NORMAL]: 0,
+  [NOTE_PRIORITY.IMPORTANT]: 1,
+  [NOTE_PRIORITY.URGENT]: 2,
+  [NOTE_PRIORITY.CRITICAL]: 3,
+};
 
 const timers = new Map();
 let swReg = null;
+let activePrefs = null;
 
 function loadNotified() {
   try {
@@ -64,8 +73,7 @@ export async function requestNotificationPermission() {
   if (Notification.permission === 'granted') return 'granted';
   if (Notification.permission === 'denied') return 'denied';
   try {
-    const result = await Notification.requestPermission();
-    return result;
+    return await Notification.requestPermission();
   } catch {
     return Notification.permission;
   }
@@ -76,53 +84,105 @@ function clearTimers() {
   timers.clear();
 }
 
-function noteBody(note) {
-  const when = note.scheduledAt ? new Date(note.scheduledAt) : null;
-  const time =
-    when && !Number.isNaN(when.getTime())
-      ? when.toLocaleString('th-TH', {
-          day: 'numeric',
-          month: 'short',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : '';
+function prefsOrDefault(prefs) {
+  return prefs && typeof prefs === 'object' ? prefs : activePrefs || {};
+}
+
+function noteMatchesPrefs(note, prefs) {
+  const p = prefsOrDefault(prefs);
+  const min = PRIORITY_RANK[p.minPriority] ?? 0;
+  const rank = PRIORITY_RANK[notePriority(note)] ?? 0;
+  if (rank < min) return false;
+
+  const tagIds = Array.isArray(p.tagIds) ? p.tagIds.filter(Boolean) : [];
+  if (tagIds.length) {
+    const noteTags = Array.isArray(note.tagIds) ? note.tagIds : [];
+    if (!tagIds.some((id) => noteTags.includes(id))) return false;
+  }
+  return true;
+}
+
+function formatWhen(iso) {
+  const when = iso ? new Date(iso) : null;
+  if (!when || Number.isNaN(when.getTime())) return '';
+  return when.toLocaleString('th-TH', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function buildTitle(note, prefs) {
+  const p = prefsOrDefault(prefs);
+  const label = String(p.label || 'P-Note').trim() || 'P-Note';
+  const noteTitle = (note.title && String(note.title).trim()) || 'โน้ตถึงกำหนด';
+  return `${label} · ${noteTitle}`;
+}
+
+function buildBody(note, prefs) {
+  const p = prefsOrDefault(prefs);
+  const previewMode = p.preview || 'full';
+  const time = formatWhen(note.scheduledAt);
+
+  if (previewMode === 'hidden') {
+    return time ? `ถึงกำหนด ${time}` : 'มีกำหนดการถึงเวลาแล้ว';
+  }
+  if (previewMode === 'title') {
+    return time || 'ถึงกำหนดแล้ว';
+  }
+
   const preview = String(note.content || '')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 80);
+    .slice(0, 100);
   if (time && preview) return `${time} · ${preview}`;
   if (time) return time;
   return preview || 'ถึงกำหนดแล้ว';
 }
 
-async function showNoteNotification(note) {
-  if (!notificationSupported() || Notification.permission !== 'granted') return false;
-  if (!note?.id || !note.scheduledAt) return false;
-  if (wasNotified(note.id, note.scheduledAt)) return false;
-
-  const title = (note.title && String(note.title).trim()) || 'โน้ตถึงกำหนด';
+function buildOptions(note, prefs, { test = false } = {}) {
+  const p = prefsOrDefault(prefs);
+  const silent = p.sound === false;
+  const vibrateOn = p.vibrate !== false && !silent;
   const options = {
-    body: noteBody(note),
-    tag: `pnote-${note.id}-${note.scheduledAt}`,
+    body: test ? 'ทดสอบการแจ้งเตือนตามค่าที่ตั้งไว้' : buildBody(note, p),
+    tag: test ? 'pnote-test' : `pnote-${note.id}-${note.scheduledAt}`,
     renotify: true,
+    silent,
+    requireInteraction: Boolean(p.persistent),
     data: {
-      noteId: note.id,
-      scheduledAt: note.scheduledAt,
+      noteId: note?.id || null,
+      scheduledAt: note?.scheduledAt || null,
       url: './note.html',
+      label: String(p.label || 'P-Note'),
     },
     icon: './icons/icon-192.png',
     badge: './icons/icon-192.png',
   };
+  if (vibrateOn) options.vibrate = [180, 80, 180];
+  return options;
+}
 
+async function displayNotification(title, options) {
+  const reg = swReg || (await navigator.serviceWorker?.getRegistration?.());
+  if (reg?.showNotification) {
+    await reg.showNotification(title, options);
+    return;
+  }
+  // eslint-disable-next-line no-new
+  new Notification(title, options);
+}
+
+async function showNoteNotification(note, prefs) {
+  if (!notificationSupported() || Notification.permission !== 'granted') return false;
+  if (!note?.id || !note.scheduledAt) return false;
+  if (wasNotified(note.id, note.scheduledAt)) return false;
+  if (!noteMatchesPrefs(note, prefs)) return false;
+
+  const p = prefsOrDefault(prefs);
   try {
-    const reg = swReg || (await navigator.serviceWorker?.getRegistration?.());
-    if (reg?.showNotification) {
-      await reg.showNotification(title, options);
-    } else {
-      // eslint-disable-next-line no-new
-      new Notification(title, options);
-    }
+    await displayNotification(buildTitle(note, p), buildOptions(note, p));
     markNotified(note.id, note.scheduledAt);
     return true;
   } catch (err) {
@@ -131,7 +191,14 @@ async function showNoteNotification(note) {
   }
 }
 
-function scheduleOne(note, fireAt) {
+function fireAtForNote(note, prefs) {
+  const t = new Date(note.scheduledAt).getTime();
+  if (!Number.isFinite(t)) return null;
+  const early = Math.max(0, Number(prefsOrDefault(prefs).earlyMinutes) || 0);
+  return t - early * 60 * 1000;
+}
+
+function scheduleOne(note, fireAt, prefs) {
   const delay = fireAt - Date.now();
   if (delay > MAX_TIMER_MS) return;
   if (timers.has(note.id)) {
@@ -139,22 +206,24 @@ function scheduleOne(note, fireAt) {
     timers.delete(note.id);
   }
   if (delay <= 0) {
-    showNoteNotification(note);
+    showNoteNotification(note, prefs);
     return;
   }
   const id = setTimeout(() => {
     timers.delete(note.id);
-    showNoteNotification(note);
+    showNoteNotification(note, prefs);
   }, delay);
   timers.set(note.id, id);
 }
 
 /**
- * @param {Array} notes active notes list
- * @param {{ enabled: boolean }} opts
+ * @param {Array} notes
+ * @param {object} prefs notifyPrefs from settings
  */
-export function syncNoteNotifications(notes, { enabled } = { enabled: false }) {
+export function syncNoteNotifications(notes, prefs = {}) {
+  activePrefs = prefs;
   clearTimers();
+  const enabled = Boolean(prefs?.enabled);
   if (!enabled || !notificationSupported() || Notification.permission !== 'granted') {
     return { scheduled: 0, dueNow: 0 };
   }
@@ -166,20 +235,23 @@ export function syncNoteNotifications(notes, { enabled } = { enabled: false }) {
 
   list.forEach((note) => {
     if (!note?.scheduledAt) return;
-    const t = new Date(note.scheduledAt).getTime();
-    if (!Number.isFinite(t)) return;
+    if (!noteMatchesPrefs(note, prefs)) return;
     if (wasNotified(note.id, note.scheduledAt)) return;
 
-    if (t <= now) {
-      if (now - t <= PAST_GRACE_MS) {
+    const fireAt = fireAtForNote(note, prefs);
+    if (fireAt == null) return;
+
+    if (fireAt <= now) {
+      const dueTime = new Date(note.scheduledAt).getTime();
+      if (now - dueTime <= PAST_GRACE_MS || now - fireAt <= PAST_GRACE_MS) {
         dueNow += 1;
-        showNoteNotification(note);
+        showNoteNotification(note, prefs);
       }
       return;
     }
 
-    if (t - now <= MAX_TIMER_MS) {
-      scheduleOne(note, t);
+    if (fireAt - now <= MAX_TIMER_MS) {
+      scheduleOne(note, fireAt, prefs);
       scheduled += 1;
     }
   });
@@ -187,7 +259,7 @@ export function syncNoteNotifications(notes, { enabled } = { enabled: false }) {
   return { scheduled, dueNow };
 }
 
-export async function sendTestNotification() {
+export async function sendTestNotification(prefs = {}) {
   if (!notificationSupported()) return { ok: false, reason: 'unsupported' };
   let perm = Notification.permission;
   if (perm !== 'granted') {
@@ -196,17 +268,10 @@ export async function sendTestNotification() {
   if (perm !== 'granted') return { ok: false, reason: perm };
 
   await registerNotifyServiceWorker();
-  const title = 'P-Note';
-  const options = {
-    body: 'ทดสอบการแจ้งเตือนเครื่องสำเร็จ',
-    tag: 'pnote-test',
-    data: { url: './note.html' },
-    icon: './icons/icon-192.png',
-  };
+  const p = prefsOrDefault(prefs);
+  const label = String(p.label || 'P-Note').trim() || 'P-Note';
   try {
-    const reg = swReg || (await navigator.serviceWorker?.getRegistration?.());
-    if (reg?.showNotification) await reg.showNotification(title, options);
-    else new Notification(title, options);
+    await displayNotification(`${label} · ทดสอบ`, buildOptions({ id: 'test', scheduledAt: new Date().toISOString(), title: 'ทดสอบ', content: '' }, p, { test: true }));
     return { ok: true };
   } catch (err) {
     return { ok: false, reason: String(err) };
