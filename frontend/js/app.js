@@ -1,5 +1,5 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=114';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=112';
+import { loadNotes, saveNotes, peekLocalNotesVersion } from './local.js?v=115';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=115';
 import { initListSortable } from './sortable.js?v=46';
 import { bindComposableInput } from './text-input.js?v=46';
 import { CONFIG } from './config.js?v=51';
@@ -38,7 +38,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=114';
+} from './notes.js?v=115';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -66,10 +66,11 @@ import {
   defaultDatetimeLocalValue,
   defaultScheduleIso,
   snoozeNote,
+  snoozeScheduledAt,
   SNOOZE_OPTIONS,
   normalizeSnoozeId,
-} from './schedule.js?v=114';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=114';
+} from './schedule.js?v=115';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=115';
 import {
   notificationPermission,
   notificationSupported,
@@ -77,20 +78,20 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   syncNoteNotifications,
-} from './note-notify.js?v=114';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=114';
+} from './note-notify.js?v=115';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=115';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=114';
-import { createInAppCamera } from './camera.js?v=114';
+} from './files.js?v=115';
+import { createInAppCamera } from './camera.js?v=115';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=114';
+} from './user-context.js?v=115';
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=64';
 import {
   fetchRemoteNotes,
@@ -98,7 +99,7 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=51';
-import { normalizeNotesData } from './notes.js?v=114';
+import { normalizeNotesData } from './notes.js?v=115';
 import { SaveManager } from './sync.js?v=46';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=46';
 
@@ -1783,12 +1784,30 @@ function contextMenuActions(note) {
   ];
 }
 
+function formatScheduleWhen(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('th-TH', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function openSnoozeMenu(noteId) {
   const note = getNoteById(noteId);
   if (!note) return;
 
   state.contextNoteId = noteId;
   els.noteContextMenu.innerHTML = '';
+
+  const hint = document.createElement('div');
+  hint.className = 'context-menu-hint';
+  hint.textContent = 'เลื่อนนัดครั้งนี้ · งานยังไม่เสร็จ · เตือนตามวันใหม่';
+  els.noteContextMenu.appendChild(hint);
 
   const back = document.createElement('button');
   back.type = 'button';
@@ -1798,10 +1817,12 @@ function openSnoozeMenu(noteId) {
   els.noteContextMenu.appendChild(back);
 
   SNOOZE_OPTIONS.forEach((opt) => {
+    const at = snoozeScheduledAt(note.scheduledAt, opt.id);
+    const when = formatScheduleWhen(at);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'context-menu-item';
-    btn.textContent = opt.label;
+    btn.textContent = when ? `${opt.label} · ${when}` : opt.label;
     btn.addEventListener('click', () => {
       closeContextMenu();
       applyNoteAction(noteId, 'snooze', { snoozeId: opt.id });
@@ -1876,8 +1897,8 @@ async function applyNoteAction(noteId, action, extra = {}) {
   if (action === 'done') {
     setStatus(advanced ? 'เลื่อนไปรอบถัดไป' : 'ย้ายไปทำแล้ว');
   } else if (action === 'snooze') {
-    const opt = SNOOZE_OPTIONS.find((o) => o.id === extra.snoozeId);
-    setStatus(opt ? `เลื่อนเป็น ${opt.label}` : 'เลื่อนนัดแล้ว');
+    const when = formatScheduleWhen(updated.scheduledAt);
+    setStatus(when ? `เลื่อนแล้ว · จะเตือน ${when}` : 'เลื่อนนัดแล้ว');
   } else if (action === 'trash') {
     setStatus('ย้ายไปถังขยะ');
   } else {

@@ -346,6 +346,8 @@ export function nextUpcomingOccurrenceIso(iso, freq) {
 
 /**
  * Complete a note: recurring → advance schedule and stay active; else mark done.
+ * If the occurrence was snoozed, advance from cycleAnchor (original cycle point),
+ * not from the postponed scheduledAt — so the series does not drift.
  * @param {object} note
  * @param {(n: object) => object} markDone
  */
@@ -354,7 +356,7 @@ export function completeOrAdvanceNote(note, markDone) {
   if (!recurrence) {
     return { note: markDone(note), advanced: false };
   }
-  const base = note.scheduledAt || new Date().toISOString();
+  const base = note.cycleAnchor || note.scheduledAt || new Date().toISOString();
   let next = nextOccurrenceIso(base, recurrence);
   const today = startOfDay().getTime();
   let guard = 0;
@@ -366,6 +368,7 @@ export function completeOrAdvanceNote(note, markDone) {
     note: {
       ...note,
       scheduledAt: next,
+      cycleAnchor: null,
       completedAt: null,
       updatedAt: new Date().toISOString(),
     },
@@ -399,7 +402,10 @@ export function setNoteSchedule(note, scheduledAt) {
 
 /**
  * Postpone this occurrence only — keep the note active, move scheduledAt.
- * Does not mark done and does not advance recurrence cycle.
+ * Does not mark done. For recurring notes, freezes cycleAnchor so "ทำแล้ว"
+ * still advances from the original cycle point (series does not drift).
+ *
+ * Reminder fires from the new scheduledAt (plus remind-before / notify-repeat).
  */
 export const SNOOZE_OPTIONS = [
   { id: '1d', label: 'พรุ่งนี้', short: '+1 ว' },
@@ -410,6 +416,12 @@ export const SNOOZE_OPTIONS = [
 
 export function normalizeSnoozeId(value) {
   return SNOOZE_OPTIONS.some((o) => o.id === value) ? value : null;
+}
+
+export function normalizeCycleAnchor(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 /**
@@ -454,12 +466,27 @@ export function snoozeScheduledAt(iso, snoozeId, now = new Date()) {
 export function snoozeNote(note, snoozeId) {
   const nextAt = snoozeScheduledAt(note?.scheduledAt, snoozeId);
   if (!nextAt) return note;
+
+  const hasRecurrence = Boolean(normalizeRecurrence(note?.recurrence));
+  // Freeze the pre-snooze due as cycle base (first snooze only).
+  let cycleAnchor = normalizeCycleAnchor(note?.cycleAnchor);
+  if (hasRecurrence && !cycleAnchor && note?.scheduledAt) {
+    cycleAnchor = normalizeCycleAnchor(note.scheduledAt);
+  }
+
   return {
     ...note,
     scheduledAt: nextAt,
+    cycleAnchor: hasRecurrence ? cycleAnchor : null,
     completedAt: null,
     updatedAt: new Date().toISOString(),
   };
+}
+
+/** Clear postpone anchor when the user manually sets a new due date. */
+export function clearCycleAnchor(note) {
+  if (!note?.cycleAnchor) return note;
+  return { ...note, cycleAnchor: null };
 }
 
 export function sortNotesBySchedule(notes) {
