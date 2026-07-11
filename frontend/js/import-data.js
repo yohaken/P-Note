@@ -1,4 +1,4 @@
-import { normalizeNotesData } from './notes.js?v=46';
+import { normalizeNotesData } from './notes.js?v=117';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -32,30 +32,73 @@ export function hasAnyNotes(data) {
 }
 
 export function mergeNotesData(target, incoming) {
-  const base = normalizeNotesData(target);
-  const add = normalizeNotesData(incoming);
-  const noteIds = new Set(base.notes.map((n) => n.id));
-  const tagIds = new Set(base.tags.map((t) => t.id));
-  const mergedTags = [...base.tags];
-  add.tags.forEach((tag) => {
-    if (!tagIds.has(tag.id)) {
-      tagIds.add(tag.id);
-      mergedTags.push(tag);
+  return mergeNotesByUpdatedAt(target, incoming);
+}
+
+/**
+ * Union tags/notes by id; when both sides have the same note id, keep the
+ * one with the newer updatedAt (tie → incoming wins).
+ */
+export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
+  const local = normalizeNotesData(localRaw);
+  const remote = normalizeNotesData(remoteRaw);
+
+  const tags = new Map();
+  local.tags.forEach((t) => tags.set(t.id, t));
+  remote.tags.forEach((t) => {
+    const prev = tags.get(t.id);
+    if (!prev) {
+      tags.set(t.id, t);
+      return;
     }
+    const pt = new Date(prev.createdAt || 0).getTime();
+    const nt = new Date(t.createdAt || 0).getTime();
+    // Prefer remote label/color if same id (shared catalog); keep stable id
+    tags.set(t.id, { ...prev, ...t, id: t.id });
+    void pt;
+    void nt;
   });
-  const mergedNotes = [...base.notes];
-  add.notes.forEach((note) => {
-    if (!noteIds.has(note.id)) {
-      noteIds.add(note.id);
-      mergedNotes.push(note);
-    }
+
+  const notes = new Map();
+  const takeNewer = (a, b) => {
+    const at = new Date(a?.updatedAt || 0).getTime();
+    const bt = new Date(b?.updatedAt || 0).getTime();
+    if (bt > at) return b;
+    if (at > bt) return a;
+    return b; // tie → prefer remote/incoming
+  };
+  local.notes.forEach((n) => notes.set(n.id, n));
+  remote.notes.forEach((n) => {
+    const prev = notes.get(n.id);
+    notes.set(n.id, prev ? takeNewer(prev, n) : n);
   });
+
+  const localAt = new Date(local.updatedAt || 0).getTime();
+  const remoteAt = new Date(remote.updatedAt || 0).getTime();
+
   return normalizeNotesData({
-    ...base,
-    tags: mergedTags,
-    notes: mergedNotes,
-    updatedAt: new Date().toISOString(),
+    version: Math.max(Number(local.version) || 5, Number(remote.version) || 5, 5),
+    tags: [...tags.values()],
+    notes: [...notes.values()],
+    updatedAt: new Date(Math.max(localAt, remoteAt, Date.now())).toISOString(),
   });
+}
+
+/** True if local has any note missing on remote or newer than remote's copy. */
+export function localNeedsRemotePush(localRaw, remoteRaw) {
+  const local = normalizeNotesData(localRaw);
+  const remote = normalizeNotesData(remoteRaw);
+  if (!hasAnyNotes(local)) return false;
+  if (!hasAnyNotes(remote)) return true;
+  const remoteById = new Map(remote.notes.map((n) => [n.id, n]));
+  for (const n of local.notes) {
+    const r = remoteById.get(n.id);
+    if (!r) return true;
+    if (new Date(n.updatedAt || 0).getTime() > new Date(r.updatedAt || 0).getTime()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function recoverLegacyLocalStorage() {

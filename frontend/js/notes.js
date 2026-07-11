@@ -156,6 +156,7 @@ export function createNote(title = '', content = '') {
     content,
     tagIds: [],
     attachments: [],
+    checklist: [],
     scheduledAt: null,
     recurrence: null,
     remindBefore: 'default',
@@ -180,7 +181,7 @@ export function createTag(name, color) {
   };
 }
 
-export function updateNote(note, { title, content, scheduledAt, recurrence, priority, remindBefore, notifyRepeat }) {
+export function updateNote(note, { title, content, scheduledAt, recurrence, priority, remindBefore, notifyRepeat, checklist }) {
   const next = {
     ...note,
     title: title !== undefined ? title.trim() : note.title,
@@ -214,6 +215,9 @@ export function updateNote(note, { title, content, scheduledAt, recurrence, prio
   }
   if (notifyRepeat !== undefined) {
     next.notifyRepeat = normalizeNotifyRepeat(notifyRepeat);
+  }
+  if (checklist !== undefined) {
+    next.checklist = normalizeChecklist(checklist);
   }
   if (priority !== undefined) {
     next.priority = Object.values(NOTE_PRIORITY).includes(priority)
@@ -249,6 +253,14 @@ export function applyManualOrder(data, orderedIds) {
 }
 
 export function previewText(note) {
+  const checks = normalizeChecklist(note?.checklist);
+  if (checks.length) {
+    const done = checks.filter((c) => c.done).length;
+    const open = checks.find((c) => !c.done);
+    const prog = `${done}/${checks.length}`;
+    if (open?.text) return `☑ ${prog} · ${open.text}`;
+    return `☑ ${prog} เสร็จครบ`;
+  }
   const text = String(note.content || '').replace(/\s+/g, ' ').trim();
   if (text) {
     return text.length > 120 ? `${text.slice(0, 120)}…` : text;
@@ -264,6 +276,43 @@ export function previewText(note) {
 
 export function noteHasContent(note) {
   return Boolean(previewText(note));
+}
+
+/** @param {unknown} raw @returns {{ id: string, text: string, done: boolean }[]} */
+export function normalizeChecklist(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  raw.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const text = String(item.text || item.title || '').trim().slice(0, 200);
+    if (!text) return;
+    out.push({
+      id: String(item.id || (typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `c-${Date.now()}-${out.length}`)),
+      text,
+      done: Boolean(item.done),
+    });
+  });
+  return out.slice(0, 40);
+}
+
+export function checklistProgress(note) {
+  const list = normalizeChecklist(note?.checklist);
+  if (!list.length) return null;
+  const done = list.filter((c) => c.done).length;
+  return { total: list.length, done, open: list.length - done };
+}
+
+export function toggleChecklistItem(note, itemId) {
+  const list = normalizeChecklist(note?.checklist).map((item) =>
+    item.id === itemId ? { ...item, done: !item.done } : item,
+  );
+  return {
+    ...note,
+    checklist: list,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 /** @param {unknown} raw */
@@ -389,6 +438,7 @@ export function normalizeNotesData(data) {
             ? note.remindBefore
             : 'default',
           notifyRepeat: normalizeNotifyRepeat(note.notifyRepeat),
+          checklist: normalizeChecklist(note.checklist),
           attachments: attachmentsForPersist(note.attachments),
           priority: Object.values(NOTE_PRIORITY).includes(note.priority)
             ? note.priority

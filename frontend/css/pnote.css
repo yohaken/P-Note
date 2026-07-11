@@ -3572,3 +3572,69 @@ body.light .priority-badge.priority-urgent {
   padding: 0.2rem 0.15rem;
   cursor: pointer;
 }
+
+/* Checklist in AI form */
+.ai-checklist {
+  margin: 0.55rem 0 0.35rem;
+}
+.ai-checklist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.ai-checklist-add {
+  border: 0;
+  background: transparent;
+  color: var(--accent, #4b8dff);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.15rem 0.25rem;
+  cursor: pointer;
+}
+.ai-checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.ai-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ai-checklist-row input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+}
+.ai-checklist-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+  font-size: 0.88rem;
+}
+.ai-checklist-row.is-done input[type="text"] {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+.ai-checklist-remove {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.15rem 0.3rem;
+  cursor: pointer;
+}
+.card-checklist-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
