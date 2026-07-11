@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss } from './settings.js?v=93';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=94';
 import {
   notificationPermission,
   notificationSupported,
@@ -163,6 +163,10 @@ const els = {
   dockAiBtn: null,
   dockScaleSlider: document.getElementById('dock-scale-slider'),
   dockScalePreview: document.getElementById('dock-scale-preview'),
+  dockOffsetYSlider: document.getElementById('dock-offset-y-slider'),
+  aiNoteScheduleBtn: document.getElementById('ai-note-schedule-btn'),
+  aiNoteScheduleValue: document.getElementById('ai-note-schedule-value'),
+  aiNoteScheduleClear: document.getElementById('ai-note-schedule-clear'),
   bottomNav: null,
   healthModeBtn: null,
   groupNavBtn: document.getElementById('group-nav-btn'),
@@ -305,12 +309,21 @@ function applyCardDensity() {
 
 function applyDockScale() {
   const scale = dockScaleToCss(state.settings.dockScale ?? 50);
+  const lift = dockOffsetYToLiftPx(state.settings.dockOffsetY ?? 70);
   const value = String(scale);
-  if (els.filterDock) els.filterDock.style.setProperty('--dock-scale', value);
+  if (els.filterDock) {
+    els.filterDock.style.setProperty('--dock-scale', value);
+    els.filterDock.style.setProperty('--dock-lift', `${lift}px`);
+  }
   if (els.dockScalePreview) els.dockScalePreview.style.setProperty('--dock-scale', value);
   if (els.dockScaleSlider) {
     els.dockScaleSlider.value = String(
       Number.isFinite(state.settings.dockScale) ? state.settings.dockScale : 50,
+    );
+  }
+  if (els.dockOffsetYSlider) {
+    els.dockOffsetYSlider.value = String(
+      Number.isFinite(state.settings.dockOffsetY) ? state.settings.dockOffsetY : 70,
     );
   }
   applyDockOffset();
@@ -1567,8 +1580,16 @@ let aiPendingMedia = [];
 /** @type {Array<{ name: string, isNew: boolean, on: boolean }>} */
 let aiTagDraft = [];
 
-const AI_SUMMARIZE_LABEL = 'สรุปด้วย AI';
+const AI_SUMMARIZE_LABEL = 'สรุป';
 let aiStatusResetTimer = null;
+
+function setAiSummarizeLabel(text) {
+  const btn = els.aiNoteSummarizeBtn;
+  if (!btn) return;
+  const label = btn.querySelector('.ai-sum-label');
+  if (label) label.textContent = text;
+  else btn.textContent = text;
+}
 
 /** Short status on the summarize button (no external status line). */
 function setAiNoteStatus(message, { kind = 'idle', restoreMs = 0 } = {}) {
@@ -1580,22 +1601,73 @@ function setAiNoteStatus(message, { kind = 'idle', restoreMs = 0 } = {}) {
   }
   btn.classList.remove('is-working', 'is-done', 'is-error');
   if (!message || kind === 'idle') {
-    btn.textContent = AI_SUMMARIZE_LABEL;
+    setAiSummarizeLabel(AI_SUMMARIZE_LABEL);
     return;
   }
-  const short = String(message).length > 16 ? `${String(message).slice(0, 15)}…` : String(message);
-  btn.textContent = short;
+  const short = String(message).length > 10 ? `${String(message).slice(0, 9)}…` : String(message);
+  setAiSummarizeLabel(short);
   if (kind === 'working') btn.classList.add('is-working');
   else if (kind === 'done') btn.classList.add('is-done');
   else if (kind === 'error') btn.classList.add('is-error');
   if (restoreMs > 0) {
     aiStatusResetTimer = setTimeout(() => {
       if (aiNoteBusy) return;
-      btn.textContent = AI_SUMMARIZE_LABEL;
+      setAiSummarizeLabel(AI_SUMMARIZE_LABEL);
       btn.classList.remove('is-working', 'is-done', 'is-error');
       aiStatusResetTimer = null;
     }, restoreMs);
   }
+}
+
+function formatAiScheduleLabel(localValue) {
+  if (!localValue) return '';
+  const iso = fromDatetimeLocalValue(localValue);
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const day = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+    const time = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return `${day} · ${time}`;
+  } catch {
+    return shortDate(iso) || '';
+  }
+}
+
+function syncAiScheduleDisplay() {
+  const raw = els.aiNoteDraftSchedule?.value || '';
+  const label = formatAiScheduleLabel(raw);
+  if (els.aiNoteScheduleValue) {
+    els.aiNoteScheduleValue.textContent = label || 'ยังไม่ตั้ง';
+    els.aiNoteScheduleValue.classList.toggle('is-empty', !label);
+  }
+  if (els.aiNoteScheduleClear) els.aiNoteScheduleClear.hidden = !raw;
+  if (els.aiNoteScheduleBtn) {
+    els.aiNoteScheduleBtn.classList.toggle('has-value', Boolean(raw));
+  }
+}
+
+function openAiSchedulePicker() {
+  const input = els.aiNoteDraftSchedule;
+  if (!input) return;
+  try {
+    if (typeof input.showPicker === 'function') input.showPicker();
+    else input.click();
+  } catch {
+    input.focus();
+    input.click();
+  }
+}
+
+function initAiScheduleControls() {
+  els.aiNoteScheduleBtn?.addEventListener('click', openAiSchedulePicker);
+  els.aiNoteDraftSchedule?.addEventListener('change', syncAiScheduleDisplay);
+  els.aiNoteDraftSchedule?.addEventListener('input', syncAiScheduleDisplay);
+  els.aiNoteScheduleClear?.addEventListener('click', () => {
+    if (els.aiNoteDraftSchedule) els.aiNoteDraftSchedule.value = '';
+    syncAiScheduleDisplay();
+  });
+  syncAiScheduleDisplay();
 }
 
 function seedExistingTagChips() {
@@ -1705,6 +1777,7 @@ function applyAiDraftToForm(draft) {
   if (els.aiNoteDraftSchedule) {
     els.aiNoteDraftSchedule.value = toDatetimeLocalValue(draft.scheduledAt);
   }
+  syncAiScheduleDisplay();
   if (els.aiNoteDraftPriority) {
     const p = draft.priority;
     els.aiNoteDraftPriority.value = Object.values(NOTE_PRIORITY).includes(p)
@@ -1796,9 +1869,10 @@ function openAddNoteModal() {
   if (els.aiNoteDraftRecurrence) els.aiNoteDraftRecurrence.value = '';
   clearAiPendingMedia();
   seedExistingTagChips();
+  syncAiScheduleDisplay();
   setAiNoteStatus('');
   els.aiNoteModal.hidden = false;
-  queueMicrotask(() => els.aiNoteDraftTitle?.focus() || els.aiNoteSource?.focus());
+  queueMicrotask(() => els.aiNoteSource?.focus() || els.aiNoteDraftTitle?.focus());
 }
 
 function closeAiNoteModal() {
@@ -1937,7 +2011,6 @@ async function confirmAiNoteDraft() {
   };
   state.draftNoteId = null;
   closeAiNoteModal();
-  openEditor(note.id);
   try {
     await saveManager.saveNow(() => state.notesData);
   } catch (err) {
@@ -2504,6 +2577,12 @@ async function init() {
     saveSettings(state.settings);
     applyDockScale();
   });
+  els.dockOffsetYSlider?.addEventListener('input', () => {
+    state.settings.dockOffsetY = Number(els.dockOffsetYSlider.value);
+    saveSettings(state.settings);
+    applyDockScale();
+  });
+  initAiScheduleControls();
   els.thicknessSort.addEventListener('input', () => {
     state.settings.barThickness.sort = Number(els.thicknessSort.value);
     saveSettings(state.settings);

@@ -17,6 +17,7 @@ const DEFAULTS = {
   theme: 'dark',
   cardDensity: 0,
   dockScale: 50,
+  dockOffsetY: 70,
   sortMode: 'updated',
   tagFilterId: null,
   priorityFilter: null,
@@ -97,6 +98,7 @@ export function loadSettings() {
         geminiApiKey: '',
         geminiModel: DEFAULTS.geminiModel,
         dockScale: DEFAULTS.dockScale,
+        dockOffsetY: DEFAULTS.dockOffsetY,
       };
     }
     const parsed = JSON.parse(raw);
@@ -106,6 +108,7 @@ export function loadSettings() {
       theme: parsed.theme === 'light' ? 'light' : 'dark',
       cardDensity: clampPct(parsed.cardDensity),
       dockScale: clampPct(parsed.dockScale, 50),
+      dockOffsetY: clampPct(parsed.dockOffsetY, 70),
       sortMode: SORT_MODES.includes(parsed.sortMode) ? parsed.sortMode : 'updated',
       tagFilterId: normalizeTagFilterId(parsed.tagFilterId),
       priorityFilter: normalizePriorityFilter(parsed.priorityFilter),
@@ -134,6 +137,7 @@ export function loadSettings() {
       geminiApiKey: '',
       geminiModel: DEFAULTS.geminiModel,
       dockScale: DEFAULTS.dockScale,
+      dockOffsetY: DEFAULTS.dockOffsetY,
     };
   }
 }
@@ -161,6 +165,13 @@ export function densityToCssUnit(percent) {
 export function dockScaleToCss(percent) {
   const p = Math.min(100, Math.max(0, Number(percent) || 0)) / 100;
   return Number((0.78 + p * 0.54).toFixed(3));
+}
+
+/** Map dockOffsetY 0..100 → extra top padding lift (px). Higher = lower on screen. */
+export function dockOffsetYToLiftPx(percent) {
+  const p = Math.min(100, Math.max(0, Number(percent) || 0)) / 100;
+  // 0 → 14px lift (higher), 100 → 0px (flush down toward home indicator)
+  return Number(((1 - p) * 14).toFixed(1));
 }
 
 /** Map thickness 0..100 (thin) → bar padding + chip scale (wider range, ultra-thin at 100). */
