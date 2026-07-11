@@ -397,6 +397,71 @@ export function setNoteSchedule(note, scheduledAt) {
   };
 }
 
+/**
+ * Postpone this occurrence only — keep the note active, move scheduledAt.
+ * Does not mark done and does not advance recurrence cycle.
+ */
+export const SNOOZE_OPTIONS = [
+  { id: '1d', label: 'พรุ่งนี้', short: '+1 ว' },
+  { id: '3d', label: '+3 วัน', short: '+3 ว' },
+  { id: '1w', label: '+1 สัปดาห์', short: '+1 ส.' },
+  { id: '1mo', label: '+1 เดือน', short: '+1 ด.' },
+];
+
+export function normalizeSnoozeId(value) {
+  return SNOOZE_OPTIONS.some((o) => o.id === value) ? value : null;
+}
+
+/**
+ * Compute new scheduledAt for a snooze.
+ * Uses existing time-of-day; if overdue/missing → today (or now) then add offset.
+ */
+export function snoozeScheduledAt(iso, snoozeId, now = new Date()) {
+  const id = normalizeSnoozeId(snoozeId);
+  if (!id) return iso || null;
+
+  let d = iso ? new Date(iso) : new Date(defaultScheduleIso(now));
+  if (Number.isNaN(d.getTime())) d = new Date(defaultScheduleIso(now));
+
+  if (d.getTime() < now.getTime()) {
+    const todaySameTime = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      d.getHours(),
+      d.getMinutes(),
+      0,
+      0,
+    );
+    d = todaySameTime.getTime() >= now.getTime()
+      ? todaySameTime
+      : new Date(defaultScheduleIso(now));
+    // If default 09:00 today is still in the past, start from now (keep minutes rounded).
+    if (d.getTime() < now.getTime()) {
+      d = new Date(now);
+      d.setSeconds(0, 0);
+    }
+  }
+
+  if (id === '1d') d.setDate(d.getDate() + 1);
+  else if (id === '3d') d.setDate(d.getDate() + 3);
+  else if (id === '1w') d.setDate(d.getDate() + 7);
+  else if (id === '1mo') d.setMonth(d.getMonth() + 1);
+
+  return d.toISOString();
+}
+
+export function snoozeNote(note, snoozeId) {
+  const nextAt = snoozeScheduledAt(note?.scheduledAt, snoozeId);
+  if (!nextAt) return note;
+  return {
+    ...note,
+    scheduledAt: nextAt,
+    completedAt: null,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export function sortNotesBySchedule(notes) {
   const withSchedule = notes
     .filter((n) => n.scheduledAt)
