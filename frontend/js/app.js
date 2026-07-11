@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=118';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=118';
-import { initListSortable } from './sortable.js?v=118';
-import { bindComposableInput } from './text-input.js?v=118';
-import { CONFIG } from './config.js?v=118';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=118';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=119';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=119';
+import { initListSortable } from './sortable.js?v=119';
+import { bindComposableInput } from './text-input.js?v=119';
+import { CONFIG } from './config.js?v=119';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=119';
 import {
   addTag,
   countNotesByTag,
@@ -41,7 +41,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=118';
+} from './notes.js?v=119';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -76,8 +76,8 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
-} from './schedule.js?v=118';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=118';
+} from './schedule.js?v=119';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=119';
 import {
   notificationPermission,
   notificationSupported,
@@ -86,30 +86,30 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=118';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=118';
+} from './note-notify.js?v=119';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=119';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=118';
-import { createInAppCamera } from './camera.js?v=118';
+} from './files.js?v=119';
+import { createInAppCamera } from './camera.js?v=119';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=118';
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=118';
+} from './user-context.js?v=119';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=119';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=118';
-import { normalizeNotesData } from './notes.js?v=118';
-import { SaveManager } from './sync.js?v=118';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=118';
+} from './remote.js?v=119';
+import { normalizeNotesData } from './notes.js?v=119';
+import { SaveManager } from './sync.js?v=119';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=119';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -129,6 +129,8 @@ const state = {
   contextNoteId: null,
   draftNoteId: null,
   tagReorderMode: false,
+  selectionMode: false,
+  selectedIds: new Set(),
 };
 
 const saveManager = new SaveManager();
@@ -244,6 +246,10 @@ const els = {
   filterTagBtn: document.getElementById('filter-tag-btn'),
   filterTagMenu: document.getElementById('filter-tag-menu'),
   filterDdBackdrop: document.getElementById('filter-dd-backdrop'),
+  selectionDock: document.getElementById('selection-dock'),
+  selectionCancelBtn: document.getElementById('selection-cancel-btn'),
+  selectionCountLabel: document.getElementById('selection-count-label'),
+  selectionDockActions: document.getElementById('selection-dock-actions'),
   dockAiBtn: null,
   dockScaleSlider: document.getElementById('dock-scale-slider'),
   dockScalePreview: document.getElementById('dock-scale-preview'),
@@ -972,11 +978,218 @@ const SORT_FILTER_OPTIONS = [
 ];
 
 function updateFilterDockVisibility() {
-  if (!els.filterDock) return;
-  const show = state.view === 'list' && state.listGroup === NOTE_STATUS.ACTIVE;
-  els.filterDock.hidden = !show;
-  if (!show) closeFilterMenus();
+  const list = state.view === 'list';
+  const selecting = list && state.selectionMode;
+  if (els.filterDock) {
+    const showFilters = list && state.listGroup === NOTE_STATUS.ACTIVE && !state.selectionMode;
+    els.filterDock.hidden = !showFilters;
+    if (!showFilters) closeFilterMenus();
+  }
+  if (els.selectionDock) {
+    els.selectionDock.hidden = !selecting;
+  }
+  document.body.classList.toggle('selection-mode', Boolean(selecting));
   applyDockOffset();
+  if (selecting) renderSelectionDock();
+}
+
+function cloneNoteSnapshot(note) {
+  if (!note) return null;
+  try {
+    return structuredClone(note);
+  } catch {
+    return JSON.parse(JSON.stringify(note));
+  }
+}
+
+function selectionCount() {
+  return state.selectedIds?.size || 0;
+}
+
+function isNoteSelected(noteId) {
+  return Boolean(state.selectedIds?.has(noteId));
+}
+
+function enterSelectionMode(noteId) {
+  closeContextMenu();
+  closeFilterMenus();
+  state.selectionMode = true;
+  state.selectedIds = new Set(noteId ? [noteId] : []);
+  updateFilterDockVisibility();
+  renderNotesList();
+  setStatus(noteId ? 'เลือกแล้ว · แตะรายการอื่นต่อ' : 'โหมดเลือก');
+}
+
+function exitSelectionMode({ silent = false } = {}) {
+  if (!state.selectionMode && !(state.selectedIds?.size)) return;
+  state.selectionMode = false;
+  state.selectedIds = new Set();
+  updateFilterDockVisibility();
+  renderNotesList();
+  if (!silent) setStatus('');
+}
+
+function toggleNoteSelected(noteId) {
+  if (!noteId) return;
+  if (!state.selectionMode) {
+    enterSelectionMode(noteId);
+    return;
+  }
+  if (state.selectedIds.has(noteId)) state.selectedIds.delete(noteId);
+  else state.selectedIds.add(noteId);
+  if (state.selectedIds.size === 0) {
+    exitSelectionMode({ silent: true });
+    return;
+  }
+  renderSelectionDock();
+  // Update card chrome without full list rebuild when possible
+  const safeId = String(noteId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const card = els.notesList?.querySelector(`.note-card[data-note-id="${safeId}"]`);
+  if (card) card.classList.toggle('is-selected', isNoteSelected(noteId));
+  else renderNotesList();
+}
+
+function batchActionsForGroup() {
+  if (state.listGroup === NOTE_STATUS.ACTIVE) {
+    return [
+      { id: 'done', label: 'ทำแล้ว', className: 'primary' },
+      { id: 'trash', label: 'ลบ', className: 'danger' },
+    ];
+  }
+  if (state.listGroup === NOTE_STATUS.DONE) {
+    return [
+      { id: 'restore', label: 'คืนเป็นงาน', className: 'primary' },
+      { id: 'trash', label: 'ลบ', className: 'danger' },
+    ];
+  }
+  return [
+    { id: 'restore', label: 'กู้คืน', className: 'primary' },
+    { id: 'purge', label: 'ลบถาวร', className: 'danger' },
+  ];
+}
+
+function renderSelectionDock() {
+  if (!els.selectionDock) return;
+  const n = selectionCount();
+  if (els.selectionCountLabel) {
+    els.selectionCountLabel.textContent = `${n} รายการ`;
+  }
+  if (!els.selectionDockActions) return;
+  els.selectionDockActions.innerHTML = '';
+  batchActionsForGroup().forEach((a) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `selection-dock-btn${a.className ? ` ${a.className}` : ''}`;
+    btn.textContent = a.label;
+    btn.disabled = n === 0;
+    btn.addEventListener('click', () => applyBatchAction(a.id));
+    els.selectionDockActions.appendChild(btn);
+  });
+}
+
+async function applyBatchAction(action) {
+  const ids = [...(state.selectedIds || [])];
+  if (!ids.length) return;
+
+  if (action === 'trash' && ids.length >= 2) {
+    const ok = await showConfirm(`ลบ ${ids.length} รายการไปถังขยะ?`, {
+      okLabel: 'ลบ',
+      danger: true,
+    });
+    if (!ok) return;
+  }
+  if (action === 'purge') {
+    const ok = await showConfirm(`ลบถาวร ${ids.length} รายการ? กู้คืนไม่ได้`, {
+      okLabel: 'ลบถาวร',
+      danger: true,
+    });
+    if (!ok) return;
+  }
+
+  const snapshots = ids.map((id) => cloneNoteSnapshot(getNoteById(id))).filter(Boolean);
+  let data = state.notesData;
+  let advancedCount = 0;
+  let changed = 0;
+
+  if (action === 'purge') {
+    ids.forEach((id) => {
+      data = purgeNote(id, data);
+      changed += 1;
+    });
+    state.notesData = data;
+    autosave();
+    exitSelectionMode({ silent: true });
+    renderNotesList();
+    refreshNoteNotifications();
+    setStatus(`ลบถาวร ${changed} รายการ`);
+    return;
+  }
+
+  for (const id of ids) {
+    const note = data.notes.find((n) => n.id === id);
+    if (!note) continue;
+    let updated = note;
+    if (action === 'done') {
+      const result = completeOrAdvanceNote(note, markNoteDone);
+      updated = result.note;
+      if (result.advanced) advancedCount += 1;
+    } else if (action === 'trash') {
+      updated = moveNoteToTrash(note);
+    } else if (action === 'restore') {
+      updated =
+        state.listGroup === NOTE_STATUS.TRASH
+          ? restoreNoteFromTrash(note)
+          : markNoteActive(note);
+    } else {
+      continue;
+    }
+    data = updateNoteInData(data, updated);
+    changed += 1;
+  }
+
+  if (!changed) return;
+
+  state.notesData = data;
+  autosave();
+  exitSelectionMode({ silent: true });
+  renderNotesList();
+  refreshNoteNotifications();
+
+  const undo = () => {
+    let restored = state.notesData;
+    snapshots.forEach((snap) => {
+      restored = updateNoteInData(restored, snap);
+    });
+    state.notesData = restored;
+    autosave();
+    renderNotesList();
+    refreshNoteNotifications();
+    setStatus('เลิกทำแล้ว');
+  };
+
+  if (action === 'done') {
+    const msg =
+      advancedCount && advancedCount === changed
+        ? `เลื่อนรอบถัดไป ${changed} รายการ`
+        : advancedCount
+          ? `ทำแล้ว ${changed} รายการ (ซ้ำ ${advancedCount})`
+          : `ย้ายไปทำแล้ว ${changed} รายการ`;
+    setStatus(msg, { undo });
+  } else if (action === 'trash') {
+    setStatus(`ย้ายไปถังขยะ ${changed} รายการ`, { undo });
+  } else {
+    setStatus(`กู้คืน ${changed} รายการ`, { undo });
+  }
+}
+
+function initSelectionDock() {
+  els.selectionCancelBtn?.addEventListener('click', () => exitSelectionMode());
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state.selectionMode) {
+      e.preventDefault();
+      exitSelectionMode();
+    }
+  });
 }
 
 function syncFilterMenuChrome(open) {
@@ -1922,8 +2135,14 @@ function finishConfirm(ok) {
 }
 
 function contextMenuActions(note) {
+  const selectItem = {
+    id: 'select',
+    label: 'เลือก',
+    action: () => enterSelectionMode(note.id),
+  };
   if (state.listGroup === NOTE_STATUS.ACTIVE) {
     return [
+      selectItem,
       { id: 'done', label: 'ทำแล้ว', action: () => applyNoteAction(note.id, 'done') },
       { id: 'snooze', label: 'เลื่อน…', action: () => openSnoozeMenu(note.id) },
       { id: 'trash', label: 'ลบ', danger: true, action: () => applyNoteAction(note.id, 'trash') },
@@ -1931,11 +2150,13 @@ function contextMenuActions(note) {
   }
   if (state.listGroup === NOTE_STATUS.DONE) {
     return [
+      selectItem,
       { id: 'restore', label: 'คืนเป็นงาน', action: () => applyNoteAction(note.id, 'restore') },
       { id: 'trash', label: 'ลบ', danger: true, action: () => applyNoteAction(note.id, 'trash') },
     ];
   }
   return [
+    selectItem,
     { id: 'restore', label: 'กู้คืน', action: () => applyNoteAction(note.id, 'restore') },
     {
       id: 'purge',
@@ -2130,6 +2351,7 @@ async function applyNoteAction(noteId, action, extra = {}) {
 function cardActionsFor(note) {
   if (state.listGroup === NOTE_STATUS.ACTIVE) {
     return [
+      { label: '☑', title: 'เลือก', action: 'select' },
       { label: '✓', title: 'ทำแล้ว', action: 'done' },
       { label: '⏳', title: 'เลื่อน', action: 'snooze' },
       { label: '🗑', title: 'ลบ', danger: true, action: 'trash' },
@@ -2137,11 +2359,13 @@ function cardActionsFor(note) {
   }
   if (state.listGroup === NOTE_STATUS.DONE) {
     return [
+      { label: '☑', title: 'เลือก', action: 'select' },
       { label: '↩', title: 'คืนเป็นงาน', action: 'restore' },
       { label: '🗑', title: 'ลบ', danger: true, action: 'trash' },
     ];
   }
   return [
+    { label: '☑', title: 'เลือก', action: 'select' },
     { label: '↩', title: 'กู้คืน', action: 'restore' },
     { label: '✕', title: 'ลบถาวร', danger: true, action: 'purge' },
   ];
@@ -2159,6 +2383,10 @@ function appendCardActions(item, note) {
     btn.setAttribute('aria-label', a.title);
     btn.addEventListener('click', (event) => {
       event.stopPropagation();
+      if (a.action === 'select') {
+        toggleNoteSelected(note.id);
+        return;
+      }
       applyNoteAction(note.id, a.action);
     });
     wrap.appendChild(btn);
@@ -2172,7 +2400,10 @@ function reorderNotes(orderedIds) {
 }
 
 function applyDockOffset() {
-  const dock = els.filterDock;
+  const dock =
+    state.selectionMode && els.selectionDock && !els.selectionDock.hidden
+      ? els.selectionDock
+      : els.filterDock;
   if (!dock || dock.hidden) {
     document.documentElement.style.setProperty('--filters-dock-h', '0px');
     return;
@@ -2183,9 +2414,11 @@ function applyDockOffset() {
 
 let filtersDockObserver = null;
 function ensureFiltersDockObserver() {
-  if (filtersDockObserver || !els.filterDock || typeof ResizeObserver === 'undefined') return;
+  if (filtersDockObserver || typeof ResizeObserver === 'undefined') return;
+  const targets = [els.filterDock, els.selectionDock].filter(Boolean);
+  if (!targets.length) return;
   filtersDockObserver = new ResizeObserver(() => applyDockOffset());
-  filtersDockObserver.observe(els.filterDock);
+  targets.forEach((el) => filtersDockObserver.observe(el));
 }
 
 function renderNotesList() {
@@ -2215,6 +2448,8 @@ function renderNotesList() {
     item.tabIndex = 0;
     if (state.listGroup === NOTE_STATUS.DONE) item.classList.add('done-card');
     if (state.listGroup === NOTE_STATUS.TRASH) item.classList.add('trash-card');
+    if (state.selectionMode) item.classList.add('is-select-mode');
+    if (state.selectionMode && isNoteSelected(note.id)) item.classList.add('is-selected');
 
     const priority = notePriority(note);
     const prioColors = normalizePriorityColors(state.settings.priorityColors);
@@ -2247,7 +2482,19 @@ function renderNotesList() {
 
     appendCardAttachments(item, note);
 
-    if (manual) {
+    if (state.selectionMode) {
+      attachNoteCardInteractions(item, {
+        noteId: note.id,
+        onTap: () => toggleNoteSelected(note.id),
+        onLongPress: () => toggleNoteSelected(note.id),
+      });
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleNoteSelected(note.id);
+        }
+      });
+    } else if (manual) {
       appendCardActions(item, note);
       // Tap + long-press drag handled by the list-level sortable.
     } else {
@@ -4054,6 +4301,7 @@ function renderTagManager() {
 }
 
 function openEditor(noteId) {
+  exitSelectionMode({ silent: true });
   // Unified AI form is the editor for all notes.
   openEditNoteModal(noteId);
 }
@@ -4116,6 +4364,7 @@ function reapplyBarLayout() {
 }
 
 function setListGroup(group) {
+  exitSelectionMode({ silent: true });
   state.listGroup = group;
   if (group === NOTE_STATUS.ACTIVE) {
     applySavedFilters();
@@ -4734,8 +4983,11 @@ async function init() {
   els.backBtn.addEventListener('click', backToList);
 
   initListSortable(els.notesList, {
-    isEnabled: isManualMode,
-    onTap: (noteId) => openEditor(noteId),
+    isEnabled: () => isManualMode() && !state.selectionMode,
+    onTap: (noteId) => {
+      if (state.selectionMode) toggleNoteSelected(noteId);
+      else openEditor(noteId);
+    },
     onReorder: (ids) => reorderNotes(ids),
   });
 
@@ -4808,6 +5060,7 @@ async function init() {
 
   initSwipeBack();
   initFilterDock();
+  initSelectionDock();
   bootstrapData().then(async () => {
     if (getNotifyPrefs().enabled) {
       await registerNotifyServiceWorker();

@@ -506,6 +506,114 @@ body.bars-dragging .list-scroll {
   padding: 0.5rem 0.75rem calc(0.75rem + var(--filters-dock-h, 0px));
 }
 
+/* Multi-select batch dock (replaces filter dock while selecting) */
+.selection-dock {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 56;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.28);
+}
+.selection-dock[hidden] {
+  display: none !important;
+}
+.selection-dock-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.65rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.selection-dock-cancel {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.42rem 0.65rem;
+  border-radius: 999px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.selection-dock-count {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.selection-dock-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+.selection-dock-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0.42rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.selection-dock-btn.primary {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent);
+}
+.selection-dock-btn.danger {
+  color: #ff6b6b;
+  border-color: color-mix(in srgb, #ff6b6b 45%, var(--border));
+}
+body.selection-mode .fab-stack {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.note-card.is-select-mode {
+  cursor: pointer;
+}
+.note-card.is-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.note-card.is-select-mode .card-split-row::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.15rem 0.35rem 0 0;
+  border-radius: 999px;
+  border: 2px solid var(--border-strong);
+  box-sizing: border-box;
+  align-self: flex-start;
+}
+.note-card.is-selected.is-select-mode .card-split-row::before {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--surface);
+}
+
 /* Single-row multi-filter dock (fixed bottom, centered cluster) */
 .filter-dock {
   --dock-scale: 1;
