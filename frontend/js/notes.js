@@ -1,4 +1,4 @@
-import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=115';
+import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=116';
 
 export const TAG_PALETTE = [
   '#6c63ff',
@@ -56,6 +56,20 @@ export function priorityLabel(priority, { short = false } = {}) {
 export function filterNotesByPriority(notes, priority) {
   if (!priority) return notes;
   return notes.filter((note) => notePriority(note) === priority);
+}
+
+/** Case-insensitive match on title + content (+ tag names if provided). */
+export function filterNotesBySearch(notes, query, tags = []) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return notes;
+  const tagById = new Map((tags || []).map((t) => [t.id, String(t.name || '').toLowerCase()]));
+  return notes.filter((note) => {
+    const title = String(note.title || '').toLowerCase();
+    const content = String(note.content || '').toLowerCase();
+    if (title.includes(q) || content.includes(q)) return true;
+    const ids = Array.isArray(note.tagIds) ? note.tagIds : [];
+    return ids.some((id) => (tagById.get(id) || '').includes(q));
+  });
 }
 
 export function countNotesByPriority(notes, priority) {

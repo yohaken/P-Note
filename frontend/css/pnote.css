@@ -3479,3 +3479,96 @@ body.light .priority-badge.priority-urgent {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Search row */
+.note-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem 0.45rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  z-index: 49;
+}
+.note-search-row[hidden] { display: none !important; }
+.note-search-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.65rem;
+  font-size: 0.9rem;
+}
+.note-search-clear {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.25rem 0.4rem;
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.fab-blank {
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.snooze-pick-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.65rem;
+  font-size: 0.95rem;
+}
+
+/* Action toast + undo */
+.action-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(5.4rem + var(--safe-bottom));
+  transform: translateX(-50%) translateY(8px);
+  z-index: 88;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  max-width: min(92vw, 380px);
+  padding: 0.55rem 0.75rem 0.55rem 0.9rem;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.action-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.action-toast[hidden]:not(.visible) { display: none; }
+.action-toast-undo {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent, #4b8dff);
+  font-weight: 600;
+  font-size: 0.84rem;
+  padding: 0.2rem 0.15rem;
+  cursor: pointer;
+}

@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="115">
-  <meta name="pnote-built" content="2026-07-11T16:13:34+07:00">
+  <meta name="pnote-build" content="116">
+  <meta name="pnote-built" content="2026-07-11T16:22:48+07:00">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=115"></script>
+  <script src="js/cache-bootstrap.js?v=116"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=115">
+  <link rel="stylesheet" href="css/pnote.css?v=116">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -175,17 +175,23 @@
           <p id="app-built" class="app-built">อัปเดต —</p>
         </div>
         <div class="topbar-actions">
+          <button id="search-toggle-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ค้นหา" aria-expanded="false" aria-controls="note-search-row">⌕</button>
           <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">⚙</button>
         </div>
       </header>
+      <div id="note-search-row" class="note-search-row" hidden>
+        <input id="note-search-input" class="note-search-input" type="search" placeholder="ค้นหาหัวข้อ รายละเอียด แท็ก…" autocomplete="off" enterkeyhint="search">
+        <button id="note-search-clear" class="btn btn-text note-search-clear" type="button" hidden aria-label="ล้างค้นหา">×</button>
+      </div>
 
       <div class="list-scroll">
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
-          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ ✦ เพื่อเพิ่มงานด้วย AI</p>
-          <button class="btn btn-primary" type="button" onclick="document.getElementById('add-note-btn').click()">
-            เพิ่มงานด้วย AI
-          </button>
+          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ + เพื่อจดเร็ว หรือ ✦ ให้ AI ช่วย</p>
+          <div class="empty-state-actions">
+            <button class="btn btn-secondary" type="button" id="empty-add-blank-btn">จดโน้ตว่าง</button>
+            <button class="btn btn-primary" type="button" id="empty-add-ai-btn">เพิ่มด้วย AI</button>
+          </div>
         </div>
         <div id="notes-list" class="notes-list notes-first"></div>
       </div>
@@ -230,7 +236,7 @@
               <label class="schedule-label" for="note-notify-repeat">แจ้งเตือนซ้ำ</label>
               <select id="note-notify-repeat" class="note-remind-before" aria-label="แจ้งเตือนซ้ำ"></select>
               <p class="settings-hint schedule-remind-hint">
-                แยกจาก「ทำซ้ำประจำ」· ซ้ำ = เตือนซ้ำจนกว่าจะทำเสร็จ · เปิดแจ้งเตือนเครื่องในตั้งค่าด้วย
+                ทำซ้ำประจำ = รอบงานถัดไปเมื่อทำแล้ว · แจ้งเตือนซ้ำ = เตือนย้ำจนกว่าเสร็จ · เปิดแจ้งเตือนเครื่องในตั้งค่าด้วย
               </p>
             </div>
           </details>
@@ -338,7 +344,7 @@
                 </select>
               </label>
               <label class="ai-note-field" for="ai-note-draft-recurrence">
-                <span>ทำซ้ำ</span>
+                <span>ทำซ้ำประจำ</span>
                 <select id="ai-note-draft-recurrence" class="ai-note-select"></select>
               </label>
             </div>
@@ -361,11 +367,11 @@
                 </select>
               </label>
               <label class="ai-note-field" for="ai-note-draft-notify-repeat">
-                <span>แจ้งซ้ำ</span>
+                <span>แจ้งซ้ำจนกว่าเสร็จ</span>
                 <select id="ai-note-draft-notify-repeat" class="ai-note-select" aria-label="แจ้งเตือนซ้ำ"></select>
               </label>
             </div>
-            <p class="settings-hint ai-note-notify-hint">ใช้เมื่อมีกำหนดเวลา · เปิดแจ้งเตือนเครื่องในตั้งค่าด้วย</p>
+            <p class="settings-hint ai-note-notify-hint">ทำซ้ำประจำ = รอบงานถัดไปเมื่อทำแล้ว · แจ้งซ้ำ = เตือนย้ำจนกว่าจะเสร็จ (คนละอย่าง)</p>
           </div>
         </div>
       </div>
@@ -730,6 +736,21 @@
       </div>
     </div>
   </div>
+  <div id="snooze-pick-overlay" class="note-center-overlay" hidden>
+    <div class="note-confirm-pop" role="dialog" aria-modal="true" aria-labelledby="snooze-pick-title">
+      <p class="note-confirm-body" id="snooze-pick-title">เลื่อนถึงวันเวลา</p>
+      <p class="settings-hint" style="margin:0 0 0.55rem">งานยังไม่เสร็จ · จะเตือนตามเวลานี้</p>
+      <input id="snooze-pick-input" class="snooze-pick-input" type="datetime-local">
+      <div class="note-confirm-actions">
+        <button type="button" class="btn btn-secondary" id="snooze-pick-cancel">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" id="snooze-pick-ok">เลื่อน</button>
+      </div>
+    </div>
+  </div>
+  <div id="action-toast" class="action-toast" hidden role="status" aria-live="polite">
+    <span id="action-toast-msg"></span>
+    <button type="button" id="action-toast-undo" class="action-toast-undo" hidden>เลิกทำ</button>
+  </div>
 
   <div id="attach-viewer" class="attach-viewer" hidden>
     <div class="attach-viewer-backdrop" id="attach-viewer-backdrop"></div>
@@ -767,6 +788,10 @@
   <nav id="filter-dock" class="filter-dock" aria-label="ตัวกรอง">
     <div class="filter-dock-inner">
       <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรอง">
+        <div class="filter-dd" data-filter="due">
+          <button type="button" class="filter-dd-btn" id="filter-due-btn" aria-haspopup="listbox" aria-expanded="false">📆 กำหนด</button>
+          <div class="filter-dd-menu" id="filter-due-menu" role="listbox" hidden></div>
+        </div>
         <div class="filter-dd" data-filter="sort">
           <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false">📅 ล่าสุด</button>
           <div class="filter-dd-menu" id="filter-sort-menu" role="listbox" hidden></div>
@@ -796,6 +821,7 @@
         <path fill="currentColor" d="M6.1 15.4l.5 1.9 1.9.5-1.9.5-.5 1.9-.5-1.9-1.9-.5 1.9-.5.5-1.9z" opacity=".85"/>
       </svg>
     </button>
+    <button type="button" class="fab-action fab-blank" id="add-blank-btn" data-fab-id="blank" aria-label="จดโน้ตว่าง" title="จดโน้ตว่าง">+</button>
     <button type="button" class="fab-pages" id="fabPages" data-fab-id="pages" aria-label="แผ่นงาน" title="แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน">▦</button>
     <button type="button" class="fab-action" id="group-nav-btn" data-fab-id="group" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน">☰</button>
   </div>
@@ -805,8 +831,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=115"></script>
-  <script src="js/fab-drag.js?v=115"></script>
+  <script src="js/page-nav.js?v=116"></script>
+  <script src="js/fab-drag.js?v=116"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -816,7 +842,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=115"></script>
-  <script src="js/update-watch.js?v=115"></script>
+  <script type="module" src="js/app.js?v=116"></script>
+  <script src="js/update-watch.js?v=116"></script>
 </body>
 </html>
