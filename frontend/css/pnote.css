@@ -1768,6 +1768,16 @@ body.light .priority-badge.priority-urgent {
   width: 100%;
 }
 
+.ai-note-fields-row.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.ai-note-notify-hint {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
 .ai-note-schedule-row {
   display: flex;
   align-items: stretch;
