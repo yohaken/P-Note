@@ -57,7 +57,7 @@ import {
   sortNotesBySchedule,
   toDatetimeLocalValue,
 } from './schedule.js?v=88';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=98';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=99';
 import {
   notificationPermission,
   notificationSupported,
@@ -197,11 +197,12 @@ const els = {
   syncStatusTip: null,
   editorSyncStatusBtn: null,
   editorSyncStatusTip: null,
-  tagModal: document.getElementById('tag-modal'),
+  tagModal: null,
   tagAddForm: document.getElementById('tag-add-form'),
   newTagInput: document.getElementById('new-tag-input'),
   tagManagerList: document.getElementById('tag-manager-list'),
-  closeTagModalBtn: document.getElementById('close-tag-modal-btn'),
+  closeTagModalBtn: null,
+  tagsSettingsRow: document.getElementById('tags-settings-row'),
   settingsOverlay: document.getElementById('settings-overlay'),
   settingsBackdrop: document.getElementById('settings-backdrop'),
   cardDensitySlider: document.getElementById('card-density-slider'),
@@ -957,7 +958,7 @@ function closeTagBarMenu() {
 
 function enableTagReorderMode() {
   state.tagReorderMode = true;
-  setStatus('จัดลำดับแท็กได้ในหน้าจัดการแท็ก');
+  setStatus('จัดลำดับแท็กได้ในตั้งค่า');
   openTagManager();
   state.tagReorderMode = false;
 }
@@ -1513,14 +1514,21 @@ function toggleActiveNoteTag(tagId) {
 }
 
 function openTagManager() {
-  renderTagManager();
-  els.tagModal.hidden = false;
-  els.newTagInput.value = '';
-  els.newTagInput.focus();
+  openSettings();
+  const group = els.tagsSettingsRow;
+  if (group) {
+    group.open = true;
+    requestAnimationFrame(() => {
+      group.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      els.newTagInput?.focus();
+    });
+  } else {
+    els.newTagInput?.focus();
+  }
 }
 
 function closeTagManager() {
-  els.tagModal.hidden = true;
+  /* Tag manager lives in Settings — closing settings is enough. */
 }
 
 function openSettings() {
@@ -1533,6 +1541,7 @@ function openSettings() {
   applyTheme();
   applyFabDirection();
   renderFabOrderList();
+  renderTagManager();
   applyNotifySettingsUi();
   applyBarThickness();
 }
@@ -2381,7 +2390,9 @@ function bindTagManagerListReorder() {
 }
 
 function renderTagManager() {
-  els.tagManagerList.innerHTML = '';
+  const list = els.tagManagerList;
+  if (!list) return;
+  list.innerHTML = '';
   const tags = orderedFilterTags();
   tags.forEach((tag, index) => {
     const row = document.createElement('div');
@@ -2432,19 +2443,22 @@ function renderTagManager() {
 
     const count = document.createElement('span');
     count.className = 'tag-manager-count';
-    count.textContent = `${countNotesByTag(state.notesData.notes, tag.id)} โน้ต`;
+    const n = countNotesByTag(state.notesData.notes, tag.id);
+    count.textContent = String(n);
+    count.title = `${n} โน้ต`;
 
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'tag-delete-btn';
     del.textContent = '✕';
+    del.setAttribute('aria-label', `ลบแท็ก ${tag.name}`);
     del.addEventListener('click', async () => {
       const ok = await showConfirm(`ลบแท็ก "${tag.name}"?`, { okLabel: 'ลบ', danger: true });
       if (ok) commitData(deleteTag(state.notesData, tag.id));
     });
 
-    row.append(grip, ord, color, name, count, del);
-    els.tagManagerList.appendChild(row);
+    row.append(grip, color, name, count, ord, del);
+    list.appendChild(row);
   });
   bindTagManagerListReorder();
 }
@@ -2653,7 +2667,6 @@ function initSwipeBack() {
       }
       if (
         !els.settingsOverlay.hidden ||
-        !els.tagModal.hidden ||
         (els.aiNoteModal && !els.aiNoteModal.hidden) ||
         (els.noteContextOverlay && !els.noteContextOverlay.hidden) ||
         (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden)
@@ -2664,7 +2677,7 @@ function initSwipeBack() {
       }
       if (state.view === 'editor') {
         const target = event.target;
-        if (target && target.closest && target.closest('input[type="datetime-local"], input[type="color"], .topbar, .topbar-actions, #manage-tags-btn, #settings-btn, .btn-mini')) {
+        if (target && target.closest && target.closest('input[type="datetime-local"], input[type="color"], .topbar, .topbar-actions, #settings-btn, .btn-mini')) {
           tracking = false;
           mode = null;
           return;
@@ -2699,7 +2712,6 @@ function initSwipeBack() {
         if (dx > 70 && dy < 55) {
           if (!els.settingsOverlay.hidden) closeSettings();
           else if (els.aiNoteModal && !els.aiNoteModal.hidden) closeAiNoteModal();
-          else if (!els.tagModal.hidden) closeTagManager();
           else if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) finishConfirm(false);
           else if (els.noteContextOverlay && !els.noteContextOverlay.hidden) closeContextMenu();
           else if (!els.noteContextMenu.hidden) closeContextMenu();
@@ -2916,7 +2928,7 @@ async function init() {
     });
   }
 
-  els.manageTagsBtn.addEventListener('click', openTagManager);
+  els.manageTagsBtn?.addEventListener('click', openTagManager);
   els.backBtn.addEventListener('click', backToList);
 
   initListSortable(els.notesList, {
@@ -2925,16 +2937,12 @@ async function init() {
     onReorder: (ids) => reorderNotes(ids),
   });
 
-  els.tagAddForm.addEventListener('submit', (event) => {
+  els.tagAddForm?.addEventListener('submit', (event) => {
     event.preventDefault();
     const { data, tag } = addTag(state.notesData, els.newTagInput.value);
     if (tag) commitData(data);
     els.newTagInput.value = '';
     els.newTagInput.focus();
-  });
-  els.closeTagModalBtn.addEventListener('click', closeTagManager);
-  els.tagModal.addEventListener('click', (event) => {
-    if (event.target === els.tagModal) closeTagManager();
   });
 
   els.deleteBtn.addEventListener('click', async () => {
