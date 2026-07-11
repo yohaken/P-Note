@@ -322,10 +322,12 @@ body {
 .bars-filters {
   flex-shrink: 0;
   position: sticky;
-  bottom: 3.35rem;
+  bottom: 0;
   z-index: 40;
   background: var(--surface);
   border-top: 1px solid var(--border);
+  /* Flush to phone bottom; keep chips above home indicator */
+  padding-bottom: max(0.2rem, env(safe-area-inset-bottom, 0px));
 }
 
 .bars-zone:empty {
@@ -500,7 +502,8 @@ body.bars-dragging .list-scroll {
   display: flex;
   flex-direction: column;
   gap: calc(0.4rem - var(--card-density, 0) * 0.32rem);
-  padding: 0.5rem 0.75rem 0.75rem;
+  /* Clear sticky filter stack so last cards can scroll into view */
+  padding: 0.5rem 0.75rem calc(0.75rem + var(--filters-dock-h, 0px));
 }
 
 .note-card {
@@ -935,7 +938,7 @@ body.light .note-schedule {
   padding-right: 0.75rem;
 }
 
-/* Filter chips in the stack above bottom nav */
+/* Filter chips — bottom stack (flush to screen edge; safe-area on .bars-filters) */
 .bars-filters .sort-bar,
 .bars-filters .tag-filter-bar,
 .bars-filters .priority-filter-bar,
