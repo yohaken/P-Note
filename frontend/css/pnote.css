@@ -1518,9 +1518,46 @@ body.light .priority-badge.priority-urgent {
   align-items: stretch;
 }
 
-.ai-note-input-row .ai-note-textarea {
+.ai-note-source-wrap {
+  position: relative;
   flex: 1;
   min-width: 0;
+}
+
+.ai-note-input-row .ai-note-source-wrap .ai-note-textarea {
+  width: 100%;
+  display: block;
+  padding-right: 1.85rem;
+  box-sizing: border-box;
+}
+
+.ai-note-paste-draft-btn {
+  position: absolute;
+  top: 0.28rem;
+  right: 0.28rem;
+  z-index: 2;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-2, #2c2c2e) 88%, transparent);
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(4px);
+}
+
+.ai-note-paste-draft-btn:active {
+  transform: scale(0.96);
+  color: var(--accent, #0a84ff);
+  border-color: color-mix(in srgb, var(--accent, #0a84ff) 45%, var(--border));
+}
+
+.ai-note-paste-draft-btn svg {
+  display: block;
 }
 
 .ai-note-side {
