@@ -48,6 +48,66 @@ export function normalizeRecurrenceFilter(value) {
   return null;
 }
 
+/** Per-note reminder offset before scheduledAt (Calendar-style). */
+export const REMIND_BEFORE_OPTIONS = [
+  { id: 'default', label: 'ตามตั้งค่าแอป' },
+  { id: 'at', label: 'ตรงเวลา' },
+  { id: '5m', label: 'ก่อน 5 นาที' },
+  { id: '15m', label: 'ก่อน 15 นาที' },
+  { id: '30m', label: 'ก่อน 30 นาที' },
+  { id: '1h', label: 'ก่อน 1 ชั่วโมง' },
+  { id: '2h', label: 'ก่อน 2 ชั่วโมง' },
+  { id: '1d', label: 'ก่อน 1 วัน' },
+  { id: '2d', label: 'ก่อน 2 วัน' },
+  { id: '1w', label: 'ก่อน 1 สัปดาห์' },
+  { id: '2w', label: 'ก่อน 2 สัปดาห์' },
+  { id: '1mo', label: 'ก่อน 1 เดือน' },
+];
+
+const REMIND_IDS = new Set(REMIND_BEFORE_OPTIONS.map((o) => o.id));
+
+export function normalizeRemindBefore(value) {
+  return REMIND_IDS.has(value) ? value : 'default';
+}
+
+export function remindBeforeLabel(value) {
+  const id = normalizeRemindBefore(value);
+  return REMIND_BEFORE_OPTIONS.find((o) => o.id === id)?.label || 'ตามตั้งค่าแอป';
+}
+
+/**
+ * When to fire the device notification for a note.
+ * @param {string} scheduledAt ISO
+ * @param {string} remindBefore
+ * @param {number} globalEarlyMinutes from app settings (used when remindBefore === 'default')
+ */
+export function reminderFireAtMs(scheduledAt, remindBefore, globalEarlyMinutes = 0) {
+  const due = new Date(scheduledAt).getTime();
+  if (!Number.isFinite(due)) return null;
+  const id = normalizeRemindBefore(remindBefore);
+
+  if (id === 'default') {
+    const early = Math.max(0, Number(globalEarlyMinutes) || 0);
+    return due - early * 60 * 1000;
+  }
+  if (id === 'at') return due;
+  if (id === '5m') return due - 5 * 60 * 1000;
+  if (id === '15m') return due - 15 * 60 * 1000;
+  if (id === '30m') return due - 30 * 60 * 1000;
+  if (id === '1h') return due - 60 * 60 * 1000;
+  if (id === '2h') return due - 2 * 60 * 60 * 1000;
+  if (id === '1d') return due - 24 * 60 * 60 * 1000;
+  if (id === '2d') return due - 2 * 24 * 60 * 60 * 1000;
+  if (id === '1w') return due - 7 * 24 * 60 * 60 * 1000;
+  if (id === '2w') return due - 14 * 24 * 60 * 60 * 1000;
+  if (id === '1mo') {
+    const d = new Date(due);
+    d.setMonth(d.getMonth() - 1);
+    return d.getTime();
+  }
+  return due;
+}
+
 export function filterNotesByRecurrence(notes, filter) {
   const f = normalizeRecurrenceFilter(filter);
   if (!f) return notes;

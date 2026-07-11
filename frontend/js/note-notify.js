@@ -3,11 +3,12 @@
  * Uses Notification API + a lightweight SW (no caching).
  */
 import { notePriority, NOTE_PRIORITY } from './notes.js?v=61';
+import { normalizeRemindBefore, reminderFireAtMs, remindBeforeLabel } from './schedule.js?v=80';
 
 const NOTIFIED_KEY = 'pnote_notified_map';
 const SW_URL = './sw-notify.js';
-const MAX_TIMER_MS = 6 * 24 * 60 * 60 * 1000;
-const PAST_GRACE_MS = 3 * 60 * 60 * 1000;
+const MAX_TIMER_MS = 14 * 24 * 60 * 60 * 1000; // up to 2 weeks ahead
+const PAST_GRACE_MS = 6 * 60 * 60 * 1000;
 
 const PRIORITY_RANK = {
   [NOTE_PRIORITY.NORMAL]: 0,
@@ -38,14 +39,18 @@ function saveNotified(map) {
   }
 }
 
-function markNotified(noteId, scheduledAt) {
+function notifyStamp(note) {
+  return `${note.scheduledAt}::${normalizeRemindBefore(note.remindBefore)}`;
+}
+
+function markNotified(note) {
   const map = loadNotified();
-  map[noteId] = scheduledAt;
+  map[note.id] = notifyStamp(note);
   saveNotified(map);
 }
 
-function wasNotified(noteId, scheduledAt) {
-  return loadNotified()[noteId] === scheduledAt;
+function wasNotified(note) {
+  return loadNotified()[note.id] === notifyStamp(note);
 }
 
 export function notificationSupported() {
@@ -124,20 +129,26 @@ function buildBody(note, prefs) {
   const p = prefsOrDefault(prefs);
   const previewMode = p.preview || 'full';
   const time = formatWhen(note.scheduledAt);
+  const remind = remindBeforeLabel(note.remindBefore);
+  const remindBit =
+    normalizeRemindBefore(note.remindBefore) === 'at' ||
+    normalizeRemindBefore(note.remindBefore) === 'default'
+      ? ''
+      : ` · ${remind}`;
 
   if (previewMode === 'hidden') {
-    return time ? `ถึงกำหนด ${time}` : 'มีกำหนดการถึงเวลาแล้ว';
+    return time ? `ถึงกำหนด ${time}${remindBit}` : 'มีกำหนดการถึงเวลาแล้ว';
   }
   if (previewMode === 'title') {
-    return time || 'ถึงกำหนดแล้ว';
+    return (time || 'ถึงกำหนดแล้ว') + remindBit;
   }
 
   const preview = String(note.content || '')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 100);
-  if (time && preview) return `${time} · ${preview}`;
-  if (time) return time;
+  if (time && preview) return `${time}${remindBit} · ${preview}`;
+  if (time) return time + remindBit;
   return preview || 'ถึงกำหนดแล้ว';
 }
 
@@ -147,13 +158,16 @@ function buildOptions(note, prefs, { test = false } = {}) {
   const vibrateOn = p.vibrate !== false && !silent;
   const options = {
     body: test ? 'ทดสอบการแจ้งเตือนตามค่าที่ตั้งไว้' : buildBody(note, p),
-    tag: test ? 'pnote-test' : `pnote-${note.id}-${note.scheduledAt}`,
+    tag: test
+      ? 'pnote-test'
+      : `pnote-${note.id}-${note.scheduledAt}-${normalizeRemindBefore(note.remindBefore)}`,
     renotify: true,
     silent,
     requireInteraction: Boolean(p.persistent),
     data: {
       noteId: note?.id || null,
       scheduledAt: note?.scheduledAt || null,
+      remindBefore: normalizeRemindBefore(note?.remindBefore),
       url: './note.html',
       label: String(p.label || 'P-Note'),
     },
@@ -168,22 +182,23 @@ async function displayNotification(title, options) {
   const reg = swReg || (await navigator.serviceWorker?.getRegistration?.());
   if (reg?.showNotification) {
     await reg.showNotification(title, options);
-    return;
+    return true;
   }
   // eslint-disable-next-line no-new
   new Notification(title, options);
+  return true;
 }
 
 async function showNoteNotification(note, prefs) {
   if (!notificationSupported() || Notification.permission !== 'granted') return false;
   if (!note?.id || !note.scheduledAt) return false;
-  if (wasNotified(note.id, note.scheduledAt)) return false;
+  if (wasNotified(note)) return false;
   if (!noteMatchesPrefs(note, prefs)) return false;
 
   const p = prefsOrDefault(prefs);
   try {
     await displayNotification(buildTitle(note, p), buildOptions(note, p));
-    markNotified(note.id, note.scheduledAt);
+    markNotified(note);
     return true;
   } catch (err) {
     console.warn('show notification failed', err);
@@ -192,10 +207,11 @@ async function showNoteNotification(note, prefs) {
 }
 
 function fireAtForNote(note, prefs) {
-  const t = new Date(note.scheduledAt).getTime();
-  if (!Number.isFinite(t)) return null;
-  const early = Math.max(0, Number(prefsOrDefault(prefs).earlyMinutes) || 0);
-  return t - early * 60 * 1000;
+  return reminderFireAtMs(
+    note.scheduledAt,
+    note.remindBefore,
+    prefsOrDefault(prefs).earlyMinutes || 0,
+  );
 }
 
 function scheduleOne(note, fireAt, prefs) {
@@ -236,14 +252,15 @@ export function syncNoteNotifications(notes, prefs = {}) {
   list.forEach((note) => {
     if (!note?.scheduledAt) return;
     if (!noteMatchesPrefs(note, prefs)) return;
-    if (wasNotified(note.id, note.scheduledAt)) return;
+    if (wasNotified(note)) return;
 
     const fireAt = fireAtForNote(note, prefs);
     if (fireAt == null) return;
+    const dueTime = new Date(note.scheduledAt).getTime();
 
     if (fireAt <= now) {
-      const dueTime = new Date(note.scheduledAt).getTime();
-      if (now - dueTime <= PAST_GRACE_MS || now - fireAt <= PAST_GRACE_MS) {
+      // Still relevant until a few hours after the due time
+      if (Number.isFinite(dueTime) && now <= dueTime + PAST_GRACE_MS) {
         dueNow += 1;
         showNoteNotification(note, prefs);
       }
@@ -271,9 +288,27 @@ export async function sendTestNotification(prefs = {}) {
   const p = prefsOrDefault(prefs);
   const label = String(p.label || 'P-Note').trim() || 'P-Note';
   try {
-    await displayNotification(`${label} · ทดสอบ`, buildOptions({ id: 'test', scheduledAt: new Date().toISOString(), title: 'ทดสอบ', content: '' }, p, { test: true }));
+    await displayNotification(
+      `${label} · ทดสอบ`,
+      buildOptions(
+        {
+          id: 'test',
+          scheduledAt: new Date().toISOString(),
+          title: 'ทดสอบ',
+          content: '',
+          remindBefore: 'at',
+        },
+        p,
+        { test: true },
+      ),
+    );
     return { ok: true };
   } catch (err) {
     return { ok: false, reason: String(err) };
   }
+}
+
+/** Exposed for automated checks. */
+export function __debugReminderFireAt(note, prefs) {
+  return fireAtForNote(note, prefs);
 }
