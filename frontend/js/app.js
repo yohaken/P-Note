@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=120';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=120';
-import { initListSortable } from './sortable.js?v=120';
-import { bindComposableInput } from './text-input.js?v=120';
-import { CONFIG } from './config.js?v=120';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=120';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=121';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=121';
+import { initListSortable } from './sortable.js?v=121';
+import { bindComposableInput } from './text-input.js?v=121';
+import { CONFIG } from './config.js?v=121';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=121';
 import {
   addTag,
   countNotesByTag,
@@ -41,7 +41,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=120';
+} from './notes.js?v=121';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -76,8 +76,8 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
-} from './schedule.js?v=120';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=120';
+} from './schedule.js?v=121';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=121';
 import {
   notificationPermission,
   notificationSupported,
@@ -86,30 +86,30 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=120';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=120';
+} from './note-notify.js?v=121';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=121';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=120';
-import { createInAppCamera } from './camera.js?v=120';
+} from './files.js?v=121';
+import { createInAppCamera } from './camera.js?v=121';
 import {
   refreshUserContext,
   loadUserContextMd,
   refineDraftWithContext,
   composeAiMemoryMd,
-} from './user-context.js?v=120';
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=120';
+} from './user-context.js?v=121';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=121';
 import {
   fetchRemoteNotes,
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=120';
-import { normalizeNotesData } from './notes.js?v=120';
-import { SaveManager } from './sync.js?v=120';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=120';
+} from './remote.js?v=121';
+import { normalizeNotesData } from './notes.js?v=121';
+import { SaveManager } from './sync.js?v=121';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=121';
 
 const state = {
   notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
@@ -148,7 +148,8 @@ const els = {
   noteSearchRow: document.getElementById('note-search-row'),
   noteSearchInput: document.getElementById('note-search-input'),
   noteSearchClear: document.getElementById('note-search-clear'),
-  addBlankBtn: document.getElementById('add-blank-btn'),
+  addBlankBtn: null,
+  undoFabBtn: document.getElementById('undo-fab-btn'),
   actionToast: document.getElementById('action-toast'),
   actionToastMsg: document.getElementById('action-toast-msg'),
   actionToastUndo: document.getElementById('action-toast-undo'),
@@ -301,6 +302,7 @@ const els = {
   fabDirVerticalBtn: document.getElementById('fab-dir-vertical-btn'),
   fabDirHorizontalBtn: document.getElementById('fab-dir-horizontal-btn'),
   fabOrderList: document.getElementById('fab-order-list'),
+  filterOrderList: document.getElementById('filter-order-list'),
   notifyOffBtn: document.getElementById('notify-off-btn'),
   notifyOnBtn: document.getElementById('notify-on-btn'),
   notifyHint: document.getElementById('notify-hint'),
@@ -345,6 +347,7 @@ function showView(view) {
   const fabStack = document.getElementById('fabStack');
   if (fabStack) fabStack.hidden = view !== 'list';
   updateFilterDockVisibility();
+  updateUndoFab();
 }
 
 function setLoading(visible, message = 'กำลังโหลด...') {
@@ -353,6 +356,7 @@ function setLoading(visible, message = 'กำลังโหลด...') {
 }
 
 let undoHandler = null;
+let lastUndoAction = null; // survives toast hide — used by bottom-left undo fab
 let snoozePickNoteId = null;
 
 function hideActionToast() {
@@ -380,6 +384,10 @@ function setStatus(message, opts = {}) {
   }
   if (statusTimer) clearTimeout(statusTimer);
   undoHandler = typeof opts.undo === 'function' ? opts.undo : null;
+  if (undoHandler) {
+    lastUndoAction = { run: undoHandler, label: text };
+  }
+  updateUndoFab();
   els.actionToastMsg.textContent = text;
   if (els.actionToastUndo) {
     els.actionToastUndo.hidden = !undoHandler;
@@ -390,9 +398,29 @@ function setStatus(message, opts = {}) {
   statusTimer = setTimeout(() => hideActionToast(), ms);
 }
 
+function canUndo() {
+  return Boolean(undoHandler || lastUndoAction?.run);
+}
+
+function updateUndoFab() {
+  const btn = els.undoFabBtn;
+  if (!btn) return;
+  const show = state.view === 'list';
+  btn.hidden = !show;
+  btn.disabled = !canUndo();
+  btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');
+  if (lastUndoAction?.label) {
+    btn.title = `เลิกทำ: ${lastUndoAction.label}`;
+  } else {
+    btn.title = 'เลิกทำล่าสุด';
+  }
+}
+
 function runUndo() {
-  const fn = undoHandler;
+  const fn = undoHandler || lastUndoAction?.run;
   hideActionToast();
+  lastUndoAction = null;
+  updateUndoFab();
   if (fn) fn();
 }
 
@@ -656,10 +684,17 @@ function applyFabDirection() {
 }
 
 const FAB_ORDER_LABELS = {
-  ai: '✨ AI',
-  blank: '+ โน้ตว่าง',
+  ai: '✦ AI',
   pages: '▦ แผ่นงาน',
   group: '☰ กลุ่มงาน',
+};
+
+const FILTER_ORDER_LABELS = {
+  due: '📆 กำหนด',
+  sort: '📅 เรียง',
+  priority: '⚠️ ความสำคัญ',
+  recurrence: '🔁 การซ้ำ',
+  tag: '🏷️ แท็ก',
 };
 
 /** Settings list = visual top → bottom. Stack uses column/row-reverse → DOM = reverse. */
@@ -671,6 +706,17 @@ function applyFabOrder() {
   [...visual].reverse().forEach((id) => {
     const btn = stack.querySelector(`[data-fab-id="${CSS.escape(id)}"]`);
     if (btn) stack.appendChild(btn);
+  });
+}
+
+function applyFilterOrder() {
+  const cluster = els.filterDockFilters;
+  if (!cluster) return;
+  const order = normalizeFilterOrder(state.settings.filterOrder);
+  state.settings.filterOrder = order;
+  order.forEach((id) => {
+    const el = cluster.querySelector(`.filter-dd[data-filter="${CSS.escape(id)}"]`);
+    if (el) cluster.appendChild(el);
   });
 }
 
@@ -694,6 +740,26 @@ function renderFabOrderList() {
     .join('');
 }
 
+function renderFilterOrderList() {
+  const list = els.filterOrderList;
+  if (!list) return;
+  const order = normalizeFilterOrder(state.settings.filterOrder);
+  list.innerHTML = order
+    .map((id, i) => {
+      const label = FILTER_ORDER_LABELS[id] || id;
+      const upDisabled = i === 0 ? ' disabled' : '';
+      const downDisabled = i === order.length - 1 ? ' disabled' : '';
+      return `<div class="fab-order-row" data-filter-order-id="${id}">
+        <span class="fab-order-label">${label}</span>
+        <div class="fab-order-actions">
+          <button type="button" class="fab-order-btn" data-filter-move="up" aria-label="เลื่อนขึ้น"${upDisabled}>↑</button>
+          <button type="button" class="fab-order-btn" data-filter-move="down" aria-label="เลื่อนลง"${downDisabled}>↓</button>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
 function moveFabInOrder(id, direction) {
   const order = normalizeFabOrder(state.settings.fabOrder);
   const i = order.indexOf(id);
@@ -706,6 +772,20 @@ function moveFabInOrder(id, direction) {
   saveSettings(state.settings);
   applyFabOrder();
   renderFabOrderList();
+}
+
+function moveFilterInOrder(id, direction) {
+  const order = normalizeFilterOrder(state.settings.filterOrder);
+  const i = order.indexOf(id);
+  if (i < 0) return;
+  const j = direction === 'up' ? i - 1 : i + 1;
+  if (j < 0 || j >= order.length) return;
+  const next = [...order];
+  [next[i], next[j]] = [next[j], next[i]];
+  state.settings.filterOrder = next;
+  saveSettings(state.settings);
+  applyFilterOrder();
+  renderFilterOrderList();
 }
 
 function getNotifyPrefs() {
@@ -2628,6 +2708,7 @@ function openSettings() {
   applyTheme();
   applyFabDirection();
   renderFabOrderList();
+  renderFilterOrderList();
   renderTagManager();
   applyNotifySettingsUi();
   applyBarThickness();
@@ -4532,6 +4613,7 @@ async function bootstrapData() {
     applyCardDensity();
     applyDockScale();
     applyFabOrder();
+    applyFilterOrder();
     reapplyBarLayout();
     applyBarThickness();
     renderNotesList();
@@ -4702,9 +4784,12 @@ async function init() {
   initInAppCamera();
 
   els.addNoteBtn.addEventListener('click', openAddNoteModal);
-  els.addBlankBtn?.addEventListener('click', openQuickNoteModal);
   els.emptyAddAiBtn?.addEventListener('click', openAddNoteModal);
   els.emptyAddBlankBtn?.addEventListener('click', openQuickNoteModal);
+  els.undoFabBtn?.addEventListener('click', () => {
+    if (!canUndo()) return;
+    runUndo();
+  });
   els.actionToastUndo?.addEventListener('click', (e) => {
     e.stopPropagation();
     runUndo();
@@ -4813,13 +4898,22 @@ async function init() {
   els.fabDirHorizontalBtn?.addEventListener('click', () => setFabDir('horizontal'));
   applyFabDirection();
   applyFabOrder();
+  applyFilterOrder();
   renderFabOrderList();
+  renderFilterOrderList();
   els.fabOrderList?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-fab-move]');
     if (!btn || btn.disabled) return;
     const row = btn.closest('[data-fab-order-id]');
     if (!row) return;
     moveFabInOrder(row.dataset.fabOrderId, btn.dataset.fabMove);
+  });
+  els.filterOrderList?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-filter-move]');
+    if (!btn || btn.disabled) return;
+    const row = btn.closest('[data-filter-order-id]');
+    if (!row) return;
+    moveFilterInOrder(row.dataset.filterOrderId, btn.dataset.filterMove);
   });
 
   els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
