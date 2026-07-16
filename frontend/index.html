@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <meta name="pnote-build" content="122">
+  <meta name="pnote-build" content="123">
   <meta name="pnote-built" content="2026-07-11T14:57:26+07:00">
-  <script src="js/cache-bootstrap.js?v=122"></script>
+  <script src="js/cache-bootstrap.js?v=123"></script>
   <title>Calorie & Protein Tracker</title>
   <style>
     :root, [data-theme="dark"] {
@@ -868,6 +868,19 @@
     </div>
   </div>
 
+  <div class="edit-overlay" id="aiCalOverlay">
+    <div class="edit-sheet">
+      <h3>เพิ่มด้วย AI</h3>
+      <p class="sheet-desc">พิมพ์อาหารหรือออกกำลังกาย เช่น <b>ข้าวไก่ 450,30</b> · <b>ไข่ 2 ฟอง 140 โปรตีน 12</b> · <b>วิ่ง เผา 300</b></p>
+      <div class="field"><label for="aiCalInput">ข้อความ</label><input type="text" id="aiCalInput" autocomplete="off" placeholder="เช่น ข้าวมันไก่ 450,30 หรือ วิ่ง 30 นาที เผา 300"></div>
+      <p id="aiCalPreview" class="sheet-desc" style="min-height:1.2em;color:var(--text)"></p>
+      <div class="edit-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancelAiCal">ยกเลิก</button>
+        <button type="button" class="btn" id="btnSaveAiCal">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
   <div class="edit-overlay" id="editExerciseOverlay">
     <div class="edit-sheet">
       <h3>แก้ไขออกกำลังกาย</h3>
@@ -1056,6 +1069,7 @@
 
   <div class="fab-stack" id="fabStack" aria-label="ทางลัด">
     <button type="button" class="fab-pages" id="fabPages" aria-label="สลับแผ่นงาน" title="แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน">▦</button>
+    <button type="button" class="fab-action fab-ai" id="fabAiCal" aria-label="เพิ่มด้วย AI" title="พิมพ์อาหาร/ออกกำลังกาย">✨</button>
     <button type="button" class="fab-action" id="btnSettings" aria-label="ตั้งค่า" title="ตั้งค่า">⚙</button>
   </div>
   <div class="pages-menu-overlay" id="pagesMenuOverlay" hidden>
@@ -1066,8 +1080,8 @@
 
   <div class="toast error" id="toast"></div>
 
-  <script src="js/page-nav.js?v=122"></script>
-  <script src="js/fab-drag.js?v=122"></script>
+  <script src="js/page-nav.js?v=123"></script>
+  <script src="js/fab-drag.js?v=123"></script>
   <script>
     const STORAGE_PREFIX = 'calorieTracker:';
     const SETTINGS_KEY = 'calorieTracker:settings';
@@ -1193,6 +1207,8 @@
       blockStylePicker: $('#blockStylePicker'), blockStyleFields: $('#blockStyleFields'),
       btnResetBlockStyle: $('#btnResetBlockStyle'),
       mealInput: $('#mealInput'), mealTime: $('#mealTime'), btnAddMeal: $('#btnAddMeal'),
+      fabAiCal: $('#fabAiCal'), aiCalOverlay: $('#aiCalOverlay'), aiCalInput: $('#aiCalInput'),
+      aiCalPreview: $('#aiCalPreview'), btnCancelAiCal: $('#btnCancelAiCal'), btnSaveAiCal: $('#btnSaveAiCal'),
       mealList: $('#mealList'), mealCount: $('#mealCount'), emptyMeals: $('#emptyMeals'),
       templateChips: $('#templateChips'),
       chartPeriodBtns: $('#chartPeriodBtns'),
@@ -2901,6 +2917,81 @@
       addMeal(p.calories, p.protein, els.mealTime.value);
     }
 
+    /* —— AI quick-add: type food/exercise, auto-route to meal or exercise —— */
+    const AI_EXERCISE_RE = /(วิ่ง|เดิน|ออกกำลัง|เบิร์น|เผา|ว่ายน้ำ|โยคะ|ยกเวท|เวท|ปั่น|จักรยาน|วิดพื้น|คาร์ดิโอ|แอโรบิก|run|walk|jog|swim|burn|workout|cardio|exercise|gym)/i;
+
+    function parseAiCalorieCommand(raw) {
+      const text = (raw || '').trim();
+      if (!text) return null;
+      const nums = (text.match(/\d+(?:\.\d+)?/g) || []).map(Number);
+      const calM = text.match(/(\d+(?:\.\d+)?)\s*(?:kcal|cal|แคล(?:อรี่)?)/i);
+      const protM = text.match(/(\d+(?:\.\d+)?)\s*(?:g|กรัม)\b/i)
+        || text.match(/(?:โปรตีน|protein)\s*(\d+(?:\.\d+)?)/i)
+        || text.match(/(\d+(?:\.\d+)?)\s*(?:โปรตีน|protein)/i);
+      const pairM = text.match(/(\d+(?:\.\d+)?)\s*[,x/]\s*(\d+(?:\.\d+)?)/i);
+
+      if (AI_EXERCISE_RE.test(text)) {
+        const kcal = calM ? Number(calM[1]) : (nums.length ? nums[nums.length - 1] : 0);
+        if (!kcal) return { type: 'exercise', incomplete: true, note: text };
+        return { type: 'exercise', calories: kcal, note: text.slice(0, 60) };
+      }
+
+      let calories = null;
+      let protein = null;
+      if (pairM) { calories = Number(pairM[1]); protein = Number(pairM[2]); }
+      if (calM) calories = Number(calM[1]);
+      if (protM) protein = Number(protM[1]);
+      if (calories == null && protein == null && !pairM) {
+        if (nums.length >= 2) { calories = nums[0]; protein = nums[1]; }
+        else if (nums.length === 1) { calories = nums[0]; }
+      } else if (calories == null && nums.length) {
+        calories = nums[0];
+      }
+      if (calories == null) return { type: 'meal', incomplete: true, note: text };
+      return { type: 'meal', calories, protein: protein == null ? 0 : protein, note: text.slice(0, 60) };
+    }
+
+    function aiCalPreviewText(parsed) {
+      if (!parsed) return '';
+      if (parsed.type === 'exercise') {
+        return parsed.incomplete
+          ? '🏃 ออกกำลังกาย — ใส่แคลอรี่ที่เผาด้วย เช่น "วิ่ง เผา 300"'
+          : `🏃 ออกกำลังกาย · เผา ${Math.round(parsed.calories)} kcal`;
+      }
+      return parsed.incomplete
+        ? '🍽 อาหาร — ใส่ตัวเลข เช่น "ข้าวไก่ 450,30" (แคล,โปรตีน)'
+        : `🍽 อาหาร · ${Math.round(parsed.calories)} kcal · โปรตีน ${parsed.protein} g`;
+    }
+
+    function openAiCal() {
+      els.aiCalInput.value = '';
+      els.aiCalPreview.textContent = '';
+      els.aiCalOverlay.classList.add('open');
+      setTimeout(() => els.aiCalInput.focus(), 50);
+    }
+    function closeAiCal() { els.aiCalOverlay.classList.remove('open'); }
+
+    function refreshAiCalPreview() {
+      els.aiCalPreview.textContent = aiCalPreviewText(parseAiCalorieCommand(els.aiCalInput.value));
+    }
+
+    function confirmAiCal() {
+      const parsed = parseAiCalorieCommand(els.aiCalInput.value);
+      if (!parsed) { showToast('พิมพ์ข้อความก่อน', 'error'); return; }
+      if (parsed.incomplete) {
+        showToast(parsed.type === 'exercise' ? 'ใส่แคลอรี่ที่เผา เช่น "วิ่ง เผา 300"' : 'ใส่ตัวเลข เช่น 450,30', 'error');
+        return;
+      }
+      if (parsed.type === 'exercise') {
+        addExercise(parsed.calories, parsed.note, nowTimeStr());
+        showToast('บันทึกออกกำลังกายแล้ว', 'success');
+      } else {
+        addMeal(parsed.calories, parsed.protein, nowTimeStr());
+        showToast('บันทึกมื้ออาหารแล้ว', 'success');
+      }
+      closeAiCal();
+    }
+
     function deleteMeal(id) {
       const data = loadDay(currentDate);
       data.meals = data.meals.filter((m) => m.id !== id);
@@ -3220,6 +3311,16 @@
     };
 
     els.btnAddMeal.onclick = handleAddMeal;
+    if (els.fabAiCal) els.fabAiCal.onclick = openAiCal;
+    if (els.btnCancelAiCal) els.btnCancelAiCal.onclick = closeAiCal;
+    if (els.btnSaveAiCal) els.btnSaveAiCal.onclick = confirmAiCal;
+    if (els.aiCalInput) {
+      els.aiCalInput.oninput = refreshAiCalPreview;
+      els.aiCalInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAiCal(); } };
+    }
+    if (els.aiCalOverlay) {
+      els.aiCalOverlay.onclick = (e) => { if (e.target === els.aiCalOverlay) closeAiCal(); };
+    }
     els.btnAddExercise.onclick = handleAddExercise;
     els.exerciseKcal.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddExercise(); } };
     els.exerciseList.onclick = (e) => {
@@ -3434,6 +3535,6 @@
       }
     })();
   </script>
-  <script src="js/update-watch.js?v=122"></script>
+  <script src="js/update-watch.js?v=123"></script>
 </body>
 </html>
