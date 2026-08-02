@@ -1,6 +1,6 @@
 # P-Note
 
-Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/`) on Cloud Run. Notes are stored server-side in **Firestore** (a cloud database) keyed by an anonymous per-device "space id" — no login yet. localStorage is only an offline cache.
+Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/`) on Cloud Run. Notes are stored server-side in **Firestore** (a cloud database) keyed by an anonymous per-device "space id" — no login yet. **Local-first:** `localStorage` is painted immediately on open; Firestore sync warms in the background.
 
 ## Cursor Cloud specific instructions
 
@@ -29,7 +29,7 @@ Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/
 - **`js/cache-bootstrap.js`** runs before modules: if `localStorage.pnote_active_build !== meta build`, it unregisters all service workers, deletes all Cache Storage, saves the new build id, and reloads once. This is the permanent in-app cache flush (not a one-off hack).
 - **`js/update.js`** polls `index.html` every ~20s (and when the tab becomes visible) for a newer `pnote-build`; shows a brief toast then purges caches and reloads. Works when the PWA shortcut stays open in the background. Manual **↻** FAB bottom-right calls the same refresh path. Polling is disabled on `localhost`.
 - **`js/cache.js`** registers `sw.js?v=N` after bootstrap. Login is disabled for now — no auth modules loaded.
-- Notes are stored in **Firestore** (`spaces/{spaceId}` doc holds the v4 payload). `frontend/js/remote.js` handles the anonymous `pnote_space_id` (sync code, settable in Settings ⚙ to share a space across devices — no login). `localStorage` (`pnote_local_data`) is only an offline cache; on load the app fetches remote, and migrates existing local notes into the DB when the remote space is empty. Export/import JSON via **สำรอง / นำเข้า** still works.
+- Notes are stored in **Firestore** (`spaces/{spaceId}` doc holds the v4 payload). `frontend/js/remote.js` handles the anonymous `pnote_space_id` (sync code, settable in Settings ⚙ to share a space across devices — no login). **Local-first:** on load the app paints from `localStorage` (`pnote_local_data`) immediately, then syncs Firestore in the background (merge by per-note `updatedAt`); also soft-resyncs when the tab becomes visible / online again. Migrates local notes into the DB when the remote space is empty. Export/import JSON via **สำรอง / นำเข้า** still works.
 - Production Firestore must exist in project `mypeer-501909` (Native mode). The deploy workflow best-effort-creates it; if the DB is missing or the Cloud Run SA lacks `roles/datastore.user`, `/api/db-status` returns 503 and the app runs offline (localStorage only).
 - Home page is **notes-first** (no calendar on list view; schedule field remains in editor).
 - **Bar names (use these Thai names when talking with the user):**

@@ -106,7 +106,7 @@ import {
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=122';
+} from './remote.js?v=126';
 import { normalizeNotesData } from './notes.js?v=122';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
@@ -4630,63 +4630,156 @@ async function loadSpaceData(spaceId, localData) {
   };
 }
 
+/** Fingerprint note/tag content (ignore top-level updatedAt churn). */
+function notesContentKey(data) {
+  const notes = Array.isArray(data?.notes) ? data.notes : [];
+  const tags = Array.isArray(data?.tags) ? data.tags : [];
+  const notePart = notes
+    .map((n) => `${n.id}:${n.updatedAt || ''}:${n.status || ''}`)
+    .sort()
+    .join(',');
+  const tagPart = tags
+    .map((t) => `${t.id}:${t.label || ''}:${t.color || ''}`)
+    .sort()
+    .join(',');
+  return `${notePart}|${tagPart}`;
+}
+
+function paintNotesFromLocal(data) {
+  state.notesData = normalizeNotesData(data);
+  state.syncBaseUpdatedAt = state.notesData?.updatedAt || null;
+  state.sortMode = state.settings.sortMode || 'updated';
+  applySavedFilters();
+  saveNotes(state.notesData);
+  try { refreshUserContext(state.notesData); } catch {}
+  applyTheme();
+  applyCardDensity();
+  applyDockScale();
+  applyFabOrder();
+  applyFilterOrder();
+  reapplyBarLayout();
+  applyBarThickness();
+  renderNotesList();
+  showView('list');
+  updateAppVersionLabel();
+}
+
+/**
+ * Apply a remote sync result without blocking UI.
+ * Re-merges with current state so edits during the fetch are kept.
+ */
+async function applySpaceSyncResult(result, { localVerBefore = null, announce = true } = {}) {
+  if (state.view === 'editor') flushEditorToState();
+
+  const beforeKey = notesContentKey(state.notesData);
+  const merged = mergeNotesByUpdatedAt(state.notesData, result.data);
+  state.notesData = merged;
+  state.online = result.online;
+  state.syncBaseUpdatedAt = merged?.updatedAt || result.data?.updatedAt || null;
+  saveNotes(state.notesData);
+  try { refreshUserContext(state.notesData); } catch {}
+
+  const didScheduleSnap =
+    (localVerBefore != null && localVerBefore < 5) || Boolean(result.scheduleSnap);
+  const hadScheduled = Array.isArray(state.notesData?.notes)
+    && state.notesData.notes.some((n) => n?.scheduledAt);
+
+  if (didScheduleSnap) {
+    try {
+      await saveManager.saveNow(() => state.notesData);
+    } catch (err) {
+      console.warn('schedule snap save failed', err);
+    }
+  } else if (result.online && localNeedsRemotePush(state.notesData, result.data)) {
+    // Local edits landed while fetch/merge was in flight — push the union.
+    try {
+      await safePushRemote(state.notesData);
+    } catch {
+      /* offline race; next save/sync will retry */
+    }
+  }
+
+  const contentChanged = notesContentKey(state.notesData) !== beforeKey;
+  if (contentChanged && state.view === 'list') {
+    renderNotesList();
+  }
+
+  if (!announce) return contentChanged;
+
+  if (didScheduleSnap && hadScheduled) {
+    setStatus('ปรับเวลาแจ้งเตือนเป็น 09:00 แล้ว');
+  } else if (result.migrated) {
+    setStatus('ย้ายโน้ตเข้าฐานข้อมูลแล้ว');
+  } else if (!result.online) {
+    setStatus(result.autoSource ? 'โหมดออฟไลน์ (กู้คืนข้อมูลเดิม)' : 'โหมดออฟไลน์ (เก็บในเครื่อง)');
+  } else if (contentChanged) {
+    setStatus('ซิงค์ข้อมูลล่าสุดแล้ว');
+  } else {
+    setStatus('เชื่อมฐานข้อมูลแล้ว');
+  }
+  return contentChanged;
+}
+
+let spaceSyncInFlight = null;
+let lastSpaceSyncAt = 0;
+const BG_SYNC_MIN_INTERVAL_MS = 20_000;
+
+/**
+ * Warm Firestore in the background. Local UI is already painted.
+ * Throttled so returning to the tab doesn't spam the API.
+ * Resolves to true when note/tag content changed.
+ */
+function syncSpaceInBackground({ localVerBefore = null, force = false, announce = true } = {}) {
+  if (!state.spaceId) return Promise.resolve(false);
+  if (spaceSyncInFlight) return spaceSyncInFlight;
+  const now = Date.now();
+  if (!force && lastSpaceSyncAt && now - lastSpaceSyncAt < BG_SYNC_MIN_INTERVAL_MS) {
+    return Promise.resolve(false);
+  }
+
+  spaceSyncInFlight = (async () => {
+    try {
+      const snapshot = state.notesData;
+      const result = await loadSpaceData(state.spaceId, snapshot);
+      const changed = await applySpaceSyncResult(result, { localVerBefore, announce });
+      lastSpaceSyncAt = Date.now();
+      return Boolean(changed);
+    } catch (err) {
+      console.warn('background sync failed', err);
+      state.online = false;
+      if (announce) setStatus('โหมดออฟไลน์ (เก็บในเครื่อง)');
+      return false;
+    } finally {
+      spaceSyncInFlight = null;
+    }
+  })();
+  return spaceSyncInFlight;
+}
+
 async function bootstrapData() {
-  setLoading(true, 'กำลังเชื่อมต่อฐานข้อมูล...');
+  // Local-first: paint from device cache immediately, then warm remote.
   try {
     state.spaceId = getSpaceId();
     state.settings = loadSettings();
     state.listGroup = NOTE_STATUS.ACTIVE;
 
     const localVerBefore = peekLocalNotesVersion();
-    const localData = loadNotes().data;
-    const result = await loadSpaceData(state.spaceId, localData);
-
-    state.notesData = result.data;
-    state.online = result.online;
-    state.syncBaseUpdatedAt = result.data?.updatedAt || null;
-    state.sortMode = state.settings.sortMode || 'updated';
-    applySavedFilters();
-    saveNotes(state.notesData);
-    try { refreshUserContext(state.notesData); } catch {}
+    let localData = loadNotes().data;
+    // Only when cache is empty — recover legacy/bundled before first paint.
+    if (!hasAnyNotes(localData)) {
+      const auto = await tryAutoImport(localData);
+      localData = auto.data;
+    }
 
     saveManager.configure({
       onStatus: (message) => setStatus(message),
       remotePush: (data) => safePushRemote(data),
     });
 
-    const didScheduleSnap =
-      localVerBefore < 5 || Boolean(result.scheduleSnap);
-    const hadScheduled = Array.isArray(state.notesData?.notes)
-      && state.notesData.notes.some((n) => n?.scheduledAt);
+    paintNotesFromLocal(localData);
+    setLoading(false);
 
-    if (didScheduleSnap) {
-      try {
-        await saveManager.saveNow(() => state.notesData);
-      } catch (err) {
-        console.warn('schedule snap save failed', err);
-      }
-    }
-
-    applyTheme();
-    applyCardDensity();
-    applyDockScale();
-    applyFabOrder();
-    applyFilterOrder();
-    reapplyBarLayout();
-    applyBarThickness();
-    renderNotesList();
-    showView('list');
-    updateAppVersionLabel();
-
-    if (didScheduleSnap && hadScheduled) {
-      setStatus('ปรับเวลาแจ้งเตือนเป็น 09:00 แล้ว');
-    } else if (result.migrated) {
-      setStatus('ย้ายโน้ตเข้าฐานข้อมูลแล้ว');
-    } else if (!result.online) {
-      setStatus(result.autoSource ? 'โหมดออฟไลน์ (กู้คืนข้อมูลเดิม)' : 'โหมดออฟไลน์ (เก็บในเครื่อง)');
-    } else {
-      setStatus('เชื่อมฐานข้อมูลแล้ว');
-    }
+    void syncSpaceInBackground({ localVerBefore, force: true, announce: true });
   } catch (err) {
     console.warn('bootstrap failed', err);
     try {
@@ -5240,11 +5333,19 @@ async function init() {
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') refreshNoteNotifications();
+    if (document.visibilityState !== 'visible') return;
+    refreshNoteNotifications();
+    // Soft re-warm when returning to the app (throttled; toast only if data changed).
+    void syncSpaceInBackground({ force: false, announce: false }).then((changed) => {
+      if (changed) setStatus('ซิงค์ข้อมูลล่าสุดแล้ว');
+    });
   });
   window.addEventListener('pageshow', () => refreshNoteNotifications());
   window.addEventListener('focus', () => refreshNoteNotifications());
-  window.addEventListener('online', () => refreshNoteNotifications());
+  window.addEventListener('online', () => {
+    refreshNoteNotifications();
+    void syncSpaceInBackground({ force: true, announce: true });
+  });
 
   // Block iOS pinch/gesture zoom so the fixed layout never overflows its edges.
   document.addEventListener('gesturestart', (event) => event.preventDefault());
