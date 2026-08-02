@@ -285,8 +285,8 @@ const els = {
   editorRecurrence: document.getElementById('editor-recurrence'),
   clearScheduleBtn: document.getElementById('clear-schedule-btn'),
   editorTags: document.getElementById('editor-tags'),
-  syncStatusBtn: null,
-  syncStatusTip: null,
+  syncStatusBtn: document.getElementById('sync-status-btn'),
+  syncStatusTip: document.getElementById('sync-status-tip'),
   editorSyncStatusBtn: null,
   editorSyncStatusTip: null,
   tagModal: null,
@@ -373,10 +373,63 @@ function hideActionToast() {
   if (els.actionToastUndo) els.actionToastUndo.hidden = true;
 }
 
+/** Map sync/DB chatter → small top-right status dot (no toast popup). */
+function syncStateFromMessage(message) {
+  const t = String(message || '');
+  if (!t) return null;
+  if (/กำลัง(พิมพ์|บันทึก|ซิงค์|เชื่อม|โหลด)|connecting|syncing|saving/i.test(t)) return 'busy';
+  if (/ออฟไลน์|เชื่อมต่อไม่ได้|โหลดไม่สำเร็จ|บันทึกไม่สำเร็จ|offline/i.test(t)) return 'offline';
+  if (/ฐานข้อมูล|ซิงค์|เชื่อมฐาน|บันทึกในเครื่อง|บันทึกแล้ว|ย้ายโน้ตเข้า/i.test(t)) return 'ok';
+  return null;
+}
+
+let syncTipTimer = null;
+
+function setSyncStatus(state, message = '') {
+  const btn = els.syncStatusBtn;
+  if (!btn) return;
+  const next = state || 'idle';
+  btn.dataset.state = next;
+  const label = String(message || '').trim() || (
+    next === 'ok' ? 'เชื่อมฐานข้อมูลแล้ว'
+      : next === 'busy' ? 'กำลังซิงค์…'
+        : next === 'offline' ? 'ออฟไลน์ · เก็บในเครื่อง'
+          : 'สถานะฐานข้อมูล'
+  );
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+  if (els.syncStatusTip) {
+    els.syncStatusTip.textContent = label;
+  }
+}
+
+function flashSyncTip(ms = 1600) {
+  const tip = els.syncStatusTip;
+  if (!tip) return;
+  tip.hidden = false;
+  if (syncTipTimer) clearTimeout(syncTipTimer);
+  syncTipTimer = setTimeout(() => {
+    tip.hidden = true;
+    syncTipTimer = null;
+  }, ms);
+}
+
+function setDbStatusMessage(message) {
+  const text = String(message || '').trim();
+  if (!text) return;
+  const state = syncStateFromMessage(text) || 'idle';
+  setSyncStatus(state, text);
+}
+
 function setStatus(message, opts = {}) {
   const text = String(message || '').trim();
   if (!text) {
     hideActionToast();
+    return;
+  }
+  // DB/sync chatter → quiet top-right dot (not a popup toast).
+  if (!opts.forceToast && !opts.undo && syncStateFromMessage(text)) {
+    setDbStatusMessage(text);
     return;
   }
   if (!els.actionToast || !els.actionToastMsg) {
@@ -4773,6 +4826,7 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
 
   spaceSyncInFlight = (async () => {
     try {
+      if (announce) setSyncStatus('busy', 'กำลังซิงค์…');
       const snapshot = state.notesData;
       const result = await loadSpaceData(state.spaceId, snapshot);
       const changed = await applySpaceSyncResult(result, { localVerBefore, announce });
@@ -4781,7 +4835,7 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
     } catch (err) {
       console.warn('background sync failed', err);
       state.online = false;
-      if (announce) setStatus('โหมดออฟไลน์ (เก็บในเครื่อง)');
+      if (announce) setDbStatusMessage('โหมดออฟไลน์ (เก็บในเครื่อง)');
       return false;
     } finally {
       spaceSyncInFlight = null;
@@ -4812,6 +4866,7 @@ async function bootstrapData() {
 
     paintNotesFromLocal(localData);
     setLoading(false);
+    setSyncStatus('busy', 'กำลังเชื่อมฐานข้อมูล…');
 
     void syncSpaceInBackground({ localVerBefore, force: true, announce: true });
   } catch (err) {
@@ -4822,10 +4877,10 @@ async function bootstrapData() {
       applyTheme();
       renderNotesList();
       showView('list');
-      setStatus('โหลดไม่สำเร็จ — ใช้ข้อมูลในเครื่อง');
+      setDbStatusMessage('โหลดไม่สำเร็จ — ใช้ข้อมูลในเครื่อง');
     } catch (fallbackErr) {
       console.warn('bootstrap fallback failed', fallbackErr);
-      setStatus('โหลดไม่สำเร็จ');
+      setDbStatusMessage('โหลดไม่สำเร็จ');
     }
   } finally {
     setLoading(false);
@@ -5000,6 +5055,10 @@ async function init() {
     if (els.noteSearchInput) els.noteSearchInput.value = '';
     applySearchQuery('');
     els.noteSearchInput?.focus();
+  });
+  els.syncStatusBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    flashSyncTip();
   });
   els.aiNoteCancelBtn?.addEventListener('click', onAiCancelOrReset);
   els.aiNoteDeleteBtn?.addEventListener('click', () => {
@@ -5379,14 +5438,18 @@ async function init() {
     refreshNoteNotifications();
     // Soft re-warm when returning to the app (throttled; toast only if data changed).
     void syncSpaceInBackground({ force: false, announce: false }).then((changed) => {
-      if (changed) setStatus('ซิงค์ข้อมูลล่าสุดแล้ว');
+      if (changed) setDbStatusMessage('ซิงค์ข้อมูลล่าสุดแล้ว');
     });
   });
   window.addEventListener('pageshow', () => refreshNoteNotifications());
   window.addEventListener('focus', () => refreshNoteNotifications());
   window.addEventListener('online', () => {
     refreshNoteNotifications();
+    setSyncStatus('busy', 'กำลังซิงค์…');
     void syncSpaceInBackground({ force: true, announce: true });
+  });
+  window.addEventListener('offline', () => {
+    setSyncStatus('offline', 'ออฟไลน์ · เก็บในเครื่อง');
   });
 
   // Block iOS pinch/gesture zoom so the fixed layout never overflows its edges.
