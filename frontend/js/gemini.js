@@ -201,41 +201,26 @@ function isLeadingEmojiChar(ch) {
   }
 }
 
-/** Clean title + ensure one real emoji prefix (no markdown / technical marks). */
-export function ensureLeadingEmoji(title) {
+/** Strip leading emoji / pictographs from titles (notes are text-only). */
+export function stripLeadingEmoji(title) {
   let t = sanitizeNoteTitle(title);
-  if (!t || isJunkTitle(t)) return '📝 โน้ต';
-
-  let emoji = '';
-  let rest = t;
+  if (!t || isJunkTitle(t)) return 'โน้ต';
   try {
-    const m = t.match(/^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*(.*)$/u);
-    if (m) {
-      emoji = m[1];
-      rest = sanitizeNoteTitle(m[2]);
-    }
+    t = t
+      .replace(/^(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s*)+/u, '')
+      .trim();
   } catch {
     const first = [...t][0];
-    if (isLeadingEmojiChar(first)) {
-      emoji = first;
-      rest = sanitizeNoteTitle(t.slice(first.length));
-    }
+    if (isLeadingEmojiChar(first)) t = sanitizeNoteTitle(t.slice(first.length));
   }
+  t = sanitizeNoteTitle(t);
+  if (!t || isJunkTitle(t)) return 'โน้ต';
+  return t.slice(0, 120);
+}
 
-  if (emoji && /^[*#_`|\\/<>{}[\]§†‡※,."']+$/.test(emoji)) {
-    emoji = '';
-    rest = sanitizeNoteTitle(t);
-  }
-
-  if (!rest || isJunkTitle(rest)) rest = 'โน้ต';
-  try {
-    rest = rest.replace(/^\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s*/u, '').trim() || rest;
-  } catch {
-    /* ignore */
-  }
-  if (isJunkTitle(rest)) rest = 'โน้ต';
-
-  return `${emoji || '📝'} ${rest}`.replace(/\s+/g, ' ').trim().slice(0, 120);
+/** @deprecated Use stripLeadingEmoji — kept for older imports. */
+export function ensureLeadingEmoji(title) {
+  return stripLeadingEmoji(title);
 }
 
 function humanLineFromText(rawText) {
@@ -258,7 +243,7 @@ function humanLineFromText(rawText) {
 
 function emptyDraft(summary = '') {
   return {
-    title: '📝 โน้ต',
+    title: 'โน้ต',
     summary: sanitizeNoteSummary(summary),
     tags: [],
     scheduledAt: null,
@@ -281,7 +266,7 @@ function fallbackDraft(rawText, sourceText = '') {
   }
   return {
     ...emptyDraft(summary),
-    title: ensureLeadingEmoji(titleBase),
+    title: stripLeadingEmoji(titleBase),
   };
 }
 
@@ -369,7 +354,7 @@ export function normalizeAiDraft(parsed, fallbackText = '') {
   }
 
   return {
-    title: ensureLeadingEmoji(titleRaw),
+    title: stripLeadingEmoji(titleRaw),
     summary,
     tags: normalizeTagNames(parsed.tags || parsed.tagNames),
     scheduledAt: normalizeScheduledAt(parsed.scheduledAt ?? parsed.dueAt),

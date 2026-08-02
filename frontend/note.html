@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="122">
-  <meta name="pnote-built" content="2026-07-11T19:36:06+07:00">
-  <meta name="theme-color" content="#000000">
+  <meta name="pnote-build" content="124">
+  <meta name="pnote-built" content="2026-08-02T12:40:00+07:00">
+  <meta name="theme-color" content="#f7f3ec">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=122"></script>
+  <script src="js/cache-bootstrap.js?v=124"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=122">
+  <link rel="stylesheet" href="css/pnote.css?v=124">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -67,15 +67,15 @@
     .fab-pages,
     .fab-action {
       position: relative;
-      width: 3rem;
-      height: 3rem;
-      border: none;
-      border-radius: 999px;
-      background: var(--surface-2, #2c2c2e);
-      color: var(--text, #fff);
-      font-size: 1.15rem;
-      font-weight: 700;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+      width: 2.35rem;
+      height: 2.35rem;
+      border: 1px solid var(--border, rgba(0,0,0,0.12));
+      border-radius: 8px;
+      background: var(--surface, #fffaf5);
+      color: var(--text, #2a2622);
+      font-size: 0.95rem;
+      font-weight: 600;
+      box-shadow: 0 1px 4px rgba(42, 38, 34, 0.08);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -86,18 +86,24 @@
     .fab-action:active { transform: scale(0.96); opacity: 0.9; }
     .fab-action[hidden] { display: none !important; }
     .fab-action.active {
-      background: var(--accent, #0a84ff);
+      background: var(--accent, #3d5a4c);
       color: #fff;
+      border-color: transparent;
     }
     .fab-ai {
-      background: linear-gradient(145deg, #4b8dff 0%, #0a84ff 45%, #7c5cff 100%) !important;
+      background: var(--accent, #3d5a4c) !important;
       color: #fff !important;
-      box-shadow: 0 2px 12px rgba(10, 132, 255, 0.4);
+      border-color: transparent !important;
+      box-shadow: 0 1px 4px rgba(61, 90, 76, 0.25);
     }
     .fab-ai-icon {
       display: block;
-      width: 1.2rem;
-      height: 1.2rem;
+      width: 1rem;
+      height: 1rem;
+    }
+    body.light .fab-ai {
+      background: var(--accent, #3d5a4c) !important;
+      color: #fff !important;
     }
     .pages-menu-overlay {
       position: fixed;
@@ -155,18 +161,14 @@
     body.light .fab-pages,
     body.light .fab-action,
     body.light .pages-menu { background: var(--surface); color: var(--text); }
-    body.light .fab-ai {
-      background: linear-gradient(145deg, #4b8dff 0%, #007aff 45%, #7c5cff 100%) !important;
-      color: #fff !important;
-    }
     body.light .fab-action.active {
-      background: var(--accent, #007aff);
+      background: var(--accent, #3d5a4c);
       color: #fff;
     }
     body.light .pages-menu-item { background: var(--bg); color: var(--text); }
   </style>
 </head>
-<body>
+<body class="light">
   <div id="app">
     <section id="list-view" class="view" hidden>
       <header class="topbar topbar-thin">
@@ -175,19 +177,19 @@
           <p id="app-built" class="app-built">อัปเดต —</p>
         </div>
         <div class="topbar-actions">
-          <button id="search-toggle-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ค้นหา" aria-expanded="false" aria-controls="note-search-row">⌕</button>
-          <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">⚙</button>
+          <button id="search-toggle-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="โฟกัสค้นหา" aria-expanded="true" aria-controls="note-search-row" hidden>⌕</button>
+          <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">ตั้งค่า</button>
         </div>
       </header>
-      <div id="note-search-row" class="note-search-row" hidden>
-        <input id="note-search-input" class="note-search-input" type="search" placeholder="ค้นหาหัวข้อ รายละเอียด แท็ก…" autocomplete="off" enterkeyhint="search">
+      <div id="note-search-row" class="note-search-row">
+        <input id="note-search-input" class="note-search-input" type="search" placeholder="ค้นหาโน้ต…" autocomplete="off" enterkeyhint="search">
         <button id="note-search-clear" class="btn btn-text note-search-clear" type="button" hidden aria-label="ล้างค้นหา">×</button>
       </div>
 
       <div class="list-scroll">
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
-          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ + เพื่อจดเร็ว หรือ ✦ ให้ AI ช่วย</p>
+          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ + เพื่อจดเร็ว หรือใช้ AI ช่วย</p>
           <div class="empty-state-actions">
             <button class="btn btn-secondary" type="button" id="empty-add-blank-btn">จดโน้ตว่าง</button>
             <button class="btn btn-primary" type="button" id="empty-add-ai-btn">เพิ่มด้วย AI</button>
@@ -250,16 +252,16 @@
         <div id="note-attachments" class="note-attachments" aria-label="ไฟล์แนบ"></div>
       </div>
       <footer class="editor-footer">
-        <button id="delete-btn" class="trash-mini-btn" type="button" aria-label="ย้ายโน้ตไปถังขยะ" title="ย้ายไปถังขยะ">🗑</button>
+        <button id="delete-btn" class="trash-mini-btn" type="button" aria-label="ย้ายโน้ตไปถังขยะ" title="ย้ายไปถังขยะ">ลบ</button>
       </footer>
     </section>
 
     <div id="drawer-backdrop" class="drawer-backdrop"></div>
     <aside id="group-drawer" class="drawer" aria-label="กลุ่มงาน">
       <h2>กลุ่มงาน</h2>
-      <button id="group-active-btn" class="drawer-item active" type="button">📋 งาน</button>
-      <button id="group-done-btn" class="drawer-item" type="button">✓ ทำแล้ว</button>
-      <button id="group-trash-btn" class="drawer-item" type="button">🗑 ถังขยะ</button>
+      <button id="group-active-btn" class="drawer-item active" type="button">งาน</button>
+      <button id="group-done-btn" class="drawer-item" type="button">ทำแล้ว</button>
+      <button id="group-trash-btn" class="drawer-item" type="button">ถังขยะ</button>
     </aside>
 
     <div id="ai-note-modal" class="modal" hidden>
@@ -286,8 +288,8 @@
               </button>
             </div>
             <div class="ai-note-side">
-              <button id="ai-note-camera-btn" class="ai-note-icon-btn" type="button" title="ถ่ายรูปเต็มจอ · บันทึกลงเครื่องได้" aria-label="ถ่ายรูป">📷</button>
-              <button id="ai-note-file-btn" class="ai-note-icon-btn" type="button" title="แนบรูปหรือไฟล์" aria-label="แนบไฟล์">📎</button>
+              <button id="ai-note-camera-btn" class="ai-note-icon-btn" type="button" title="ถ่ายรูปเต็มจอ · บันทึกลงเครื่องได้" aria-label="ถ่ายรูป">ถ่าย</button>
+              <button id="ai-note-file-btn" class="ai-note-icon-btn" type="button" title="แนบรูปหรือไฟล์" aria-label="แนบไฟล์">แนบ</button>
             </div>
           </div>
           <input id="ai-note-camera" type="file" accept="image/*" capture="environment" hidden>
@@ -331,7 +333,7 @@
             <div class="ai-note-fields">
             <div class="ai-note-schedule-row">
               <label class="ai-note-schedule-btn" id="ai-note-schedule-btn" for="ai-note-draft-schedule">
-                <span class="ai-note-schedule-ico" aria-hidden="true">📅</span>
+                <span class="ai-note-schedule-ico" aria-hidden="true"></span>
                 <span class="ai-note-schedule-text">
                   <span class="ai-note-schedule-caption">กำหนดเวลา</span>
                   <span class="ai-note-schedule-value" id="ai-note-schedule-value">ยังไม่ตั้ง</span>
@@ -423,10 +425,10 @@
               <input id="dock-scale-slider" type="range" min="0" max="100" value="50" step="5">
               <p class="settings-hint">เลื่อนเพื่อดูขนาดจริง · จัดกลางจอ</p>
               <div class="dock-scale-preview" id="dock-scale-preview" aria-hidden="true">
-                <span class="dock-scale-preview-chip">📅 ล่าสุด</span>
-                <span class="dock-scale-preview-chip">⚠️ ความสำคัญ</span>
-                <span class="dock-scale-preview-chip">🔁 การซ้ำ</span>
-                <span class="dock-scale-preview-chip">🏷️ แท็ก</span>
+                <span class="dock-scale-preview-chip">ล่าสุด</span>
+                <span class="dock-scale-preview-chip">ความสำคัญ</span>
+                <span class="dock-scale-preview-chip">การซ้ำ</span>
+                <span class="dock-scale-preview-chip">แท็ก</span>
               </div>
             </div>
             <div class="settings-row settings-row-tight settings-row-last">
@@ -834,19 +836,19 @@
     <div class="filter-dock-inner">
       <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรอง">
         <div class="filter-dd" data-filter="due">
-          <button type="button" class="filter-dd-btn" id="filter-due-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-due-menu">📆 กำหนด</button>
+          <button type="button" class="filter-dd-btn" id="filter-due-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-due-menu">กำหนด</button>
         </div>
         <div class="filter-dd" data-filter="sort">
-          <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-sort-menu">📅 ล่าสุด</button>
+          <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-sort-menu">ล่าสุด</button>
         </div>
         <div class="filter-dd" data-filter="priority">
-          <button type="button" class="filter-dd-btn" id="filter-priority-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-priority-menu">⚠️ ความสำคัญ</button>
+          <button type="button" class="filter-dd-btn" id="filter-priority-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-priority-menu">ความสำคัญ</button>
         </div>
         <div class="filter-dd" data-filter="recurrence">
-          <button type="button" class="filter-dd-btn" id="filter-recurrence-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-recurrence-menu">🔁 การซ้ำ</button>
+          <button type="button" class="filter-dd-btn" id="filter-recurrence-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-recurrence-menu">การซ้ำ</button>
         </div>
         <div class="filter-dd" data-filter="tag">
-          <button type="button" class="filter-dd-btn" id="filter-tag-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-tag-menu">🏷️ แท็ก</button>
+          <button type="button" class="filter-dd-btn" id="filter-tag-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-tag-menu">แท็ก</button>
         </div>
       </div>
     </div>
@@ -877,8 +879,8 @@
     </div>
   </div>
 
-  <script src="js/page-nav.js?v=122"></script>
-  <script src="js/fab-drag.js?v=122"></script>
+  <script src="js/page-nav.js?v=124"></script>
+  <script src="js/fab-drag.js?v=124"></script>
   <script>
     (function () {
       var fab = document.getElementById('fabPages');
@@ -888,7 +890,7 @@
       }
     })();
   </script>
-  <script type="module" src="js/app.js?v=122"></script>
-  <script src="js/update-watch.js?v=122"></script>
+  <script type="module" src="js/app.js?v=124"></script>
+  <script src="js/update-watch.js?v=124"></script>
 </body>
 </html>

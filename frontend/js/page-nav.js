@@ -1,12 +1,13 @@
 /**
  * Shared page navigation: FAB switcher only (no swipe between pages).
- * Order: Note (home) → Calorie (more pages later).
+ * Order: โน้ต (home) → สุขภาพ/Calorie (secondary).
  * FAB: short tap → cycle next · long-press → page list.
+ * Menu is text-only (no emoji icons).
  */
 (function (global) {
   var PAGES = [
-    { id: 'note', url: './note.html', label: 'Note', sub: 'โน้ต', icon: '📝' },
-    { id: 'calorie', url: './index.html', label: 'Calorie', sub: 'แคลอรี่', icon: '🔥' },
+    { id: 'note', url: './note.html', label: 'โน้ต', sub: 'หน้าแรก' },
+    { id: 'calorie', url: './index.html', label: 'สุขภาพ', sub: 'แคลอรี่' },
   ];
 
   var MIN_DX = 72;
@@ -91,9 +92,7 @@
       btn.setAttribute('role', 'menuitem');
       if (page.id === currentId) btn.setAttribute('aria-current', 'page');
       btn.innerHTML =
-        '<span class="pm-icon" aria-hidden="true">' +
-        (page.icon || '•') +
-        '</span><span>' +
+        '<span>' +
         page.label +
         '</span><span class="pm-sub">' +
         (page.id === currentId ? 'หน้านี้' : page.sub || '') +

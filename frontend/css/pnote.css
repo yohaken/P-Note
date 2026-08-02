@@ -1,4 +1,4 @@
-/* P-Note — simple flat theme (iOS-like), dark by default, optional light. */
+/* P-Note — flat theme; light = cream minimal (default), optional dark. */
 :root {
   --bg: #000000;
   --surface: #1c1c1e;
@@ -11,25 +11,25 @@
   --accent: #0a84ff;
   --danger: #ff453a;
   --success: #30d158;
-  --radius: 12px;
-  --radius-sm: 9px;
+  --radius: 8px;
+  --radius-sm: 6px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font: 'Segoe UI', 'Helvetica Neue', 'Noto Sans Thai', 'Sukhumvit Set', sans-serif;
 }
 
 body.light {
-  --bg: #f2f2f7;
-  --surface: #ffffff;
-  --surface-2: #e9e9ee;
-  --surface-3: #dcdce1;
-  --text: #000000;
-  --text-muted: #6c6c70;
-  --border: rgba(0, 0, 0, 0.12);
-  --border-strong: rgba(0, 0, 0, 0.2);
-  --accent: #007aff;
-  --danger: #ff3b30;
-  --success: #34c759;
+  --bg: #f7f3ec;
+  --surface: #fffaf5;
+  --surface-2: #efe9df;
+  --surface-3: #e4ddd2;
+  --text: #2a2622;
+  --text-muted: #8a847a;
+  --border: rgba(42, 38, 34, 0.12);
+  --border-strong: rgba(42, 38, 34, 0.2);
+  --accent: #3d5a4c;
+  --danger: #b54a3c;
+  --success: #4a7c59;
 }
 
 /*
@@ -501,9 +501,9 @@ body.bars-dragging .list-scroll {
 .notes-list {
   display: flex;
   flex-direction: column;
-  gap: calc(0.4rem - var(--card-density, 0) * 0.32rem);
+  gap: calc(0.28rem - var(--card-density, 0) * 0.2rem);
   /* Clear fixed filter dock so last cards can scroll into view */
-  padding: 0.5rem 0.75rem calc(0.75rem + var(--filters-dock-h, 0px));
+  padding: 0.35rem 0.65rem calc(0.55rem + var(--filters-dock-h, 0px));
 }
 
 /* Multi-select batch dock (replaces filter dock while selecting) */
@@ -709,18 +709,18 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
 .filter-dd-btn {
   appearance: none;
   border: 1px solid var(--border);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: calc(0.68rem * var(--dock-scale));
+  font-size: calc(0.62rem * var(--dock-scale));
   font-weight: 600;
   line-height: 1.15;
   white-space: nowrap;
-  max-width: calc(7.2rem * var(--dock-scale));
+  max-width: calc(6.4rem * var(--dock-scale));
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: calc(0.36rem * var(--dock-scale)) calc(0.5rem * var(--dock-scale));
-  border-radius: 999px;
+  padding: calc(0.22rem * var(--dock-scale)) calc(0.38rem * var(--dock-scale));
+  border-radius: var(--radius-sm);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -942,15 +942,15 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
 .card-col-body {
   flex: 1 1 auto;
   padding:
-    calc(0.42rem - var(--card-density, 0) * 0.28rem)
-    calc(0.55rem - var(--card-density, 0) * 0.12rem);
+    calc(0.3rem - var(--card-density, 0) * 0.2rem)
+    calc(0.45rem - var(--card-density, 0) * 0.1rem);
   display: flex;
   flex-direction: column;
   justify-content: center;
   min-width: 0;
   border-color: color-mix(in srgb, var(--prio, var(--border)) 45%, var(--border));
-  background: color-mix(in srgb, var(--prio, var(--surface)) 12%, var(--surface));
-  box-shadow: inset 3px 0 0 var(--prio, transparent);
+  background: color-mix(in srgb, var(--prio, var(--surface)) 10%, var(--surface));
+  box-shadow: inset 2px 0 0 var(--prio, transparent);
 }
 
 .card-col-due {
@@ -1017,9 +1017,9 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
   flex: 1 1 auto;
   min-width: 0;
   margin: 0;
-  font-size: calc(0.92rem - var(--card-density, 0) * 0.12rem);
+  font-size: calc(0.84rem - var(--card-density, 0) * 0.1rem);
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1056,10 +1056,10 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
 }
 
 .note-card .card-preview {
-  margin: calc(0.22rem - var(--card-density, 0) * 0.14rem) 0 0;
+  margin: calc(0.14rem - var(--card-density, 0) * 0.1rem) 0 0;
   color: var(--text-muted);
-  font-size: calc(0.78rem - var(--card-density, 0) * 0.1rem);
-  line-height: 1.25;
+  font-size: calc(0.7rem - var(--card-density, 0) * 0.08rem);
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3645,12 +3645,12 @@ body.light .priority-badge.priority-urgent {
   to { transform: rotate(360deg); }
 }
 
-/* Search row */
+/* Search row — always-on slim bar on list home */
 .note-search-row {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.55rem 0.45rem;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem 0.35rem;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -3660,18 +3660,26 @@ body.light .priority-badge.priority-urgent {
 .note-search-input {
   flex: 1;
   min-width: 0;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
+  border: none;
+  border-bottom: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
-  border-radius: var(--radius-sm);
-  padding: 0.45rem 0.65rem;
-  font-size: 0.9rem;
+  padding: 0.28rem 0.1rem;
+  font-size: 0.82rem;
+  outline: none;
+}
+.note-search-input:focus {
+  border-bottom-color: var(--accent);
+}
+.note-search-input::placeholder {
+  color: var(--text-muted);
 }
 .note-search-clear {
   flex-shrink: 0;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   line-height: 1;
-  padding: 0.25rem 0.4rem;
+  padding: 0.15rem 0.3rem;
 }
 
 .empty-state-actions {

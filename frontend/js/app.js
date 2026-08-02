@@ -77,7 +77,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=122';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=122';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=124';
 import {
   notificationPermission,
   notificationSupported,
@@ -87,7 +87,7 @@ import {
   syncNoteNotifications,
   startNotifyKeepalive,
 } from './note-notify.js?v=122';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, ensureLeadingEmoji, prepareAiMedia } from './gemini.js?v=122';
+import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, stripLeadingEmoji, prepareAiMedia } from './gemini.js?v=124';
 import {
   uploadFileToCloud,
   getDownloadUrl,
@@ -600,7 +600,7 @@ function applyTheme() {
   els.themeDarkBtn?.classList.toggle('active', !light);
   els.themeLightBtn?.classList.toggle('active', light);
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', light ? '#f2f2f7' : '#000000');
+  if (meta) meta.setAttribute('content', light ? '#f7f3ec' : '#000000');
   applyBoxColors();
 }
 
@@ -684,17 +684,17 @@ function applyFabDirection() {
 }
 
 const FAB_ORDER_LABELS = {
-  ai: '✦ AI',
-  pages: '▦ แผ่นงาน',
-  group: '☰ กลุ่มงาน',
+  ai: 'AI',
+  pages: 'แผ่นงาน',
+  group: 'กลุ่มงาน',
 };
 
 const FILTER_ORDER_LABELS = {
-  due: '📆 กำหนด',
-  sort: '📅 เรียง',
-  priority: '⚠️ ความสำคัญ',
-  recurrence: '🔁 การซ้ำ',
-  tag: '🏷️ แท็ก',
+  due: 'กำหนด',
+  sort: 'เรียง',
+  priority: 'ความสำคัญ',
+  recurrence: 'การซ้ำ',
+  tag: 'แท็ก',
 };
 
 /** Settings list = visual top → bottom. Stack uses column/row-reverse → DOM = reverse. */
@@ -1052,9 +1052,9 @@ function renderGroupNav() {
 }
 
 const SORT_FILTER_OPTIONS = [
-  { id: 'updated', label: 'ล่าสุด', button: '📅 ล่าสุด' },
-  { id: 'schedule', label: 'ตามกำหนด', button: '📅 ตามกำหนด' },
-  { id: 'manual', label: 'อิสระ', button: '📅 อิสระ' },
+  { id: 'updated', label: 'ล่าสุด', button: 'ล่าสุด' },
+  { id: 'schedule', label: 'ตามกำหนด', button: 'ตามกำหนด' },
+  { id: 'manual', label: 'อิสระ', button: 'อิสระ' },
 ];
 
 function updateFilterDockVisibility() {
@@ -1474,7 +1474,7 @@ function renderDueScopeBar() {
   const opt = DUE_SCOPE_OPTIONS.find((o) => o.id === current);
   const isFiltered = Boolean(current);
   if (els.filterDueBtn) {
-    els.filterDueBtn.textContent = isFiltered && opt ? `📆 ${opt.label}` : '📆 กำหนด';
+    els.filterDueBtn.textContent = isFiltered && opt ? opt.label : 'กำหนด';
     els.filterDueBtn.classList.toggle('is-active', isFiltered);
     els.filterDueBtn.title = isFiltered && opt
       ? `กำหนด · ${opt.label} · กดค้าง = ทั้งหมด`
@@ -1507,7 +1507,7 @@ function renderPriorityFilterBar() {
   const current = state.priorityFilter || null;
   const opt = PRIORITY_OPTIONS.find((o) => o.id === current);
   if (els.filterPriorityBtn) {
-    els.filterPriorityBtn.textContent = opt ? `⚠️ ${opt.short}` : '⚠️ ความสำคัญ';
+    els.filterPriorityBtn.textContent = opt ? opt.short : 'ความสำคัญ';
     els.filterPriorityBtn.classList.toggle('is-active', Boolean(current));
     els.filterPriorityBtn.title = opt
       ? `ความสำคัญ · ${opt.label} · กดค้าง = ทั้งหมด`
@@ -1667,7 +1667,7 @@ function renderRecurrenceFilterBar() {
   const opt = filterOptions.find((o) => o.id === current);
   const isFiltered = Boolean(current);
   if (els.filterRecurrenceBtn) {
-    els.filterRecurrenceBtn.textContent = isFiltered && opt ? `🔁 ${opt.label}` : '🔁 การซ้ำ';
+    els.filterRecurrenceBtn.textContent = isFiltered && opt ? opt.label : 'การซ้ำ';
     els.filterRecurrenceBtn.classList.toggle('is-active', isFiltered);
     els.filterRecurrenceBtn.title = isFiltered && opt
       ? `การซ้ำ · ${opt.label} · กดค้าง = ทั้งหมด`
@@ -1795,8 +1795,8 @@ function renderTagFilterBar() {
   const untagged = currentId === TAG_FILTER_UNTAGGED;
   const currentTag = !untagged && currentId ? tags.find((t) => t.id === currentId) : null;
   if (els.filterTagBtn) {
-    if (untagged) els.filterTagBtn.textContent = '🏷️ ไม่มีแท็ก';
-    else els.filterTagBtn.textContent = currentTag ? `🏷️ ${currentTag.name}` : '🏷️ แท็ก';
+    if (untagged) els.filterTagBtn.textContent = 'ไม่มีแท็ก';
+    else els.filterTagBtn.textContent = currentTag ? currentTag.name : 'แท็ก';
     els.filterTagBtn.classList.toggle('is-active', Boolean(currentId));
     els.filterTagBtn.title = untagged
       ? 'แท็ก · ไม่มีแท็ก · กดค้าง = ทั้งหมด'
@@ -2155,12 +2155,12 @@ function scheduleBadgeHtml(note) {
   const recur = recurrenceLabel(note.recurrence, { short: true });
   if (!note.scheduledAt && !recur) return '';
   if (!note.scheduledAt) {
-    return `<span class="schedule-badge upcoming">🔁 ${escapeHtml(recur)}</span>`;
+    return `<span class="schedule-badge upcoming">${escapeHtml(recur)}</span>`;
   }
   const status = getScheduleStatus(note.scheduledAt);
   const rel = relativeDayLabel(note.scheduledAt);
   const date = shortDate(note.scheduledAt);
-  const prefix = recur ? `🔁 ${escapeHtml(recur)} · ` : '📅 ';
+  const prefix = recur ? `${escapeHtml(recur)} · ` : '';
   return `<span class="schedule-badge ${status}">${prefix}${escapeHtml(rel)} · ${escapeHtml(date)}</span>`;
 }
 
@@ -2619,9 +2619,10 @@ function renderNotesList() {
     const previewHtml = preview
       ? `<p class="card-preview">${escapeHtml(preview)}</p>`
       : '';
-    const bodyMeta = [priorityHtml, recur ? `<span class="card-recur">🔁 ${escapeHtml(recur)}</span>` : '']
+    const bodyMeta = [priorityHtml, recur ? `<span class="card-recur">${escapeHtml(recur)}</span>` : '']
       .filter(Boolean)
       .join('');
+    const titleText = stripLeadingEmoji(note.title || '') || 'ไม่มีหัวข้อ';
 
     item.innerHTML = `
       ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
@@ -2629,7 +2630,7 @@ function renderNotesList() {
         ${tagsCellHtml(tags)}
         <div class="card-col card-col-body" style="--prio:${escapeHtml(prioColor)}">
           <div class="card-top-row">
-            <h3 class="card-title">${escapeHtml(note.title || 'ไม่มีหัวข้อ')}</h3>
+            <h3 class="card-title">${escapeHtml(titleText)}</h3>
             ${bodyMeta ? `<div class="card-meta-row">${bodyMeta}</div>` : ''}
           </div>
           ${previewHtml}
@@ -3702,7 +3703,7 @@ async function renderAttachViewerContent() {
   const box = document.createElement('div');
   box.className = 'attach-viewer-file';
   box.innerHTML = `
-    <div class="attach-viewer-file-icon" aria-hidden="true">📄</div>
+    <div class="attach-viewer-file-icon" aria-hidden="true">ไฟล์</div>
     <p class="attach-viewer-file-name">${escapeHtml(a.name || 'ไฟล์')}</p>
     <p class="attach-viewer-file-meta">${escapeHtml(fileKindLabel(a))} · ${escapeHtml(formatBytes(a.size))}</p>
   `;
@@ -3793,7 +3794,7 @@ function renderAiAttachList() {
     } else {
       const icon = document.createElement('span');
       icon.className = 'ai-note-attach-file-icon';
-      icon.textContent = canInlinePreview(a) === 'pdf' ? '📕' : '📄';
+      icon.textContent = canInlinePreview(a) === 'pdf' ? 'PDF' : 'ไฟล์';
       row.appendChild(icon);
     }
     const meta = document.createElement('div');
@@ -4048,12 +4049,12 @@ function openQuickNoteModal() {
   });
 }
 
-function setSearchOpen(open) {
+function setSearchOpen(open, { focus = true } = {}) {
   if (!els.noteSearchRow) return;
   els.noteSearchRow.hidden = !open;
   els.searchToggleBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
   els.searchToggleBtn?.classList.toggle('is-active', open || Boolean(state.searchQuery));
-  if (open) {
+  if (open && focus) {
     queueMicrotask(() => els.noteSearchInput?.focus());
   }
 }
@@ -4199,7 +4200,7 @@ async function runAiSummarize() {
 }
 
 async function confirmAiNoteDraft() {
-  const title = ensureLeadingEmoji(String(els.aiNoteDraftTitle?.value || '').trim() || 'โน้ต');
+  const title = stripLeadingEmoji(String(els.aiNoteDraftTitle?.value || '').trim() || 'โน้ต');
   const content = String(els.aiNoteDraftSummary?.value || '').trim();
 
   if (aiPendingMedia.some((m) => m.uploadState === 'error' && m.attachment?.needsCloud && !m.attachment?.data)) {
@@ -4825,6 +4826,8 @@ async function init() {
   // Update polling: js/update-watch.js (shared with Calorie). No SW in this shell.
   initAttachViewer();
   initInAppCamera();
+  // Search always visible on notes home (แทนสุขภาพบน primary UI)
+  setSearchOpen(true, { focus: false });
 
   els.addNoteBtn.addEventListener('click', openAddNoteModal);
   els.emptyAddAiBtn?.addEventListener('click', openAddNoteModal);

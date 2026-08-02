@@ -25,9 +25,9 @@ const CAMERA_FACINGS = ['environment', 'user'];
 export const DEFAULT_FILTER_ORDER = ['due', 'sort', 'priority', 'recurrence', 'tag'];
 
 const DEFAULTS = {
-  theme: 'dark',
-  cardDensity: 0,
-  dockScale: 50,
+  theme: 'light',
+  cardDensity: 55,
+  dockScale: 38,
   dockOffsetY: 70,
   fabOrder: [...DEFAULT_FAB_ORDER],
   filterOrder: [...DEFAULT_FILTER_ORDER],
