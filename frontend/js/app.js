@@ -207,6 +207,7 @@ const els = {
   tagsSettingsRow: document.getElementById('tags-settings-row'),
   aiNoteStatus: null,
   aiNoteCancelBtn: document.getElementById('ai-note-cancel-btn'),
+  aiNoteDeleteBtn: document.getElementById('ai-note-delete-btn'),
   aiNoteSummarizeBtn: document.getElementById('ai-note-summarize-btn'),
   aiNoteConfirmBtn: document.getElementById('ai-note-confirm-btn'),
   geminiApiKey: document.getElementById('gemini-api-key'),
@@ -2509,23 +2510,23 @@ async function applyNoteAction(noteId, action, extra = {}) {
 function cardActionsFor(note) {
   if (state.listGroup === NOTE_STATUS.ACTIVE) {
     return [
-      { label: '☑', title: 'เลือก', action: 'select' },
-      { label: '✓', title: 'ทำแล้ว', action: 'done' },
-      { label: '⏳', title: 'เลื่อน', action: 'snooze' },
-      { label: '🗑', title: 'ลบ', danger: true, action: 'trash' },
+      { label: 'เลือก', title: 'เลือก', action: 'select' },
+      { label: 'ทำแล้ว', title: 'ทำแล้ว', action: 'done' },
+      { label: 'เลื่อน', title: 'เลื่อน', action: 'snooze' },
+      { label: 'ลบ', title: 'ลบ', danger: true, action: 'trash' },
     ];
   }
   if (state.listGroup === NOTE_STATUS.DONE) {
     return [
-      { label: '☑', title: 'เลือก', action: 'select' },
-      { label: '↩', title: 'คืนเป็นงาน', action: 'restore' },
-      { label: '🗑', title: 'ลบ', danger: true, action: 'trash' },
+      { label: 'เลือก', title: 'เลือก', action: 'select' },
+      { label: 'คืน', title: 'คืนเป็นงาน', action: 'restore' },
+      { label: 'ลบ', title: 'ลบ', danger: true, action: 'trash' },
     ];
   }
   return [
-    { label: '☑', title: 'เลือก', action: 'select' },
-    { label: '↩', title: 'กู้คืน', action: 'restore' },
-    { label: '✕', title: 'ลบถาวร', danger: true, action: 'purge' },
+    { label: 'เลือก', title: 'เลือก', action: 'select' },
+    { label: 'กู้คืน', title: 'กู้คืน', action: 'restore' },
+    { label: 'ลบถาวร', title: 'ลบถาวร', danger: true, action: 'purge' },
   ];
 }
 
@@ -3222,7 +3223,20 @@ function updateAiFormChrome() {
   if (els.aiNoteConfirmBtn) {
     els.aiNoteConfirmBtn.textContent = aiFormMode === 'edit' ? 'บันทึก' : 'สร้าง';
   }
+  if (els.aiNoteDeleteBtn) {
+    els.aiNoteDeleteBtn.hidden = aiFormMode !== 'edit';
+  }
   updateAiCancelBtn();
+}
+
+async function trashNoteFromAiEdit() {
+  if (aiFormMode !== 'edit' || !aiEditNoteId) return;
+  const note = getNoteById(aiEditNoteId);
+  if (!note) return;
+  const ok = await showConfirm('ย้ายโน้ตไปถังขยะ?', { okLabel: 'ย้ายไปถังขยะ', danger: true });
+  if (!ok) return;
+  closeAiNoteModal();
+  await applyNoteAction(note.id, 'trash');
 }
 
 function updateAiCancelBtn() {
@@ -3996,7 +4010,7 @@ function renderEditorAttachments(note) {
     const openBtn = document.createElement('button');
     openBtn.type = 'button';
     openBtn.className = 'note-attach-link';
-    openBtn.textContent = a.kind === 'image' ? `📷 ${a.name || 'รูป'}` : `📎 ${a.name || 'ไฟล์'}`;
+    openBtn.textContent = a.kind === 'image' ? (a.name || 'รูป') : (a.name || 'ไฟล์');
     openBtn.addEventListener('click', () => openAttachViewer(list, index));
     row.appendChild(openBtn);
     const rm = document.createElement('button');
@@ -4861,6 +4875,9 @@ async function init() {
     els.noteSearchInput?.focus();
   });
   els.aiNoteCancelBtn?.addEventListener('click', onAiCancelOrReset);
+  els.aiNoteDeleteBtn?.addEventListener('click', () => {
+    trashNoteFromAiEdit();
+  });
   els.aiNotePasteDraftBtn?.addEventListener('click', pasteDraftDetailsIntoSource);
   els.aiNoteSummarizeBtn?.addEventListener('click', () => {
     runAiSummarize();
