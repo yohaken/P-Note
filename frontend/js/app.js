@@ -1,5 +1,5 @@
 import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=122';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=122';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=126';
 import { initListSortable } from './sortable.js?v=122';
 import { bindComposableInput } from './text-input.js?v=122';
 import { CONFIG } from './config.js?v=122';
@@ -2265,7 +2265,7 @@ function closeConfirm() {
 }
 
 /** Centered confirm — same place as the long-press menu. */
-function showConfirm(message, { okLabel = 'ตกลง', danger = false } = {}) {
+function showConfirm(message, { okLabel = 'ตกลง', cancelLabel = 'ยกเลิก', danger = false } = {}) {
   return new Promise((resolve) => {
     if (confirmResolver) {
       confirmResolver(false);
@@ -2281,6 +2281,9 @@ function showConfirm(message, { okLabel = 'ตกลง', danger = false } = {})
     if (els.noteConfirmOk) {
       els.noteConfirmOk.textContent = okLabel;
       els.noteConfirmOk.classList.toggle('danger', Boolean(danger));
+    }
+    if (els.noteConfirmCancel) {
+      els.noteConfirmCancel.textContent = cancelLabel;
     }
     els.noteConfirmOverlay.hidden = false;
   });
@@ -3300,13 +3303,16 @@ function renderAiChecklist() {
       updateAiCancelBtn();
     });
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        aiChecklistDraft.splice(index + 1, 0, newChecklistItem());
-        renderAiChecklist();
-        const next = list.querySelectorAll('input[type="text"]')[index + 1];
-        next?.focus();
-      }
+      // Desktop Thai/IME: Enter often confirms composition (keyCode 229 / isComposing).
+      // Do not insert a row or re-render while composing — that drops mid-syllable text.
+      if (e.key !== 'Enter') return;
+      if (e.isComposing || e.keyCode === 229 || e.which === 229) return;
+      e.preventDefault();
+      aiChecklistDraft[index] = { ...item, text: input.value, done: aiChecklistDraft[index]?.done };
+      aiChecklistDraft.splice(index + 1, 0, newChecklistItem());
+      renderAiChecklist();
+      const next = list.querySelectorAll('input[type="text"]')[index + 1];
+      next?.focus();
     });
     const rm = document.createElement('button');
     rm.type = 'button';
@@ -3516,6 +3522,21 @@ function onAiCancelOrReset() {
       aiFormMode === 'edit' ? 'คืนค่าเดิมของโน้ตแล้ว' : 'เคลียร์ฟอร์มแล้ว · พร้อมกรอกใหม่',
     );
     return;
+  }
+  requestCloseAiNoteModal();
+}
+
+/** Close AI form; ask before discarding typed work (desktop click-outside / Esc). */
+async function requestCloseAiNoteModal() {
+  if (!els.aiNoteModal || els.aiNoteModal.hidden) return;
+  if (aiNoteBusy) return;
+  if (isAiFormDirty()) {
+    const ok = await showConfirm('ทิ้งสิ่งที่พิมพ์ไว้?', {
+      okLabel: 'ทิ้ง',
+      cancelLabel: 'กลับไปแก้',
+      danger: true,
+    });
+    if (!ok) return;
   }
   closeAiNoteModal();
 }
@@ -4214,6 +4235,8 @@ async function runAiSummarize() {
 }
 
 async function confirmAiNoteDraft() {
+  // Desktop double-click on สร้าง/บันทึก used to create duplicate notes.
+  if (aiNoteBusy) return;
   const title = stripLeadingEmoji(String(els.aiNoteDraftTitle?.value || '').trim() || 'โน้ต');
   const content = String(els.aiNoteDraftSummary?.value || '').trim();
 
@@ -4221,44 +4244,78 @@ async function confirmAiNoteDraft() {
     setAiNoteStatus('มีไฟล์อัปโหลดไม่สำเร็จ', { kind: 'error', restoreMs: 2400 });
     return;
   }
-  await waitForPendingUploads();
 
-  const attachments = attachmentsForPersist(
-    aiPendingMedia.map((m) => m.attachment).filter(Boolean),
-  );
-  const checklist = checklistDraftForSave();
-  if (!title && !content && !attachments.length && !checklist.length) {
-    setAiNoteStatus('ใส่หัวข้อก่อน', { kind: 'error', restoreMs: 2200 });
-    return;
-  }
+  aiNoteBusy = true;
+  if (els.aiNoteConfirmBtn) els.aiNoteConfirmBtn.disabled = true;
+  if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = true;
 
-  let data = state.notesData;
-  const tagIds = [];
-  for (const item of aiTagDraft) {
-    if (!item.on) continue;
-    const result = addTag(data, item.name);
-    data = result.data;
-    if (result.tag) tagIds.push(result.tag.id);
-  }
+  try {
+    await waitForPendingUploads();
 
-  let scheduleAt = fromDatetimeLocalValue(els.aiNoteDraftSchedule?.value);
-  const priority = els.aiNoteDraftPriority?.value;
-  const recurrence = normalizeRecurrence(els.aiNoteDraftRecurrence?.value);
-  const remindBefore = normalizeRemindBefore(els.aiNoteDraftRemind?.value);
-  const notifyRepeat = normalizeNotifyRepeat(els.aiNoteDraftNotifyRepeat?.value);
-  if ((recurrence || notifyRepeat !== 'none') && !scheduleAt) {
-    scheduleAt = defaultScheduleIso();
-  }
-
-  if (aiFormMode === 'edit' && aiEditNoteId) {
-    const existing = getNoteById(aiEditNoteId);
-    if (!existing) {
-      setAiNoteStatus('ไม่พบโน้ต', { kind: 'error', restoreMs: 2200 });
+    const attachments = attachmentsForPersist(
+      aiPendingMedia.map((m) => m.attachment).filter(Boolean),
+    );
+    const checklist = checklistDraftForSave();
+    if (!title && !content && !attachments.length && !checklist.length) {
+      setAiNoteStatus('ใส่หัวข้อก่อน', { kind: 'error', restoreMs: 2200 });
       return;
     }
-    let note = updateNote(existing, {
-      title,
-      content,
+
+    let data = state.notesData;
+    const tagIds = [];
+    for (const item of aiTagDraft) {
+      if (!item.on) continue;
+      const result = addTag(data, item.name);
+      data = result.data;
+      if (result.tag) tagIds.push(result.tag.id);
+    }
+
+    let scheduleAt = fromDatetimeLocalValue(els.aiNoteDraftSchedule?.value);
+    const priority = els.aiNoteDraftPriority?.value;
+    const recurrence = normalizeRecurrence(els.aiNoteDraftRecurrence?.value);
+    const remindBefore = normalizeRemindBefore(els.aiNoteDraftRemind?.value);
+    const notifyRepeat = normalizeNotifyRepeat(els.aiNoteDraftNotifyRepeat?.value);
+    if ((recurrence || notifyRepeat !== 'none') && !scheduleAt) {
+      scheduleAt = defaultScheduleIso();
+    }
+
+    if (aiFormMode === 'edit' && aiEditNoteId) {
+      const existing = getNoteById(aiEditNoteId);
+      if (!existing) {
+        setAiNoteStatus('ไม่พบโน้ต', { kind: 'error', restoreMs: 2200 });
+        return;
+      }
+      let note = updateNote(existing, {
+        title,
+        content,
+        scheduledAt: scheduleAt,
+        priority,
+        recurrence,
+        remindBefore,
+        notifyRepeat,
+        checklist,
+      });
+      note = { ...note, tagIds, attachments };
+      state.notesData = updateNoteInData(data, note);
+      state.draftNoteId = null;
+      closeAiNoteModal();
+      try {
+        await saveManager.saveNow(() => state.notesData);
+      } catch (err) {
+        console.warn('note save failed', err);
+        autosave();
+      }
+      renderNotesList();
+      renderTagFilterBar();
+      renderTagManager();
+      refreshNoteNotifications();
+      scheduleUserContextRefresh();
+      setStatus('บันทึกแล้ว');
+      return;
+    }
+
+    let note = createNote(title || (checklist.length ? 'เช็กลิสต์' : ''), content);
+    note = updateNote(note, {
       scheduledAt: scheduleAt,
       priority,
       recurrence,
@@ -4267,7 +4324,12 @@ async function confirmAiNoteDraft() {
       checklist,
     });
     note = { ...note, tagIds, attachments };
-    state.notesData = updateNoteInData(data, note);
+
+    state.notesData = {
+      ...data,
+      notes: [note, ...data.notes],
+      updatedAt: new Date().toISOString(),
+    };
     state.draftNoteId = null;
     closeAiNoteModal();
     try {
@@ -4281,40 +4343,12 @@ async function confirmAiNoteDraft() {
     renderTagManager();
     refreshNoteNotifications();
     scheduleUserContextRefresh();
-    setStatus('บันทึกแล้ว');
-    return;
+    setStatus(attachments.length ? 'สร้างโน้ตพร้อมไฟล์แนบ' : 'สร้างโน้ตแล้ว');
+  } finally {
+    aiNoteBusy = false;
+    if (els.aiNoteConfirmBtn) els.aiNoteConfirmBtn.disabled = false;
+    if (els.aiNoteSummarizeBtn) els.aiNoteSummarizeBtn.disabled = false;
   }
-
-  let note = createNote(title || (checklist.length ? 'เช็กลิสต์' : ''), content);
-  note = updateNote(note, {
-    scheduledAt: scheduleAt,
-    priority,
-    recurrence,
-    remindBefore,
-    notifyRepeat,
-    checklist,
-  });
-  note = { ...note, tagIds, attachments };
-
-  state.notesData = {
-    ...data,
-    notes: [note, ...data.notes],
-    updatedAt: new Date().toISOString(),
-  };
-  state.draftNoteId = null;
-  closeAiNoteModal();
-  try {
-    await saveManager.saveNow(() => state.notesData);
-  } catch (err) {
-    console.warn('note save failed', err);
-    autosave();
-  }
-  renderNotesList();
-  renderTagFilterBar();
-  renderTagManager();
-  refreshNoteNotifications();
-  scheduleUserContextRefresh();
-  setStatus(attachments.length ? 'สร้างโน้ตพร้อมไฟล์แนบ' : 'สร้างโน้ตแล้ว');
 }
 
 function openNewNote() {
@@ -4816,7 +4850,7 @@ function initSwipeBack() {
           if (!els.settingsOverlay.hidden) closeSettings();
           else if (inAppCameraCtl?.isOpen?.()) inAppCameraCtl.close();
           else if (els.attachViewer && !els.attachViewer.hidden) closeAttachViewer();
-          else if (els.aiNoteModal && !els.aiNoteModal.hidden) closeAiNoteModal();
+          else if (els.aiNoteModal && !els.aiNoteModal.hidden) requestCloseAiNoteModal();
           else if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) finishConfirm(false);
           else if (els.noteContextOverlay && !els.noteContextOverlay.hidden) closeContextMenu();
           else if (!els.noteContextMenu.hidden) closeContextMenu();
@@ -4884,7 +4918,15 @@ async function init() {
   });
   els.aiNoteConfirmBtn?.addEventListener('click', confirmAiNoteDraft);
   els.aiNoteModal?.addEventListener('click', (e) => {
-    if (e.target === els.aiNoteModal) closeAiNoteModal();
+    if (e.target === els.aiNoteModal) requestCloseAiNoteModal();
+  });
+  // Esc on desktop: same dirty-check close as backdrop click
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!els.aiNoteModal || els.aiNoteModal.hidden) return;
+    if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) return;
+    e.preventDefault();
+    requestCloseAiNoteModal();
   });
   els.aiNoteCameraBtn?.addEventListener('click', () => {
     openInAppCameraOrFallback();
