@@ -124,7 +124,23 @@ export function attachNoteCardInteractions(card, handlers) {
   };
 
   const onContextMenu = (event) => {
+    // Desktop right-click → same actions menu as long-press (Mac/PC).
+    // Still prevent the browser menu so it does not cover our UI.
     event.preventDefault();
+    if (armed || suppressClick) return;
+    if (event.target.closest?.('.card-col-tags, .card-tag-name, .card-actions, button, a')) {
+      return;
+    }
+    clearTimer();
+    card.classList.remove('is-longpress-armed');
+    armed = false;
+    cancelled = false;
+    clearUiTextSelection();
+    handlers.onLongPress({
+      clientX: event.clientX ?? startX,
+      clientY: event.clientY ?? startY,
+      noteId: handlers.noteId,
+    });
   };
 
   card.addEventListener('pointerdown', onPointerDown);
