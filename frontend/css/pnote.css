@@ -1635,6 +1635,15 @@ body.notepad-dock .editor-body {
   line-height: 1.55;
   padding: 0.85rem;
   resize: none;
+  tab-size: 2;
+  -moz-tab-size: 2;
+}
+
+.note-content.note-content-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .schedule-field {
@@ -4584,8 +4593,62 @@ body.note-mode .note-search-row {
 }
 body:not(.notepad-editing) .notepad-sheet-blocks,
 body:not(.notepad-editing) .notepad-add-sheet-btn,
-body:not(.notepad-editing) .notepad-sheet-hint {
+body:not(.notepad-editing) .notepad-sheet-hint,
+body:not(.notepad-editing) .note-text-bar {
   display: none !important;
+}
+
+/* Compact text prefs for notepad (per-title memory) */
+.note-text-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.22rem;
+  min-width: 0;
+  padding: 0.12rem 0;
+}
+.note-text-bar[hidden] {
+  display: none !important;
+}
+.note-text-btn {
+  appearance: none;
+  margin: 0;
+  border: 1px solid var(--border);
+  background: var(--surface-2, var(--surface));
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1;
+  min-width: 1.7rem;
+  height: 1.55rem;
+  padding: 0 0.38rem;
+  border-radius: 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.note-text-btn:active {
+  transform: scale(0.96);
+}
+.note-text-btn[aria-pressed="true"] {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent, #0a84ff) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent, #0a84ff) 42%, var(--border));
+}
+.note-text-code-btn {
+  letter-spacing: 0.02em;
+}
+.note-text-bar-sep {
+  width: 1px;
+  height: 0.9rem;
+  margin: 0 0.1rem;
+  background: var(--border);
+  flex: 0 0 auto;
+}
+.note-text-tab-btn {
+  min-width: 1.45rem;
+  font-variant-numeric: tabular-nums;
 }
 .notepad-add-sheet-btn {
   appearance: none;

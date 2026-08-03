@@ -47,7 +47,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=137';
+} from './notes.js?v=142';
 import {
   cellKey,
   colIndexToLetter,
@@ -58,6 +58,14 @@ import {
   parseCellRef,
   sheetFingerprint,
 } from './sheet.js?v=137';
+import {
+  applyTextPrefsToTextarea,
+  clampFontSize,
+  DEFAULT_TEXT_PREFS,
+  handleTextareaEnterIndent,
+  handleTextareaTab,
+  normalizeTextPrefs,
+} from './note-text.js?v=142';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -125,7 +133,7 @@ import {
   pushRemoteNotes,
   SHARED_SPACE_ID,
 } from './remote.js?v=133';
-import { normalizeNotesData } from './notes.js?v=137';
+import { normalizeNotesData } from './notes.js?v=142';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
 
@@ -142,6 +150,8 @@ const state = {
   activeNotepadId: null,
   /** Draft sheet blocks while editing a notepad (insertable Excel-like modules). */
   editorSheets: [],
+  /** Per-notepad text prefs (font size / code mode / tab) — remembered with that title. */
+  editorTextPrefs: { ...DEFAULT_TEXT_PREFS },
   sheetFocus: null, // { sheetId, key }
   activeNoteId: null,
   tagFilterId: null,
@@ -314,6 +324,12 @@ const els = {
   deleteBtn: document.getElementById('delete-btn'),
   noteTitle: document.getElementById('note-title'),
   noteContent: document.getElementById('note-content'),
+  noteTextBar: document.getElementById('note-text-bar'),
+  noteTextSmaller: document.getElementById('note-text-smaller'),
+  noteTextLarger: document.getElementById('note-text-larger'),
+  noteTextCode: document.getElementById('note-text-code'),
+  noteTextTab2: document.getElementById('note-text-tab-2'),
+  noteTextTab4: document.getElementById('note-text-tab-4'),
   notepadSheetBlocks: document.getElementById('notepad-sheet-blocks'),
   notepadAddSheetBtn: document.getElementById('notepad-add-sheet-btn'),
   notepadSheetHint: document.getElementById('notepad-sheet-hint'),
@@ -1287,11 +1303,13 @@ function openNotepadEditor(notepadId, { focusTitle = false } = {}) {
   if (els.noteTitle) els.noteTitle.value = pad.name || '';
   if (els.noteContent) els.noteContent.value = pad.content || '';
   state.editorSheets = normalizeSheetBlocks(pad.sheets);
+  state.editorTextPrefs = normalizeTextPrefs(pad.textPrefs);
   state.sheetFocus = null;
   showView('editor');
   renderModeSwitcher();
   renderNotepadQuickBar();
   renderNotepadSheets();
+  renderNoteTextBar();
   hideEditorSaveDot();
   queueMicrotask(() => {
     const target = focusTitle ? els.noteTitle : els.noteContent;
@@ -1316,15 +1334,44 @@ function flushNotepadToState() {
     name,
     content,
     sheets: state.editorSheets,
+    textPrefs: state.editorTextPrefs,
   });
 }
 
 function clearNotepadSheetUi() {
   state.editorSheets = [];
+  state.editorTextPrefs = { ...DEFAULT_TEXT_PREFS };
   state.sheetFocus = null;
   if (els.notepadSheetBlocks) els.notepadSheetBlocks.innerHTML = '';
   if (els.notepadAddSheetBtn) els.notepadAddSheetBtn.hidden = true;
   if (els.notepadSheetHint) els.notepadSheetHint.hidden = true;
+  if (els.noteTextBar) els.noteTextBar.hidden = true;
+  applyTextPrefsToTextarea(els.noteContent, DEFAULT_TEXT_PREFS);
+}
+
+function renderNoteTextBar() {
+  const editing = Boolean(state.activeNotepadId) && document.body.classList.contains('notepad-editing');
+  const prefs = normalizeTextPrefs(state.editorTextPrefs);
+  state.editorTextPrefs = prefs;
+  if (els.noteTextBar) els.noteTextBar.hidden = !editing;
+  if (els.noteTextCode) els.noteTextCode.setAttribute('aria-pressed', prefs.codeMode ? 'true' : 'false');
+  if (els.noteTextTab2) els.noteTextTab2.setAttribute('aria-pressed', prefs.tabWidth === 2 ? 'true' : 'false');
+  if (els.noteTextTab4) els.noteTextTab4.setAttribute('aria-pressed', prefs.tabWidth === 4 ? 'true' : 'false');
+  applyTextPrefsToTextarea(els.noteContent, prefs);
+  if (els.noteContent) {
+    els.noteContent.spellcheck = !prefs.codeMode;
+  }
+}
+
+function patchEditorTextPrefs(patch) {
+  if (!state.activeNotepadId) return;
+  state.editorTextPrefs = normalizeTextPrefs({
+    ...normalizeTextPrefs(state.editorTextPrefs),
+    ...patch,
+  });
+  renderNoteTextBar();
+  flushNotepadToState();
+  autosave();
 }
 
 function renderNotepadSheets() {
@@ -6237,6 +6284,37 @@ async function init() {
 
   bindComposableInput(els.noteTitle, { onCommit: flushEditorToState });
   bindComposableInput(els.noteContent, { onCommit: flushEditorToState });
+
+  els.noteTextSmaller?.addEventListener('click', () => {
+    patchEditorTextPrefs({ fontSize: clampFontSize(state.editorTextPrefs.fontSize, -1) });
+  });
+  els.noteTextLarger?.addEventListener('click', () => {
+    patchEditorTextPrefs({ fontSize: clampFontSize(state.editorTextPrefs.fontSize, 1) });
+  });
+  els.noteTextCode?.addEventListener('click', () => {
+    const on = !normalizeTextPrefs(state.editorTextPrefs).codeMode;
+    patchEditorTextPrefs({ codeMode: on });
+  });
+  els.noteTextTab2?.addEventListener('click', () => patchEditorTextPrefs({ tabWidth: 2 }));
+  els.noteTextTab4?.addEventListener('click', () => patchEditorTextPrefs({ tabWidth: 4 }));
+
+  els.noteContent?.addEventListener('keydown', (event) => {
+    if (!state.activeNotepadId || !document.body.classList.contains('notepad-editing')) return;
+    const prefs = normalizeTextPrefs(state.editorTextPrefs);
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      handleTextareaTab(els.noteContent, {
+        shiftKey: event.shiftKey,
+        tabWidth: prefs.tabWidth,
+      });
+      return;
+    }
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && prefs.codeMode) {
+      event.preventDefault();
+      handleTextareaEnterIndent(els.noteContent);
+    }
+  });
+
   els.noteSchedule.addEventListener('change', flushEditorToState);
   els.noteRemindBefore?.addEventListener('change', () => {
     updateNotifyDetailsPreview();

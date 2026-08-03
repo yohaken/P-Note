@@ -1,5 +1,6 @@
 import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=116';
 import { normalizeSheetBlocks } from './sheet.js?v=137';
+import { normalizeTextPrefs } from './note-text.js?v=142';
 
 export const TAG_PALETTE = [
   '#6c63ff',
@@ -264,6 +265,7 @@ export function createNotepad(name = 'Note ใหม่', order = Date.now()) {
     name: trimmed.slice(0, 40),
     content: '',
     sheets: [],
+    textPrefs: normalizeTextPrefs(null),
     order: Number.isFinite(order) ? order : Date.now(),
     createdAt: now,
     updatedAt: now,
@@ -279,6 +281,7 @@ export function normalizeNotepads(raw) {
           name: String(n.name || 'Note').trim().slice(0, 40) || 'Note',
           content: typeof n.content === 'string' ? n.content : '',
           sheets: normalizeSheetBlocks(n.sheets),
+          textPrefs: normalizeTextPrefs(n.textPrefs),
           order: Number.isFinite(n.order) ? n.order : i,
           createdAt: n.createdAt || new Date().toISOString(),
           updatedAt: n.updatedAt || n.createdAt || new Date().toISOString(),
@@ -302,6 +305,7 @@ export function migrateWorkspacesToNotepads(workspaces, existingNotepads) {
     name: w.name,
     content: '',
     sheets: [],
+    textPrefs: normalizeTextPrefs(null),
     order: Date.now() - i,
     createdAt: w.createdAt,
     updatedAt: w.updatedAt,
@@ -340,7 +344,7 @@ export function renameNotepad(data, notepadId, name) {
   };
 }
 
-export function updateNotepadContent(data, notepadId, { name, content, sheets } = {}) {
+export function updateNotepadContent(data, notepadId, { name, content, sheets, textPrefs } = {}) {
   const now = new Date().toISOString();
   return {
     ...data,
@@ -351,6 +355,7 @@ export function updateNotepadContent(data, notepadId, { name, content, sheets } 
         name: name !== undefined ? String(name).trim().slice(0, 40) || n.name : n.name,
         content: content !== undefined ? String(content) : n.content,
         sheets: sheets !== undefined ? normalizeSheetBlocks(sheets) : normalizeSheetBlocks(n.sheets),
+        textPrefs: textPrefs !== undefined ? normalizeTextPrefs(textPrefs) : normalizeTextPrefs(n.textPrefs),
         updatedAt: now,
       };
     }),
