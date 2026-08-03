@@ -4513,3 +4513,191 @@ body.notepad-editing #delete-btn {
 body.note-mode .note-search-row {
   display: none !important;
 }
+
+/* Insertable spreadsheet blocks inside Note content area */
+.notepad-content-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+body:not(.notepad-editing) .notepad-sheet-blocks,
+body:not(.notepad-editing) .notepad-add-sheet-btn,
+body:not(.notepad-editing) .notepad-sheet-hint {
+  display: none !important;
+}
+.notepad-add-sheet-btn {
+  appearance: none;
+  width: 100%;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.notepad-add-sheet-btn:active {
+  transform: scale(0.99);
+  opacity: 0.92;
+}
+.notepad-add-sheet-btn[hidden] {
+  display: none !important;
+}
+.notepad-sheet-hint {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+.notepad-sheet-hint code {
+  font-size: 0.66rem;
+  background: color-mix(in srgb, var(--bg) 70%, var(--surface));
+  padding: 0.05rem 0.25rem;
+  border-radius: 4px;
+}
+.notepad-sheet-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.notepad-sheet-block {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+.notepad-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.35rem 0.45rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 65%, var(--surface));
+}
+.notepad-sheet-head-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.notepad-sheet-remove {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.notepad-sheet-remove:active {
+  background: color-mix(in srgb, var(--danger, #b54a3c) 12%, transparent);
+  color: var(--danger, #b54a3c);
+}
+.notepad-sheet-formula {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.45rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.notepad-sheet-formula-ref {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  font-size: 0.68rem;
+  font-weight: 750;
+  color: var(--accent);
+}
+.notepad-sheet-formula-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2, var(--bg));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.28rem 0.4rem;
+}
+.notepad-sheet-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.notepad-sheet-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.72rem;
+}
+.notepad-sheet-table th,
+.notepad-sheet-table td {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  min-width: 3.4rem;
+  max-width: 5.5rem;
+  height: 1.85rem;
+  box-sizing: border-box;
+}
+.notepad-sheet-table th {
+  background: color-mix(in srgb, var(--bg) 80%, var(--surface));
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.62rem;
+  text-align: center;
+  position: sticky;
+  top: 0;
+}
+.notepad-sheet-table th.sheet-corner {
+  min-width: 1.6rem;
+  max-width: 1.6rem;
+  left: 0;
+  z-index: 2;
+}
+.notepad-sheet-table th.sheet-row-head {
+  min-width: 1.6rem;
+  max-width: 1.6rem;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--bg) 80%, var(--surface));
+}
+.notepad-sheet-table td.is-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+.notepad-sheet-cell {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.28rem;
+  text-align: right;
+  box-sizing: border-box;
+}
+.notepad-sheet-cell.is-text {
+  text-align: left;
+}
+.notepad-sheet-cell.is-formula-result {
+  color: color-mix(in srgb, var(--accent) 75%, var(--text));
+  font-weight: 600;
+}
+.notepad-sheet-cell.is-error {
+  color: var(--danger, #b54a3c);
+  font-weight: 700;
+}

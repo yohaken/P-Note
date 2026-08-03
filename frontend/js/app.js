@@ -47,7 +47,17 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=131';
+} from './notes.js?v=137';
+import {
+  cellKey,
+  colIndexToLetter,
+  createSheetBlock,
+  evaluateSheet,
+  formatSheetDisplay,
+  normalizeSheetBlocks,
+  parseCellRef,
+  sheetFingerprint,
+} from './sheet.js?v=137';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -115,7 +125,7 @@ import {
   pushRemoteNotes,
   SHARED_SPACE_ID,
 } from './remote.js?v=133';
-import { normalizeNotesData } from './notes.js?v=131';
+import { normalizeNotesData } from './notes.js?v=137';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
 
@@ -130,6 +140,9 @@ const state = {
   settings: loadSettings(),
   appMode: loadSettings().appMode === 'note' ? 'note' : 'work',
   activeNotepadId: null,
+  /** Draft sheet blocks while editing a notepad (insertable Excel-like modules). */
+  editorSheets: [],
+  sheetFocus: null, // { sheetId, key }
   activeNoteId: null,
   tagFilterId: null,
   priorityFilter: null,
@@ -299,6 +312,9 @@ const els = {
   deleteBtn: document.getElementById('delete-btn'),
   noteTitle: document.getElementById('note-title'),
   noteContent: document.getElementById('note-content'),
+  notepadSheetBlocks: document.getElementById('notepad-sheet-blocks'),
+  notepadAddSheetBtn: document.getElementById('notepad-add-sheet-btn'),
+  notepadSheetHint: document.getElementById('notepad-sheet-hint'),
   noteSchedule: document.getElementById('note-schedule'),
   noteRemindBefore: document.getElementById('note-remind-before'),
   noteNotifyRepeat: document.getElementById('note-notify-repeat'),
@@ -1068,6 +1084,10 @@ function notesForCurrentGroup() {
 
 function setAppMode(mode, { persist = true } = {}) {
   const next = mode === 'note' ? 'note' : 'work';
+  if (state.activeNotepadId && state.view === 'editor') {
+    flushNotepadToState();
+    saveManager.saveNow(() => state.notesData);
+  }
   state.appMode = next;
   document.body.classList.toggle('note-mode', next === 'note');
   document.body.classList.remove('notepad-editing');
@@ -1077,6 +1097,7 @@ function setAppMode(mode, { persist = true } = {}) {
   }
   if (next === 'work') {
     state.activeNotepadId = null;
+    clearNotepadSheetUi();
   }
   closeModeMenu();
   renderModeSwitcher();
@@ -1264,9 +1285,12 @@ function openNotepadEditor(notepadId, { focusTitle = false } = {}) {
   document.body.classList.add('notepad-editing');
   if (els.noteTitle) els.noteTitle.value = pad.name || '';
   if (els.noteContent) els.noteContent.value = pad.content || '';
+  state.editorSheets = normalizeSheetBlocks(pad.sheets);
+  state.sheetFocus = null;
   showView('editor');
   renderModeSwitcher();
   renderNotepadQuickBar();
+  renderNotepadSheets();
   hideEditorSaveDot();
   queueMicrotask(() => {
     const target = focusTitle ? els.noteTitle : els.noteContent;
@@ -1287,7 +1311,264 @@ function flushNotepadToState() {
   if (!state.activeNotepadId) return;
   const name = els.noteTitle?.value ?? '';
   const content = els.noteContent?.value ?? '';
-  state.notesData = updateNotepadContent(state.notesData, state.activeNotepadId, { name, content });
+  state.notesData = updateNotepadContent(state.notesData, state.activeNotepadId, {
+    name,
+    content,
+    sheets: state.editorSheets,
+  });
+}
+
+function clearNotepadSheetUi() {
+  state.editorSheets = [];
+  state.sheetFocus = null;
+  if (els.notepadSheetBlocks) els.notepadSheetBlocks.innerHTML = '';
+  if (els.notepadAddSheetBtn) els.notepadAddSheetBtn.hidden = true;
+  if (els.notepadSheetHint) els.notepadSheetHint.hidden = true;
+}
+
+function renderNotepadSheets() {
+  const host = els.notepadSheetBlocks;
+  const addBtn = els.notepadAddSheetBtn;
+  const hint = els.notepadSheetHint;
+  const editing = Boolean(state.activeNotepadId) && document.body.classList.contains('notepad-editing');
+  if (addBtn) addBtn.hidden = !editing;
+  if (hint) hint.hidden = !editing;
+  if (!host) return;
+  if (!editing) {
+    host.innerHTML = '';
+    return;
+  }
+  const sheets = normalizeSheetBlocks(state.editorSheets);
+  state.editorSheets = sheets;
+  host.innerHTML = '';
+  sheets.forEach((sheet, index) => {
+    host.appendChild(buildNotepadSheetBlockEl(sheet, index));
+  });
+}
+
+function buildNotepadSheetBlockEl(sheet, index) {
+  const { values, errors } = evaluateSheet(sheet);
+  const wrap = document.createElement('section');
+  wrap.className = 'notepad-sheet-block';
+  wrap.dataset.sheetId = sheet.id;
+
+  const focusKey =
+    state.sheetFocus?.sheetId === sheet.id ? state.sheetFocus.key : null;
+  const focusRaw = focusKey ? String(sheet.cells[focusKey] || '') : '';
+  const activeEl = document.activeElement;
+  const activeCellKey =
+    activeEl?.classList?.contains('notepad-sheet-cell') &&
+    activeEl?.dataset?.sheetId === sheet.id
+      ? activeEl.dataset.cellKey
+      : null;
+
+  const head = document.createElement('div');
+  head.className = 'notepad-sheet-head';
+  head.innerHTML = `
+    <span class="notepad-sheet-head-title">ตารางคำนวณ ${index + 1}</span>
+    <button type="button" class="notepad-sheet-remove" data-sheet-remove="${escapeHtml(sheet.id)}">ลบตาราง</button>
+  `;
+
+  const formulaRow = document.createElement('div');
+  formulaRow.className = 'notepad-sheet-formula';
+  formulaRow.innerHTML = `
+    <span class="notepad-sheet-formula-ref">${escapeHtml(focusKey || 'A1')}</span>
+    <input class="notepad-sheet-formula-input" type="text" spellcheck="false" autocomplete="off"
+      data-sheet-formula="${escapeHtml(sheet.id)}"
+      placeholder="พิมพ์ค่า หรือ =A1+B1 / =SUM(A1:A10)"
+      value="${escapeHtml(focusRaw)}">
+  `;
+
+  const scroll = document.createElement('div');
+  scroll.className = 'notepad-sheet-scroll';
+  const table = document.createElement('table');
+  table.className = 'notepad-sheet-table';
+  table.setAttribute('aria-label', `ตารางคำนวณ ${index + 1}`);
+
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  hr.innerHTML = `<th class="sheet-corner"></th>`;
+  for (let c = 0; c < sheet.cols; c += 1) {
+    hr.innerHTML += `<th>${colIndexToLetter(c)}</th>`;
+  }
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  for (let r = 0; r < sheet.rows; r += 1) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<th class="sheet-row-head">${r + 1}</th>`;
+    for (let c = 0; c < sheet.cols; c += 1) {
+      const key = cellKey(c, r);
+      const raw = String(sheet.cells[key] || '');
+      const err = errors[key];
+      const display = raw.startsWith('=')
+        ? formatSheetDisplay(values[key], err)
+        : raw;
+      const td = document.createElement('td');
+      if (focusKey === key) td.classList.add('is-selected');
+      const input = document.createElement('input');
+      input.className = 'notepad-sheet-cell';
+      input.type = 'text';
+      input.spellcheck = false;
+      input.autocomplete = 'off';
+      input.dataset.sheetId = sheet.id;
+      input.dataset.cellKey = key;
+      // Only the actively focused input shows raw formula; others show computed value.
+      const editingHere = activeCellKey === key;
+      input.value = editingHere ? raw : display;
+      if (!raw.startsWith('=') && Number.isNaN(Number(String(raw).replace(/,/g, ''))) && raw) {
+        input.classList.add('is-text');
+      }
+      if (raw.startsWith('=') && !editingHere) input.classList.add('is-formula-result');
+      if (err && !editingHere) input.classList.add('is-error');
+      input.addEventListener('focus', () => {
+        focusSheetCell(sheet.id, key, { select: true, revealRaw: true, input });
+      });
+      input.addEventListener('blur', () => {
+        setSheetCellValue(sheet.id, key, input.value, { silentFocus: true });
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+          const nextKey = cellKey(c, Math.min(sheet.rows - 1, r + 1));
+          state.sheetFocus = { sheetId: sheet.id, key: nextKey };
+          queueMicrotask(() => {
+            const next = els.notepadSheetBlocks?.querySelector(
+              `input.notepad-sheet-cell[data-sheet-id="${CSS.escape(sheet.id)}"][data-cell-key="${nextKey}"]`,
+            );
+            next?.focus();
+            next?.select?.();
+          });
+        }
+      });
+      td.appendChild(input);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  scroll.appendChild(table);
+
+  wrap.append(head, formulaRow, scroll);
+
+  const formulaInput = formulaRow.querySelector('.notepad-sheet-formula-input');
+  formulaInput?.addEventListener('change', () => {
+    const key =
+      state.sheetFocus?.sheetId === sheet.id ? state.sheetFocus.key : 'A1';
+    setSheetCellValue(sheet.id, key, formulaInput.value);
+  });
+  formulaInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      formulaInput.blur();
+    }
+  });
+
+  return wrap;
+}
+
+function focusSheetCell(sheetId, key, { select = false, revealRaw = false, input = null } = {}) {
+  state.sheetFocus = { sheetId, key };
+  const block = els.notepadSheetBlocks?.querySelector(`[data-sheet-id="${CSS.escape(sheetId)}"]`);
+  if (!block) return;
+  block.querySelectorAll('td.is-selected').forEach((td) => td.classList.remove('is-selected'));
+  const cellInput =
+    input ||
+    block.querySelector(
+      `input.notepad-sheet-cell[data-cell-key="${key}"]`,
+    );
+  cellInput?.closest('td')?.classList.add('is-selected');
+  const sheet = normalizeSheetBlocks(state.editorSheets).find((s) => s.id === sheetId);
+  const raw = sheet ? String(sheet.cells[key] || '') : '';
+  if (revealRaw && cellInput && raw.startsWith('=')) {
+    cellInput.value = raw;
+    cellInput.classList.remove('is-formula-result', 'is-error');
+  }
+  const refEl = block.querySelector('.notepad-sheet-formula-ref');
+  const formulaInput = block.querySelector('.notepad-sheet-formula-input');
+  if (refEl) refEl.textContent = key;
+  if (formulaInput && document.activeElement !== formulaInput) {
+    formulaInput.value = raw;
+  }
+  if (select) {
+    try {
+      cellInput?.select?.();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function setSheetCellValue(sheetId, key, rawValue, { silentFocus = false } = {}) {
+  const ref = parseCellRef(key);
+  if (!ref) return;
+  const sheets = normalizeSheetBlocks(state.editorSheets);
+  const idx = sheets.findIndex((s) => s.id === sheetId);
+  if (idx < 0) return;
+  const prev = String(sheets[idx].cells[key] || '');
+  const val = String(rawValue ?? '').slice(0, 200);
+  if (prev === val) {
+    if (!silentFocus) renderNotepadSheets();
+    return;
+  }
+  const sheet = { ...sheets[idx], cells: { ...sheets[idx].cells } };
+  if (!val) delete sheet.cells[key];
+  else sheet.cells[key] = val;
+  sheets[idx] = sheet;
+  state.editorSheets = sheets;
+  state.sheetFocus = { sheetId, key };
+  flushNotepadToState();
+  autosave();
+  renderNotepadSheets();
+}
+
+function addNotepadSheetBlock() {
+  if (!state.activeNotepadId) return;
+  if (state.editorSheets.length >= 8) {
+    setStatus('เพิ่มตารางได้สูงสุด 8 ต่อโน้ต');
+    return;
+  }
+  const block = createSheetBlock();
+  // Tiny starter example so formulas are discoverable.
+  block.cells = {
+    A1: 'รายการ',
+    B1: 'จำนวน',
+    C1: 'ราคา',
+    D1: 'รวม',
+    A2: '1',
+    B2: '2',
+    C2: '50',
+    D2: '=B2*C2',
+    A3: '2',
+    B3: '3',
+    C3: '20',
+    D3: '=B3*C3',
+    C11: 'ผลรวม',
+    D11: '=SUM(D2:D10)',
+  };
+  state.editorSheets = [...normalizeSheetBlocks(state.editorSheets), block];
+  state.sheetFocus = { sheetId: block.id, key: 'D2' };
+  flushNotepadToState();
+  autosave();
+  renderNotepadSheets();
+  setStatus('เพิ่มตารางคำนวณแล้ว');
+  queueMicrotask(() => {
+    els.notepadSheetBlocks
+      ?.querySelector(`[data-sheet-id="${block.id}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+}
+
+function removeNotepadSheetBlock(sheetId) {
+  if (!sheetId) return;
+  state.editorSheets = normalizeSheetBlocks(state.editorSheets).filter((s) => s.id !== sheetId);
+  if (state.sheetFocus?.sheetId === sheetId) state.sheetFocus = null;
+  flushNotepadToState();
+  autosave();
+  renderNotepadSheets();
+  setStatus('ลบตารางแล้ว');
 }
 
 function sortedFilteredNotes() {
@@ -5043,6 +5324,7 @@ function backToList() {
     saveManager.saveNow(() => state.notesData);
     state.activeNotepadId = null;
     document.body.classList.remove('notepad-editing');
+    clearNotepadSheetUi();
     renderNotesList();
     showView('list');
     return;
@@ -5222,7 +5504,10 @@ function notesContentKey(data) {
     .sort()
     .join(',');
   const padPart = notepads
-    .map((p) => `${p.id}:${p.name || ''}:${p.updatedAt || ''}:${(p.content || '').length}`)
+    .map(
+      (p) =>
+        `${p.id}:${p.name || ''}:${p.updatedAt || ''}:${(p.content || '').length}:${sheetFingerprint(p.sheets)}`,
+    )
     .sort()
     .join(',');
   return `${notePart}|${tagPart}|${padPart}`;
@@ -5705,6 +5990,13 @@ async function init() {
   els.notepadMenuList?.addEventListener('pointercancel', clearNpLong);
   els.notepadMenuList?.addEventListener('pointerleave', clearNpLong);
   els.notepadAddBtn?.addEventListener('click', () => promptNewNotepad());
+  els.notepadAddSheetBtn?.addEventListener('click', () => addNotepadSheetBlock());
+  els.notepadSheetBlocks?.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest?.('[data-sheet-remove]');
+    if (!removeBtn || !els.notepadSheetBlocks.contains(removeBtn)) return;
+    e.preventDefault();
+    removeNotepadSheetBlock(removeBtn.dataset.sheetRemove);
+  });
 
   els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
   els.notifyOnBtn?.addEventListener('click', () => setNotificationsEnabled(true));
