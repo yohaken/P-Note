@@ -707,19 +707,20 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 0.35rem;
   width: 100%;
   padding: 0 0.15rem;
   box-sizing: border-box;
 }
-.dock-actions-end {
+.dock-actions-center {
   display: inline-flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.22rem;
-  margin-left: auto;
-  flex: 0 0 auto;
+  justify-content: center;
+  gap: 0.28rem;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .dock-mode-switch {
   display: inline-flex;
@@ -731,8 +732,7 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
   overflow: hidden;
   background: var(--bg);
 }
-.dock-actions-end .dock-action-primary {
-  /* Stick AI/+ flush against the Note mode control */
+.dock-actions-center .dock-action-primary {
   border-radius: 9px;
 }
 body.light .dock-mode-switch {
@@ -850,8 +850,8 @@ body.light .notepad-quick-chip {
   display: none !important;
 }
 .dock-action-btn.is-slot-empty {
-  visibility: hidden;
-  pointer-events: none;
+  /* Drop from centered cluster so งาน|โน้ต|+ stay balanced */
+  display: none !important;
 }
 .dock-action-btn.active {
   background: var(--accent);
@@ -1308,7 +1308,7 @@ body.light .dock-action-btn.active {
 .card-meta-inline .meta-prio.priority-important { --prio-meta: var(--prio-important, #f59e0b); }
 .card-meta-inline .meta-prio.priority-urgent { --prio-meta: var(--prio-urgent, #06b6d4); }
 
-/* Floating circular tag icons — overlay above dock, not a new layout strip */
+/* Floating circular tag icons — centered overlay above dock */
 .float-tag-rail {
   position: fixed;
   left: 0;
@@ -1316,7 +1316,7 @@ body.light .dock-action-btn.active {
   bottom: calc(var(--filters-dock-h, 4.5rem) + 0.35rem);
   z-index: 55;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   padding: 0 0.55rem;
   pointer-events: none;
 }
@@ -1327,12 +1327,13 @@ body.light .dock-action-btn.active {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 0.28rem;
-  max-width: min(92vw, 22rem);
+  max-width: min(94vw, 26rem);
   overflow-x: auto;
   scrollbar-width: none;
   pointer-events: none;
+  margin: 0 auto;
 }
 .float-tag-icons::-webkit-scrollbar {
   display: none;
@@ -1361,6 +1362,16 @@ body.light .dock-action-btn.active {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  white-space: nowrap;
+}
+/* Edge controls: ทั้งหมด (left) / ไม่มีแท็ก (right) — still floating, slightly wider */
+.float-tag-icon.is-edge {
+  width: auto;
+  min-width: 2.35rem;
+  padding: 0 0.48rem;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  --tag: var(--text-muted);
 }
 body.light .float-tag-icon {
   background: color-mix(in srgb, var(--tag, var(--accent)) 32%, rgba(255, 255, 255, 0.62));
@@ -1370,6 +1381,11 @@ body.light .float-tag-icon {
   color: #fff;
   border-color: transparent;
   box-shadow: 0 2px 10px color-mix(in srgb, var(--tag, var(--accent)) 45%, transparent);
+}
+.float-tag-icon.is-edge.is-active {
+  --tag: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 .float-tag-icon:active {
   transform: scale(0.94);
