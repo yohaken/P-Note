@@ -4157,6 +4157,8 @@ body.light .editor-save-dot {
   gap: 0.4rem;
   min-height: 0;
   flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .ai-note-fields-compact {
   margin: 0;
