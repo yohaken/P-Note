@@ -148,12 +148,119 @@ export function updateNoteInData(data, updatedNote) {
   };
 }
 
-export function createNote(title = '', content = '') {
+export const DEFAULT_WORKSPACE_ID = 'ws-general';
+export const DEFAULT_WORKSPACE_NAME = 'ทั่วไป';
+
+export function createWorkspace(name = DEFAULT_WORKSPACE_NAME, order = Date.now()) {
+  const now = new Date().toISOString();
+  const trimmed = String(name || '').trim() || DEFAULT_WORKSPACE_NAME;
+  return {
+    id: crypto.randomUUID(),
+    name: trimmed.slice(0, 40),
+    order: Number.isFinite(order) ? order : Date.now(),
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function defaultWorkspace() {
+  const now = new Date().toISOString();
+  return {
+    id: DEFAULT_WORKSPACE_ID,
+    name: DEFAULT_WORKSPACE_NAME,
+    order: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function normalizeWorkspaces(raw) {
+  const list = Array.isArray(raw)
+    ? raw
+        .filter((w) => w && typeof w === 'object' && w.id)
+        .map((w, i) => ({
+          id: String(w.id),
+          name: String(w.name || DEFAULT_WORKSPACE_NAME).trim().slice(0, 40) || DEFAULT_WORKSPACE_NAME,
+          order: Number.isFinite(w.order) ? w.order : i,
+          createdAt: w.createdAt || new Date().toISOString(),
+          updatedAt: w.updatedAt || w.createdAt || new Date().toISOString(),
+        }))
+    : [];
+  if (!list.length) return [defaultWorkspace()];
+  list.sort((a, b) => a.order - b.order || String(a.name).localeCompare(String(b.name), 'th'));
+  return list;
+}
+
+export function filterNotesByWorkspace(notes, workspaceId) {
+  if (!workspaceId) return notes;
+  return (notes || []).filter(
+    (note) => (note.workspaceId || DEFAULT_WORKSPACE_ID) === workspaceId,
+  );
+}
+
+export function countNotesInWorkspace(notes, workspaceId) {
+  return filterNotesByWorkspace(notes, workspaceId).length;
+}
+
+export function getWorkspace(data, workspaceId) {
+  const list = normalizeWorkspaces(data?.workspaces);
+  return list.find((w) => w.id === workspaceId) || list[0] || defaultWorkspace();
+}
+
+export function renameWorkspace(data, workspaceId, name) {
+  const trimmed = String(name || '').trim().slice(0, 40);
+  if (!trimmed) return data;
+  const now = new Date().toISOString();
+  return {
+    ...data,
+    workspaces: normalizeWorkspaces(data.workspaces).map((w) =>
+      w.id === workspaceId ? { ...w, name: trimmed, updatedAt: now } : w,
+    ),
+    updatedAt: now,
+  };
+}
+
+/** False when the workspace still has any notes (active/done/trash). */
+export function canDeleteWorkspace(data, workspaceId) {
+  const list = normalizeWorkspaces(data?.workspaces);
+  if (list.length <= 1) return false;
+  if (!list.some((w) => w.id === workspaceId)) return false;
+  return countNotesInWorkspace(data?.notes || [], workspaceId) === 0;
+}
+
+export function deleteWorkspace(data, workspaceId) {
+  if (!canDeleteWorkspace(data, workspaceId)) {
+    throw new Error('ลบแผ่นงานไม่ได้ — ยังมีโน้ตอยู่ในแผ่นนี้ หรือเหลือแผ่นเดียว');
+  }
+  const now = new Date().toISOString();
+  return {
+    ...data,
+    workspaces: normalizeWorkspaces(data.workspaces).filter((w) => w.id !== workspaceId),
+    updatedAt: now,
+  };
+}
+
+export function addWorkspace(data, name) {
+  const list = normalizeWorkspaces(data.workspaces);
+  const ws = createWorkspace(name, (list[list.length - 1]?.order || 0) + 1);
+  const now = new Date().toISOString();
+  return {
+    data: {
+      ...data,
+      workspaces: [...list, ws],
+      updatedAt: now,
+    },
+    workspace: ws,
+  };
+}
+
+export function createNote(title = '', content = '', workspaceId = DEFAULT_WORKSPACE_ID) {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     title: title.trim(),
     content,
+    workspaceId: workspaceId || DEFAULT_WORKSPACE_ID,
     tagIds: [],
     attachments: [],
     checklist: [],
@@ -385,10 +492,14 @@ export function formatDate(iso) {
 
 // Upgrades any older payload to the current shape.
 // v5: snap all scheduledAt times to local 09:00 (one-time when version < 5).
+// v6: workspaces[] + note.workspaceId (migrate all notes into 「ทั่วไป」).
 export function normalizeNotesData(data) {
   const base = data && typeof data === 'object' ? data : {};
   const prevVersion = Number(base.version) || 1;
   const snapScheduleTimes = prevVersion < 5;
+  const workspaces = normalizeWorkspaces(base.workspaces);
+  const workspaceIds = new Set(workspaces.map((w) => w.id));
+  const fallbackWs = workspaces[0]?.id || DEFAULT_WORKSPACE_ID;
 
   const tags = Array.isArray(base.tags)
     ? base.tags
@@ -413,8 +524,13 @@ export function normalizeNotesData(data) {
             scheduledAt = d.toISOString();
           }
         }
+        const ws =
+          note.workspaceId && workspaceIds.has(String(note.workspaceId))
+            ? String(note.workspaceId)
+            : fallbackWs;
         return {
           ...note,
+          workspaceId: ws,
           tagIds: Array.isArray(note.tagIds)
             ? note.tagIds.filter((id) => tagIds.has(id))
             : [],
@@ -453,12 +569,14 @@ export function normalizeNotesData(data) {
       })
     : [];
 
+  const bumped =
+    (snapScheduleTimes && Array.isArray(base.notes) && base.notes.some((n) => n?.scheduledAt)) ||
+    prevVersion < 6;
+
   return {
-    version: 5,
-    updatedAt:
-      snapScheduleTimes && Array.isArray(base.notes) && base.notes.some((n) => n?.scheduledAt)
-        ? new Date().toISOString()
-        : base.updatedAt || new Date().toISOString(),
+    version: 6,
+    updatedAt: bumped ? new Date().toISOString() : base.updatedAt || new Date().toISOString(),
+    workspaces,
     tags,
     notes,
   };

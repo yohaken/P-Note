@@ -26,7 +26,7 @@ export const DEFAULT_FILTER_ORDER = ['due', 'sort', 'priority', 'recurrence', 't
 
 const DEFAULTS = {
   theme: 'light',
-  cardDensity: 55,
+  cardDensity: 70,
   dockScale: 38,
   dockOffsetY: 70,
   fabOrder: [...DEFAULT_FAB_ORDER],
@@ -55,6 +55,10 @@ const DEFAULTS = {
   dueColors: null,
   /** Month intervals offered in ทำซ้ำ / แจ้งเตือนซ้ำ (e.g. 3,5,6) */
   notifyMonthPresets: [3, 5, 6],
+  /** List cards: false = title only (default), true = title + content preview */
+  listShowContent: false,
+  /** Last opened workspace id (device-local) */
+  lastWorkspaceId: null,
 };
 
 export const DEFAULT_PRIORITY_COLORS = {
@@ -285,6 +289,8 @@ export function loadSettings() {
         priorityColors: { ...DEFAULT_PRIORITY_COLORS },
         dueColors: { ...DEFAULT_DUE_COLORS },
         notifyMonthPresets: [3, 5, 6],
+        listShowContent: false,
+        lastWorkspaceId: null,
       };
     }
     const parsed = JSON.parse(raw);
@@ -292,7 +298,7 @@ export function loadSettings() {
     const notifyPrefs = normalizeNotifyPrefs(parsed.notifyPrefs, parsed.notificationsEnabled);
     return {
       theme: parsed.theme === 'light' ? 'light' : 'dark',
-      cardDensity: clampPct(parsed.cardDensity),
+      cardDensity: clampPct(parsed.cardDensity, DEFAULTS.cardDensity),
       dockScale: clampPct(parsed.dockScale, 50),
       dockOffsetY: clampPct(parsed.dockOffsetY, 70),
       fabOrder: normalizeFabOrder(parsed.fabOrder),
@@ -322,6 +328,8 @@ export function loadSettings() {
       priorityColors: normalizePriorityColors(parsed.priorityColors),
       dueColors: normalizeDueColors(parsed.dueColors),
       notifyMonthPresets: normalizeMonthPresets(parsed.notifyMonthPresets),
+      listShowContent: parsed.listShowContent === true,
+      lastWorkspaceId: parsed.lastWorkspaceId ? String(parsed.lastWorkspaceId) : null,
     };
   } catch {
     return {
@@ -345,6 +353,8 @@ export function loadSettings() {
       priorityColors: { ...DEFAULT_PRIORITY_COLORS },
       dueColors: { ...DEFAULT_DUE_COLORS },
       notifyMonthPresets: [3, 5, 6],
+      listShowContent: false,
+      lastWorkspaceId: null,
     };
   }
 }
@@ -370,6 +380,8 @@ export function saveSettings(settings) {
     priorityColors: normalizePriorityColors(settings.priorityColors),
     dueColors: normalizeDueColors(settings.dueColors),
     notifyMonthPresets: normalizeMonthPresets(settings.notifyMonthPresets),
+    listShowContent: settings.listShowContent === true,
+    lastWorkspaceId: settings.lastWorkspaceId ? String(settings.lastWorkspaceId) : null,
   };
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }

@@ -1,19 +1,28 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=122';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=130';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=127';
 import { initListSortable } from './sortable.js?v=122';
 import { bindComposableInput } from './text-input.js?v=122';
 import { CONFIG } from './config.js?v=122';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=122';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=130';
 import {
   addTag,
+  addWorkspace,
+  canDeleteWorkspace,
   countNotesByTag,
   countNotesByPriority,
+  countNotesInWorkspace,
   createNote,
+  DEFAULT_WORKSPACE_ID,
   deleteTag,
+  deleteWorkspace,
   filterNotesByPriority,
   filterNotesByStatus,
   filterNotesByTag,
   filterNotesBySearch,
+  filterNotesByWorkspace,
+  getWorkspace,
+  normalizeWorkspaces,
+  renameWorkspace,
   TAG_FILTER_UNTAGGED,
   formatDate,
   getTagsForNote,
@@ -41,7 +50,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=122';
+} from './notes.js?v=130';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -77,7 +86,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=122';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=129';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=130';
 import {
   notificationPermission,
   notificationSupported,
@@ -107,13 +116,14 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=129';
-import { normalizeNotesData } from './notes.js?v=122';
+import { normalizeNotesData } from './notes.js?v=130';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
 
 const state = {
-  notesData: { version: 4, updatedAt: '', tags: [], notes: [] },
+  notesData: { version: 6, updatedAt: '', tags: [], notes: [], workspaces: [] },
   settings: loadSettings(),
+  activeWorkspaceId: null,
   activeNoteId: null,
   tagFilterId: null,
   priorityFilter: null,
@@ -239,6 +249,7 @@ const els = {
   barsBottom: null,
   filterDock: document.getElementById('filter-dock'),
   filterDockFilters: document.querySelector('.filter-dock-cluster'),
+  filterDockFiltersWrap: document.getElementById('filter-dock-filters'),
   filterSortBtn: document.getElementById('filter-sort-btn'),
   filterSortMenu: document.getElementById('filter-sort-menu'),
   filterPriorityBtn: document.getElementById('filter-priority-btn'),
@@ -285,10 +296,18 @@ const els = {
   editorRecurrence: document.getElementById('editor-recurrence'),
   clearScheduleBtn: document.getElementById('clear-schedule-btn'),
   editorTags: document.getElementById('editor-tags'),
+  editorSaveDot: document.getElementById('editor-save-dot'),
   syncStatusBtn: document.getElementById('sync-status-btn'),
   syncStatusTip: document.getElementById('sync-status-tip'),
   editorSyncStatusBtn: null,
   editorSyncStatusTip: null,
+  workspaceSwitchBtn: document.getElementById('workspace-switch-btn'),
+  workspaceSwitchName: document.getElementById('workspace-switch-name'),
+  workspaceMenuOverlay: document.getElementById('workspaceMenuOverlay'),
+  workspaceMenuList: document.getElementById('workspace-menu-list'),
+  workspaceAddBtn: document.getElementById('workspace-add-btn'),
+  listPreviewTitleBtn: document.getElementById('list-preview-title-btn'),
+  listPreviewContentBtn: document.getElementById('list-preview-content-btn'),
   tagModal: null,
   tagAddForm: document.getElementById('tag-add-form'),
   newTagInput: document.getElementById('new-tag-input'),
@@ -300,9 +319,6 @@ const els = {
   cardDensitySlider: document.getElementById('card-density-slider'),
   themeDarkBtn: document.getElementById('theme-dark-btn'),
   themeLightBtn: document.getElementById('theme-light-btn'),
-  fabDirVerticalBtn: document.getElementById('fab-dir-vertical-btn'),
-  fabDirHorizontalBtn: document.getElementById('fab-dir-horizontal-btn'),
-  fabOrderList: document.getElementById('fab-order-list'),
   filterOrderList: document.getElementById('filter-order-list'),
   notifyOffBtn: document.getElementById('notify-off-btn'),
   notifyOnBtn: document.getElementById('notify-on-btn'),
@@ -344,10 +360,9 @@ function showView(view) {
   state.view = view;
   els.listView.hidden = view !== 'list';
   els.editorView.hidden = view !== 'editor';
-  const fabStack = document.getElementById('fabStack');
-  if (fabStack) fabStack.hidden = view !== 'list';
   updateFilterDockVisibility();
   updateUndoFab();
+  if (view !== 'editor') hideEditorSaveDot();
 }
 
 function setLoading(visible, message = 'กำลังโหลด...') {
@@ -481,6 +496,25 @@ function autosave() {
   saveManager.scheduleSave(() => state.notesData);
   refreshNoteNotifications();
   scheduleUserContextRefresh();
+  flashEditorSaveDot();
+}
+
+let editorSaveDotTimer = null;
+function flashEditorSaveDot() {
+  if (state.view !== 'editor' || !els.editorSaveDot) return;
+  els.editorSaveDot.hidden = false;
+  if (editorSaveDotTimer) clearTimeout(editorSaveDotTimer);
+  editorSaveDotTimer = setTimeout(() => {
+    hideEditorSaveDot();
+  }, 1600);
+}
+
+function hideEditorSaveDot() {
+  if (editorSaveDotTimer) {
+    clearTimeout(editorSaveDotTimer);
+    editorSaveDotTimer = null;
+  }
+  if (els.editorSaveDot) els.editorSaveDot.hidden = true;
 }
 
 let userContextTimer = null;
@@ -726,21 +760,6 @@ function resetBoxColorsToDefaults() {
   setStatus('รีเซ็ตสีกล่องแล้ว');
 }
 
-function applyFabDirection() {
-  const dir =
-    typeof window.FabDrag?.getDirection === 'function'
-      ? window.FabDrag.getDirection()
-      : 'vertical';
-  const horizontal = dir === 'horizontal';
-  els.fabDirVerticalBtn?.classList.toggle('active', !horizontal);
-  els.fabDirHorizontalBtn?.classList.toggle('active', horizontal);
-}
-
-const FAB_ORDER_LABELS = {
-  ai: 'AI',
-  group: 'กลุ่มงาน',
-};
-
 const FILTER_ORDER_LABELS = {
   due: 'กำหนด',
   sort: 'เรียง',
@@ -748,18 +767,6 @@ const FILTER_ORDER_LABELS = {
   recurrence: 'การซ้ำ',
   tag: 'แท็ก',
 };
-
-/** Settings list = visual top → bottom. Stack uses column/row-reverse → DOM = reverse. */
-function applyFabOrder() {
-  const stack = document.getElementById('fabStack');
-  if (!stack) return;
-  const visual = normalizeFabOrder(state.settings.fabOrder);
-  state.settings.fabOrder = visual;
-  [...visual].reverse().forEach((id) => {
-    const btn = stack.querySelector(`[data-fab-id="${CSS.escape(id)}"]`);
-    if (btn) stack.appendChild(btn);
-  });
-}
 
 function applyFilterOrder() {
   const cluster = els.filterDockFilters;
@@ -770,26 +777,6 @@ function applyFilterOrder() {
     const el = cluster.querySelector(`.filter-dd[data-filter="${CSS.escape(id)}"]`);
     if (el) cluster.appendChild(el);
   });
-}
-
-function renderFabOrderList() {
-  const list = els.fabOrderList;
-  if (!list) return;
-  const order = normalizeFabOrder(state.settings.fabOrder);
-  list.innerHTML = order
-    .map((id, i) => {
-      const label = FAB_ORDER_LABELS[id] || id;
-      const upDisabled = i === 0 ? ' disabled' : '';
-      const downDisabled = i === order.length - 1 ? ' disabled' : '';
-      return `<div class="fab-order-row" data-fab-order-id="${id}">
-        <span class="fab-order-label">${label}</span>
-        <div class="fab-order-actions">
-          <button type="button" class="fab-order-btn" data-fab-move="up" aria-label="เลื่อนขึ้น"${upDisabled}>↑</button>
-          <button type="button" class="fab-order-btn" data-fab-move="down" aria-label="เลื่อนลง"${downDisabled}>↓</button>
-        </div>
-      </div>`;
-    })
-    .join('');
 }
 
 function renderFilterOrderList() {
@@ -810,20 +797,6 @@ function renderFilterOrderList() {
       </div>`;
     })
     .join('');
-}
-
-function moveFabInOrder(id, direction) {
-  const order = normalizeFabOrder(state.settings.fabOrder);
-  const i = order.indexOf(id);
-  if (i < 0) return;
-  const j = direction === 'up' ? i - 1 : i + 1;
-  if (j < 0 || j >= order.length) return;
-  const next = [...order];
-  [next[i], next[j]] = [next[j], next[i]];
-  state.settings.fabOrder = next;
-  saveSettings(state.settings);
-  applyFabOrder();
-  renderFabOrderList();
 }
 
 function moveFilterInOrder(id, direction) {
@@ -1065,7 +1038,116 @@ function commitData(newData) {
 }
 
 function notesForCurrentGroup() {
-  return filterNotesByStatus(state.notesData.notes, state.listGroup);
+  const inWorkspace = filterNotesByWorkspace(
+    state.notesData.notes,
+    state.activeWorkspaceId || DEFAULT_WORKSPACE_ID,
+  );
+  return filterNotesByStatus(inWorkspace, state.listGroup);
+}
+
+function resolveActiveWorkspaceId(preferredId = state.settings.lastWorkspaceId) {
+  const list = normalizeWorkspaces(state.notesData.workspaces);
+  if (preferredId && list.some((w) => w.id === preferredId)) return preferredId;
+  if (state.activeWorkspaceId && list.some((w) => w.id === state.activeWorkspaceId)) {
+    return state.activeWorkspaceId;
+  }
+  return list[0]?.id || DEFAULT_WORKSPACE_ID;
+}
+
+function setActiveWorkspace(workspaceId, { persist = true } = {}) {
+  const next = resolveActiveWorkspaceId(workspaceId);
+  state.activeWorkspaceId = next;
+  if (persist) {
+    state.settings.lastWorkspaceId = next;
+    saveSettings(state.settings);
+  }
+  renderWorkspaceSwitcher();
+  renderNotesList();
+}
+
+function renderWorkspaceSwitcher() {
+  const ws = getWorkspace(state.notesData, state.activeWorkspaceId);
+  if (els.workspaceSwitchName) els.workspaceSwitchName.textContent = ws.name;
+  if (els.workspaceSwitchBtn) {
+    els.workspaceSwitchBtn.setAttribute('aria-label', `แผ่นงาน ${ws.name}`);
+  }
+}
+
+function closeWorkspaceMenu() {
+  if (els.workspaceMenuOverlay) els.workspaceMenuOverlay.hidden = true;
+  els.workspaceSwitchBtn?.setAttribute('aria-expanded', 'false');
+}
+
+function openWorkspaceMenu() {
+  renderWorkspaceMenu();
+  if (els.workspaceMenuOverlay) els.workspaceMenuOverlay.hidden = false;
+  els.workspaceSwitchBtn?.setAttribute('aria-expanded', 'true');
+}
+
+function renderWorkspaceMenu() {
+  const list = els.workspaceMenuList;
+  if (!list) return;
+  const workspaces = normalizeWorkspaces(state.notesData.workspaces);
+  list.innerHTML = workspaces
+    .map((w) => {
+      const count = countNotesInWorkspace(state.notesData.notes, w.id);
+      const current = w.id === state.activeWorkspaceId;
+      const canDel = canDeleteWorkspace(state.notesData, w.id);
+      return `<div class="workspace-menu-row">
+        <button type="button" class="workspace-menu-item" role="menuitem" data-workspace-id="${escapeHtml(w.id)}"${current ? ' aria-current="page"' : ''}>
+          <span>${escapeHtml(w.name)}</span>
+          <span class="ws-sub">${current ? 'หน้านี้' : `${count}`}</span>
+        </button>
+        ${canDel ? `<button type="button" class="workspace-menu-del" data-workspace-delete="${escapeHtml(w.id)}" aria-label="ลบแผ่นว่าง">ลบ</button>` : ''}
+      </div>`;
+    })
+    .join('');
+}
+
+function promptNewWorkspace() {
+  const name = window.prompt('ชื่อแผ่นงานใหม่', '');
+  if (name == null) return;
+  const trimmed = String(name).trim();
+  if (!trimmed) {
+    setStatus('ใส่ชื่อแผ่นงาน');
+    return;
+  }
+  const { data, workspace } = addWorkspace(state.notesData, trimmed);
+  state.notesData = data;
+  autosave();
+  setActiveWorkspace(workspace.id);
+  closeWorkspaceMenu();
+  setStatus(`สร้างแผ่น「${workspace.name}」แล้ว`);
+}
+
+function promptRenameWorkspace(workspaceId) {
+  const ws = getWorkspace(state.notesData, workspaceId);
+  const name = window.prompt('เปลี่ยนชื่อแผ่นงาน', ws.name);
+  if (name == null) return;
+  const trimmed = String(name).trim();
+  if (!trimmed || trimmed === ws.name) return;
+  state.notesData = renameWorkspace(state.notesData, workspaceId, trimmed);
+  autosave();
+  renderWorkspaceSwitcher();
+  renderWorkspaceMenu();
+  setStatus('เปลี่ยนชื่อแผ่นแล้ว');
+}
+
+function tryDeleteWorkspace(workspaceId) {
+  if (!canDeleteWorkspace(state.notesData, workspaceId)) {
+    setStatus('ลบไม่ได้ — ยังมีโน้ตในแผ่นนี้ หรือเหลือแผ่นเดียว');
+    return;
+  }
+  if (!window.confirm('ลบแผ่นงานนี้?')) return;
+  try {
+    state.notesData = deleteWorkspace(state.notesData, workspaceId);
+    autosave();
+    setActiveWorkspace(resolveActiveWorkspaceId());
+    renderWorkspaceMenu();
+    setStatus('ลบแผ่นงานแล้ว');
+  } catch (err) {
+    setStatus(err.message || 'ลบแผ่นงานไม่ได้');
+  }
 }
 
 function sortedFilteredNotes() {
@@ -1089,6 +1171,7 @@ function renderGroupNav() {
   if (els.addNoteBtn) els.addNoteBtn.hidden = !isActiveGroup;
   if (els.addBlankBtn) els.addBlankBtn.hidden = !isActiveGroup;
   updateFilterDockVisibility();
+  renderWorkspaceSwitcher();
 
   const groupTitle =
     state.listGroup === NOTE_STATUS.DONE
@@ -1097,9 +1180,13 @@ function renderGroupNav() {
         ? 'ถังขยะ'
         : 'งาน';
   const build = getAppBuild();
-  const name = groupTitle === 'งาน' ? 'P-Note' : `P-Note · ${groupTitle}`;
+  const ws = getWorkspace(state.notesData, state.activeWorkspaceId);
+  const name =
+    groupTitle === 'งาน'
+      ? `${ws.name}`
+      : `${ws.name} · ${groupTitle}`;
   if (els.appTitle) {
-    els.appTitle.innerHTML = `${escapeHtml(name)} <span class="title-version">${escapeHtml(NOTE_APP_VERSION)} · b${escapeHtml(build)}</span>`;
+    els.appTitle.textContent = `${name} · ${NOTE_APP_VERSION} · b${build}`;
   }
 }
 
@@ -1113,8 +1200,10 @@ function updateFilterDockVisibility() {
   const list = state.view === 'list';
   const selecting = list && state.selectionMode;
   if (els.filterDock) {
-    const showFilters = list && state.listGroup === NOTE_STATUS.ACTIVE && !state.selectionMode;
-    els.filterDock.hidden = !showFilters;
+    const showDock = list && !state.selectionMode;
+    els.filterDock.hidden = !showDock;
+    const showFilters = showDock && state.listGroup === NOTE_STATUS.ACTIVE;
+    if (els.filterDockFiltersWrap) els.filterDockFiltersWrap.hidden = !showFilters;
     if (!showFilters) closeFilterMenus();
   }
   if (els.selectionDock) {
@@ -1326,8 +1415,6 @@ function initSelectionDock() {
 
 function syncFilterMenuChrome(open) {
   document.body.classList.toggle('filter-menu-open', Boolean(open));
-  const stack = document.getElementById('fabStack');
-  if (stack) stack.classList.toggle('is-hidden-for-filter', Boolean(open));
 }
 
 function closeFilterMenus() {
@@ -2670,7 +2757,8 @@ function renderNotesList() {
     const tags = getTagsForNote(note, state.notesData.tags || []);
     const priorityHtml = priorityBadgeHtml(note);
     const recur = recurrenceLabel(note.recurrence, { short: true });
-    const preview = previewText(note);
+    const showContent = state.settings.listShowContent === true;
+    const preview = showContent ? previewText(note) : '';
     const previewHtml = preview
       ? `<p class="card-preview">${escapeHtml(preview)}</p>`
       : '';
@@ -2811,14 +2899,26 @@ function openSettings() {
   applyCameraSettingsUi();
   applyBoxColorsSettingsUi();
   applyTheme();
-  applyFabDirection();
-  renderFabOrderList();
   renderFilterOrderList();
   renderTagManager();
   applyNotifySettingsUi();
   applyBarThickness();
   refreshScheduleSelectOptions();
   renderSyncCode();
+  applyListPreviewSettingsUi();
+}
+
+function applyListPreviewSettingsUi() {
+  const show = state.settings.listShowContent === true;
+  els.listPreviewTitleBtn?.classList.toggle('active', !show);
+  els.listPreviewContentBtn?.classList.toggle('active', show);
+}
+
+function setListShowContent(show) {
+  state.settings.listShowContent = Boolean(show);
+  saveSettings(state.settings);
+  applyListPreviewSettingsUi();
+  renderNotesList();
 }
 
 function applyCameraSettingsUi() {
@@ -4121,8 +4221,18 @@ function openAddNoteModal() {
   aiEditBaseline = null;
   clearAiFormFields();
   updateAiFormChrome();
+  const titleEl = document.getElementById('ai-note-title');
+  if (titleEl) titleEl.textContent = 'เพิ่มงาน';
+  const more = document.getElementById('ai-note-more');
+  if (more) more.open = false;
   els.aiNoteModal.hidden = false;
-  focusAiSourceField();
+  queueMicrotask(() => {
+    try {
+      els.aiNoteDraftTitle?.focus({ preventScroll: false });
+    } catch {
+      els.aiNoteDraftTitle?.focus();
+    }
+  });
 }
 
 /** Blank note — same form, jump straight to title (no AI step required). */
@@ -4372,7 +4482,11 @@ async function confirmAiNoteDraft() {
       return;
     }
 
-    let note = createNote(title || (checklist.length ? 'เช็กลิสต์' : ''), content);
+    let note = createNote(
+      title || (checklist.length ? 'เช็กลิสต์' : ''),
+      content,
+      state.activeWorkspaceId || DEFAULT_WORKSPACE_ID,
+    );
     note = updateNote(note, {
       scheduledAt: scheduleAt,
       priority,
@@ -4726,20 +4840,28 @@ async function loadSpaceData(spaceId, localData) {
 function notesContentKey(data) {
   const notes = Array.isArray(data?.notes) ? data.notes : [];
   const tags = Array.isArray(data?.tags) ? data.tags : [];
+  const workspaces = Array.isArray(data?.workspaces) ? data.workspaces : [];
   const notePart = notes
-    .map((n) => `${n.id}:${n.updatedAt || ''}:${n.status || ''}`)
+    .map((n) => `${n.id}:${n.updatedAt || ''}:${n.status || ''}:${n.workspaceId || ''}`)
     .sort()
     .join(',');
   const tagPart = tags
     .map((t) => `${t.id}:${t.label || ''}:${t.color || ''}`)
     .sort()
     .join(',');
-  return `${notePart}|${tagPart}`;
+  const wsPart = workspaces
+    .map((w) => `${w.id}:${w.name || ''}:${w.updatedAt || ''}`)
+    .sort()
+    .join(',');
+  return `${notePart}|${tagPart}|${wsPart}`;
 }
 
 function paintNotesFromLocal(data) {
   state.notesData = normalizeNotesData(data);
   state.syncBaseUpdatedAt = state.notesData?.updatedAt || null;
+  state.activeWorkspaceId = resolveActiveWorkspaceId(state.settings.lastWorkspaceId);
+  state.settings.lastWorkspaceId = state.activeWorkspaceId;
+  saveSettings(state.settings);
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
@@ -4747,10 +4869,10 @@ function paintNotesFromLocal(data) {
   applyTheme();
   applyCardDensity();
   applyDockScale();
-  applyFabOrder();
   applyFilterOrder();
   reapplyBarLayout();
   applyBarThickness();
+  renderWorkspaceSwitcher();
   renderNotesList();
   showView('list');
   updateAppVersionLabel();
@@ -4792,7 +4914,14 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   }
 
   const contentChanged = notesContentKey(state.notesData) !== beforeKey;
+  const nextWs = resolveActiveWorkspaceId(state.activeWorkspaceId || state.settings.lastWorkspaceId);
+  if (nextWs !== state.activeWorkspaceId) {
+    state.activeWorkspaceId = nextWs;
+    state.settings.lastWorkspaceId = nextWs;
+    saveSettings(state.settings);
+  }
   if (contentChanged && state.view === 'list') {
+    renderWorkspaceSwitcher();
     renderNotesList();
   }
 
@@ -5030,7 +5159,7 @@ async function init() {
   // Search always visible on notes home
   setSearchOpen(true, { focus: false });
 
-  els.addNoteBtn.addEventListener('click', openAddNoteModal);
+  els.addNoteBtn?.addEventListener('click', openAddNoteModal);
   els.emptyAddAiBtn?.addEventListener('click', openAddNoteModal);
   els.emptyAddBlankBtn?.addEventListener('click', openQuickNoteModal);
   els.undoFabBtn?.addEventListener('click', () => {
@@ -5150,26 +5279,8 @@ async function init() {
   els.themeDarkBtn.addEventListener('click', () => setTheme('dark'));
   els.themeLightBtn.addEventListener('click', () => setTheme('light'));
 
-  const setFabDir = (dir) => {
-    if (typeof window.FabDrag?.setDirection === 'function') {
-      window.FabDrag.setDirection(dir);
-    }
-    applyFabDirection();
-  };
-  els.fabDirVerticalBtn?.addEventListener('click', () => setFabDir('vertical'));
-  els.fabDirHorizontalBtn?.addEventListener('click', () => setFabDir('horizontal'));
-  applyFabDirection();
-  applyFabOrder();
   applyFilterOrder();
-  renderFabOrderList();
   renderFilterOrderList();
-  els.fabOrderList?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-fab-move]');
-    if (!btn || btn.disabled) return;
-    const row = btn.closest('[data-fab-order-id]');
-    if (!row) return;
-    moveFabInOrder(row.dataset.fabOrderId, btn.dataset.fabMove);
-  });
   els.filterOrderList?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-filter-move]');
     if (!btn || btn.disabled) return;
@@ -5177,6 +5288,54 @@ async function init() {
     if (!row) return;
     moveFilterInOrder(row.dataset.filterOrderId, btn.dataset.filterMove);
   });
+
+  els.listPreviewTitleBtn?.addEventListener('click', () => setListShowContent(false));
+  els.listPreviewContentBtn?.addEventListener('click', () => setListShowContent(true));
+  applyListPreviewSettingsUi();
+
+  els.workspaceSwitchBtn?.addEventListener('click', () => {
+    if (els.workspaceMenuOverlay && !els.workspaceMenuOverlay.hidden) closeWorkspaceMenu();
+    else openWorkspaceMenu();
+  });
+  els.workspaceMenuOverlay?.addEventListener('click', (e) => {
+    if (e.target === els.workspaceMenuOverlay) {
+      closeWorkspaceMenu();
+      return;
+    }
+    const del = e.target.closest('[data-workspace-delete]');
+    if (del) {
+      tryDeleteWorkspace(del.dataset.workspaceDelete);
+      return;
+    }
+    const item = e.target.closest('[data-workspace-id]');
+    if (!item) return;
+    const id = item.dataset.workspaceId;
+    if (!id) return;
+    setActiveWorkspace(id);
+    closeWorkspaceMenu();
+  });
+  let wsLongTimer = null;
+  let wsLongId = null;
+  els.workspaceMenuList?.addEventListener('pointerdown', (e) => {
+    const item = e.target.closest('[data-workspace-id]');
+    if (!item) return;
+    wsLongId = item.dataset.workspaceId;
+    clearTimeout(wsLongTimer);
+    wsLongTimer = setTimeout(() => {
+      if (!wsLongId) return;
+      promptRenameWorkspace(wsLongId);
+      wsLongId = null;
+    }, 480);
+  });
+  const clearWsLong = () => {
+    clearTimeout(wsLongTimer);
+    wsLongTimer = null;
+    wsLongId = null;
+  };
+  els.workspaceMenuList?.addEventListener('pointerup', clearWsLong);
+  els.workspaceMenuList?.addEventListener('pointercancel', clearWsLong);
+  els.workspaceMenuList?.addEventListener('pointerleave', clearWsLong);
+  els.workspaceAddBtn?.addEventListener('click', () => promptNewWorkspace());
 
   els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
   els.notifyOnBtn?.addEventListener('click', () => setNotificationsEnabled(true));
