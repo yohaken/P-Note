@@ -1939,7 +1939,7 @@ function syncFilterMenuChrome(open) {
 }
 
 function closeFilterMenus() {
-  ['filterSortMenu', 'filterPriorityMenu', 'filterRecurrenceMenu', 'filterTagMenu', 'filterDueMenu'].forEach((key) => {
+  ['filterSortMenu', 'filterPriorityMenu', 'filterRecurrenceMenu', 'filterDueMenu'].forEach((key) => {
     const menu = els[key];
     if (menu) menu.hidden = true;
   });
