@@ -2,8 +2,8 @@ import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=127';
 import { initListSortable } from './sortable.js?v=122';
 import { bindComposableInput } from './text-input.js?v=122';
-import { CONFIG } from './config.js?v=122';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=132';
+import { CONFIG } from './config.js?v=133';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=133';
 import {
   addTag,
   addNotepad,
@@ -110,12 +110,20 @@ import { DEFAULT_BAR_LAYOUT } from './bars.js?v=122';
 import {
   fetchRemoteNotes,
   getSpaceId,
+  getPreviousSpaceId,
+  clearPreviousSpaceId,
   pushRemoteNotes,
-  setSpaceId,
-} from './remote.js?v=129';
+  SHARED_SPACE_ID,
+} from './remote.js?v=133';
 import { normalizeNotesData } from './notes.js?v=131';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
+
+function hasCloudContent(data) {
+  return hasAnyNotes(data)
+    || (Array.isArray(data?.notepads) && data.notepads.length > 0)
+    || (Array.isArray(data?.tags) && data.tags.length > 0);
+}
 
 const state = {
   notesData: { version: 7, updatedAt: '', tags: [], notes: [], workspaces: [], notepads: [] },
@@ -335,10 +343,7 @@ const els = {
   thicknessTag: document.getElementById('thickness-tag'),
   thicknessPriority: document.getElementById('thickness-priority'),
   thicknessRecurrence: document.getElementById('thickness-recurrence'),
-  syncCodeValue: document.getElementById('sync-code-value'),
-  syncCodeInput: document.getElementById('sync-code-input'),
-  copySyncCodeBtn: document.getElementById('copy-sync-code-btn'),
-  applySyncCodeBtn: document.getElementById('apply-sync-code-btn'),
+  dbSyncHint: document.getElementById('db-sync-hint'),
   exportNotesBtn: document.getElementById('export-notes-btn'),
   importNotesBtn: document.getElementById('import-notes-btn'),
   importNotesFile: document.getElementById('import-notes-file'),
@@ -415,6 +420,9 @@ function setSyncStatus(state, message = '') {
   btn.setAttribute('aria-label', label);
   if (els.syncStatusTip) {
     els.syncStatusTip.textContent = label;
+  }
+  if (els.dbSyncHint) {
+    els.dbSyncHint.textContent = `สถานะ: ${label}`;
   }
 }
 
@@ -3043,12 +3051,6 @@ function closeTagManager() {
   /* Tag manager lives in Settings — closing settings is enough. */
 }
 
-function renderSyncCode() {
-  if (els.syncCodeValue) {
-    els.syncCodeValue.value = state.spaceId || getSpaceId();
-  }
-}
-
 function openSettings() {
   els.settingsOverlay.hidden = false;
   els.cardDensitySlider.value = String(state.settings.cardDensity);
@@ -3067,7 +3069,6 @@ function openSettings() {
   applyNotifySettingsUi();
   applyBarThickness();
   refreshScheduleSelectOptions();
-  renderSyncCode();
   applyListPreviewSettingsUi();
 }
 
@@ -4932,6 +4933,28 @@ function setListGroup(group) {
   renderNotesList();
 }
 
+/**
+ * One-shot: pull notes from the old per-device space id into the shared space
+ * payload so phone/desktop data is not orphaned after removing sync codes.
+ */
+async function mergePreviousDeviceSpace(localData) {
+  const prevId = getPreviousSpaceId();
+  if (!prevId) return { data: localData, fromPrev: false };
+  try {
+    const prevRaw = await fetchRemoteNotes(prevId);
+    const prev = normalizeNotesData(prevRaw);
+    if (!hasCloudContent(prev)) {
+      clearPreviousSpaceId();
+      return { data: localData, fromPrev: false };
+    }
+    const merged = mergeNotesByUpdatedAt(localData, prev);
+    return { data: merged, fromPrev: true };
+  } catch (err) {
+    console.warn('previous space migrate skipped', err);
+    return { data: localData, fromPrev: false };
+  }
+}
+
 async function loadSpaceData(spaceId, localData) {
   // Returns { data, online, migrated, scheduleSnap }
   let remoteRaw = null;
@@ -4943,7 +4966,6 @@ async function loadSpaceData(spaceId, localData) {
 
   if (!remoteRaw) {
     const auto = await tryAutoImport(localData);
-    const localVer = Number(localData?.version) || 1;
     // localData may already be normalized to v5; scheduleSnap handled by caller via peek
     return {
       data: auto.data,
@@ -4956,8 +4978,8 @@ async function loadSpaceData(spaceId, localData) {
 
   const remoteVer = Number(remoteRaw.version) || 1;
   const remote = normalizeNotesData(remoteRaw);
-  const remoteHas = hasAnyNotes(remote);
-  const localHas = hasAnyNotes(localData);
+  const remoteHas = hasCloudContent(remote);
+  const localHas = hasCloudContent(localData);
 
   if (!remoteHas && localHas) {
     const merged = normalizeNotesData(localData);
@@ -5132,11 +5154,19 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
   spaceSyncInFlight = (async () => {
     try {
       if (announce) setSyncStatus('busy', 'กำลังซิงค์…');
-      const snapshot = state.notesData;
-      const result = await loadSpaceData(state.spaceId, snapshot);
+      const prevMerge = await mergePreviousDeviceSpace(state.notesData);
+      if (prevMerge.fromPrev) {
+        state.notesData = normalizeNotesData(prevMerge.data);
+        saveNotes(state.notesData);
+        if (announce) setSyncStatus('busy', 'กำลังรวมพื้นที่เก่า…');
+      }
+      const result = await loadSpaceData(state.spaceId || SHARED_SPACE_ID, state.notesData);
       const changed = await applySpaceSyncResult(result, { localVerBefore, announce });
+      if (result.online && getPreviousSpaceId()) {
+        clearPreviousSpaceId();
+      }
       lastSpaceSyncAt = Date.now();
-      return Boolean(changed);
+      return Boolean(changed) || Boolean(prevMerge.fromPrev);
     } catch (err) {
       console.warn('background sync failed', err);
       state.online = false;
@@ -5190,44 +5220,6 @@ async function bootstrapData() {
   } finally {
     setLoading(false);
   }
-}
-
-async function applySyncCode(code) {
-  let normalized;
-  try {
-    normalized = setSpaceId(code);
-  } catch (error) {
-    window.alert(error.message);
-    return;
-  }
-  state.spaceId = normalized;
-  setLoading(true, 'กำลังซิงค์...');
-  try {
-    const remoteRaw = await fetchRemoteNotes(normalized);
-    const remoteVer = Number(remoteRaw?.version) || 1;
-    const remote = normalizeNotesData(remoteRaw);
-    state.notesData = remote;
-    state.online = true;
-    saveNotes(state.notesData);
-    if (remoteVer < 5) {
-      try {
-        await saveManager.saveNow(() => state.notesData);
-      } catch (err) {
-        console.warn('sync schedule snap save failed', err);
-      }
-      setStatus('สลับพื้นที่ซิงค์แล้ว · ปรับเวลาเป็น 09:00');
-    } else {
-      setStatus('สลับพื้นที่ซิงค์แล้ว');
-    }
-  } catch {
-    state.online = false;
-    setStatus('เชื่อมต่อไม่ได้ — เก็บในเครื่อง');
-  }
-  state.listGroup = NOTE_STATUS.ACTIVE;
-  applySavedFilters();
-  renderNotesList();
-  setLoading(false);
-  closeSettings();
 }
 
 // Editor: swipe left OR right → save & leave editor.
@@ -5621,18 +5613,6 @@ async function init() {
     reapplyBarLayout();
     renderNotesList();
     setStatus('รีเซ็ตตำแหน่งแถบแล้ว');
-  });
-  els.copySyncCodeBtn?.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(els.syncCodeValue?.value || '');
-      setStatus('คัดลอกรหัสแล้ว');
-    } catch {
-      els.syncCodeValue?.select();
-    }
-  });
-  els.applySyncCodeBtn?.addEventListener('click', () => {
-    const code = els.syncCodeInput?.value.trim();
-    if (code) applySyncCode(code);
   });
   els.exportNotesBtn?.addEventListener('click', exportNotesBackup);
   els.importNotesBtn?.addEventListener('click', () => els.importNotesFile?.click());

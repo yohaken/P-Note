@@ -18,8 +18,8 @@ export const STORAGE_KEYS = {
   SETTINGS: 'pnote_settings',
   /** Compact markdown memory of user note/tag habits for AI */
   USER_CONTEXT_MD: 'pnote_user_context_md',
-  /** Anonymous sync code (one DB space across devices). */
+  /** Legacy per-device space key — app now always uses SHARED_SPACE_ID. */
   SPACE_ID: 'pnote_space_id',
-  /** Legacy key from removed Calorie app — migrated into SPACE_ID. */
+  /** Legacy key from removed Calorie app. */
   LEGACY_CALORIE_SPACE_ID: 'calorie_space_id',
 };

@@ -1,46 +1,52 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=51';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=133';
 
 /**
  * Talks to the backend notes API (Firestore-backed database).
- * App policy is local-first: paint from localStorage immediately, then
- * warm/sync Firestore in the background (merge by per-note updatedAt).
+ * One shared cloud space for all devices — no sync code to copy.
+ * Local-first: paint from localStorage immediately, then warm/sync
+ * Firestore in the background (merge by per-note / notepad updatedAt).
  */
+
+/** Fixed personal space — phone + desktop always use this Firestore doc. */
+export const SHARED_SPACE_ID = 'sp-pnote-shared';
 
 const SPACE_RE = /^[A-Za-z0-9_-]{6,64}$/;
 const REQUEST_TIMEOUT_MS = 8000;
+const PREV_SPACE_KEY = 'pnote_prev_space_id';
 
-function randomSpaceId() {
-  const rand =
-    typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID().replace(/-/g, '')
-      : Math.random().toString(36).slice(2) + Date.now().toString(36);
-  return `sp-${rand.slice(0, 20)}`;
-}
-
-function persistSpaceId(id) {
-  localStorage.setItem(STORAGE_KEYS.SPACE_ID, id);
-  localStorage.setItem(STORAGE_KEYS.LEGACY_CALORIE_SPACE_ID, id);
-  return id;
+function persistSharedSpaceId() {
+  const previous = localStorage.getItem(STORAGE_KEYS.SPACE_ID);
+  if (
+    previous &&
+    previous !== SHARED_SPACE_ID &&
+    SPACE_RE.test(previous) &&
+    !localStorage.getItem(PREV_SPACE_KEY)
+  ) {
+    // Keep once so bootstrap can merge the old device space into shared.
+    localStorage.setItem(PREV_SPACE_KEY, previous);
+  }
+  localStorage.setItem(STORAGE_KEYS.SPACE_ID, SHARED_SPACE_ID);
+  localStorage.setItem(STORAGE_KEYS.LEGACY_CALORIE_SPACE_ID, SHARED_SPACE_ID);
+  return SHARED_SPACE_ID;
 }
 
 export function getSpaceId() {
-  const primary = localStorage.getItem(STORAGE_KEYS.SPACE_ID);
-  if (primary && SPACE_RE.test(primary)) {
-    return persistSpaceId(primary);
-  }
-  const legacy = localStorage.getItem(STORAGE_KEYS.LEGACY_CALORIE_SPACE_ID);
-  if (legacy && SPACE_RE.test(legacy)) {
-    return persistSpaceId(legacy);
-  }
-  return persistSpaceId(randomSpaceId());
+  return persistSharedSpaceId();
 }
 
-export function setSpaceId(id) {
-  const trimmed = String(id || '').trim();
-  if (!SPACE_RE.test(trimmed)) {
-    throw new Error('รหัสซิงค์ต้องเป็น A-Z a-z 0-9 - _ ยาว 6-64 ตัว');
-  }
-  return persistSpaceId(trimmed);
+/** @deprecated Sync codes removed — always returns shared space. */
+export function setSpaceId(_id) {
+  return persistSharedSpaceId();
+}
+
+/** Previous per-device space id (if any), for one-shot migrate into shared. */
+export function getPreviousSpaceId() {
+  const prev = localStorage.getItem(PREV_SPACE_KEY);
+  return prev && SPACE_RE.test(prev) && prev !== SHARED_SPACE_ID ? prev : null;
+}
+
+export function clearPreviousSpaceId() {
+  localStorage.removeItem(PREV_SPACE_KEY);
 }
 
 function apiUrl(spaceId) {
