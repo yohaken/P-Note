@@ -1341,12 +1341,13 @@ body.light .dock-action-btn.active {
 .float-tag-icon {
   pointer-events: auto;
   appearance: none;
-  border: 1px solid color-mix(in srgb, var(--tag, var(--border)) 55%, rgba(255, 255, 255, 0.35));
+  border: 1px solid rgba(255, 255, 255, 0.12);
   width: 2.15rem;
   height: 2.15rem;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--tag, var(--accent)) 38%, rgba(255, 255, 255, 0.55));
-  color: color-mix(in srgb, var(--tag, var(--text)) 80%, #1a1a1a);
+  /* Uniform: black ground + white type for easy reading */
+  background: rgba(18, 18, 18, 0.88);
+  color: #fff;
   font: inherit;
   font-size: 0.62rem;
   font-weight: 800;
@@ -1356,7 +1357,7 @@ body.light .dock-action-btn.active {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   cursor: pointer;
@@ -1371,21 +1372,16 @@ body.light .dock-action-btn.active {
   padding: 0 0.48rem;
   border-radius: 999px;
   font-size: 0.58rem;
-  --tag: var(--text-muted);
 }
 body.light .float-tag-icon {
-  background: color-mix(in srgb, var(--tag, var(--accent)) 32%, rgba(255, 255, 255, 0.62));
+  background: rgba(18, 18, 18, 0.88);
+  color: #fff;
 }
 .float-tag-icon.is-active {
-  background: color-mix(in srgb, var(--tag, var(--accent)) 72%, #fff);
+  background: #000;
   color: #fff;
-  border-color: transparent;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--tag, var(--accent)) 45%, transparent);
-}
-.float-tag-icon.is-edge.is-active {
-  --tag: var(--accent);
-  background: var(--accent);
-  color: #fff;
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35), 0 2px 10px rgba(0, 0, 0, 0.28);
 }
 .float-tag-icon:active {
   transform: scale(0.94);

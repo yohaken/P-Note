@@ -93,7 +93,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=136';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=135';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=141';
 import {
   notificationPermission,
   notificationSupported,
@@ -803,7 +803,6 @@ const FILTER_ORDER_LABELS = {
   sort: 'เรียง',
   priority: 'ความสำคัญ',
   recurrence: 'การซ้ำ',
-  tag: 'แท็ก',
 };
 
 function applyFilterOrder() {
@@ -1944,7 +1943,7 @@ function closeFilterMenus() {
     const menu = els[key];
     if (menu) menu.hidden = true;
   });
-  ['filterSortBtn', 'filterPriorityBtn', 'filterRecurrenceBtn', 'filterTagBtn', 'filterDueBtn'].forEach((key) => {
+  ['filterSortBtn', 'filterPriorityBtn', 'filterRecurrenceBtn', 'filterDueBtn'].forEach((key) => {
     const btn = els[key];
     if (btn) btn.setAttribute('aria-expanded', 'false');
   });
@@ -2082,14 +2081,16 @@ function restoreListViewPrefs(snap) {
 }
 
 /** Apply list filter/sort change with Undo (bottom-left ↩). */
-function commitListViewChange(mutator, statusMsg) {
+function commitListViewChange(mutator, statusMsg, { silent = false } = {}) {
   const prev = snapshotListViewPrefs();
   mutator();
   const next = snapshotListViewPrefs();
   if (sameListViewPrefs(prev, next)) return false;
   persistFilters();
   renderNotesList();
+  if (silent) return true;
   const text = String(statusMsg || 'อัปเดตตัวกรอง').trim();
+  if (!text) return true;
   setStatus(text, {
     undo: () => {
       restoreListViewPrefs(prev);
@@ -2451,61 +2452,7 @@ function openTagBarMenu(tagId) {
 }
 
 function renderTagFilterBar() {
-  const tags = orderedFilterTags();
-  const currentId = state.tagFilterId || null;
-  const untagged = currentId === TAG_FILTER_UNTAGGED;
-  const currentTag = !untagged && currentId ? tags.find((t) => t.id === currentId) : null;
-  if (els.filterTagBtn) {
-    if (untagged) els.filterTagBtn.textContent = 'ไม่มีแท็ก';
-    else els.filterTagBtn.textContent = currentTag ? currentTag.name : 'แท็ก';
-    els.filterTagBtn.classList.toggle('is-active', Boolean(currentId));
-    els.filterTagBtn.title = untagged
-      ? 'แท็ก · ไม่มีแท็ก · กดค้าง = ทั้งหมด'
-      : currentTag
-        ? `แท็ก · ${currentTag.name} · กดค้าง = ทั้งหมด`
-        : 'แท็ก · กดค้าง = ทั้งหมด';
-  }
-
-  const noneCount = countNotesByTag(state.notesData.notes, TAG_FILTER_UNTAGGED);
-  const items = [
-    {
-      label: 'ทั้งหมด',
-      selected: !currentId,
-      onSelect: () => {
-        commitListViewChange(() => {
-          state.tagFilterId = null;
-        }, 'แท็ก · ทั้งหมด');
-      },
-    },
-    {
-      label: noneCount ? `ไม่มีแท็ก (${noneCount})` : 'ไม่มีแท็ก',
-      selected: untagged,
-      onSelect: () => {
-        commitListViewChange(() => {
-          state.tagFilterId = TAG_FILTER_UNTAGGED;
-        }, 'แท็ก · ไม่มีแท็ก');
-      },
-    },
-    ...tags.map((tag) => {
-      const n = countNotesByTag(state.notesData.notes, tag.id);
-      return {
-        label: n ? `${tag.name} (${n})` : tag.name,
-        selected: currentId === tag.id,
-        onSelect: () => {
-          commitListViewChange(() => {
-            state.tagFilterId = tag.id;
-          }, `แท็ก · ${tag.name}`);
-        },
-      };
-    }),
-    { sep: true },
-    {
-      label: 'จัดการแท็ก…',
-      selected: false,
-      onSelect: () => openTagManager(),
-    },
-  ];
-  fillFilterMenu(els.filterTagMenu, items);
+  /* Dock tag button retired — floating tag icons handle filtering. */
 }
 
 function initFilterDock() {
@@ -2558,19 +2505,6 @@ function initFilterDock() {
         commitListViewChange(() => {
           state.recurrenceFilter = null;
         }, 'การซ้ำ · ทั้งหมด');
-      },
-    ],
-    [
-      els.filterTagBtn,
-      els.filterTagMenu,
-      () => {
-        if (!state.tagFilterId) {
-          setStatus('แท็ก · ทั้งหมดอยู่แล้ว');
-          return;
-        }
-        commitListViewChange(() => {
-          state.tagFilterId = null;
-        }, 'แท็ก · ทั้งหมด');
       },
     ],
   ];
@@ -2916,7 +2850,7 @@ function renderFloatTagIcons() {
     .map((tag) => {
       const active = currentId === tag.id ? ' is-active' : '';
       const abbr = tagAbbrev(tag.name);
-      return `<button type="button" class="float-tag-icon${active}" data-float-tag-id="${escapeHtml(tag.id)}" style="--tag:${safeTagColor(tag.color)}" title="${escapeHtml(tag.name)}" aria-label="แท็ก ${escapeHtml(tag.name)}" aria-pressed="${currentId === tag.id ? 'true' : 'false'}">${escapeHtml(abbr)}</button>`;
+      return `<button type="button" class="float-tag-icon${active}" data-float-tag-id="${escapeHtml(tag.id)}" title="${escapeHtml(tag.name)}" aria-label="แท็ก ${escapeHtml(tag.name)}" aria-pressed="${currentId === tag.id ? 'true' : 'false'}">${escapeHtml(abbr)}</button>`;
     })
     .join('');
   host.innerHTML = `
@@ -2930,25 +2864,22 @@ function applyFloatTagFilter(tagId) {
   if (!tagId || state.selectionMode) return;
   if (state.listGroup !== NOTE_STATUS.ACTIVE) return;
   if (tagId === 'all') {
-    if (!state.tagFilterId) {
-      setStatus('แท็ก · ทั้งหมดอยู่แล้ว');
-      return;
-    }
+    if (!state.tagFilterId) return;
     commitListViewChange(() => {
       state.tagFilterId = null;
-    }, 'แท็ก · ทั้งหมด');
+    }, '', { silent: true });
     return;
   }
   if (tagId === TAG_FILTER_UNTAGGED) {
     if (state.tagFilterId === TAG_FILTER_UNTAGGED) {
       commitListViewChange(() => {
         state.tagFilterId = null;
-      }, 'แท็ก · ทั้งหมด');
+      }, '', { silent: true });
       return;
     }
     commitListViewChange(() => {
       state.tagFilterId = TAG_FILTER_UNTAGGED;
-    }, 'แท็ก · ไม่มีแท็ก');
+    }, '', { silent: true });
     return;
   }
   applyTagFilterFromCard(tagId);
@@ -3005,12 +2936,12 @@ function applyTagFilterFromCard(tagId) {
   if (state.tagFilterId === tagId) {
     commitListViewChange(() => {
       state.tagFilterId = null;
-    }, 'แท็ก · ทั้งหมด');
+    }, '', { silent: true });
     return;
   }
   commitListViewChange(() => {
     state.tagFilterId = tagId;
-  }, `แท็ก · ${tag.name}`);
+  }, '', { silent: true });
 }
 
 function initNotesListTagFilter() {

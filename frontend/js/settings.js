@@ -22,7 +22,7 @@ const DEFAULT_FAB_ORDER = ['group', 'ai']; // visual top → bottom (AI nearest 
 const CAMERA_QUALITIES = ['max', 'high', 'medium'];
 const CAMERA_FACINGS = ['environment', 'user'];
 
-export const DEFAULT_FILTER_ORDER = ['due', 'sort', 'priority', 'recurrence', 'tag'];
+export const DEFAULT_FILTER_ORDER = ['due', 'sort', 'priority', 'recurrence'];
 
 const DEFAULTS = {
   theme: 'light',
