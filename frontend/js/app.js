@@ -83,7 +83,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=122';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=131';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=135';
 import {
   notificationPermission,
   notificationSupported,
@@ -258,6 +258,8 @@ const els = {
   filterDockFiltersWrap: document.getElementById('filter-dock-filters'),
   dockModeWork: document.getElementById('dock-mode-work'),
   dockModeNote: document.getElementById('dock-mode-note'),
+  notepadQuickBar: document.getElementById('notepad-quick-bar'),
+  notepadQuickScroll: document.getElementById('notepad-quick-scroll'),
   aiNoteFocusTitleBtn: document.getElementById('ai-note-focus-title-btn'),
   filterSortBtn: document.getElementById('filter-sort-btn'),
   filterSortMenu: document.getElementById('filter-sort-menu'),
@@ -1186,12 +1188,11 @@ function promptNewNotepad() {
   }
   const { data, notepad } = addNotepad(state.notesData, trimmed);
   state.notesData = data;
-  state.settings.lastNotepadId = notepad.id;
-  saveSettings(state.settings);
+  rememberRecentNotepad(notepad.id);
   autosave();
   setAppMode('note');
   closeModeMenu();
-  openNotepadEditor(notepad.id);
+  openNotepadEditor(notepad.id, { focusTitle: true });
   setStatus(`สร้าง Note「${notepad.name}」แล้ว`);
 }
 
@@ -1209,6 +1210,7 @@ function promptRenameNotepad(notepadId) {
     els.noteTitle.value = trimmed;
   }
   renderNotesList();
+  renderNotepadQuickBar();
   setStatus('เปลี่ยนชื่อ Note แล้ว');
 }
 
@@ -1223,38 +1225,61 @@ function tryDeleteNotepad(notepadId) {
       document.body.classList.remove('notepad-editing');
       showView('list');
     }
+    const recent = Array.isArray(state.settings.recentNotepadIds)
+      ? state.settings.recentNotepadIds.filter((id) => id !== notepadId)
+      : [];
+    state.settings.recentNotepadIds = recent;
     if (state.settings.lastNotepadId === notepadId) {
-      state.settings.lastNotepadId = null;
-      saveSettings(state.settings);
+      state.settings.lastNotepadId = recent[0] || null;
     }
+    saveSettings(state.settings);
     autosave();
     renderNotepadMenuList();
     renderNotesList();
+    renderNotepadQuickBar();
     setStatus('ลบ Note แล้ว');
   } catch (err) {
     setStatus(err.message || 'ลบ Note ไม่ได้');
   }
 }
 
-function openNotepadEditor(notepadId) {
+function rememberRecentNotepad(notepadId) {
+  state.settings = touchRecentNotepadId(state.settings, notepadId);
+  saveSettings(state.settings);
+}
+
+function openNotepadEditor(notepadId, { focusTitle = false } = {}) {
   const pad = getNotepad(state.notesData, notepadId);
   if (!pad) return;
+  if (state.activeNotepadId && state.activeNotepadId !== notepadId) {
+    flushNotepadToState();
+    saveManager.saveNow(() => state.notesData);
+  }
   state.appMode = 'note';
   state.activeNotepadId = notepadId;
   state.activeNoteId = null;
   state.settings.appMode = 'note';
-  state.settings.lastNotepadId = notepadId;
-  saveSettings(state.settings);
+  rememberRecentNotepad(notepadId);
   document.body.classList.add('note-mode');
   document.body.classList.add('notepad-editing');
   if (els.noteTitle) els.noteTitle.value = pad.name || '';
   if (els.noteContent) els.noteContent.value = pad.content || '';
   showView('editor');
   renderModeSwitcher();
+  renderNotepadQuickBar();
   hideEditorSaveDot();
   queueMicrotask(() => {
-    try { els.noteContent?.focus({ preventScroll: false }); }
-    catch { els.noteContent?.focus(); }
+    const target = focusTitle ? els.noteTitle : els.noteContent;
+    try { target?.focus({ preventScroll: false }); }
+    catch { target?.focus(); }
+    if (focusTitle && els.noteTitle) {
+      try {
+        const len = String(els.noteTitle.value || '').length;
+        els.noteTitle.setSelectionRange(0, len);
+      } catch {
+        /* ignore */
+      }
+    }
   });
 }
 
@@ -1319,10 +1344,11 @@ const SORT_FILTER_OPTIONS = [
 function updateFilterDockVisibility() {
   const list = state.view === 'list';
   const selecting = list && state.selectionMode && !isNoteMode();
+  const notepadEditing = isNoteMode() && state.view === 'editor' && Boolean(state.activeNotepadId);
   if (els.filterDock) {
-    const showDock = list && !state.selectionMode;
+    const showDock = (list && !state.selectionMode) || notepadEditing;
     els.filterDock.hidden = !showDock;
-    const showFilters = showDock && !isNoteMode() && state.listGroup === NOTE_STATUS.ACTIVE;
+    const showFilters = showDock && list && !isNoteMode() && state.listGroup === NOTE_STATUS.ACTIVE;
     if (els.filterDockFiltersWrap) els.filterDockFiltersWrap.hidden = !showFilters;
     // In Note mode: hide group drawer, keep left slot so mode switch stays centered
     if (els.groupNavBtn) {
@@ -1332,13 +1358,97 @@ function updateFilterDockVisibility() {
       els.groupNavBtn.setAttribute('aria-hidden', isNoteMode() ? 'true' : 'false');
     }
     if (!showFilters) closeFilterMenus();
+    renderNotepadQuickBar();
   }
+  document.body.classList.toggle('notepad-dock', Boolean(notepadEditing));
   if (els.selectionDock) {
     els.selectionDock.hidden = !selecting;
   }
   document.body.classList.toggle('selection-mode', Boolean(selecting));
   applyDockOffset();
   if (selecting) renderSelectionDock();
+}
+
+function orderedNotepadsForQuickBar() {
+  const pads = normalizeNotepads(state.notesData.notepads);
+  if (!pads.length) return [];
+  const byId = new Map(pads.map((p) => [p.id, p]));
+  const recent = Array.isArray(state.settings.recentNotepadIds)
+    ? state.settings.recentNotepadIds
+    : [];
+  const ordered = [];
+  const seen = new Set();
+  const pushId = (id) => {
+    const pad = byId.get(id);
+    if (!pad || seen.has(pad.id)) return;
+    seen.add(pad.id);
+    ordered.push(pad);
+  };
+  pushId(state.activeNotepadId);
+  pushId(state.settings.lastNotepadId);
+  recent.forEach(pushId);
+  pads
+    .slice()
+    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+    .forEach((p) => pushId(p.id));
+  return ordered;
+}
+
+function truncateQuickTitle(name, max = 18) {
+  const t = String(name || '').trim() || 'Note';
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+function renderNotepadQuickBar() {
+  const bar = els.notepadQuickBar;
+  const scroll = els.notepadQuickScroll;
+  if (!bar || !scroll) return;
+  const show =
+    isNoteMode() &&
+    !state.selectionMode &&
+    els.filterDock &&
+    !els.filterDock.hidden;
+  if (!show) {
+    bar.hidden = true;
+    scroll.innerHTML = '';
+    return;
+  }
+  const pads = orderedNotepadsForQuickBar();
+  bar.hidden = false;
+  if (!pads.length) {
+    scroll.innerHTML = '<span class="notepad-quick-empty">ยังไม่มีหัวข้อ — กด + เพื่อสร้าง</span>';
+    return;
+  }
+  const activeId = state.activeNotepadId || state.settings.lastNotepadId || '';
+  scroll.innerHTML = pads
+    .map((pad) => {
+      const active = pad.id === activeId ? ' is-active' : '';
+      const label = truncateQuickTitle(pad.name);
+      return `<button type="button" class="notepad-quick-chip${active}" data-notepad-quick-id="${escapeHtml(pad.id)}" title="${escapeHtml(pad.name || 'Note')}" aria-current="${pad.id === activeId ? 'page' : 'false'}">${escapeHtml(label)}</button>`;
+    })
+    .join('');
+  // Keep the active chip near the left edge for thumb reach.
+  queueMicrotask(() => {
+    const activeChip = scroll.querySelector('.notepad-quick-chip.is-active');
+    if (!activeChip) return;
+    try {
+      activeChip.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+function onNotepadQuickChipClick(notepadId) {
+  if (!notepadId) return;
+  if (state.activeNotepadId === notepadId && state.view === 'editor') {
+    // Already open — jump to title for quick rename.
+    try { els.noteTitle?.focus({ preventScroll: false }); }
+    catch { els.noteTitle?.focus(); }
+    return;
+  }
+  openNotepadEditor(notepadId, { focusTitle: true });
 }
 
 function cloneNoteSnapshot(note) {
@@ -2874,6 +2984,7 @@ function renderNotepadList() {
   applyCardDensity();
   ensureFiltersDockObserver();
   applyDockScale();
+  renderNotepadQuickBar();
   applyDockOffset();
   requestAnimationFrame(applyDockOffset);
 
@@ -5523,6 +5634,12 @@ async function init() {
   };
   els.dockModeWork?.addEventListener('click', onDockModeClick);
   els.dockModeNote?.addEventListener('click', onDockModeClick);
+  els.notepadQuickScroll?.addEventListener('click', (e) => {
+    const chip = e.target.closest?.('[data-notepad-quick-id]');
+    if (!chip || !els.notepadQuickScroll.contains(chip)) return;
+    e.preventDefault();
+    onNotepadQuickChipClick(chip.dataset.notepadQuickId);
+  });
   els.aiNoteFocusTitleBtn?.addEventListener('click', () => {
     focusAiNoteTitle({ select: true });
   });

@@ -63,6 +63,8 @@ const DEFAULTS = {
   appMode: 'work',
   /** Last opened notepad id in Note mode */
   lastNotepadId: null,
+  /** Recent notepad ids for bottom quick-title bar (most recent first) */
+  recentNotepadIds: [],
 };
 
 export const DEFAULT_PRIORITY_COLORS = {
@@ -297,6 +299,7 @@ export function loadSettings() {
         lastWorkspaceId: null,
         appMode: 'work',
         lastNotepadId: null,
+        recentNotepadIds: [],
       };
     }
     const parsed = JSON.parse(raw);
@@ -338,6 +341,7 @@ export function loadSettings() {
       lastWorkspaceId: parsed.lastWorkspaceId ? String(parsed.lastWorkspaceId) : null,
       appMode: parsed.appMode === 'note' ? 'note' : 'work',
       lastNotepadId: parsed.lastNotepadId ? String(parsed.lastNotepadId) : null,
+      recentNotepadIds: normalizeRecentNotepadIds(parsed.recentNotepadIds, parsed.lastNotepadId),
     };
   } catch {
     return {
@@ -365,6 +369,7 @@ export function loadSettings() {
       lastWorkspaceId: null,
       appMode: 'work',
       lastNotepadId: null,
+      recentNotepadIds: [],
     };
   }
 }
@@ -394,8 +399,36 @@ export function saveSettings(settings) {
     lastWorkspaceId: settings.lastWorkspaceId ? String(settings.lastWorkspaceId) : null,
     appMode: settings.appMode === 'note' ? 'note' : 'work',
     lastNotepadId: settings.lastNotepadId ? String(settings.lastNotepadId) : null,
+    recentNotepadIds: normalizeRecentNotepadIds(settings.recentNotepadIds, settings.lastNotepadId),
   };
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+}
+
+export function normalizeRecentNotepadIds(raw, lastId = null) {
+  const seen = new Set();
+  const out = [];
+  const push = (id) => {
+    const s = String(id || '').trim();
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    out.push(s);
+  };
+  push(lastId);
+  if (Array.isArray(raw)) raw.forEach(push);
+  return out.slice(0, 16);
+}
+
+export function touchRecentNotepadId(settings, notepadId) {
+  const id = String(notepadId || '').trim();
+  if (!id) return settings;
+  return {
+    ...settings,
+    lastNotepadId: id,
+    recentNotepadIds: normalizeRecentNotepadIds(
+      [id, ...(settings.recentNotepadIds || [])],
+      id,
+    ),
+  };
 }
 
 export function densityToCssUnit(percent) {
