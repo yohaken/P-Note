@@ -3,7 +3,7 @@ import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection }
 import { initListSortable } from './sortable.js?v=122';
 import { bindComposableInput } from './text-input.js?v=122';
 import { CONFIG } from './config.js?v=122';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=131';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=132';
 import {
   addTag,
   addNotepad,

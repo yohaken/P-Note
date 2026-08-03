@@ -4,7 +4,8 @@ import { config } from '../config.js';
 /**
  * Notes are stored in Firestore (a cloud database), NOT as a JSON file.
  * Each anonymous "space" (per-device id, no login required yet) maps to one
- * document in the `spaces` collection holding the full notes payload.
+ * document in the `spaces` collection holding the full notes payload
+ * (งานหลัก notes/tags + Note notepads).
  *
  * Locally, set FIRESTORE_EMULATOR_HOST (e.g. localhost:8090) and the client
  * talks to the Firestore emulator with no credentials. On Cloud Run it uses
@@ -38,10 +39,12 @@ export function isEmulator() {
 
 function emptyPayload() {
   return {
-    version: 4,
+    version: 7,
     updatedAt: new Date().toISOString(),
     tags: [],
     notes: [],
+    workspaces: [],
+    notepads: [],
   };
 }
 
@@ -49,6 +52,18 @@ function sanitizeSpaceId(spaceId) {
   return typeof spaceId === 'string' && /^[A-Za-z0-9_-]{6,64}$/.test(spaceId)
     ? spaceId
     : null;
+}
+
+function normalizePayload(raw) {
+  const data = raw && typeof raw === 'object' ? raw : {};
+  return {
+    version: Number(data.version) || 7,
+    updatedAt: data.updatedAt || new Date().toISOString(),
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    notes: Array.isArray(data.notes) ? data.notes : [],
+    workspaces: Array.isArray(data.workspaces) ? data.workspaces : [],
+    notepads: Array.isArray(data.notepads) ? data.notepads : [],
+  };
 }
 
 export async function getSpaceNotes(spaceId) {
@@ -70,13 +85,7 @@ export async function getSpaceNotes(spaceId) {
   if (!snap.exists) {
     return emptyPayload();
   }
-  const data = snap.data();
-  return {
-    version: data.version || 4,
-    updatedAt: data.updatedAt || new Date().toISOString(),
-    tags: Array.isArray(data.tags) ? data.tags : [],
-    notes: Array.isArray(data.notes) ? data.notes : [],
-  };
+  return normalizePayload(snap.data());
 }
 
 export async function putSpaceNotes(spaceId, payload) {
@@ -95,10 +104,8 @@ export async function putSpaceNotes(spaceId, payload) {
   }
 
   const doc = {
-    version: Number(payload?.version) || 4,
+    ...normalizePayload(payload),
     updatedAt: new Date().toISOString(),
-    tags: Array.isArray(payload?.tags) ? payload.tags : [],
-    notes: Array.isArray(payload?.notes) ? payload.notes : [],
   };
 
   await db.collection(COLLECTION).doc(id).set(doc);

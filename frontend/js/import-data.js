@@ -100,20 +100,30 @@ export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
   });
 }
 
-/** True if local has any note missing on remote or newer than remote's copy. */
-export function localNeedsRemotePush(localRaw, remoteRaw) {
-  const local = normalizeNotesData(localRaw);
-  const remote = normalizeNotesData(remoteRaw);
-  if (!hasAnyNotes(local)) return false;
-  if (!hasAnyNotes(remote)) return true;
-  const remoteById = new Map(remote.notes.map((n) => [n.id, n]));
-  for (const n of local.notes) {
+function entityNeedsPush(localList, remoteList) {
+  const remoteById = new Map((remoteList || []).map((n) => [n.id, n]));
+  for (const n of localList || []) {
     const r = remoteById.get(n.id);
     if (!r) return true;
     if (new Date(n.updatedAt || 0).getTime() > new Date(r.updatedAt || 0).getTime()) {
       return true;
     }
   }
+  return false;
+}
+
+/** True if local has notes/notepads missing on remote or newer than remote's copy. */
+export function localNeedsRemotePush(localRaw, remoteRaw) {
+  const local = normalizeNotesData(localRaw);
+  const remote = normalizeNotesData(remoteRaw);
+  const localHas =
+    hasAnyNotes(local) || (Array.isArray(local.notepads) && local.notepads.length > 0);
+  const remoteHas =
+    hasAnyNotes(remote) || (Array.isArray(remote.notepads) && remote.notepads.length > 0);
+  if (!localHas) return false;
+  if (!remoteHas) return true;
+  if (entityNeedsPush(local.notes, remote.notes)) return true;
+  if (entityNeedsPush(local.notepads, remote.notepads)) return true;
   return false;
 }
 

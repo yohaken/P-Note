@@ -14,8 +14,8 @@ router.get('/health', (_req, res) => {
 
 router.get('/version', (_req, res) => {
   res.json({
-    version: '2.2.0-notes-firestore',
-    features: ['health-check', 'firestore-notes'],
+    version: '2.3.0-notes-notepads-firestore',
+    features: ['health-check', 'firestore-notes', 'firestore-notepads'],
     upcoming: ['firebase-auth'],
   });
 });
