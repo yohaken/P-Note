@@ -57,8 +57,12 @@ const DEFAULTS = {
   notifyMonthPresets: [3, 5, 6],
   /** List cards: false = title only (default), true = title + content preview */
   listShowContent: false,
-  /** Last opened workspace id (device-local) */
+  /** Last opened workspace id (legacy device key) */
   lastWorkspaceId: null,
+  /** 'work' = งานหลัก · 'note' = Note (plain notepad pages) */
+  appMode: 'work',
+  /** Last opened notepad id in Note mode */
+  lastNotepadId: null,
 };
 
 export const DEFAULT_PRIORITY_COLORS = {
@@ -291,6 +295,8 @@ export function loadSettings() {
         notifyMonthPresets: [3, 5, 6],
         listShowContent: false,
         lastWorkspaceId: null,
+        appMode: 'work',
+        lastNotepadId: null,
       };
     }
     const parsed = JSON.parse(raw);
@@ -330,6 +336,8 @@ export function loadSettings() {
       notifyMonthPresets: normalizeMonthPresets(parsed.notifyMonthPresets),
       listShowContent: parsed.listShowContent === true,
       lastWorkspaceId: parsed.lastWorkspaceId ? String(parsed.lastWorkspaceId) : null,
+      appMode: parsed.appMode === 'note' ? 'note' : 'work',
+      lastNotepadId: parsed.lastNotepadId ? String(parsed.lastNotepadId) : null,
     };
   } catch {
     return {
@@ -355,6 +363,8 @@ export function loadSettings() {
       notifyMonthPresets: [3, 5, 6],
       listShowContent: false,
       lastWorkspaceId: null,
+      appMode: 'work',
+      lastNotepadId: null,
     };
   }
 }
@@ -382,6 +392,8 @@ export function saveSettings(settings) {
     notifyMonthPresets: normalizeMonthPresets(settings.notifyMonthPresets),
     listShowContent: settings.listShowContent === true,
     lastWorkspaceId: settings.lastWorkspaceId ? String(settings.lastWorkspaceId) : null,
+    appMode: settings.appMode === 'note' ? 'note' : 'work',
+    lastNotepadId: settings.lastNotepadId ? String(settings.lastNotepadId) : null,
   };
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }

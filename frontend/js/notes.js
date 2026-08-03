@@ -254,6 +254,118 @@ export function addWorkspace(data, name) {
   };
 }
 
+/** Plain-text notepad pages (Note mode) — separate from งานหลัก tasks. */
+export function createNotepad(name = 'Note ใหม่', order = Date.now()) {
+  const now = new Date().toISOString();
+  const trimmed = String(name || '').trim() || 'Note ใหม่';
+  return {
+    id: crypto.randomUUID(),
+    name: trimmed.slice(0, 40),
+    content: '',
+    order: Number.isFinite(order) ? order : Date.now(),
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function normalizeNotepads(raw) {
+  const list = Array.isArray(raw)
+    ? raw
+        .filter((n) => n && typeof n === 'object' && n.id)
+        .map((n, i) => ({
+          id: String(n.id),
+          name: String(n.name || 'Note').trim().slice(0, 40) || 'Note',
+          content: typeof n.content === 'string' ? n.content : '',
+          order: Number.isFinite(n.order) ? n.order : i,
+          createdAt: n.createdAt || new Date().toISOString(),
+          updatedAt: n.updatedAt || n.createdAt || new Date().toISOString(),
+        }))
+    : [];
+  list.sort((a, b) => b.order - a.order || String(a.name).localeCompare(String(b.name), 'th'));
+  return list;
+}
+
+/**
+ * v7 migrate: former non-default "workspaces" become empty notepads
+ * (งานหลัก no longer splits tasks by workspace).
+ */
+export function migrateWorkspacesToNotepads(workspaces, existingNotepads) {
+  const pads = normalizeNotepads(existingNotepads);
+  if (pads.length) return pads;
+  const extras = normalizeWorkspaces(workspaces).filter((w) => w.id !== DEFAULT_WORKSPACE_ID);
+  if (!extras.length) return pads;
+  return extras.map((w, i) => ({
+    id: w.id.startsWith('ws-') ? `np-${w.id.slice(3)}` : `np-${w.id}`,
+    name: w.name,
+    content: '',
+    order: Date.now() - i,
+    createdAt: w.createdAt,
+    updatedAt: w.updatedAt,
+  }));
+}
+
+export function getNotepad(data, notepadId) {
+  const list = normalizeNotepads(data?.notepads);
+  return list.find((n) => n.id === notepadId) || null;
+}
+
+export function addNotepad(data, name) {
+  const list = normalizeNotepads(data.notepads);
+  const pad = createNotepad(name, Date.now());
+  const now = new Date().toISOString();
+  return {
+    data: {
+      ...data,
+      notepads: [pad, ...list],
+      updatedAt: now,
+    },
+    notepad: pad,
+  };
+}
+
+export function renameNotepad(data, notepadId, name) {
+  const trimmed = String(name || '').trim().slice(0, 40);
+  if (!trimmed) return data;
+  const now = new Date().toISOString();
+  return {
+    ...data,
+    notepads: normalizeNotepads(data.notepads).map((n) =>
+      n.id === notepadId ? { ...n, name: trimmed, updatedAt: now } : n,
+    ),
+    updatedAt: now,
+  };
+}
+
+export function updateNotepadContent(data, notepadId, { name, content }) {
+  const now = new Date().toISOString();
+  return {
+    ...data,
+    notepads: normalizeNotepads(data.notepads).map((n) => {
+      if (n.id !== notepadId) return n;
+      return {
+        ...n,
+        name: name !== undefined ? String(name).trim().slice(0, 40) || n.name : n.name,
+        content: content !== undefined ? String(content) : n.content,
+        updatedAt: now,
+      };
+    }),
+    updatedAt: now,
+  };
+}
+
+export function deleteNotepad(data, notepadId) {
+  const list = normalizeNotepads(data.notepads);
+  if (!list.some((n) => n.id === notepadId)) {
+    throw new Error('ไม่พบ Note นี้');
+  }
+  const now = new Date().toISOString();
+  return {
+    ...data,
+    notepads: list.filter((n) => n.id !== notepadId),
+    updatedAt: now,
+  };
+}
+
 export function createNote(title = '', content = '', workspaceId = DEFAULT_WORKSPACE_ID) {
   const now = new Date().toISOString();
   return {
@@ -492,7 +604,8 @@ export function formatDate(iso) {
 
 // Upgrades any older payload to the current shape.
 // v5: snap all scheduledAt times to local 09:00 (one-time when version < 5).
-// v6: workspaces[] + note.workspaceId (migrate all notes into 「ทั่วไป」).
+// v6: workspaces[] + note.workspaceId (legacy; งานหลัก no longer filters by these).
+// v7: notepads[] for Note mode (plain text); migrate extra workspaces → notepads.
 export function normalizeNotesData(data) {
   const base = data && typeof data === 'object' ? data : {};
   const prevVersion = Number(base.version) || 1;
@@ -500,6 +613,10 @@ export function normalizeNotesData(data) {
   const workspaces = normalizeWorkspaces(base.workspaces);
   const workspaceIds = new Set(workspaces.map((w) => w.id));
   const fallbackWs = workspaces[0]?.id || DEFAULT_WORKSPACE_ID;
+  const notepads =
+    prevVersion < 7
+      ? migrateWorkspacesToNotepads(workspaces, base.notepads)
+      : normalizeNotepads(base.notepads);
 
   const tags = Array.isArray(base.tags)
     ? base.tags
@@ -571,12 +688,13 @@ export function normalizeNotesData(data) {
 
   const bumped =
     (snapScheduleTimes && Array.isArray(base.notes) && base.notes.some((n) => n?.scheduledAt)) ||
-    prevVersion < 6;
+    prevVersion < 7;
 
   return {
-    version: 6,
+    version: 7,
     updatedAt: bumped ? new Date().toISOString() : base.updatedAt || new Date().toISOString(),
     workspaces,
+    notepads,
     tags,
     notes,
   };

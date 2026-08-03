@@ -1,4 +1,4 @@
-import { normalizeNotesData } from './notes.js?v=130';
+import { normalizeNotesData } from './notes.js?v=131';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -80,12 +80,20 @@ export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
     workspaces.set(w.id, prev ? takeNewer(prev, w) : w);
   });
 
+  const notepads = new Map();
+  (local.notepads || []).forEach((n) => notepads.set(n.id, n));
+  (remote.notepads || []).forEach((n) => {
+    const prev = notepads.get(n.id);
+    notepads.set(n.id, prev ? takeNewer(prev, n) : n);
+  });
+
   const localAt = new Date(local.updatedAt || 0).getTime();
   const remoteAt = new Date(remote.updatedAt || 0).getTime();
 
   return normalizeNotesData({
-    version: Math.max(Number(local.version) || 6, Number(remote.version) || 6, 6),
+    version: Math.max(Number(local.version) || 7, Number(remote.version) || 7, 7),
     workspaces: [...workspaces.values()],
+    notepads: [...notepads.values()],
     tags: [...tags.values()],
     notes: [...notes.values()],
     updatedAt: new Date(Math.max(localAt, remoteAt, Date.now())).toISOString(),

@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="130">
-  <meta name="pnote-built" content="2026-08-03T11:00:00+07:00">
+  <meta name="pnote-build" content="131">
+  <meta name="pnote-built" content="2026-08-03T12:20:00+07:00">
   <meta name="theme-color" content="#f7f3ec">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
-  <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=130"></script>
+  <title>P-Note</title>
+  <script src="js/cache-bootstrap.js?v=131"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=130">
+  <link rel="stylesheet" href="css/pnote.css?v=131">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -31,9 +31,9 @@
     <section id="list-view" class="view" hidden>
       <header class="topbar topbar-thin">
         <div class="topbar-title">
-          <button type="button" class="workspace-switch-btn" id="workspace-switch-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="workspaceMenuOverlay" title="สลับแผ่นงาน">
-            <span class="workspace-switch-name" id="workspace-switch-name">ทั่วไป</span>
-            <span class="workspace-switch-chev" aria-hidden="true">▾</span>
+          <button type="button" class="mode-switch-btn" id="mode-switch-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="modeMenuOverlay" title="สลับโหมด">
+            <span class="mode-switch-name" id="mode-switch-name">งานหลัก</span>
+            <span class="mode-switch-chev" aria-hidden="true">▾</span>
           </button>
           <h1 id="app-title" class="sr-only">P-Note</h1>
           <p id="app-built" class="app-built">อัปเดต —</p>
@@ -752,17 +752,26 @@
   <div class="filter-dd-menu filter-dd-menu-end" id="filter-tag-menu" role="listbox" hidden></div>
   <div id="filter-dd-backdrop" class="filter-dd-backdrop" hidden></div>
 
-  <div class="workspace-menu-overlay" id="workspaceMenuOverlay" hidden>
-    <div class="workspace-menu" role="menu" aria-label="แผ่นงาน">
-      <p class="workspace-menu-title">แผ่นงาน</p>
-      <div id="workspace-menu-list" class="workspace-menu-list"></div>
-      <button type="button" class="workspace-menu-add" id="workspace-add-btn">+ แผ่นงานใหม่</button>
+  <div class="mode-menu-overlay" id="modeMenuOverlay" hidden>
+    <div class="mode-menu" role="menu" aria-label="โหมด">
+      <p class="mode-menu-title">โหมด</p>
+      <button type="button" class="mode-menu-item" role="menuitem" data-app-mode="work" id="mode-menu-work">
+        <span>งานหลัก</span><span class="pm-sub">งาน · กำหนด · แท็ก</span>
+      </button>
+      <button type="button" class="mode-menu-item" role="menuitem" data-app-mode="note" id="mode-menu-note">
+        <span>Note</span><span class="pm-sub">ข้อความล้วน</span>
+      </button>
+      <div id="notepad-menu-section" class="notepad-menu-section" hidden>
+        <p class="mode-menu-title" style="margin-top:0.55rem">Note ของฉัน</p>
+        <div id="notepad-menu-list" class="workspace-menu-list"></div>
+        <button type="button" class="workspace-menu-add" id="notepad-add-btn">+ Note ใหม่</button>
+      </div>
     </div>
   </div>
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/app.js?v=130"></script>
-  <script src="js/update-watch.js?v=130"></script>
+  <script type="module" src="js/app.js?v=131"></script>
+  <script src="js/update-watch.js?v=131"></script>
 </body>
 </html>

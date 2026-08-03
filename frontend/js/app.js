@@ -3,26 +3,23 @@ import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection }
 import { initListSortable } from './sortable.js?v=122';
 import { bindComposableInput } from './text-input.js?v=122';
 import { CONFIG } from './config.js?v=122';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=130';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=131';
 import {
   addTag,
-  addWorkspace,
-  canDeleteWorkspace,
+  addNotepad,
   countNotesByTag,
   countNotesByPriority,
-  countNotesInWorkspace,
   createNote,
-  DEFAULT_WORKSPACE_ID,
   deleteTag,
-  deleteWorkspace,
+  deleteNotepad,
   filterNotesByPriority,
   filterNotesByStatus,
   filterNotesByTag,
   filterNotesBySearch,
-  filterNotesByWorkspace,
-  getWorkspace,
-  normalizeWorkspaces,
-  renameWorkspace,
+  getNotepad,
+  normalizeNotepads,
+  renameNotepad,
+  updateNotepadContent,
   TAG_FILTER_UNTAGGED,
   formatDate,
   getTagsForNote,
@@ -50,7 +47,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=130';
+} from './notes.js?v=131';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -86,7 +83,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=122';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=130';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=131';
 import {
   notificationPermission,
   notificationSupported,
@@ -116,14 +113,15 @@ import {
   pushRemoteNotes,
   setSpaceId,
 } from './remote.js?v=129';
-import { normalizeNotesData } from './notes.js?v=130';
+import { normalizeNotesData } from './notes.js?v=131';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
 
 const state = {
-  notesData: { version: 6, updatedAt: '', tags: [], notes: [], workspaces: [] },
+  notesData: { version: 7, updatedAt: '', tags: [], notes: [], workspaces: [], notepads: [] },
   settings: loadSettings(),
-  activeWorkspaceId: null,
+  appMode: loadSettings().appMode === 'note' ? 'note' : 'work',
+  activeNotepadId: null,
   activeNoteId: null,
   tagFilterId: null,
   priorityFilter: null,
@@ -301,11 +299,14 @@ const els = {
   syncStatusTip: document.getElementById('sync-status-tip'),
   editorSyncStatusBtn: null,
   editorSyncStatusTip: null,
-  workspaceSwitchBtn: document.getElementById('workspace-switch-btn'),
-  workspaceSwitchName: document.getElementById('workspace-switch-name'),
-  workspaceMenuOverlay: document.getElementById('workspaceMenuOverlay'),
-  workspaceMenuList: document.getElementById('workspace-menu-list'),
-  workspaceAddBtn: document.getElementById('workspace-add-btn'),
+  modeSwitchBtn: document.getElementById('mode-switch-btn'),
+  modeSwitchName: document.getElementById('mode-switch-name'),
+  modeMenuOverlay: document.getElementById('modeMenuOverlay'),
+  modeMenuWork: document.getElementById('mode-menu-work'),
+  modeMenuNote: document.getElementById('mode-menu-note'),
+  notepadMenuSection: document.getElementById('notepad-menu-section'),
+  notepadMenuList: document.getElementById('notepad-menu-list'),
+  notepadAddBtn: document.getElementById('notepad-add-btn'),
   listPreviewTitleBtn: document.getElementById('list-preview-title-btn'),
   listPreviewContentBtn: document.getElementById('list-preview-content-btn'),
   tagModal: null,
@@ -639,7 +640,13 @@ function noteIsEmpty(note) {
 }
 
 function flushEditorToState() {
-  if (state.view !== 'editor' || !state.activeNoteId) return;
+  if (state.view !== 'editor') return;
+  if (state.activeNotepadId) {
+    flushNotepadToState();
+    autosave();
+    return;
+  }
+  if (!state.activeNoteId) return;
   persistLocalChanges();
   const note = getActiveNote();
   // A brand-new note is not persisted until it actually has a title/content.
@@ -1037,117 +1044,185 @@ function commitData(newData) {
   refreshNoteNotifications();
 }
 
+function isNoteMode() {
+  return state.appMode === 'note';
+}
+
 function notesForCurrentGroup() {
-  const inWorkspace = filterNotesByWorkspace(
-    state.notesData.notes,
-    state.activeWorkspaceId || DEFAULT_WORKSPACE_ID,
-  );
-  return filterNotesByStatus(inWorkspace, state.listGroup);
+  // งานหลัก: all task notes (workspaces no longer split the work board)
+  return filterNotesByStatus(state.notesData.notes, state.listGroup);
 }
 
-function resolveActiveWorkspaceId(preferredId = state.settings.lastWorkspaceId) {
-  const list = normalizeWorkspaces(state.notesData.workspaces);
-  if (preferredId && list.some((w) => w.id === preferredId)) return preferredId;
-  if (state.activeWorkspaceId && list.some((w) => w.id === state.activeWorkspaceId)) {
-    return state.activeWorkspaceId;
-  }
-  return list[0]?.id || DEFAULT_WORKSPACE_ID;
-}
-
-function setActiveWorkspace(workspaceId, { persist = true } = {}) {
-  const next = resolveActiveWorkspaceId(workspaceId);
-  state.activeWorkspaceId = next;
+function setAppMode(mode, { persist = true } = {}) {
+  const next = mode === 'note' ? 'note' : 'work';
+  state.appMode = next;
+  document.body.classList.toggle('note-mode', next === 'note');
+  document.body.classList.remove('notepad-editing');
   if (persist) {
-    state.settings.lastWorkspaceId = next;
+    state.settings.appMode = next;
     saveSettings(state.settings);
   }
-  renderWorkspaceSwitcher();
-  renderNotesList();
-}
-
-function renderWorkspaceSwitcher() {
-  const ws = getWorkspace(state.notesData, state.activeWorkspaceId);
-  if (els.workspaceSwitchName) els.workspaceSwitchName.textContent = ws.name;
-  if (els.workspaceSwitchBtn) {
-    els.workspaceSwitchBtn.setAttribute('aria-label', `แผ่นงาน ${ws.name}`);
+  if (next === 'work') {
+    state.activeNotepadId = null;
   }
+  closeModeMenu();
+  renderModeSwitcher();
+  if (state.view === 'editor') {
+    // leave editor when switching modes
+    showView('list');
+  }
+  renderNotesList();
+  updateFilterDockVisibility();
+  updateUndoFab();
 }
 
-function closeWorkspaceMenu() {
-  if (els.workspaceMenuOverlay) els.workspaceMenuOverlay.hidden = true;
-  els.workspaceSwitchBtn?.setAttribute('aria-expanded', 'false');
+function renderModeSwitcher() {
+  if (els.modeSwitchName) {
+    els.modeSwitchName.textContent = isNoteMode() ? 'Note' : 'งานหลัก';
+  }
+  if (els.modeSwitchBtn) {
+    els.modeSwitchBtn.setAttribute(
+      'aria-label',
+      isNoteMode() ? 'โหมด Note' : 'โหมดงานหลัก',
+    );
+  }
+  els.modeMenuWork?.setAttribute('aria-current', isNoteMode() ? 'false' : 'page');
+  els.modeMenuNote?.setAttribute('aria-current', isNoteMode() ? 'page' : 'false');
+  if (els.modeMenuWork) {
+    if (isNoteMode()) els.modeMenuWork.removeAttribute('aria-current');
+    else els.modeMenuWork.setAttribute('aria-current', 'page');
+  }
+  if (els.modeMenuNote) {
+    if (isNoteMode()) els.modeMenuNote.setAttribute('aria-current', 'page');
+    else els.modeMenuNote.removeAttribute('aria-current');
+  }
+  if (els.notepadMenuSection) {
+    els.notepadMenuSection.hidden = !isNoteMode();
+  }
+  if (isNoteMode()) renderNotepadMenuList();
 }
 
-function openWorkspaceMenu() {
-  renderWorkspaceMenu();
-  if (els.workspaceMenuOverlay) els.workspaceMenuOverlay.hidden = false;
-  els.workspaceSwitchBtn?.setAttribute('aria-expanded', 'true');
+function closeModeMenu() {
+  if (els.modeMenuOverlay) els.modeMenuOverlay.hidden = true;
+  els.modeSwitchBtn?.setAttribute('aria-expanded', 'false');
 }
 
-function renderWorkspaceMenu() {
-  const list = els.workspaceMenuList;
+function openModeMenu() {
+  renderModeSwitcher();
+  renderNotepadMenuList();
+  if (els.modeMenuOverlay) els.modeMenuOverlay.hidden = false;
+  els.modeSwitchBtn?.setAttribute('aria-expanded', 'true');
+}
+
+function renderNotepadMenuList() {
+  const list = els.notepadMenuList;
   if (!list) return;
-  const workspaces = normalizeWorkspaces(state.notesData.workspaces);
-  list.innerHTML = workspaces
-    .map((w) => {
-      const count = countNotesInWorkspace(state.notesData.notes, w.id);
-      const current = w.id === state.activeWorkspaceId;
-      const canDel = canDeleteWorkspace(state.notesData, w.id);
+  const pads = normalizeNotepads(state.notesData.notepads);
+  if (!pads.length) {
+    list.innerHTML = '<p class="settings-hint" style="margin:0.25rem 0.35rem">ยังไม่มี Note — กด + Note ใหม่</p>';
+    return;
+  }
+  list.innerHTML = pads
+    .map((p) => {
+      const current = p.id === state.activeNotepadId;
       return `<div class="workspace-menu-row">
-        <button type="button" class="workspace-menu-item" role="menuitem" data-workspace-id="${escapeHtml(w.id)}"${current ? ' aria-current="page"' : ''}>
-          <span>${escapeHtml(w.name)}</span>
-          <span class="ws-sub">${current ? 'หน้านี้' : `${count}`}</span>
+        <button type="button" class="workspace-menu-item" role="menuitem" data-notepad-id="${escapeHtml(p.id)}"${current ? ' aria-current="page"' : ''}>
+          <span>${escapeHtml(p.name)}</span>
+          <span class="ws-sub">${current ? 'เปิดอยู่' : ''}</span>
         </button>
-        ${canDel ? `<button type="button" class="workspace-menu-del" data-workspace-delete="${escapeHtml(w.id)}" aria-label="ลบแผ่นว่าง">ลบ</button>` : ''}
+        <button type="button" class="workspace-menu-del" data-notepad-delete="${escapeHtml(p.id)}" aria-label="ลบ Note">ลบ</button>
       </div>`;
     })
     .join('');
 }
 
-function promptNewWorkspace() {
-  const name = window.prompt('ชื่อแผ่นงานใหม่', '');
+function promptNewNotepad() {
+  const name = window.prompt('ชื่อ Note ใหม่', '');
   if (name == null) return;
   const trimmed = String(name).trim();
   if (!trimmed) {
-    setStatus('ใส่ชื่อแผ่นงาน');
+    setStatus('ใส่ชื่อ Note');
     return;
   }
-  const { data, workspace } = addWorkspace(state.notesData, trimmed);
+  const { data, notepad } = addNotepad(state.notesData, trimmed);
   state.notesData = data;
+  state.settings.lastNotepadId = notepad.id;
+  saveSettings(state.settings);
   autosave();
-  setActiveWorkspace(workspace.id);
-  closeWorkspaceMenu();
-  setStatus(`สร้างแผ่น「${workspace.name}」แล้ว`);
+  setAppMode('note');
+  closeModeMenu();
+  openNotepadEditor(notepad.id);
+  setStatus(`สร้าง Note「${notepad.name}」แล้ว`);
 }
 
-function promptRenameWorkspace(workspaceId) {
-  const ws = getWorkspace(state.notesData, workspaceId);
-  const name = window.prompt('เปลี่ยนชื่อแผ่นงาน', ws.name);
+function promptRenameNotepad(notepadId) {
+  const pad = getNotepad(state.notesData, notepadId);
+  if (!pad) return;
+  const name = window.prompt('เปลี่ยนชื่อ Note', pad.name);
   if (name == null) return;
   const trimmed = String(name).trim();
-  if (!trimmed || trimmed === ws.name) return;
-  state.notesData = renameWorkspace(state.notesData, workspaceId, trimmed);
+  if (!trimmed || trimmed === pad.name) return;
+  state.notesData = renameNotepad(state.notesData, notepadId, trimmed);
   autosave();
-  renderWorkspaceSwitcher();
-  renderWorkspaceMenu();
-  setStatus('เปลี่ยนชื่อแผ่นแล้ว');
+  renderModeSwitcher();
+  if (state.activeNotepadId === notepadId && els.noteTitle) {
+    els.noteTitle.value = trimmed;
+  }
+  renderNotesList();
+  setStatus('เปลี่ยนชื่อ Note แล้ว');
 }
 
-function tryDeleteWorkspace(workspaceId) {
-  if (!canDeleteWorkspace(state.notesData, workspaceId)) {
-    setStatus('ลบไม่ได้ — ยังมีโน้ตในแผ่นนี้ หรือเหลือแผ่นเดียว');
-    return;
-  }
-  if (!window.confirm('ลบแผ่นงานนี้?')) return;
+function tryDeleteNotepad(notepadId) {
+  const pad = getNotepad(state.notesData, notepadId);
+  if (!pad) return;
+  if (!window.confirm(`ลบ Note「${pad.name}」?`)) return;
   try {
-    state.notesData = deleteWorkspace(state.notesData, workspaceId);
+    state.notesData = deleteNotepad(state.notesData, notepadId);
+    if (state.activeNotepadId === notepadId) {
+      state.activeNotepadId = null;
+      document.body.classList.remove('notepad-editing');
+      showView('list');
+    }
+    if (state.settings.lastNotepadId === notepadId) {
+      state.settings.lastNotepadId = null;
+      saveSettings(state.settings);
+    }
     autosave();
-    setActiveWorkspace(resolveActiveWorkspaceId());
-    renderWorkspaceMenu();
-    setStatus('ลบแผ่นงานแล้ว');
+    renderNotepadMenuList();
+    renderNotesList();
+    setStatus('ลบ Note แล้ว');
   } catch (err) {
-    setStatus(err.message || 'ลบแผ่นงานไม่ได้');
+    setStatus(err.message || 'ลบ Note ไม่ได้');
   }
+}
+
+function openNotepadEditor(notepadId) {
+  const pad = getNotepad(state.notesData, notepadId);
+  if (!pad) return;
+  state.appMode = 'note';
+  state.activeNotepadId = notepadId;
+  state.activeNoteId = null;
+  state.settings.appMode = 'note';
+  state.settings.lastNotepadId = notepadId;
+  saveSettings(state.settings);
+  document.body.classList.add('note-mode');
+  document.body.classList.add('notepad-editing');
+  if (els.noteTitle) els.noteTitle.value = pad.name || '';
+  if (els.noteContent) els.noteContent.value = pad.content || '';
+  showView('editor');
+  renderModeSwitcher();
+  hideEditorSaveDot();
+  queueMicrotask(() => {
+    try { els.noteContent?.focus({ preventScroll: false }); }
+    catch { els.noteContent?.focus(); }
+  });
+}
+
+function flushNotepadToState() {
+  if (!state.activeNotepadId) return;
+  const name = els.noteTitle?.value ?? '';
+  const content = els.noteContent?.value ?? '';
+  state.notesData = updateNotepadContent(state.notesData, state.activeNotepadId, { name, content });
 }
 
 function sortedFilteredNotes() {
@@ -1168,23 +1243,28 @@ function renderGroupNav() {
   els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
-  if (els.addNoteBtn) els.addNoteBtn.hidden = !isActiveGroup;
-  if (els.addBlankBtn) els.addBlankBtn.hidden = !isActiveGroup;
+  if (isNoteMode()) {
+    if (els.addNoteBtn) els.addNoteBtn.hidden = false;
+    if (els.addBlankBtn) els.addBlankBtn.hidden = true;
+  } else {
+    if (els.addNoteBtn) els.addNoteBtn.hidden = !isActiveGroup;
+    if (els.addBlankBtn) els.addBlankBtn.hidden = !isActiveGroup;
+  }
   updateFilterDockVisibility();
-  renderWorkspaceSwitcher();
+  renderModeSwitcher();
 
+  const build = getAppBuild();
   const groupTitle =
     state.listGroup === NOTE_STATUS.DONE
       ? 'ทำแล้ว'
       : state.listGroup === NOTE_STATUS.TRASH
         ? 'ถังขยะ'
-        : 'งาน';
-  const build = getAppBuild();
-  const ws = getWorkspace(state.notesData, state.activeWorkspaceId);
-  const name =
-    groupTitle === 'งาน'
-      ? `${ws.name}`
-      : `${ws.name} · ${groupTitle}`;
+        : 'งานหลัก';
+  const name = isNoteMode()
+    ? 'Note'
+    : groupTitle === 'งานหลัก'
+      ? 'งานหลัก'
+      : `งานหลัก · ${groupTitle}`;
   if (els.appTitle) {
     els.appTitle.textContent = `${name} · ${NOTE_APP_VERSION} · b${build}`;
   }
@@ -1198,12 +1278,14 @@ const SORT_FILTER_OPTIONS = [
 
 function updateFilterDockVisibility() {
   const list = state.view === 'list';
-  const selecting = list && state.selectionMode;
+  const selecting = list && state.selectionMode && !isNoteMode();
   if (els.filterDock) {
     const showDock = list && !state.selectionMode;
     els.filterDock.hidden = !showDock;
-    const showFilters = showDock && state.listGroup === NOTE_STATUS.ACTIVE;
+    const showFilters = showDock && !isNoteMode() && state.listGroup === NOTE_STATUS.ACTIVE;
     if (els.filterDockFiltersWrap) els.filterDockFiltersWrap.hidden = !showFilters;
+    // In Note mode: only the + button (hide group drawer btn)
+    if (els.groupNavBtn) els.groupNavBtn.hidden = isNoteMode();
     if (!showFilters) closeFilterMenus();
   }
   if (els.selectionDock) {
@@ -2721,7 +2803,80 @@ function ensureFiltersDockObserver() {
   targets.forEach((el) => filtersDockObserver.observe(el));
 }
 
+function renderNotepadList() {
+  renderGroupNav();
+  applyCardDensity();
+  ensureFiltersDockObserver();
+  applyDockScale();
+  applyDockOffset();
+  requestAnimationFrame(applyDockOffset);
+
+  const pads = normalizeNotepads(state.notesData.notepads);
+  const q = String(state.searchQuery || '').trim().toLowerCase();
+  const filtered = q
+    ? pads.filter(
+        (p) =>
+          String(p.name || '').toLowerCase().includes(q) ||
+          String(p.content || '').toLowerCase().includes(q),
+      )
+    : pads;
+
+  els.notesList.innerHTML = '';
+  els.notesList.classList.remove('manual-sort');
+
+  filtered.forEach((pad) => {
+    const item = document.createElement('div');
+    item.className = 'note-card note-card-split notepad-card';
+    item.dataset.notepadId = pad.id;
+    item.setAttribute('role', 'button');
+    item.tabIndex = 0;
+    const preview = String(pad.content || '').trim().slice(0, 160);
+    item.innerHTML = `
+      <div class="card-split-row">
+        <div class="card-col card-col-body">
+          <div class="card-top-row">
+            <h3 class="card-title">${escapeHtml(pad.name || 'Note')}</h3>
+          </div>
+          ${preview ? `<p class="card-preview">${escapeHtml(preview)}</p>` : '<p class="card-preview" style="opacity:.55">ว่าง</p>'}
+        </div>
+      </div>`;
+    attachNoteCardInteractions(item, {
+      noteId: pad.id,
+      onTap: () => openNotepadEditor(pad.id),
+      onLongPress: () => promptRenameNotepad(pad.id),
+    });
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openNotepadEditor(pad.id);
+      }
+    });
+    els.notesList.appendChild(item);
+  });
+
+  if (!filtered.length && q) {
+    els.emptyStateText.textContent = `ไม่พบ “${q}”`;
+  } else {
+    els.emptyStateText.textContent = 'ยังไม่มี Note';
+  }
+  const hint = els.emptyState?.querySelector('.empty-state-hint');
+  if (hint) {
+    hint.textContent = 'Note = ข้อความล้วน · แยกจากงานหลัก · เพิ่มได้เรื่อยๆ เช่น ที่ดิน ร้านชา';
+  }
+  els.emptyState.hidden = filtered.length > 0;
+  if (els.emptyAddBlankBtn) {
+    els.emptyAddBlankBtn.hidden = false;
+    els.emptyAddBlankBtn.textContent = '+ Note ใหม่';
+  }
+  if (els.emptyAddAiBtn) els.emptyAddAiBtn.hidden = true;
+}
+
 function renderNotesList() {
+  if (isNoteMode()) {
+    renderNotepadList();
+    return;
+  }
+
   renderGroupNav();
   renderDueScopeBar();
   renderSortBar();
@@ -2733,6 +2888,14 @@ function renderNotesList() {
   applyDockScale();
   applyDockOffset();
   requestAnimationFrame(applyDockOffset);
+
+  // restore work empty actions labels
+  if (els.emptyAddBlankBtn) els.emptyAddBlankBtn.textContent = 'จดโน้ตว่าง';
+  if (els.emptyAddAiBtn) els.emptyAddAiBtn.hidden = false;
+  const workHint = els.emptyState?.querySelector('.empty-state-hint');
+  if (workHint) {
+    workHint.textContent = 'ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ + เพื่อจดเร็ว หรือใช้ AI ช่วย';
+  }
 
   const notes = sortedFilteredNotes();
   els.notesList.innerHTML = '';
@@ -4485,7 +4648,6 @@ async function confirmAiNoteDraft() {
     let note = createNote(
       title || (checklist.length ? 'เช็กลิสต์' : ''),
       content,
-      state.activeWorkspaceId || DEFAULT_WORKSPACE_ID,
     );
     note = updateNote(note, {
       scheduledAt: scheduleAt,
@@ -4697,6 +4859,15 @@ function discardDraftIfEmpty() {
 }
 
 function backToList() {
+  if (state.activeNotepadId) {
+    flushNotepadToState();
+    saveManager.saveNow(() => state.notesData);
+    state.activeNotepadId = null;
+    document.body.classList.remove('notepad-editing');
+    renderNotesList();
+    showView('list');
+    return;
+  }
   persistLocalChanges();
   if (discardDraftIfEmpty()) {
     setStatus('');
@@ -4705,6 +4876,7 @@ function backToList() {
     saveManager.saveNow(() => state.notesData);
   }
   state.activeNoteId = null;
+  document.body.classList.remove('notepad-editing');
   renderNotesList();
   showView('list');
 }
@@ -4840,28 +5012,27 @@ async function loadSpaceData(spaceId, localData) {
 function notesContentKey(data) {
   const notes = Array.isArray(data?.notes) ? data.notes : [];
   const tags = Array.isArray(data?.tags) ? data.tags : [];
-  const workspaces = Array.isArray(data?.workspaces) ? data.workspaces : [];
+  const notepads = Array.isArray(data?.notepads) ? data.notepads : [];
   const notePart = notes
-    .map((n) => `${n.id}:${n.updatedAt || ''}:${n.status || ''}:${n.workspaceId || ''}`)
+    .map((n) => `${n.id}:${n.updatedAt || ''}:${n.status || ''}`)
     .sort()
     .join(',');
   const tagPart = tags
     .map((t) => `${t.id}:${t.label || ''}:${t.color || ''}`)
     .sort()
     .join(',');
-  const wsPart = workspaces
-    .map((w) => `${w.id}:${w.name || ''}:${w.updatedAt || ''}`)
+  const padPart = notepads
+    .map((p) => `${p.id}:${p.name || ''}:${p.updatedAt || ''}:${(p.content || '').length}`)
     .sort()
     .join(',');
-  return `${notePart}|${tagPart}|${wsPart}`;
+  return `${notePart}|${tagPart}|${padPart}`;
 }
 
 function paintNotesFromLocal(data) {
   state.notesData = normalizeNotesData(data);
   state.syncBaseUpdatedAt = state.notesData?.updatedAt || null;
-  state.activeWorkspaceId = resolveActiveWorkspaceId(state.settings.lastWorkspaceId);
-  state.settings.lastWorkspaceId = state.activeWorkspaceId;
-  saveSettings(state.settings);
+  state.appMode = state.settings.appMode === 'note' ? 'note' : 'work';
+  document.body.classList.toggle('note-mode', isNoteMode());
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
@@ -4872,7 +5043,7 @@ function paintNotesFromLocal(data) {
   applyFilterOrder();
   reapplyBarLayout();
   applyBarThickness();
-  renderWorkspaceSwitcher();
+  renderModeSwitcher();
   renderNotesList();
   showView('list');
   updateAppVersionLabel();
@@ -4914,15 +5085,15 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   }
 
   const contentChanged = notesContentKey(state.notesData) !== beforeKey;
-  const nextWs = resolveActiveWorkspaceId(state.activeWorkspaceId || state.settings.lastWorkspaceId);
-  if (nextWs !== state.activeWorkspaceId) {
-    state.activeWorkspaceId = nextWs;
-    state.settings.lastWorkspaceId = nextWs;
-    saveSettings(state.settings);
-  }
   if (contentChanged && state.view === 'list') {
-    renderWorkspaceSwitcher();
+    renderModeSwitcher();
     renderNotesList();
+  } else if (contentChanged && state.activeNotepadId) {
+    const pad = getNotepad(state.notesData, state.activeNotepadId);
+    if (pad) {
+      if (els.noteTitle) els.noteTitle.value = pad.name || '';
+      if (els.noteContent) els.noteContent.value = pad.content || '';
+    }
   }
 
   if (!announce) return contentChanged;
@@ -5159,9 +5330,15 @@ async function init() {
   // Search always visible on notes home
   setSearchOpen(true, { focus: false });
 
-  els.addNoteBtn?.addEventListener('click', openAddNoteModal);
+  els.addNoteBtn?.addEventListener('click', () => {
+    if (isNoteMode()) promptNewNotepad();
+    else openAddNoteModal();
+  });
   els.emptyAddAiBtn?.addEventListener('click', openAddNoteModal);
-  els.emptyAddBlankBtn?.addEventListener('click', openQuickNoteModal);
+  els.emptyAddBlankBtn?.addEventListener('click', () => {
+    if (isNoteMode()) promptNewNotepad();
+    else openQuickNoteModal();
+  });
   els.undoFabBtn?.addEventListener('click', () => {
     if (!canUndo()) return;
     runUndo();
@@ -5293,49 +5470,54 @@ async function init() {
   els.listPreviewContentBtn?.addEventListener('click', () => setListShowContent(true));
   applyListPreviewSettingsUi();
 
-  els.workspaceSwitchBtn?.addEventListener('click', () => {
-    if (els.workspaceMenuOverlay && !els.workspaceMenuOverlay.hidden) closeWorkspaceMenu();
-    else openWorkspaceMenu();
+  els.modeSwitchBtn?.addEventListener('click', () => {
+    if (els.modeMenuOverlay && !els.modeMenuOverlay.hidden) closeModeMenu();
+    else openModeMenu();
   });
-  els.workspaceMenuOverlay?.addEventListener('click', (e) => {
-    if (e.target === els.workspaceMenuOverlay) {
-      closeWorkspaceMenu();
+  els.modeMenuOverlay?.addEventListener('click', (e) => {
+    if (e.target === els.modeMenuOverlay) {
+      closeModeMenu();
       return;
     }
-    const del = e.target.closest('[data-workspace-delete]');
+    const modeBtn = e.target.closest('[data-app-mode]');
+    if (modeBtn) {
+      setAppMode(modeBtn.dataset.appMode);
+      return;
+    }
+    const del = e.target.closest('[data-notepad-delete]');
     if (del) {
-      tryDeleteWorkspace(del.dataset.workspaceDelete);
+      tryDeleteNotepad(del.dataset.notepadDelete);
       return;
     }
-    const item = e.target.closest('[data-workspace-id]');
+    const item = e.target.closest('[data-notepad-id]');
     if (!item) return;
-    const id = item.dataset.workspaceId;
+    const id = item.dataset.notepadId;
     if (!id) return;
-    setActiveWorkspace(id);
-    closeWorkspaceMenu();
+    closeModeMenu();
+    openNotepadEditor(id);
   });
-  let wsLongTimer = null;
-  let wsLongId = null;
-  els.workspaceMenuList?.addEventListener('pointerdown', (e) => {
-    const item = e.target.closest('[data-workspace-id]');
+  let npLongTimer = null;
+  let npLongId = null;
+  els.notepadMenuList?.addEventListener('pointerdown', (e) => {
+    const item = e.target.closest('[data-notepad-id]');
     if (!item) return;
-    wsLongId = item.dataset.workspaceId;
-    clearTimeout(wsLongTimer);
-    wsLongTimer = setTimeout(() => {
-      if (!wsLongId) return;
-      promptRenameWorkspace(wsLongId);
-      wsLongId = null;
+    npLongId = item.dataset.notepadId;
+    clearTimeout(npLongTimer);
+    npLongTimer = setTimeout(() => {
+      if (!npLongId) return;
+      promptRenameNotepad(npLongId);
+      npLongId = null;
     }, 480);
   });
-  const clearWsLong = () => {
-    clearTimeout(wsLongTimer);
-    wsLongTimer = null;
-    wsLongId = null;
+  const clearNpLong = () => {
+    clearTimeout(npLongTimer);
+    npLongTimer = null;
+    npLongId = null;
   };
-  els.workspaceMenuList?.addEventListener('pointerup', clearWsLong);
-  els.workspaceMenuList?.addEventListener('pointercancel', clearWsLong);
-  els.workspaceMenuList?.addEventListener('pointerleave', clearWsLong);
-  els.workspaceAddBtn?.addEventListener('click', () => promptNewWorkspace());
+  els.notepadMenuList?.addEventListener('pointerup', clearNpLong);
+  els.notepadMenuList?.addEventListener('pointercancel', clearNpLong);
+  els.notepadMenuList?.addEventListener('pointerleave', clearNpLong);
+  els.notepadAddBtn?.addEventListener('click', () => promptNewNotepad());
 
   els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
   els.notifyOnBtn?.addEventListener('click', () => setNotificationsEnabled(true));
