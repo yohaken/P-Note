@@ -1245,12 +1245,21 @@ body.light .dock-action-btn.active {
 .card-hang-rail-left {
   left: 0.28rem;
   right: auto;
+  max-width: 42%;
 }
 .card-hang-rail-right {
   right: 0.28rem;
   left: auto;
-  max-width: 40%;
+  max-width: 58%;
   justify-content: flex-end;
+  gap: 0.12rem;
+}
+.card-hang-rail-right .card-hang-tag {
+  /* Meta + due share the right corner; keep them tight like one cluster */
+  max-width: 4.8rem;
+}
+.card-hang-rail-right .card-hang-tag-due {
+  max-width: 3.2rem;
 }
 .card-hang-tag {
   pointer-events: auto;

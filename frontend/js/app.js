@@ -2836,7 +2836,7 @@ function proximityCellHtml(note) {
   `;
 }
 
-/** Top-left hang tags: category → priority → recurrence, packed in one row. */
+/** Top-left hang tags: category / type only. */
 function hangTagsLeftHtml(note, tags) {
   const parts = [];
   (tags || []).slice(0, 2).forEach((tag) => {
@@ -2848,38 +2848,50 @@ function hangTagsLeftHtml(note, tags) {
   if ((tags || []).length > 2) {
     parts.push(`<span class="card-hang-tag card-hang-tag-more">+${tags.length - 2}</span>`);
   }
-  const priority = notePriority(note);
-  if (priority !== NOTE_PRIORITY.NORMAL && state.listGroup === NOTE_STATUS.ACTIVE) {
-    parts.push(
-      `<span class="card-hang-tag card-hang-tag-prio priority-${escapeHtml(priority)}" title="${escapeHtml(priorityLabel(priority))}">${escapeHtml(priorityLabel(priority, { short: true }))}</span>`,
-    );
-  }
-  const recur = recurrenceLabel(note.recurrence, { short: true });
-  if (recur && state.listGroup === NOTE_STATUS.ACTIVE) {
-    parts.push(
-      `<span class="card-hang-tag card-hang-tag-recur" title="ทำซ้ำ">${escapeHtml(recur)}</span>`,
-    );
-  }
   if (!parts.length) return '';
   return `<div class="card-hang-rail card-hang-rail-left">${parts.join('')}</div>`;
 }
 
-/** Top-right hang tag: วันนี้ / พรุ่งนี้ / day number (2, 3, …). */
+/** Top-right hang tags: priority + recurrence + due, packed against the right edge. */
 function hangDueTagHtml(note) {
-  if (state.listGroup !== NOTE_STATUS.ACTIVE || !note.scheduledAt) return '';
-  const prox = scheduleProximity(note.scheduledAt);
-  if (prox.level === 'none' || !prox.label) return '';
-  const time = (() => {
-    try {
-      return new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(
-        new Date(note.scheduledAt),
+  if (state.listGroup !== NOTE_STATUS.ACTIVE) return '';
+  const parts = [];
+
+  const priority = notePriority(note);
+  if (priority !== NOTE_PRIORITY.NORMAL) {
+    parts.push(
+      `<span class="card-hang-tag card-hang-tag-prio priority-${escapeHtml(priority)}" title="${escapeHtml(priorityLabel(priority))}">${escapeHtml(priorityLabel(priority, { short: true }))}</span>`,
+    );
+  }
+
+  const recur = recurrenceLabel(note.recurrence, { short: true });
+  if (recur) {
+    parts.push(
+      `<span class="card-hang-tag card-hang-tag-recur" title="ทำซ้ำ">${escapeHtml(recur)}</span>`,
+    );
+  }
+
+  if (note.scheduledAt) {
+    const prox = scheduleProximity(note.scheduledAt);
+    if (prox.level !== 'none' && prox.label) {
+      const time = (() => {
+        try {
+          return new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(
+            new Date(note.scheduledAt),
+          );
+        } catch {
+          return '';
+        }
+      })();
+      const tip = [relativeDayLabel(note.scheduledAt), time].filter(Boolean).join(' · ');
+      parts.push(
+        `<span class="card-hang-tag card-hang-tag-due due-${escapeHtml(prox.level)}" title="${escapeHtml(tip)}">${escapeHtml(prox.label)}</span>`,
       );
-    } catch {
-      return '';
     }
-  })();
-  const tip = [relativeDayLabel(note.scheduledAt), time].filter(Boolean).join(' · ');
-  return `<div class="card-hang-rail card-hang-rail-right"><span class="card-hang-tag card-hang-tag-due due-${escapeHtml(prox.level)}" title="${escapeHtml(tip)}">${escapeHtml(prox.label)}</span></div>`;
+  }
+
+  if (!parts.length) return '';
+  return `<div class="card-hang-rail card-hang-rail-right">${parts.join('')}</div>`;
 }
 
 function tagsCellHtml(tags) {
