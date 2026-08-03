@@ -273,6 +273,8 @@ const els = {
   dockModeNote: document.getElementById('dock-mode-note'),
   notepadQuickBar: document.getElementById('notepad-quick-bar'),
   notepadQuickScroll: document.getElementById('notepad-quick-scroll'),
+  floatTagRail: document.getElementById('float-tag-rail'),
+  floatTagIcons: document.getElementById('float-tag-icons'),
   aiNoteFocusTitleBtn: document.getElementById('ai-note-focus-title-btn'),
   filterSortBtn: document.getElementById('filter-sort-btn'),
   filterSortMenu: document.getElementById('filter-sort-menu'),
@@ -1647,6 +1649,7 @@ function updateFilterDockVisibility() {
   }
   document.body.classList.toggle('selection-mode', Boolean(selecting));
   applyDockOffset();
+  renderFloatTagIcons();
   if (selecting) renderSelectionDock();
 }
 
@@ -2824,11 +2827,13 @@ function scheduleBadgeHtml(note) {
 
 /** Compact proximity cell for list row (right column) — legacy 3-col layout. */
 function proximityCellHtml(note) {
-  const hang = hangDueTagHtml(note);
-  if (!hang) {
+  if (state.listGroup !== NOTE_STATUS.ACTIVE || !note.scheduledAt) {
     return `<div class="card-col card-col-due is-empty" aria-hidden="true"></div>`;
   }
   const prox = scheduleProximity(note.scheduledAt);
+  if (prox.level === 'none' || !prox.label) {
+    return `<div class="card-col card-col-due is-empty" aria-hidden="true"></div>`;
+  }
   return `
     <div class="card-col card-col-due due-${escapeHtml(prox.level)}" title="${escapeHtml(relativeDayLabel(note.scheduledAt))}">
       <span class="due-count">${escapeHtml(prox.label)}</span>
@@ -2836,62 +2841,82 @@ function proximityCellHtml(note) {
   `;
 }
 
-/** Top-left hang tags: category / type only. */
-function hangTagsLeftHtml(note, tags) {
-  const parts = [];
-  (tags || []).slice(0, 2).forEach((tag) => {
-    const active = state.tagFilterId === tag.id ? ' is-filter-active' : '';
-    parts.push(
-      `<button type="button" class="card-hang-tag card-hang-tag-cat${active}" data-tag-id="${escapeHtml(tag.id)}" style="--tag:${safeTagColor(tag.color)}" title="กรองแท็ก ${escapeHtml(tag.name)}">${escapeHtml(tag.name)}</button>`,
-    );
-  });
-  if ((tags || []).length > 2) {
-    parts.push(`<span class="card-hang-tag card-hang-tag-more">+${tags.length - 2}</span>`);
+/** Short label for floating circular tag icons. */
+function tagAbbrev(name) {
+  const t = String(name || '').trim();
+  if (!t) return '?';
+  if (/^[A-Za-z0-9]/.test(t)) {
+    const compact = t.replace(/[^A-Za-z0-9]/g, '');
+    return (compact.slice(0, 2) || t.slice(0, 2)).toUpperCase();
   }
-  if (!parts.length) return '';
-  return `<div class="card-hang-rail card-hang-rail-left">${parts.join('')}</div>`;
+  return t.slice(0, 2);
 }
 
-/** Top-right hang tags: priority + recurrence + due, packed against the right edge. */
-function hangDueTagHtml(note) {
+/**
+ * Inside-card meta: tag · priority · recurrence · due as plain colored text,
+ * horizontal, top-right — no hang badges.
+ */
+function cardMetaInlineHtml(note, tags) {
   if (state.listGroup !== NOTE_STATUS.ACTIVE) return '';
   const parts = [];
-
+  const firstTag = (tags || [])[0];
+  if (firstTag) {
+    parts.push(
+      `<span class="meta-bit meta-tag" style="--tag:${safeTagColor(firstTag.color)}" title="${escapeHtml(firstTag.name)}">${escapeHtml(firstTag.name)}</span>`,
+    );
+  }
   const priority = notePriority(note);
   if (priority !== NOTE_PRIORITY.NORMAL) {
     parts.push(
-      `<span class="card-hang-tag card-hang-tag-prio priority-${escapeHtml(priority)}" title="${escapeHtml(priorityLabel(priority))}">${escapeHtml(priorityLabel(priority, { short: true }))}</span>`,
+      `<span class="meta-bit meta-prio priority-${escapeHtml(priority)}" title="${escapeHtml(priorityLabel(priority))}">${escapeHtml(priorityLabel(priority, { short: true }))}</span>`,
     );
   }
-
   const recur = recurrenceLabel(note.recurrence, { short: true });
   if (recur) {
     parts.push(
-      `<span class="card-hang-tag card-hang-tag-recur" title="ทำซ้ำ">${escapeHtml(recur)}</span>`,
+      `<span class="meta-bit meta-recur" title="ทำซ้ำ">${escapeHtml(recur)}</span>`,
     );
   }
-
   if (note.scheduledAt) {
     const prox = scheduleProximity(note.scheduledAt);
     if (prox.level !== 'none' && prox.label) {
-      const time = (() => {
-        try {
-          return new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(
-            new Date(note.scheduledAt),
-          );
-        } catch {
-          return '';
-        }
-      })();
-      const tip = [relativeDayLabel(note.scheduledAt), time].filter(Boolean).join(' · ');
+      const tip = relativeDayLabel(note.scheduledAt);
       parts.push(
-        `<span class="card-hang-tag card-hang-tag-due due-${escapeHtml(prox.level)}" title="${escapeHtml(tip)}">${escapeHtml(prox.label)}</span>`,
+        `<span class="meta-bit meta-due due-${escapeHtml(prox.level)}" title="${escapeHtml(tip)}">${escapeHtml(prox.label)}</span>`,
       );
     }
   }
-
   if (!parts.length) return '';
-  return `<div class="card-hang-rail card-hang-rail-right">${parts.join('')}</div>`;
+  return `<div class="card-meta-inline">${parts.join('')}</div>`;
+}
+
+function renderFloatTagIcons() {
+  const rail = els.floatTagRail;
+  const host = els.floatTagIcons;
+  if (!rail || !host) return;
+  const show =
+    state.view === 'list' &&
+    !isNoteMode() &&
+    !state.selectionMode &&
+    state.listGroup === NOTE_STATUS.ACTIVE &&
+    els.filterDock &&
+    !els.filterDock.hidden;
+  const tags = orderedFilterTags();
+  if (!show || !tags.length) {
+    rail.hidden = true;
+    host.innerHTML = '';
+    return;
+  }
+  rail.hidden = false;
+  const currentId = state.tagFilterId || null;
+  host.innerHTML = tags
+    .slice(0, 10)
+    .map((tag) => {
+      const active = currentId === tag.id ? ' is-active' : '';
+      const abbr = tagAbbrev(tag.name);
+      return `<button type="button" class="float-tag-icon${active}" data-float-tag-id="${escapeHtml(tag.id)}" style="--tag:${safeTagColor(tag.color)}" title="${escapeHtml(tag.name)}" aria-label="แท็ก ${escapeHtml(tag.name)}" aria-pressed="${currentId === tag.id ? 'true' : 'false'}">${escapeHtml(abbr)}</button>`;
+    })
+    .join('');
 }
 
 function tagsCellHtml(tags) {
@@ -2928,7 +2953,9 @@ function tagsInlineHtml(tags) {
 
 function syncTitlesOnlyListClass() {
   const titlesOnly = state.settings.listShowContent !== true;
+  const compactWork = !isNoteMode();
   els.notesList?.classList.toggle('notes-list--titles', titlesOnly);
+  els.notesList?.classList.toggle('notes-list--compact', compactWork);
   document.body.classList.toggle('list-titles-only', titlesOnly);
 }
 
@@ -3430,16 +3457,16 @@ function renderNotesList() {
       ? `<p class="card-preview">${escapeHtml(preview)}</p>`
       : '';
     const titleText = stripLeadingEmoji(note.title || '') || 'ไม่มีหัวข้อ';
-    const leftHang = hangTagsLeftHtml(note, tags);
-    const rightHang = hangDueTagHtml(note);
+    const metaHtml = cardMetaInlineHtml(note, tags);
 
-    item.classList.add('note-card-hang');
+    item.classList.add('note-card-compact');
     item.innerHTML = `
       ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
-      ${leftHang}
-      ${rightHang}
-      <div class="card-hang-body" style="--prio:${escapeHtml(prioColor)}">
-        <h3 class="card-title">${escapeHtml(titleText)}</h3>
+      <div class="card-compact-body" style="--prio:${escapeHtml(prioColor)}">
+        <div class="card-compact-row">
+          <h3 class="card-title">${escapeHtml(titleText)}</h3>
+          ${metaHtml}
+        </div>
         ${previewHtml}
       </div>
     `;
@@ -3488,6 +3515,7 @@ function renderNotesList() {
   const emptyPrimary = els.emptyState.querySelector('.btn-primary');
   if (emptyPrimary) emptyPrimary.hidden = state.listGroup !== NOTE_STATUS.ACTIVE;
   if (els.emptyAddBlankBtn) els.emptyAddBlankBtn.hidden = state.listGroup !== NOTE_STATUS.ACTIVE;
+  renderFloatTagIcons();
 }
 
 function renderEditorTags() {
@@ -6008,6 +6036,12 @@ async function init() {
     if (!removeBtn || !els.notepadSheetBlocks.contains(removeBtn)) return;
     e.preventDefault();
     removeNotepadSheetBlock(removeBtn.dataset.sheetRemove);
+  });
+  els.floatTagIcons?.addEventListener('click', (e) => {
+    const btn = e.target.closest?.('[data-float-tag-id]');
+    if (!btn || !els.floatTagIcons.contains(btn)) return;
+    e.preventDefault();
+    applyTagFilterFromCard(btn.dataset.floatTagId);
   });
 
   els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));

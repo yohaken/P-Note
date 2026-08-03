@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="138">
-  <meta name="pnote-built" content="2026-08-03T18:40:00+07:00">
+  <meta name="pnote-build" content="139">
+  <meta name="pnote-built" content="2026-08-03T19:20:00+07:00">
   <meta name="theme-color" content="#f7f3ec">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=138"></script>
+  <script src="js/cache-bootstrap.js?v=139"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=138">
+  <link rel="stylesheet" href="css/pnote.css?v=139">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -717,6 +717,11 @@
     </div>
   </div>
 
+  <!-- Floating tag icons: overlays above dock, does not create a new layout strip -->
+  <div id="float-tag-rail" class="float-tag-rail" hidden aria-label="แท็กด่วน">
+    <div id="float-tag-icons" class="float-tag-icons" role="toolbar" aria-label="แท็ก"></div>
+  </div>
+
   <nav id="filter-dock" class="filter-dock" aria-label="แถบล่าง">
     <div class="filter-dock-inner filter-dock-inner-stack">
       <div class="filter-dock-filters" id="filter-dock-filters">
@@ -743,15 +748,17 @@
       </div>
       <div class="filter-dock-actions" role="toolbar" aria-label="ทางลัด">
         <button type="button" class="dock-action-btn" id="group-nav-btn" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน">☰</button>
-        <div class="dock-mode-switch" role="group" aria-label="สลับหน้า">
-          <button type="button" class="dock-mode-btn" id="dock-mode-work" data-app-mode="work" aria-pressed="true">งาน</button>
-          <button type="button" class="dock-mode-btn" id="dock-mode-note" data-app-mode="note" aria-pressed="false">โน้ต</button>
+        <div class="dock-actions-end">
+          <div class="dock-mode-switch" role="group" aria-label="สลับหน้า">
+            <button type="button" class="dock-mode-btn" id="dock-mode-work" data-app-mode="work" aria-pressed="true">งาน</button>
+            <button type="button" class="dock-mode-btn" id="dock-mode-note" data-app-mode="note" aria-pressed="false">โน้ต</button>
+          </div>
+          <button type="button" class="dock-action-btn dock-action-primary" id="add-note-btn" aria-label="เพิ่มงาน" title="เพิ่มงาน">
+            <svg class="dock-action-ai-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
+            </svg>
+          </button>
         </div>
-        <button type="button" class="dock-action-btn dock-action-primary" id="add-note-btn" aria-label="เพิ่มงาน" title="เพิ่มงาน">
-          <svg class="dock-action-ai-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
-            <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
-          </svg>
-        </button>
       </div>
     </div>
   </nav>
@@ -782,7 +789,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/app.js?v=138"></script>
-  <script src="js/update-watch.js?v=138"></script>
+  <script type="module" src="js/app.js?v=139"></script>
+  <script src="js/update-watch.js?v=139"></script>
 </body>
 </html>
