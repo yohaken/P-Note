@@ -77,7 +77,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=122';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=124';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFabOrder, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx } from './settings.js?v=129';
 import {
   notificationPermission,
   notificationSupported,
@@ -106,7 +106,7 @@ import {
   getSpaceId,
   pushRemoteNotes,
   setSpaceId,
-} from './remote.js?v=126';
+} from './remote.js?v=129';
 import { normalizeNotesData } from './notes.js?v=122';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
@@ -318,11 +318,10 @@ const els = {
   thicknessTag: document.getElementById('thickness-tag'),
   thicknessPriority: document.getElementById('thickness-priority'),
   thicknessRecurrence: document.getElementById('thickness-recurrence'),
-  syncCodeValue: null,
-  syncCodeInput: null,
-  copySyncCodeBtn: null,
-  applySyncCodeBtn: null,
-  gotoCalorieSettingsBtn: document.getElementById('goto-calorie-settings-btn'),
+  syncCodeValue: document.getElementById('sync-code-value'),
+  syncCodeInput: document.getElementById('sync-code-input'),
+  copySyncCodeBtn: document.getElementById('copy-sync-code-btn'),
+  applySyncCodeBtn: document.getElementById('apply-sync-code-btn'),
   exportNotesBtn: document.getElementById('export-notes-btn'),
   importNotesBtn: document.getElementById('import-notes-btn'),
   importNotesFile: document.getElementById('import-notes-file'),
@@ -739,7 +738,6 @@ function applyFabDirection() {
 
 const FAB_ORDER_LABELS = {
   ai: 'AI',
-  pages: 'แผ่นงาน',
   group: 'กลุ่มงาน',
 };
 
@@ -2794,6 +2792,12 @@ function closeTagManager() {
   /* Tag manager lives in Settings — closing settings is enough. */
 }
 
+function renderSyncCode() {
+  if (els.syncCodeValue) {
+    els.syncCodeValue.value = state.spaceId || getSpaceId();
+  }
+}
+
 function openSettings() {
   els.settingsOverlay.hidden = false;
   els.cardDensitySlider.value = String(state.settings.cardDensity);
@@ -2814,6 +2818,7 @@ function openSettings() {
   applyNotifySettingsUi();
   applyBarThickness();
   refreshScheduleSelectOptions();
+  renderSyncCode();
 }
 
 function applyCameraSettingsUi() {
@@ -4926,7 +4931,7 @@ async function applySyncCode(code) {
 }
 
 // Editor: swipe left OR right → save & leave editor.
-// Overlays/drawer: keep close gestures. Page switching is FAB-only (no list swipe).
+// Overlays/drawer: keep close gestures.
 function initSwipeBack() {
   let startX = 0;
   let startY = 0;
@@ -5019,10 +5024,10 @@ function initSwipeBack() {
 async function init() {
   applyTheme();
   refreshScheduleSelectOptions();
-  // Update polling: js/update-watch.js (shared with Calorie). No SW in this shell.
+  // Update polling: js/update-watch.js. No SW in this shell.
   initAttachViewer();
   initInAppCamera();
-  // Search always visible on notes home (แทนสุขภาพบน primary UI)
+  // Search always visible on notes home
   setSearchOpen(true, { focus: false });
 
   els.addNoteBtn.addEventListener('click', openAddNoteModal);
@@ -5276,8 +5281,17 @@ async function init() {
     renderNotesList();
     setStatus('รีเซ็ตตำแหน่งแถบแล้ว');
   });
-  els.gotoCalorieSettingsBtn?.addEventListener('click', () => {
-    window.location.href = './index.html#settings';
+  els.copySyncCodeBtn?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(els.syncCodeValue?.value || '');
+      setStatus('คัดลอกรหัสแล้ว');
+    } catch {
+      els.syncCodeValue?.select();
+    }
+  });
+  els.applySyncCodeBtn?.addEventListener('click', () => {
+    const code = els.syncCodeInput?.value.trim();
+    if (code) applySyncCode(code);
   });
   els.exportNotesBtn?.addEventListener('click', exportNotesBackup);
   els.importNotesBtn?.addEventListener('click', () => els.importNotesFile?.click());
@@ -5345,7 +5359,7 @@ async function init() {
     const t = event.target;
     if (
       t?.closest?.(
-        '.context-menu, .note-center-overlay, .filter-dock, .filter-dd-menu, .note-card, .pages-menu',
+        '.context-menu, .note-center-overlay, .filter-dock, .filter-dd-menu, .note-card',
       )
     ) {
       event.preventDefault();

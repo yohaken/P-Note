@@ -25,13 +25,12 @@ Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/
 
 ### Frontend caching (built into app)
 
-- **Single bump point:** `<meta name="pnote-build" content="N">` in `frontend/index.html` — also update `?v=N` on `cache-bootstrap.js`, `app.js`, `css/style.css`, all `./js/*.js?v=N` imports, and `CACHE_NAME` in `frontend/sw.js` (`pnote-vN`).
+- **Single bump point:** `<meta name="pnote-build" content="N">` in `frontend/note.html` — also update `?v=N` on `cache-bootstrap.js`, `app.js`, `css/pnote.css`, and script tags. `frontend/index.html` only redirects to `note.html`.
 - **`js/cache-bootstrap.js`** runs before modules: if `localStorage.pnote_active_build !== meta build`, it unregisters all service workers, deletes all Cache Storage, saves the new build id, and reloads once. This is the permanent in-app cache flush (not a one-off hack).
-- **`js/update.js`** polls `index.html` every ~20s (and when the tab becomes visible) for a newer `pnote-build`; shows a brief toast then purges caches and reloads. Works when the PWA shortcut stays open in the background. Manual **↻** FAB bottom-right calls the same refresh path. Polling is disabled on `localhost`.
-- **`js/cache.js`** registers `sw.js?v=N` after bootstrap. Login is disabled for now — no auth modules loaded.
+- **`js/update-watch.js`** polls the current HTML every ~20s (and when the tab becomes visible) for a newer `pnote-build`; shows a brief toast then purges caches and reloads. Polling is disabled on `localhost`.
 - Notes are stored in **Firestore** (`spaces/{spaceId}` doc holds the v4 payload). `frontend/js/remote.js` handles the anonymous `pnote_space_id` (sync code, settable in Settings ⚙ to share a space across devices — no login). **Local-first:** on load the app paints from `localStorage` (`pnote_local_data`) immediately, then syncs Firestore in the background (merge by per-note `updatedAt`); also soft-resyncs when the tab becomes visible / online again. Migrates local notes into the DB when the remote space is empty. Export/import JSON via **สำรอง / นำเข้า** still works.
 - Production Firestore must exist in project `mypeer-501909` (Native mode). The deploy workflow best-effort-creates it; if the DB is missing or the Cloud Run SA lacks `roles/datastore.user`, `/api/db-status` returns 503 and the app runs offline (localStorage only).
-- Home page is **notes-first** (no calendar on list view; schedule field remains in editor).
+- Home page is **notes-only** (`note.html`; no Calorie/health page). Schedule field remains in the editor.
 - **Bar names (use these Thai names when talking with the user):**
   | ชื่อเรียก | คืออะไร | ที่อยู่ |
   |---|---|---|
@@ -39,6 +38,5 @@ Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/
   | **ความสำคัญ** | กรอง: สำคัญเร่งด่วน / สำคัญ / เร่งด่วน / ทั่วไป | movable bar `data-bar="priority"` |
   | **แท็ก** | กรองตามแท็ก | movable bar `data-bar="tag"` |
   | **กลุ่มงาน** | งาน / ทำแล้ว / ถังขยะ | left drawer ☰ |
-  | **สุขภาพ** | ปุ่มโหมดสุขภาพใน Bottom Nav (UI only) | `#health-mode-btn` |
-  | **เพิ่ม** | สร้างโน้ต (ใน Bottom Nav) | `#add-note-btn` |
+  | **เพิ่ม** | สร้างโน้ต (FAB) | `#add-note-btn` |
 - On empty storage, app tries **legacy localStorage recovery** and optional `./data/notes-import.json`. Settings ⚙: paste JSON import or **กู้คืนในเครื่อง**.

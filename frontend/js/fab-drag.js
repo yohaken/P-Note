@@ -1,6 +1,6 @@
 /**
  * Long-press + drag to reposition .fab-stack; persist left/top + direction in localStorage.
- * Shared across Note + Calorie pages.
+ * Draggable FAB stack for the notes shell.
  */
 (function (global) {
   var KEY = 'pnote_fab_pos';
@@ -136,7 +136,7 @@
       'pointerdown',
       function (e) {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
-        if (!e.target.closest('.fab-pages, .fab-action')) return;
+        if (!e.target.closest('.fab-action')) return;
 
         armed = false;
         dragging = false;
@@ -236,7 +236,7 @@
     );
 
     stack.addEventListener('contextmenu', function (e) {
-      if (e.target.closest('.fab-pages, .fab-action')) e.preventDefault();
+      if (e.target.closest('.fab-action')) e.preventDefault();
     });
 
     window.addEventListener('resize', function () {

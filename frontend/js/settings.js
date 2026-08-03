@@ -17,7 +17,7 @@ export const DEFAULT_NOTIFY_PREFS = {
   tagIds: [],
 };
 
-const DEFAULT_FAB_ORDER = ['pages', 'group', 'ai']; // visual top → bottom (AI nearest dock by default)
+const DEFAULT_FAB_ORDER = ['group', 'ai']; // visual top → bottom (AI nearest dock by default)
 
 const CAMERA_QUALITIES = ['max', 'high', 'medium'];
 const CAMERA_FACINGS = ['environment', 'user'];
@@ -201,7 +201,7 @@ function normalizeTagOrder(value) {
   return value.map((id) => String(id)).filter(Boolean);
 }
 
-const FAB_ORDER_IDS = ['pages', 'group', 'ai'];
+const FAB_ORDER_IDS = ['group', 'ai'];
 
 /** Visual top → bottom. Missing ids appended; unknown dropped. */
 export function normalizeFabOrder(value) {

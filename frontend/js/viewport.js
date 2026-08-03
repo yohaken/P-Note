@@ -1,5 +1,5 @@
 /**
- * Viewport helpers — calorie-tracker document shell (no visualViewport lock).
+ * Viewport helpers — document shell (no visualViewport lock).
  */
 export function syncViewportHeight() {}
 

@@ -27,11 +27,11 @@ GitHub dev  → Actions → Firebase Hosting preview (API/DB ชุดเดี�
 ```
 P-Note/
 ├── frontend/          # PWA หน้าบ้าน
-│   ├── index.html
+│   ├── note.html      # หน้าหลัก (โน้ต)
+│   ├── index.html     # redirect → note.html
 │   ├── css/
 │   ├── js/
-│   ├── manifest.json
-│   └── sw.js
+│   └── manifest.json
 ├── backend/           # Cloud Run API
 │   ├── src/
 │   ├── Dockerfile

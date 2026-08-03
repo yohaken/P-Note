@@ -5,7 +5,7 @@ Local: `http://localhost:5000/note.html` · Live: https://mypeer-501909.web.app/
 
 ## A. โหลดหน้าแรก
 
-- [x] A1 เปิดโน้ต ไม่ค้างสุขภาพ
+- [x] A1 เปิดโน้ต (ไม่มีหน้าสุขภาพ/แคลอรี่แล้ว)
 - [x] A2 โหลดได้ (build 124 live / 125 next)
 - [x] A3 ค้นหาโน้ต… บนหน้าแรก
 - [x] A4 ครีม `#f7f3ec`
@@ -27,8 +27,8 @@ Local: `http://localhost:5000/note.html` · Live: https://mypeer-501909.web.app/
 ## D. กลุ่มงาน / แผ่นงาน
 
 - [x] D1 drawer ข้อความล้วน
-- [x] D2 เมนู โน้ต / สุขภาพ
-- [x] D3 ไปสุขภาพ (index.html) แล้วกลับโน้ตได้
+- [x] D2 ไม่มีเมนูสลับแผ่นงานสุขภาพ/แคลอรี่
+- [x] D3 index.html redirect ไป note.html
 
 ## E. สร้าง / แก้ / ลบ
 
@@ -46,7 +46,7 @@ Local: `http://localhost:5000/note.html` · Live: https://mypeer-501909.web.app/
 ## G. Regression
 
 - [x] G1 หน้างานจริง
-- [x] G2 ไม่มีสุขภาพบน primary
+- [x] G2 แอปเป็นโน้ตอย่างเดียว
 - [x] G3 live build 124+ (ครีม + ค้นหา)
 
 ---

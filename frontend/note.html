@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="128">
-  <meta name="pnote-built" content="2026-08-02T14:20:00+07:00">
+  <meta name="pnote-build" content="129">
+  <meta name="pnote-built" content="2026-08-03T09:30:00+07:00">
   <meta name="theme-color" content="#f7f3ec">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>Note · P-Note</title>
-  <script src="js/cache-bootstrap.js?v=128"></script>
+  <script src="js/cache-bootstrap.js?v=129"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=128">
+  <link rel="stylesheet" href="css/pnote.css?v=129">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -45,7 +45,6 @@
     .fab-stack.fab-dir-horizontal {
       flex-direction: row-reverse;
     }
-    .fab-stack.is-fab-armed .fab-pages,
     .fab-stack.is-fab-armed .fab-action {
       transform: scale(1.08);
     }
@@ -53,7 +52,6 @@
       touch-action: none;
       opacity: 0.92;
     }
-    .fab-stack.is-fab-dragging .fab-pages,
     .fab-stack.is-fab-dragging .fab-action {
       transform: scale(1.1);
       cursor: grabbing;
@@ -64,7 +62,6 @@
       pointer-events: none;
       transition: opacity 0.12s ease, visibility 0.12s ease;
     }
-    .fab-pages,
     .fab-action {
       position: relative;
       width: 2.35rem;
@@ -82,7 +79,6 @@
       justify-content: center;
       -webkit-tap-highlight-color: transparent;
     }
-    .fab-pages:active,
     .fab-action:active { transform: scale(0.96); opacity: 0.9; }
     .fab-action[hidden] { display: none !important; }
     .fab-action.active {
@@ -105,67 +101,11 @@
       background: var(--accent, #3d5a4c) !important;
       color: #fff !important;
     }
-    .pages-menu-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 60;
-      background: rgba(0,0,0,0.45);
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding: 1rem;
-      padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-    }
-    .pages-menu-overlay[hidden] { display: none !important; }
-    .pages-menu {
-      width: 100%;
-      max-width: 480px;
-      background: var(--surface, #1c1c1e);
-      border-radius: 12px;
-      padding: 0.75rem 0.65rem 0.55rem;
-      border: 1px solid var(--border, rgba(255,255,255,0.12));
-    }
-    .pages-menu-title {
-      font-size: 0.68rem;
-      font-weight: 700;
-      color: var(--text-muted, #98989f);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      padding: 0 0.35rem 0.45rem;
-    }
-    .pages-menu-item {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 0.55rem;
-      border: none;
-      background: var(--bg, #000);
-      color: var(--text, #fff);
-      border-radius: 10px;
-      padding: 0.7rem 0.75rem;
-      font-size: 0.92rem;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      text-align: left;
-      margin-bottom: 0.3rem;
-    }
-    .pages-menu-item:last-child { margin-bottom: 0; }
-    .pages-menu-item .pm-icon { width: 1.6rem; text-align: center; font-size: 1rem; }
-    .pages-menu-item .pm-sub {
-      margin-left: auto;
-      font-size: 0.68rem;
-      font-weight: 500;
-      color: var(--text-muted, #98989f);
-    }
-    body.light .fab-pages,
-    body.light .fab-action,
-    body.light .pages-menu { background: var(--surface); color: var(--text); }
+    body.light .fab-action { background: var(--surface); color: var(--text); }
     body.light .fab-action.active {
       background: var(--accent, #3d5a4c);
       color: #fff;
     }
-    body.light .pages-menu-item { background: var(--bg); color: var(--text); }
   </style>
 </head>
 <body class="light">
@@ -753,10 +693,16 @@
           <summary class="settings-group-summary">ฐานข้อมูล / รหัสซิงค์</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-row-last">
-              <p class="settings-hint" style="margin-top:0">
-                Calorie กับ Note ใช้รหัสซิงค์ก้อนเดียวกัน — ตั้งค่าที่หน้าแรก (Calorie) → ตั้งค่า ครั้งเดียวจบ
-              </p>
-              <button id="goto-calorie-settings-btn" class="btn btn-primary" type="button">ไปตั้งค่าที่ Calorie</button>
+              <label class="settings-label" for="sync-code-value">รหัสซิงค์ (ใช้ข้ามอุปกรณ์ · ไม่ต้องล็อกอิน)</label>
+              <div class="sync-code-row">
+                <input id="sync-code-value" class="sync-code-input" type="text" readonly>
+                <button id="copy-sync-code-btn" class="btn btn-secondary" type="button">คัดลอก</button>
+              </div>
+              <div class="sync-code-row">
+                <input id="sync-code-input" class="sync-code-input" type="text" placeholder="วางรหัสจากอีกเครื่อง" autocomplete="off">
+                <button id="apply-sync-code-btn" class="btn btn-primary" type="button">ใช้รหัสนี้</button>
+              </div>
+              <p class="settings-hint">ข้อมูลเก็บในฐานข้อมูลบนเซิร์ฟเวอร์ ใช้รหัสเดียวกันบนอีกเครื่องเพื่อเห็นโน้ตชุดเดียวกัน</p>
             </div>
           </div>
         </details>
@@ -881,28 +827,12 @@
         <path fill="currentColor" d="M6.1 15.4l.5 1.9 1.9.5-1.9.5-.5 1.9-.5-1.9-1.9-.5 1.9-.5.5-1.9z" opacity=".85"/>
       </svg>
     </button>
-    <button type="button" class="fab-pages" id="fabPages" data-fab-id="pages" aria-label="แผ่นงาน" title="แตะ = ถัดไป · ค้าง = เลือกแผ่นงาน">▦</button>
     <button type="button" class="fab-action" id="group-nav-btn" data-fab-id="group" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน">☰</button>
   </div>
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
-  <div class="pages-menu-overlay" id="pagesMenuOverlay" hidden>
-    <div class="pages-menu" role="menu" aria-label="แผ่นงาน">
-      <p class="pages-menu-title">แผ่นงาน</p>
-    </div>
-  </div>
 
-  <script src="js/page-nav.js?v=128"></script>
-  <script src="js/fab-drag.js?v=128"></script>
-  <script>
-    (function () {
-      var fab = document.getElementById('fabPages');
-      var overlay = document.getElementById('pagesMenuOverlay');
-      if (window.PageNav) {
-        window.PageNav.bindFab({ fab: fab, overlay: overlay, current: 'note' });
-      }
-    })();
-  </script>
-  <script type="module" src="js/app.js?v=128"></script>
-  <script src="js/update-watch.js?v=128"></script>
+  <script src="js/fab-drag.js?v=129"></script>
+  <script type="module" src="js/app.js?v=129"></script>
+  <script src="js/update-watch.js?v=129"></script>
 </body>
 </html>

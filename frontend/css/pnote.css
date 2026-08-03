@@ -33,8 +33,8 @@ body.light {
 }
 
 /*
- * Shell — EXACT calorie-tracker body model (yohaken/cursor-agent).
- * Rules that calorie does NOT have are forbidden here:
+ * Shell — document-scroll body model.
+ * Extra viewport locks / nested scroll traps are forbidden here:
  *   no height:100dvh, no overflow:hidden, no display:flex on body.
  * Safe-area is body padding only; background paints into the inset.
  */
@@ -324,7 +324,7 @@ body.light .sync-status-btn[data-state="ok"] .sync-status-glyph {
   display: none;
 }
 
-/* Scroll + zones — document scroll (calorie); list grows with content */
+/* Scroll + zones — document scroll; list grows with content */
 .list-scroll {
   flex: 1 1 auto;
   padding-bottom: 0.5rem;
@@ -357,7 +357,7 @@ body.light .sync-status-btn[data-state="ok"] .sync-status-glyph {
 }
 
 /*
- * Bottom nav — in-flow + sticky (calorie has no nav; body padding owns safe-area).
+ * Bottom nav — in-flow + sticky (body padding owns safe-area).
  */
 .bottom-nav {
   flex-shrink: 0;
@@ -442,16 +442,6 @@ body.light .bottom-nav-item:active {
 #group-nav-btn.active .bottom-nav-icon,
 #group-nav-btn.active .bottom-nav-label {
   color: var(--accent);
-}
-
-#health-mode-btn .bottom-nav-icon,
-#health-mode-btn .bottom-nav-label {
-  color: #7eb6ff;
-}
-
-body.light #health-mode-btn .bottom-nav-icon,
-body.light #health-mode-btn .bottom-nav-label {
-  color: #0a4d8c;
 }
 
 .movable-bar {
@@ -1191,7 +1181,7 @@ body.reordering-active .list-scroll {
   line-height: 1.45;
 }
 
-/* Editor — scrolls with document like calorie sheets' body content */
+/* Editor — scrolls with document */
 .editor-body {
   flex: 1 1 auto;
   display: flex;

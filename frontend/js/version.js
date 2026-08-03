@@ -1,7 +1,7 @@
 /** Named Note app version — bump when restoring/rolling back the notes UI. */
 export const NOTE_APP_VERSION = 'note-v1';
 
-/** App build id — primary source is <meta name="pnote-build"> in index.html / note.html. */
+/** App build id — primary source is <meta name="pnote-build"> in note.html. */
 export function getAppBuild() {
   return document.querySelector('meta[name="pnote-build"]')?.content || '0';
 }

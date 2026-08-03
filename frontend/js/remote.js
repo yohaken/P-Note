@@ -2,7 +2,6 @@ import { CONFIG, STORAGE_KEYS } from './config.js?v=51';
 
 /**
  * Talks to the backend notes API (Firestore-backed database).
- * Sync code is shared with Calorie (one space id for the whole app).
  * App policy is local-first: paint from localStorage immediately, then
  * warm/sync Firestore in the background (merge by per-note updatedAt).
  */

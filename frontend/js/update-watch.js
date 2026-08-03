@@ -22,7 +22,7 @@
     return new Promise(function (resolve) { setTimeout(resolve, ms); });
   }
 
-  /** Fetch the current document (index.html or note.html), not always index. */
+  /** Fetch the current document (note.html), not a fixed path. */
   function currentPageUrl() {
     var path = window.location.pathname || '/';
     if (path.endsWith('/')) return path + 'index.html';

@@ -1,6 +1,6 @@
 /**
  * Runs before any module — if pnote-build changed, purge SW + Cache Storage then reload once.
- * Keep in sync with <meta name="pnote-build"> in index.html.
+ * Keep in sync with <meta name="pnote-build"> in note.html.
  */
 (function bootstrapCache() {
   var meta = document.querySelector('meta[name="pnote-build"]');

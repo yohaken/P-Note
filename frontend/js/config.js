@@ -18,8 +18,8 @@ export const STORAGE_KEYS = {
   SETTINGS: 'pnote_settings',
   /** Compact markdown memory of user note/tag habits for AI */
   USER_CONTEXT_MD: 'pnote_user_context_md',
-  /** Shared sync code for Calorie + Note (one DB space). */
+  /** Anonymous sync code (one DB space across devices). */
   SPACE_ID: 'pnote_space_id',
-  /** Legacy calorie-only key — migrated into SPACE_ID. */
+  /** Legacy key from removed Calorie app — migrated into SPACE_ID. */
   LEGACY_CALORIE_SPACE_ID: 'calorie_space_id',
 };
