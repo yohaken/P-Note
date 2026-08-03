@@ -695,11 +695,60 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
   padding-bottom: calc(0.32rem * var(--dock-scale));
 }
 .filter-dock-actions {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr) 2.4rem;
   align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
+  justify-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0 0.15rem;
+  box-sizing: border-box;
+}
+.filter-dock-actions > .dock-action-btn:first-child {
+  justify-self: start;
+}
+.filter-dock-actions > .dock-action-primary {
+  justify-self: end;
+}
+.dock-mode-switch {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-self: center;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--bg);
+}
+body.light .dock-mode-switch {
+  background: var(--surface-2, #efeae2);
+}
+.dock-mode-btn {
+  appearance: none;
+  border: none;
+  margin: 0;
+  min-width: 3.1rem;
+  height: calc(2.15rem * var(--dock-scale, 1));
+  padding: 0 0.85rem;
+  font: inherit;
+  font-size: calc(0.78rem * var(--dock-scale, 1));
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.dock-mode-btn + .dock-mode-btn {
+  border-left: 1px solid var(--border);
+}
+.dock-mode-btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+.dock-mode-btn:active {
+  opacity: 0.88;
 }
 .filter-dock-filters[hidden] {
   display: none !important;
@@ -726,6 +775,10 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
 }
 .dock-action-btn[hidden] {
   display: none !important;
+}
+.dock-action-btn.is-slot-empty {
+  visibility: hidden;
+  pointer-events: none;
 }
 .dock-action-btn.active {
   background: var(--accent);
@@ -1086,6 +1139,80 @@ body.light .dock-action-btn.active {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Title-first list: big thumb-friendly titles, tags tucked under */
+.notes-list--titles .card-split-title-first {
+  min-height: 3rem;
+  align-items: stretch;
+}
+.notes-list--titles .card-split-title-first .card-col-body {
+  flex: 1 1 auto;
+  min-height: 3rem;
+  padding: 0.55rem 0.65rem;
+  justify-content: center;
+  gap: 0.18rem;
+}
+.notes-list--titles .card-split-title-first .card-title {
+  font-size: calc(1rem - var(--card-density, 0) * 0.06rem);
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.notes-list--titles .card-split-title-first .card-col-due {
+  width: clamp(2.4rem, 13vw, 3rem);
+  min-height: 3rem;
+}
+.card-tags-inline {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.22rem;
+  min-width: 0;
+}
+.card-tags-inline:empty {
+  display: none;
+}
+.card-tag-inline {
+  appearance: none;
+  border: none;
+  background: color-mix(in srgb, var(--tag, var(--border)) 16%, transparent);
+  color: var(--tag, var(--text-muted));
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.1;
+  padding: 0.14rem 0.38rem;
+  border-radius: 999px;
+  border-left: 2px solid var(--tag, var(--border));
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  max-width: 7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-tag-inline.is-filter-active {
+  background: color-mix(in srgb, var(--tag, var(--accent)) 28%, transparent);
+}
+.card-tag-inline:active {
+  opacity: 0.8;
+}
+.notes-list--titles .notepad-card .card-col-body {
+  min-height: 3rem;
+  padding: 0.55rem 0.7rem;
+}
+.notes-list--titles .notepad-card .card-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.notes-list--titles .notepad-card .card-preview {
+  display: none;
 }
 
 .card-meta-row {
@@ -4072,8 +4199,20 @@ body.light .editor-save-dot {
   min-height: 2rem;
 }
 .ai-note-step-compact .ai-note-title-input {
-  font-size: 0.95rem;
-  padding: 0.4rem 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 0.62rem 0.65rem;
+  min-height: 2.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--border);
+}
+#ai-note-focus-title-btn {
+  margin-right: auto;
+  font-weight: 700;
+  color: var(--accent);
 }
 .ai-note-step-compact .ai-note-summary {
   min-height: 2.6rem;

@@ -118,8 +118,8 @@ export function attachNoteCardInteractions(card, handlers) {
       suppressClick = false;
       return;
     }
-    // Left tag column has its own filter action.
-    if (event.target.closest?.('.card-col-tags, .card-tag-name')) return;
+    // Tag chips have their own filter action.
+    if (event.target.closest?.('.card-col-tags, .card-tag-name, .card-tag-inline')) return;
     handlers.onTap();
   };
 
@@ -128,7 +128,11 @@ export function attachNoteCardInteractions(card, handlers) {
     // Still prevent the browser menu so it does not cover our UI.
     event.preventDefault();
     if (armed || suppressClick) return;
-    if (event.target.closest?.('.card-col-tags, .card-tag-name, .card-actions, button, a')) {
+    if (
+      event.target.closest?.(
+        '.card-col-tags, .card-tag-name, .card-tag-inline, .card-actions, button, a',
+      )
+    ) {
       return;
     }
     clearTimer();

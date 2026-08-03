@@ -256,6 +256,9 @@ const els = {
   filterDock: document.getElementById('filter-dock'),
   filterDockFilters: document.querySelector('.filter-dock-cluster'),
   filterDockFiltersWrap: document.getElementById('filter-dock-filters'),
+  dockModeWork: document.getElementById('dock-mode-work'),
+  dockModeNote: document.getElementById('dock-mode-note'),
+  aiNoteFocusTitleBtn: document.getElementById('ai-note-focus-title-btn'),
   filterSortBtn: document.getElementById('filter-sort-btn'),
   filterSortMenu: document.getElementById('filter-sort-menu'),
   filterPriorityBtn: document.getElementById('filter-priority-btn'),
@@ -1104,10 +1107,39 @@ function renderModeSwitcher() {
     if (isNoteMode()) els.modeMenuNote.setAttribute('aria-current', 'page');
     else els.modeMenuNote.removeAttribute('aria-current');
   }
+  if (els.dockModeWork) {
+    els.dockModeWork.setAttribute('aria-pressed', isNoteMode() ? 'false' : 'true');
+  }
+  if (els.dockModeNote) {
+    els.dockModeNote.setAttribute('aria-pressed', isNoteMode() ? 'true' : 'false');
+  }
   if (els.notepadMenuSection) {
     els.notepadMenuSection.hidden = !isNoteMode();
   }
   if (isNoteMode()) renderNotepadMenuList();
+}
+
+function focusAiNoteTitle({ select = true } = {}) {
+  const input = els.aiNoteDraftTitle;
+  if (!input) return;
+  try {
+    input.focus({ preventScroll: false });
+  } catch {
+    input.focus();
+  }
+  try {
+    input.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  } catch {
+    /* ignore */
+  }
+  if (select) {
+    try {
+      const len = String(input.value || '').length;
+      input.setSelectionRange(0, len);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function closeModeMenu() {
@@ -1292,8 +1324,13 @@ function updateFilterDockVisibility() {
     els.filterDock.hidden = !showDock;
     const showFilters = showDock && !isNoteMode() && state.listGroup === NOTE_STATUS.ACTIVE;
     if (els.filterDockFiltersWrap) els.filterDockFiltersWrap.hidden = !showFilters;
-    // In Note mode: only the + button (hide group drawer btn)
-    if (els.groupNavBtn) els.groupNavBtn.hidden = isNoteMode();
+    // In Note mode: hide group drawer, keep left slot so mode switch stays centered
+    if (els.groupNavBtn) {
+      els.groupNavBtn.hidden = false;
+      els.groupNavBtn.classList.toggle('is-slot-empty', isNoteMode());
+      els.groupNavBtn.tabIndex = isNoteMode() ? -1 : 0;
+      els.groupNavBtn.setAttribute('aria-hidden', isNoteMode() ? 'true' : 'false');
+    }
     if (!showFilters) closeFilterMenus();
   }
   if (els.selectionDock) {
@@ -2437,6 +2474,25 @@ function tagsCellHtml(tags) {
   return `<div class="card-col card-col-tags">${names}${more}</div>`;
 }
 
+function tagsInlineHtml(tags) {
+  if (!tags.length) return '';
+  const chips = tags
+    .slice(0, 3)
+    .map((tag) => {
+      const active = state.tagFilterId === tag.id ? ' is-filter-active' : '';
+      return `<button type="button" class="card-tag-inline${active}" data-tag-id="${escapeHtml(tag.id)}" style="--tag:${safeTagColor(tag.color)}" title="กรองแท็ก ${escapeHtml(tag.name)}">${escapeHtml(tag.name)}</button>`;
+    })
+    .join('');
+  const more = tags.length > 3 ? `<span class="card-tag-more">+${tags.length - 3}</span>` : '';
+  return `<div class="card-tags-inline">${chips}${more}</div>`;
+}
+
+function syncTitlesOnlyListClass() {
+  const titlesOnly = state.settings.listShowContent !== true;
+  els.notesList?.classList.toggle('notes-list--titles', titlesOnly);
+  document.body.classList.toggle('list-titles-only', titlesOnly);
+}
+
 /** Tap left tag column → filter list by that tag (tap again to clear). */
 function applyTagFilterFromCard(tagId) {
   if (!tagId || state.selectionMode) return;
@@ -2460,7 +2516,9 @@ function initNotesListTagFilter() {
   els.notesList?.addEventListener(
     'click',
     (event) => {
-      const btn = event.target.closest?.('.card-tag-name[data-tag-id]');
+      const btn = event.target.closest?.(
+        '.card-tag-name[data-tag-id], .card-tag-inline[data-tag-id]',
+      );
       if (!btn || !els.notesList.contains(btn)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -2831,6 +2889,7 @@ function renderNotepadList() {
 
   els.notesList.innerHTML = '';
   els.notesList.classList.remove('manual-sort');
+  syncTitlesOnlyListClass();
 
   filtered.forEach((pad) => {
     const item = document.createElement('div');
@@ -2840,11 +2899,9 @@ function renderNotepadList() {
     item.tabIndex = 0;
     const preview = String(pad.content || '').trim().slice(0, 160);
     item.innerHTML = `
-      <div class="card-split-row">
+      <div class="card-split-row card-split-title-first">
         <div class="card-col card-col-body">
-          <div class="card-top-row">
-            <h3 class="card-title">${escapeHtml(pad.name || 'Note')}</h3>
-          </div>
+          <h3 class="card-title">${escapeHtml(pad.name || 'Note')}</h3>
           ${preview ? `<p class="card-preview">${escapeHtml(preview)}</p>` : '<p class="card-preview" style="opacity:.55">ว่าง</p>'}
         </div>
       </div>`;
@@ -2907,6 +2964,7 @@ function renderNotesList() {
 
   const notes = sortedFilteredNotes();
   els.notesList.innerHTML = '';
+  syncTitlesOnlyListClass();
 
   const manual = isManualMode();
   els.notesList.classList.toggle('manual-sort', manual);
@@ -2938,9 +2996,8 @@ function renderNotesList() {
       .join('');
     const titleText = stripLeadingEmoji(note.title || '') || 'ไม่มีหัวข้อ';
 
-    item.innerHTML = `
-      ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
-      <div class="card-split-row">
+    const cardBody = showContent
+      ? `<div class="card-split-row">
         ${tagsCellHtml(tags)}
         <div class="card-col card-col-body" style="--prio:${escapeHtml(prioColor)}">
           <div class="card-top-row">
@@ -2950,7 +3007,19 @@ function renderNotesList() {
           ${previewHtml}
         </div>
         ${proximityCellHtml(note)}
-      </div>
+      </div>`
+      : `<div class="card-split-row card-split-title-first">
+        <div class="card-col card-col-body" style="--prio:${escapeHtml(prioColor)}">
+          <h3 class="card-title">${escapeHtml(titleText)}</h3>
+          ${tagsInlineHtml(tags)}
+          ${bodyMeta ? `<div class="card-meta-row">${bodyMeta}</div>` : ''}
+        </div>
+        ${proximityCellHtml(note)}
+      </div>`;
+
+    item.innerHTML = `
+      ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
+      ${cardBody}
     `;
 
     appendCardAttachments(item, note);
@@ -3076,6 +3145,7 @@ function applyListPreviewSettingsUi() {
   const show = state.settings.listShowContent === true;
   els.listPreviewTitleBtn?.classList.toggle('active', !show);
   els.listPreviewContentBtn?.classList.toggle('active', show);
+  syncTitlesOnlyListClass();
 }
 
 function setListShowContent(show) {
@@ -4390,13 +4460,7 @@ function openAddNoteModal() {
   const more = document.getElementById('ai-note-more');
   if (more) more.open = false;
   els.aiNoteModal.hidden = false;
-  queueMicrotask(() => {
-    try {
-      els.aiNoteDraftTitle?.focus({ preventScroll: false });
-    } catch {
-      els.aiNoteDraftTitle?.focus();
-    }
-  });
+  queueMicrotask(() => focusAiNoteTitle({ select: false }));
 }
 
 /** Blank note — same form, jump straight to title (no AI step required). */
@@ -4405,15 +4469,7 @@ function openQuickNoteModal() {
   openAddNoteModal();
   const titleEl = document.getElementById('ai-note-title');
   if (titleEl) titleEl.textContent = 'จดโน้ตว่าง';
-  queueMicrotask(() => {
-    if (els.aiNoteDraftTitle) {
-      try {
-        els.aiNoteDraftTitle.focus({ preventScroll: false });
-      } catch {
-        els.aiNoteDraftTitle.focus();
-      }
-    }
-  });
+  queueMicrotask(() => focusAiNoteTitle({ select: false }));
 }
 
 function setSearchOpen(open, { focus = true } = {}) {
@@ -4450,15 +4506,8 @@ function openEditNoteModal(noteId) {
   els.aiNoteModal.hidden = false;
   // Prefer title for edit; fall back to source for voice dictation.
   queueMicrotask(() => {
-    if (els.aiNoteDraftTitle) {
-      try {
-        els.aiNoteDraftTitle.focus({ preventScroll: false });
-      } catch {
-        els.aiNoteDraftTitle.focus();
-      }
-    } else {
-      focusAiSourceField();
-    }
+    if (els.aiNoteDraftTitle) focusAiNoteTitle({ select: true });
+    else focusAiSourceField();
   });
 }
 
@@ -5465,6 +5514,17 @@ async function init() {
   els.modeSwitchBtn?.addEventListener('click', () => {
     if (els.modeMenuOverlay && !els.modeMenuOverlay.hidden) closeModeMenu();
     else openModeMenu();
+  });
+  const onDockModeClick = (e) => {
+    const modeBtn = e.currentTarget;
+    const mode = modeBtn?.dataset?.appMode;
+    if (!mode) return;
+    setAppMode(mode);
+  };
+  els.dockModeWork?.addEventListener('click', onDockModeClick);
+  els.dockModeNote?.addEventListener('click', onDockModeClick);
+  els.aiNoteFocusTitleBtn?.addEventListener('click', () => {
+    focusAiNoteTitle({ select: true });
   });
   els.modeMenuOverlay?.addEventListener('click', (e) => {
     if (e.target === els.modeMenuOverlay) {
