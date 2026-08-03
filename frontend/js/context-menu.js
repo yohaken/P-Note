@@ -119,7 +119,13 @@ export function attachNoteCardInteractions(card, handlers) {
       return;
     }
     // Tag chips have their own filter action.
-    if (event.target.closest?.('.card-col-tags, .card-tag-name, .card-tag-inline')) return;
+    if (
+      event.target.closest?.(
+        '.card-col-tags, .card-tag-name, .card-tag-inline, .card-hang-tag[data-tag-id]',
+      )
+    ) {
+      return;
+    }
     handlers.onTap();
   };
 
@@ -130,7 +136,7 @@ export function attachNoteCardInteractions(card, handlers) {
     if (armed || suppressClick) return;
     if (
       event.target.closest?.(
-        '.card-col-tags, .card-tag-name, .card-tag-inline, .card-actions, button, a',
+        '.card-col-tags, .card-tag-name, .card-tag-inline, .card-hang-tag[data-tag-id], .card-actions, button, a',
       )
     ) {
       return;

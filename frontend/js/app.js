@@ -1,6 +1,6 @@
 import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=130';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=127';
-import { initListSortable } from './sortable.js?v=122';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
+import { initListSortable } from './sortable.js?v=136';
 import { bindComposableInput } from './text-input.js?v=122';
 import { CONFIG } from './config.js?v=133';
 import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=133';
@@ -82,7 +82,7 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
-} from './schedule.js?v=122';
+} from './schedule.js?v=136';
 import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=135';
 import {
   notificationPermission,
@@ -1443,12 +1443,13 @@ function renderNotepadQuickBar() {
 function onNotepadQuickChipClick(notepadId) {
   if (!notepadId) return;
   if (state.activeNotepadId === notepadId && state.view === 'editor') {
-    // Already open — jump to title for quick rename.
-    try { els.noteTitle?.focus({ preventScroll: false }); }
-    catch { els.noteTitle?.focus(); }
+    // Already open — jump to content for writing.
+    try { els.noteContent?.focus({ preventScroll: false }); }
+    catch { els.noteContent?.focus(); }
     return;
   }
-  openNotepadEditor(notepadId, { focusTitle: true });
+  // Selecting a note title opens the pad focused on content (not the title field).
+  openNotepadEditor(notepadId, { focusTitle: false });
 }
 
 function cloneNoteSnapshot(note) {
@@ -2540,15 +2541,53 @@ function scheduleBadgeHtml(note) {
   return `<span class="schedule-badge ${status}">${prefix}${escapeHtml(rel)} · ${escapeHtml(date)}</span>`;
 }
 
-/** Compact proximity cell for list row (right column). */
+/** Compact proximity cell for list row (right column) — legacy 3-col layout. */
 function proximityCellHtml(note) {
-  if (state.listGroup !== NOTE_STATUS.ACTIVE || !note.scheduledAt) {
+  const hang = hangDueTagHtml(note);
+  if (!hang) {
     return `<div class="card-col card-col-due is-empty" aria-hidden="true"></div>`;
   }
   const prox = scheduleProximity(note.scheduledAt);
-  if (prox.level === 'none') {
-    return `<div class="card-col card-col-due is-empty" aria-hidden="true"></div>`;
+  return `
+    <div class="card-col card-col-due due-${escapeHtml(prox.level)}" title="${escapeHtml(relativeDayLabel(note.scheduledAt))}">
+      <span class="due-count">${escapeHtml(prox.label)}</span>
+    </div>
+  `;
+}
+
+/** Top-left hang tags: category → priority → recurrence, packed in one row. */
+function hangTagsLeftHtml(note, tags) {
+  const parts = [];
+  (tags || []).slice(0, 2).forEach((tag) => {
+    const active = state.tagFilterId === tag.id ? ' is-filter-active' : '';
+    parts.push(
+      `<button type="button" class="card-hang-tag card-hang-tag-cat${active}" data-tag-id="${escapeHtml(tag.id)}" style="--tag:${safeTagColor(tag.color)}" title="กรองแท็ก ${escapeHtml(tag.name)}">${escapeHtml(tag.name)}</button>`,
+    );
+  });
+  if ((tags || []).length > 2) {
+    parts.push(`<span class="card-hang-tag card-hang-tag-more">+${tags.length - 2}</span>`);
   }
+  const priority = notePriority(note);
+  if (priority !== NOTE_PRIORITY.NORMAL && state.listGroup === NOTE_STATUS.ACTIVE) {
+    parts.push(
+      `<span class="card-hang-tag card-hang-tag-prio priority-${escapeHtml(priority)}" title="${escapeHtml(priorityLabel(priority))}">${escapeHtml(priorityLabel(priority, { short: true }))}</span>`,
+    );
+  }
+  const recur = recurrenceLabel(note.recurrence, { short: true });
+  if (recur && state.listGroup === NOTE_STATUS.ACTIVE) {
+    parts.push(
+      `<span class="card-hang-tag card-hang-tag-recur" title="ทำซ้ำ">${escapeHtml(recur)}</span>`,
+    );
+  }
+  if (!parts.length) return '';
+  return `<div class="card-hang-rail card-hang-rail-left">${parts.join('')}</div>`;
+}
+
+/** Top-right hang tag: วันนี้ / พรุ่งนี้ / day number (2, 3, …). */
+function hangDueTagHtml(note) {
+  if (state.listGroup !== NOTE_STATUS.ACTIVE || !note.scheduledAt) return '';
+  const prox = scheduleProximity(note.scheduledAt);
+  if (prox.level === 'none' || !prox.label) return '';
   const time = (() => {
     try {
       return new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(
@@ -2558,11 +2597,8 @@ function proximityCellHtml(note) {
       return '';
     }
   })();
-  return `
-    <div class="card-col card-col-due due-${escapeHtml(prox.level)}" title="${escapeHtml([relativeDayLabel(note.scheduledAt), time].filter(Boolean).join(' · '))}">
-      <span class="due-count">${escapeHtml(prox.label)}</span>
-    </div>
-  `;
+  const tip = [relativeDayLabel(note.scheduledAt), time].filter(Boolean).join(' · ');
+  return `<div class="card-hang-rail card-hang-rail-right"><span class="card-hang-tag card-hang-tag-due due-${escapeHtml(prox.level)}" title="${escapeHtml(tip)}">${escapeHtml(prox.label)}</span></div>`;
 }
 
 function tagsCellHtml(tags) {
@@ -2627,7 +2663,7 @@ function initNotesListTagFilter() {
     'click',
     (event) => {
       const btn = event.target.closest?.(
-        '.card-tag-name[data-tag-id], .card-tag-inline[data-tag-id]',
+        '.card-tag-name[data-tag-id], .card-tag-inline[data-tag-id], .card-hang-tag[data-tag-id]',
       );
       if (!btn || !els.notesList.contains(btn)) return;
       event.preventDefault();
@@ -3095,42 +3131,24 @@ function renderNotesList() {
     const prioColors = normalizePriorityColors(state.settings.priorityColors);
     const prioColor = prioColors[priority] || prioColors.normal;
     const tags = getTagsForNote(note, state.notesData.tags || []);
-    const priorityHtml = priorityBadgeHtml(note);
-    const recur = recurrenceLabel(note.recurrence, { short: true });
     const showContent = state.settings.listShowContent === true;
     const preview = showContent ? previewText(note) : '';
     const previewHtml = preview
       ? `<p class="card-preview">${escapeHtml(preview)}</p>`
       : '';
-    const bodyMeta = [priorityHtml, recur ? `<span class="card-recur">${escapeHtml(recur)}</span>` : '']
-      .filter(Boolean)
-      .join('');
     const titleText = stripLeadingEmoji(note.title || '') || 'ไม่มีหัวข้อ';
+    const leftHang = hangTagsLeftHtml(note, tags);
+    const rightHang = hangDueTagHtml(note);
 
-    const cardBody = showContent
-      ? `<div class="card-split-row">
-        ${tagsCellHtml(tags)}
-        <div class="card-col card-col-body" style="--prio:${escapeHtml(prioColor)}">
-          <div class="card-top-row">
-            <h3 class="card-title">${escapeHtml(titleText)}</h3>
-            ${bodyMeta ? `<div class="card-meta-row">${bodyMeta}</div>` : ''}
-          </div>
-          ${previewHtml}
-        </div>
-        ${proximityCellHtml(note)}
-      </div>`
-      : `<div class="card-split-row card-split-title-first">
-        <div class="card-col card-col-body" style="--prio:${escapeHtml(prioColor)}">
-          <h3 class="card-title">${escapeHtml(titleText)}</h3>
-          ${tagsInlineHtml(tags)}
-          ${bodyMeta ? `<div class="card-meta-row">${bodyMeta}</div>` : ''}
-        </div>
-        ${proximityCellHtml(note)}
-      </div>`;
-
+    item.classList.add('note-card-hang');
     item.innerHTML = `
       ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
-      ${cardBody}
+      ${leftHang}
+      ${rightHang}
+      <div class="card-hang-body" style="--prio:${escapeHtml(prioColor)}">
+        <h3 class="card-title">${escapeHtml(titleText)}</h3>
+        ${previewHtml}
+      </div>
     `;
 
     appendCardAttachments(item, note);
