@@ -4,6 +4,7 @@ import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
 } from './schedule.js?v=122';
+import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=146';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -71,6 +72,8 @@ const DEFAULTS = {
   notifyMonthPresets: [3, 5, 6],
   /** List cards: title only (fixed) */
   listShowContent: false,
+  /** Leading icons for priority levels on work cards */
+  priorityIcons: { ...DEFAULT_PRIORITY_ICONS },
   /** Last opened workspace id (legacy device key) */
   lastWorkspaceId: null,
   /** 'work' = งานหลัก · 'note' = Note (plain notepad pages) */
@@ -94,6 +97,7 @@ function withFixedUi(settings) {
     priorityColors: { ...DEFAULT_PRIORITY_COLORS },
     dueColors: { ...DEFAULT_DUE_COLORS },
     listShowContent: FIXED_UI.listShowContent,
+    priorityIcons: normalizePriorityIcons(settings.priorityIcons),
   };
 }
 

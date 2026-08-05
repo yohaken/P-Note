@@ -1,6 +1,7 @@
 import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=116';
 import { normalizeSheetBlocks } from './sheet.js?v=137';
 import { normalizeTextPrefs } from './note-text.js?v=142';
+import { bestIconForLabel, normalizeIconId } from './icons.js?v=146';
 
 export const TAG_PALETTE = [
   '#6c63ff',
@@ -21,6 +22,13 @@ export function safeTagColor(color) {
   return typeof color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(color)
     ? color
     : TAG_PALETTE[0];
+}
+
+/** Keep known icon ids; empty → suggest from tag name. */
+export function normalizeTagIcon(value, tagName = '') {
+  const raw = String(value || '').trim();
+  if (raw) return normalizeIconId(raw, 'doc');
+  return bestIconForLabel(tagName);
 }
 
 export const NOTE_STATUS = {
@@ -400,12 +408,14 @@ export function createNote(title = '', content = '', workspaceId = DEFAULT_WORKS
   };
 }
 
-export function createTag(name, color) {
+export function createTag(name, color, icon) {
   const now = new Date().toISOString();
+  const trimmed = name.trim();
   return {
     id: crypto.randomUUID(),
-    name: name.trim(),
+    name: trimmed,
     color: safeTagColor(color),
+    icon: normalizeTagIcon(icon, trimmed),
     createdAt: now,
   };
 }
@@ -631,12 +641,16 @@ export function normalizeNotesData(data) {
   const tags = Array.isArray(base.tags)
     ? base.tags
         .filter((tag) => tag && typeof tag === 'object' && tag.id)
-        .map((tag) => ({
-          id: String(tag.id),
-          name: typeof tag.name === 'string' ? tag.name : '',
-          color: safeTagColor(tag.color),
-          createdAt: tag.createdAt || new Date().toISOString(),
-        }))
+        .map((tag) => {
+          const name = typeof tag.name === 'string' ? tag.name : '';
+          return {
+            id: String(tag.id),
+            name,
+            color: safeTagColor(tag.color),
+            icon: normalizeTagIcon(tag.icon, name),
+            createdAt: tag.createdAt || new Date().toISOString(),
+          };
+        })
     : [];
 
   const tagIds = new Set(tags.map((tag) => tag.id));
@@ -745,6 +759,17 @@ export function setTagColor(data, tagId, color) {
     ...data,
     tags: data.tags.map((tag) =>
       tag.id === tagId ? { ...tag, color: safeTagColor(color) } : tag,
+    ),
+  };
+}
+
+export function setTagIcon(data, tagId, icon) {
+  return {
+    ...data,
+    tags: data.tags.map((tag) =>
+      tag.id === tagId
+        ? { ...tag, icon: normalizeTagIcon(icon, tag.name) }
+        : tag,
     ),
   };
 }

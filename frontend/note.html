@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="145">
-  <meta name="pnote-built" content="2026-08-05T09:40:00+07:00">
+  <meta name="pnote-build" content="146">
+  <meta name="pnote-built" content="2026-08-05T10:00:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=145"></script>
+  <script src="js/cache-bootstrap.js?v=146"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=145">
+  <link rel="stylesheet" href="css/pnote.css?v=146">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -302,15 +302,20 @@
         <h2 id="settings-title">ตั้งค่า</h2>
 
         <details class="settings-group" id="tags-settings-row" open>
-          <summary class="settings-group-summary">แท็ก · ตัวกรอง</summary>
+          <summary class="settings-group-summary">แท็ก · ไอคอน</summary>
           <div class="settings-group-body">
-            <div class="settings-row settings-row-last settings-tags">
-              <p class="settings-hint" style="margin-top:0">ใช้กรองรายการ · ลาก ⋮⋮ หรือ ↑↓ จัดลำดับ · แก้ชื่อ/สีได้ทันที</p>
+            <div class="settings-row settings-tags">
+              <p class="settings-hint" style="margin-top:0">ไอคอนอยู่ด้านหน้ากล่องงาน · กดปุ่มไอคอนเพื่อเลือก · ระบบเสนอไอคอนที่เกี่ยวกับชื่อแท็ก</p>
               <form id="tag-add-form" class="tag-add-row">
-                <input id="new-tag-input" class="tag-add-input" type="text" placeholder="ชื่อแท็กใหม่" autocomplete="off" maxlength="40">
+                <input id="new-tag-input" class="tag-add-input" type="text" placeholder="ชื่อแท็กใหม่ เช่น Peerland" autocomplete="off" maxlength="40">
                 <button id="add-tag-btn" class="btn btn-primary" type="submit">เพิ่ม</button>
               </form>
               <div id="tag-manager-list" class="tag-manager-list" aria-label="รายการแท็ก"></div>
+            </div>
+            <div class="settings-row settings-row-last">
+              <span class="settings-label">ความสำคัญ (ด้านหน้ากล่องงาน)</span>
+              <p class="settings-hint" style="margin-top:0.2rem">ใช้เมื่อโน้ตยังไม่มีแท็ก หรือเป็นไอคอนสำรอง</p>
+              <div id="priority-icon-grid" class="priority-icon-grid" aria-label="ไอคอนความสำคัญ"></div>
             </div>
           </div>
         </details>
@@ -667,6 +672,18 @@
   <div class="filter-dd-menu" id="filter-recurrence-menu" role="listbox" hidden></div>
   <div id="filter-dd-backdrop" class="filter-dd-backdrop" hidden></div>
 
+  <div id="icon-picker-overlay" class="icon-picker-overlay" hidden>
+    <div class="icon-picker-backdrop" id="icon-picker-backdrop"></div>
+    <div class="icon-picker-panel" role="dialog" aria-labelledby="icon-picker-title">
+      <h3 id="icon-picker-title" class="icon-picker-title">เลือกไอคอน</h3>
+      <p class="icon-picker-hint" id="icon-picker-hint">ไอคอนที่แนะนำจากชื่อ</p>
+      <div id="icon-picker-suggest" class="icon-picker-grid" aria-label="ไอคอนแนะนำ"></div>
+      <p class="icon-picker-hint">ทั้งหมด</p>
+      <div id="icon-picker-all" class="icon-picker-grid icon-picker-grid-all" aria-label="ไอคอนทั้งหมด"></div>
+      <button type="button" class="btn btn-secondary settings-close" id="icon-picker-close-btn">ปิด</button>
+    </div>
+  </div>
+
   <div class="mode-menu-overlay" id="modeMenuOverlay" hidden>
     <div class="mode-menu" role="menu" aria-label="โหมด">
       <p class="mode-menu-title">โหมด</p>
@@ -686,7 +703,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/app.js?v=145"></script>
-  <script src="js/update-watch.js?v=145"></script>
+  <script type="module" src="js/app.js?v=146"></script>
+  <script src="js/update-watch.js?v=146"></script>
 </body>
 </html>

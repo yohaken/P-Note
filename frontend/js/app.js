@@ -41,13 +41,14 @@ import {
   restoreNoteFromTrash,
   safeTagColor,
   setTagColor,
+  setTagIcon,
   sortNotes,
   sortNotesManual,
   applyManualOrder,
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=142';
+} from './notes.js?v=146';
 import {
   cellKey,
   colIndexToLetter,
@@ -101,7 +102,16 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=136';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=145';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=146';
+import {
+  allIcons,
+  bestIconForLabel,
+  DEFAULT_PRIORITY_ICONS,
+  iconSvg,
+  normalizeIconId,
+  normalizePriorityIcons,
+  suggestIconsForLabel,
+} from './icons.js?v=146';
 import {
   notificationPermission,
   notificationSupported,
@@ -133,7 +143,7 @@ import {
   pushRemoteNotes,
   SHARED_SPACE_ID,
 } from './remote.js?v=133';
-import { normalizeNotesData } from './notes.js?v=142';
+import { normalizeNotesData } from './notes.js?v=146';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
 
@@ -360,6 +370,14 @@ const els = {
   tagAddForm: document.getElementById('tag-add-form'),
   newTagInput: document.getElementById('new-tag-input'),
   tagManagerList: document.getElementById('tag-manager-list'),
+  priorityIconGrid: document.getElementById('priority-icon-grid'),
+  iconPickerOverlay: document.getElementById('icon-picker-overlay'),
+  iconPickerBackdrop: document.getElementById('icon-picker-backdrop'),
+  iconPickerTitle: document.getElementById('icon-picker-title'),
+  iconPickerHint: document.getElementById('icon-picker-hint'),
+  iconPickerSuggest: document.getElementById('icon-picker-suggest'),
+  iconPickerAll: document.getElementById('icon-picker-all'),
+  iconPickerCloseBtn: document.getElementById('icon-picker-close-btn'),
   closeTagModalBtn: null,
   tagsSettingsRow: document.getElementById('tags-settings-row'),
   settingsOverlay: document.getElementById('settings-overlay'),
@@ -2718,6 +2736,91 @@ function tagAbbrev(name) {
   return t.slice(0, 2);
 }
 
+let iconPickerTarget = null; // { type: 'tag'|'priority', id: string, label: string }
+
+function getPriorityIcons() {
+  return normalizePriorityIcons(state.settings?.priorityIcons || DEFAULT_PRIORITY_ICONS);
+}
+
+function cardLeadingIconHtml(note, tags) {
+  const firstTag = (tags || [])[0];
+  const prio = notePriority(note);
+  const prioIcons = getPriorityIcons();
+  if (firstTag) {
+    const iconId = normalizeIconId(firstTag.icon || bestIconForLabel(firstTag.name), 'doc');
+    const color = safeTagColor(firstTag.color);
+    return `<span class="card-lead-icon" style="--lead:${color}" title="${escapeHtml(firstTag.name)}">${iconSvg(iconId, { size: 16, className: 'card-lead-svg' })}</span>`;
+  }
+  const iconId = prioIcons[prio] || DEFAULT_PRIORITY_ICONS[prio] || 'circle';
+  const prioColors = normalizePriorityColors(state.settings.priorityColors);
+  const color = prioColors[prio] || prioColors.normal;
+  return `<span class="card-lead-icon is-prio" style="--lead:${color}" title="${escapeHtml(priorityLabel(prio))}">${iconSvg(iconId, { size: 16, className: 'card-lead-svg' })}</span>`;
+}
+
+function closeIconPicker() {
+  iconPickerTarget = null;
+  if (els.iconPickerOverlay) els.iconPickerOverlay.hidden = true;
+}
+
+function fillIconPickerGrid(host, icons, selectedId) {
+  if (!host) return;
+  host.innerHTML = icons
+    .map((icon) => {
+      const on = icon.id === selectedId ? ' is-on' : '';
+      return `<button type="button" class="icon-pick-btn${on}" data-icon-id="${icon.id}" title="${escapeHtml(icon.label)}" aria-label="${escapeHtml(icon.label)}" aria-pressed="${icon.id === selectedId ? 'true' : 'false'}">${iconSvg(icon.id, { size: 20, className: 'icon-pick-svg' })}<span class="icon-pick-label">${escapeHtml(icon.label)}</span></button>`;
+    })
+    .join('');
+}
+
+function openIconPicker(target) {
+  iconPickerTarget = target;
+  if (!els.iconPickerOverlay) return;
+  const label = target.label || '';
+  const selected = normalizeIconId(target.iconId, 'doc');
+  if (els.iconPickerTitle) {
+    els.iconPickerTitle.textContent =
+      target.type === 'priority' ? `ไอคอน · ${label}` : `ไอคอนแท็ก · ${label || 'แท็ก'}`;
+  }
+  if (els.iconPickerHint) {
+    els.iconPickerHint.textContent = label
+      ? `แนะนำจากชื่อ「${label}」`
+      : 'ไอคอนที่แนะนำ';
+  }
+  const suggest = suggestIconsForLabel(label, { limit: 8 });
+  fillIconPickerGrid(els.iconPickerSuggest, suggest, selected);
+  fillIconPickerGrid(els.iconPickerAll, allIcons(), selected);
+  els.iconPickerOverlay.hidden = false;
+}
+
+function applyPickedIcon(iconId) {
+  if (!iconPickerTarget) return;
+  const id = normalizeIconId(iconId, 'doc');
+  if (iconPickerTarget.type === 'tag') {
+    commitData(setTagIcon(state.notesData, iconPickerTarget.id, id));
+  } else if (iconPickerTarget.type === 'priority') {
+    const next = { ...getPriorityIcons(), [iconPickerTarget.id]: id };
+    state.settings.priorityIcons = normalizePriorityIcons(next);
+    saveSettings(state.settings);
+    renderPriorityIconSettings();
+    renderNotesList();
+  }
+  closeIconPicker();
+}
+
+function renderPriorityIconSettings() {
+  const grid = els.priorityIconGrid;
+  if (!grid) return;
+  const icons = getPriorityIcons();
+  grid.innerHTML = PRIORITY_OPTIONS.map((opt) => {
+    const iconId = icons[opt.id] || DEFAULT_PRIORITY_ICONS[opt.id];
+    return `<button type="button" class="priority-icon-row" data-priority-icon="${opt.id}" title="เลือกไอคอน ${escapeHtml(opt.label)}">
+      <span class="priority-icon-swatch">${iconSvg(iconId, { size: 18 })}</span>
+      <span class="priority-icon-name">${escapeHtml(opt.label)}</span>
+      <span class="priority-icon-chev">›</span>
+    </button>`;
+  }).join('');
+}
+
 /**
  * Inside-card meta: tag · priority · recurrence · due as plain colored text,
  * horizontal, top-right — no hang badges.
@@ -2781,8 +2884,9 @@ function renderFloatTagIcons() {
     .slice(0, 8)
     .map((tag) => {
       const active = currentId === tag.id ? ' is-active' : '';
-      const abbr = tagAbbrev(tag.name);
-      return `<button type="button" class="float-tag-icon${active}" data-float-tag-id="${escapeHtml(tag.id)}" title="${escapeHtml(tag.name)}" aria-label="แท็ก ${escapeHtml(tag.name)}" aria-pressed="${currentId === tag.id ? 'true' : 'false'}">${escapeHtml(abbr)}</button>`;
+      const iconId = normalizeIconId(tag.icon || bestIconForLabel(tag.name), 'doc');
+      const glyph = iconSvg(iconId, { size: 15, className: 'float-tag-svg' });
+      return `<button type="button" class="float-tag-icon has-svg${active}" data-float-tag-id="${escapeHtml(tag.id)}" title="${escapeHtml(tag.name)}" aria-label="แท็ก ${escapeHtml(tag.name)}" aria-pressed="${currentId === tag.id ? 'true' : 'false'}" style="--tag:${safeTagColor(tag.color)}">${glyph}</button>`;
     })
     .join('');
   host.innerHTML = `
@@ -3356,12 +3460,14 @@ function renderNotesList() {
       : '';
     const titleText = stripLeadingEmoji(note.title || '') || 'ไม่มีหัวข้อ';
     const metaHtml = cardMetaInlineHtml(note, tags);
+    const leadHtml = cardLeadingIconHtml(note, tags);
 
     item.classList.add('note-card-compact');
     item.innerHTML = `
       ${manual ? '<span class="drag-hint" aria-hidden="true">⠿</span>' : ''}
       <div class="card-compact-body" style="--prio:${escapeHtml(prioColor)}">
         <div class="card-compact-row">
+          ${leadHtml}
           <h3 class="card-title">${escapeHtml(titleText)}</h3>
           ${metaHtml}
         </div>
@@ -3480,6 +3586,7 @@ function openSettings() {
   applyCameraSettingsUi();
   applyTheme();
   renderTagManager();
+  renderPriorityIconSettings();
   applyNotifySettingsUi();
   applyBarThickness();
   refreshScheduleSelectOptions();
@@ -5181,6 +5288,23 @@ function renderTagManager() {
     down.addEventListener('click', () => moveTagOrder(index, 1));
     ord.append(up, down);
 
+    const iconBtn = document.createElement('button');
+    iconBtn.type = 'button';
+    iconBtn.className = 'tag-icon-btn';
+    const iconId = normalizeIconId(tag.icon || bestIconForLabel(tag.name), 'doc');
+    iconBtn.innerHTML = iconSvg(iconId, { size: 18 });
+    iconBtn.title = 'เลือกไอคอน';
+    iconBtn.setAttribute('aria-label', `ไอคอนแท็ก ${tag.name}`);
+    iconBtn.style.setProperty('--tag', safeTagColor(tag.color));
+    iconBtn.addEventListener('click', () => {
+      openIconPicker({
+        type: 'tag',
+        id: tag.id,
+        label: tag.name,
+        iconId,
+      });
+    });
+
     const color = document.createElement('input');
     color.type = 'color';
     color.className = 'tag-color-input';
@@ -5216,7 +5340,7 @@ function renderTagManager() {
       if (ok) commitData(deleteTag(state.notesData, tag.id));
     });
 
-    row.append(grip, color, name, count, ord, del);
+    row.append(grip, iconBtn, color, name, count, ord, del);
     list.appendChild(row);
   });
   bindTagManagerListReorder();
@@ -5806,6 +5930,30 @@ async function init() {
     fillAiContextPreview();
     setStatus(`รีเฟรชความจำแล้ว · แท็ก ${ctx.tagCount} · โน้ต ${ctx.noteCount}`);
   });
+
+  els.priorityIconGrid?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-priority-icon]');
+    if (!btn) return;
+    const id = btn.dataset.priorityIcon;
+    const opt = PRIORITY_OPTIONS.find((o) => o.id === id);
+    const icons = getPriorityIcons();
+    openIconPicker({
+      type: 'priority',
+      id,
+      label: opt?.label || id,
+      iconId: icons[id] || DEFAULT_PRIORITY_ICONS[id],
+    });
+  });
+  els.iconPickerCloseBtn?.addEventListener('click', closeIconPicker);
+  els.iconPickerBackdrop?.addEventListener('click', closeIconPicker);
+  const onIconPickClick = (e) => {
+    const btn = e.target.closest('[data-icon-id]');
+    if (!btn) return;
+    applyPickedIcon(btn.dataset.iconId);
+  };
+  els.iconPickerSuggest?.addEventListener('click', onIconPickClick);
+  els.iconPickerAll?.addEventListener('click', onIconPickClick);
+
   els.settingsBtn.addEventListener('click', openSettings);
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
