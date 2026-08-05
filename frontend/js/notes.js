@@ -1,7 +1,38 @@
-import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=116';
-import { normalizeSheetBlocks } from './sheet.js?v=137';
-import { normalizeTextPrefs } from './note-text.js?v=142';
-import { bestIconForLabel, normalizeIconId } from './icons.js?v=147';
+import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=148';
+import { bestIconForLabel, normalizeIconId } from './icons.js?v=148';
+
+/** Lite notepad helpers — keep notes.js free of sheet.js / note-text.js on boot. */
+function normalizeTextPrefs(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  let fontSize = Number(src.fontSize);
+  if (!Number.isFinite(fontSize)) fontSize = 16;
+  fontSize = Math.min(22, Math.max(12, Math.round(fontSize)));
+  let tabWidth = Number(src.tabWidth);
+  if (tabWidth !== 4 && tabWidth !== 2) tabWidth = 2;
+  return { fontSize, codeMode: Boolean(src.codeMode), tabWidth };
+}
+
+function normalizeSheetBlocks(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((b) => b && typeof b === 'object')
+    .map((b) => {
+      const cols = Math.min(12, Math.max(2, Math.round(Number(b.cols) || 4)));
+      const rows = Math.min(40, Math.max(2, Math.round(Number(b.rows) || 8)));
+      const cells =
+        b.cells && typeof b.cells === 'object' && !Array.isArray(b.cells)
+          ? { ...b.cells }
+          : {};
+      return {
+        id: String(b.id || `sheet-${Math.random().toString(36).slice(2, 9)}`),
+        name: String(b.name || 'Sheet').trim().slice(0, 40) || 'Sheet',
+        cols,
+        rows,
+        cells,
+      };
+    })
+    .slice(0, 8);
+}
 
 export const TAG_PALETTE = [
   '#6c63ff',

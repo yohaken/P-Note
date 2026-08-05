@@ -4,7 +4,7 @@ import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
 } from './schedule.js?v=122';
-import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=147';
+import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=148';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,

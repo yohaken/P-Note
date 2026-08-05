@@ -1,9 +1,8 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=130';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=148';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
-import { bindComposableInput } from './text-input.js?v=122';
 import { CONFIG } from './config.js?v=133';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=133';
+import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=148';
 import {
   addTag,
   addNotepad,
@@ -48,7 +47,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=147';
+} from './notes.js?v=148';
 import {
   cellKey,
   colIndexToLetter,
@@ -58,7 +57,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=137';
+} from './sheet.js?v=148';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -66,7 +65,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=142';
+} from './note-text.js?v=148';
+import { bindComposableInput } from './text-input.js?v=148';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -101,8 +101,8 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
-} from './schedule.js?v=136';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=147';
+} from './schedule.js?v=148';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=148';
 import {
   allIcons,
   bestIconForLabel,
@@ -111,7 +111,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=147';
+} from './icons.js?v=148';
 import {
   notificationPermission,
   notificationSupported,
@@ -125,25 +125,25 @@ import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=122';
+} from './files.js?v=148';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
-
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=147');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=148');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=147');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=148');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=147');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=148');
   return userContextModPromise;
 }
+
 
 /** Lightweight title cleanup for list paint (avoids loading gemini.js). */
 function stripLeadingEmoji(title) {
@@ -173,7 +173,7 @@ import {
   pushRemoteNotes,
   SHARED_SPACE_ID,
 } from './remote.js?v=133';
-import { normalizeNotesData } from './notes.js?v=147';
+import { normalizeNotesData } from './notes.js?v=148';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
 
@@ -5709,7 +5709,6 @@ function paintNotesFromLocal(data) {
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
-  refreshUserContextLazy(state.notesData);
   applyTheme();
   applyCardDensity();
   applyDockScale();
@@ -5735,7 +5734,6 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   state.online = result.online;
   state.syncBaseUpdatedAt = merged?.updatedAt || result.data?.updatedAt || null;
   saveNotes(state.notesData);
-  refreshUserContextLazy(state.notesData);
 
   const didScheduleSnap =
     (localVerBefore != null && localVerBefore < 5) || Boolean(result.scheduleSnap);
@@ -5964,14 +5962,12 @@ function initSwipeBack() {
   );
 }
 
-async function init() {
+async function init({ fromBoot = false } = {}) {
   applyTheme();
   refreshScheduleSelectOptions();
-  // Update polling: js/update-watch.js. No SW in this shell.
-  initAttachViewer();
-  initInAppCamera();
   // Search always visible on notes home
   setSearchOpen(true, { focus: false });
+  // Camera / attach viewer / AI-heavy wiring: after list is usable
 
   els.addNoteBtn?.addEventListener('click', () => {
     if (isNoteMode()) promptNewNotepad();
@@ -6491,7 +6487,20 @@ async function init() {
   initFilterDock();
   initSelectionDock();
   initNotesListTagFilter();
+  const afterPaint = () => {
+    initAttachViewer();
+    // Camera only when user opens it — do not prefetch on boot.
+    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 800));
+    idle(() => {
+      // Warm user-context in background only if AI profile exists
+      if (String(state.settings?.aiProfile || '').trim()) {
+        refreshUserContextLazy(state.notesData);
+      }
+    }, { timeout: 2500 });
+  };
+
   bootstrapData().then(async () => {
+    afterPaint();
     if (getNotifyPrefs().enabled) {
       await registerNotifyServiceWorker();
       if (notificationPermission() === 'granted') refreshNoteNotifications();
@@ -6503,4 +6512,13 @@ async function init() {
   });
 }
 
-init();
+/** Called by boot.js after list-first paint. */
+export async function hydrateApp() {
+  document.documentElement.dataset.pnoteHydrated = '1';
+  await init({ fromBoot: true });
+}
+
+// Direct entry (no boot.js) — full init.
+if (document.documentElement.dataset.pnoteBoot !== '1') {
+  init();
+}
