@@ -101,7 +101,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=136';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=144';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=145';
 import {
   notificationPermission,
   notificationSupported,

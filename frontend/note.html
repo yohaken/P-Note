@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="144">
-  <meta name="pnote-built" content="2026-08-05T09:20:00+07:00">
+  <meta name="pnote-build" content="145">
+  <meta name="pnote-built" content="2026-08-05T09:40:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=144"></script>
+  <script src="js/cache-bootstrap.js?v=145"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=144">
+  <link rel="stylesheet" href="css/pnote.css?v=145">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -171,9 +171,12 @@
         </header>
 
         <div class="ai-note-step ai-note-step-compact">
-          <input id="ai-note-draft-title" class="ai-note-title-input" type="text" maxlength="120" autocomplete="off" placeholder="หัวข้อ">
-          <textarea id="ai-note-draft-summary" class="ai-note-textarea ai-note-summary" rows="2" placeholder="รายละเอียดสั้นๆ"></textarea>
+          <section class="form-module form-module-ai">
+            <input id="ai-note-draft-title" class="ai-note-title-input" type="text" maxlength="120" autocomplete="off" placeholder="หัวข้อ">
+            <textarea id="ai-note-draft-summary" class="ai-note-textarea ai-note-summary" rows="2" placeholder="รายละเอียดสั้นๆ"></textarea>
+          </section>
 
+          <section class="form-module form-module-ai">
           <div class="ai-note-fields ai-note-fields-compact">
             <div class="ai-note-fields-row">
               <label class="ai-note-field" for="ai-note-draft-priority">
@@ -203,6 +206,7 @@
               <button type="button" class="ai-note-schedule-clear" id="ai-note-schedule-clear" hidden aria-label="ล้างกำหนดเวลา">×</button>
             </div>
           </div>
+          </section>
 
           <details class="ai-note-more" id="ai-note-more">
             <summary class="ai-note-more-summary">รายละเอียดเพิ่ม</summary>
@@ -682,7 +686,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/app.js?v=144"></script>
-  <script src="js/update-watch.js?v=144"></script>
+  <script type="module" src="js/app.js?v=145"></script>
+  <script src="js/update-watch.js?v=145"></script>
 </body>
 </html>

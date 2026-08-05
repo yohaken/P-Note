@@ -1630,6 +1630,20 @@ body.notepad-dock .editor-body {
 .form-module .note-attachments {
   margin-top: 0.15rem;
 }
+.form-module-ai {
+  padding: 0.55rem 0.6rem;
+  box-shadow: none;
+  background: var(--surface-2);
+  border-color: transparent;
+}
+.form-module-ai .ai-note-title-input,
+.form-module-ai .ai-note-summary {
+  background: var(--surface);
+}
+.modal-card-ai .ai-note-step-compact .ai-note-title-input {
+  position: static;
+  box-shadow: none;
+}
 
 .note-title,
 .note-content,
@@ -2169,32 +2183,51 @@ body.light .priority-badge.priority-urgent {
 
 .modal-actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* AI create/edit — standard module actions (never stacked full-width) */
+.modal-card-ai .modal-actions.ai-note-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+.modal-card-ai .modal-actions.ai-note-actions .btn,
+.modal-card-ai .modal-actions.ai-note-actions .btn-sm {
+  flex: 0 1 auto;
+  width: auto !important;
+  min-width: 4.5rem;
+}
+.modal-card-ai .modal-actions.ai-note-actions #ai-note-focus-title-btn,
+.modal-card-ai .modal-actions.ai-note-actions #ai-note-delete-btn {
+  margin-right: auto;
 }
 
 .ai-note-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  align-items: stretch;
+  align-items: center;
   margin: 0.05rem 0 0.15rem;
 }
 
 .ai-note-actions .btn {
-  flex: 1 1 4.5rem;
-  min-width: 0;
-  padding: 0.45rem 0.3rem;
-  font-size: 0.78rem;
+  flex: 0 1 auto;
+  min-width: 4.25rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 #ai-note-delete-btn {
   flex: 0 0 auto;
   color: var(--danger);
-  order: -1;
 }
 
 .ai-note-summarize-btn {
@@ -2202,11 +2235,11 @@ body.light .priority-badge.priority-urgent {
   align-items: center;
   justify-content: center;
   gap: 0.28rem;
-  border: none !important;
-  background: linear-gradient(145deg, #4b8dff 0%, #0a84ff 42%, #8b5cf6 100%) !important;
-  color: #fff !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface-2) !important;
+  color: var(--accent) !important;
   font-weight: 700;
-  box-shadow: 0 2px 10px rgba(10, 132, 255, 0.35);
+  box-shadow: none;
 }
 
 .ai-note-summarize-btn .ai-sum-icon {
