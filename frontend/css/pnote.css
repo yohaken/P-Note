@@ -5135,3 +5135,35 @@ body:not(.notepad-editing) .note-text-bar {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
+
+
+/* Card meta: optional icons beside text */
+.card-meta-inline .meta-bit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+}
+.card-meta-inline .meta-ico {
+  display: inline-flex;
+  flex: 0 0 auto;
+  opacity: 0.95;
+}
+.card-meta-inline .meta-ico-svg {
+  display: block;
+}
+.card-meta-inline .meta-txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.segmented.segmented-wrap {
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+}
+.segmented.segmented-wrap button {
+  flex: 1 1 auto;
+  min-width: 3.4rem;
+  font-size: 0.72rem;
+  padding: 0.28rem 0.35rem;
+}

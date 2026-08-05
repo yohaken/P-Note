@@ -48,7 +48,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=146';
+} from './notes.js?v=147';
 import {
   cellKey,
   colIndexToLetter,
@@ -102,7 +102,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=136';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=146';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=147';
 import {
   allIcons,
   bestIconForLabel,
@@ -111,7 +111,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=146';
+} from './icons.js?v=147';
 import {
   notificationPermission,
   notificationSupported,
@@ -121,19 +121,49 @@ import {
   syncNoteNotifications,
   startNotifyKeepalive,
 } from './note-notify.js?v=122';
-import { summarizeToNoteDraft, listGeminiModels, FALLBACK_GEMINI_MODELS, stripLeadingEmoji, prepareAiMedia } from './gemini.js?v=124';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
 } from './files.js?v=122';
-import { createInAppCamera } from './camera.js?v=122';
-import {
-  refreshUserContext,
-  loadUserContextMd,
-  refineDraftWithContext,
-  composeAiMemoryMd,
-} from './user-context.js?v=122';
+
+/** Lazy modules — loaded on first use to speed first paint. */
+let geminiModPromise = null;
+let cameraModPromise = null;
+let userContextModPromise = null;
+
+function loadGeminiMod() {
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=147');
+  return geminiModPromise;
+}
+function loadCameraMod() {
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=147');
+  return cameraModPromise;
+}
+function loadUserContextMod() {
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=147');
+  return userContextModPromise;
+}
+
+/** Lightweight title cleanup for list paint (avoids loading gemini.js). */
+function stripLeadingEmoji(title) {
+  let t = String(title || '').trim();
+  if (!t) return '';
+  try {
+    t = t
+      .replace(/^(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s*)+/u, '')
+      .trim();
+  } catch {
+    /* ignore */
+  }
+  return t.slice(0, 120);
+}
+
+function refreshUserContextLazy(data) {
+  return loadUserContextMod()
+    .then((m) => m.refreshUserContext(data))
+    .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
+}
 import { DEFAULT_BAR_LAYOUT } from './bars.js?v=122';
 import {
   fetchRemoteNotes,
@@ -143,7 +173,7 @@ import {
   pushRemoteNotes,
   SHARED_SPACE_ID,
 } from './remote.js?v=133';
-import { normalizeNotesData } from './notes.js?v=146';
+import { normalizeNotesData } from './notes.js?v=147';
 import { SaveManager } from './sync.js?v=122';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
 
@@ -370,6 +400,11 @@ const els = {
   tagAddForm: document.getElementById('tag-add-form'),
   newTagInput: document.getElementById('new-tag-input'),
   tagManagerList: document.getElementById('tag-manager-list'),
+  cardDisplaySettingsRow: document.getElementById('card-display-settings-row'),
+  cardLeadIconSeg: document.getElementById('card-lead-icon-seg'),
+  cardIconColorSeg: document.getElementById('card-icon-color-seg'),
+  cardIconColorCustom: document.getElementById('card-icon-color-custom'),
+  priorityIconColorGrid: document.getElementById('priority-icon-color-grid'),
   priorityIconGrid: document.getElementById('priority-icon-grid'),
   iconPickerOverlay: document.getElementById('icon-picker-overlay'),
   iconPickerBackdrop: document.getElementById('icon-picker-backdrop'),
@@ -587,24 +622,32 @@ let userContextTimer = null;
 function scheduleUserContextRefresh() {
   if (userContextTimer) clearTimeout(userContextTimer);
   userContextTimer = setTimeout(() => {
-    try {
-      refreshUserContext(state.notesData);
-    } catch (err) {
+    refreshUserContextLazy(state.notesData).catch((err) => {
       console.warn('user context refresh failed', err);
-    }
+    });
   }, 900);
 }
 
-function fillAiContextPreview() {
+async function fillAiContextPreview() {
   if (!els.aiContextPreview) return;
-  const learned = loadUserContextMd() || refreshUserContext(state.notesData).md;
-  els.aiContextPreview.textContent =
-    composeAiMemoryMd(learned, state.settings) || '(ยังไม่มีความจำ)';
+  try {
+    const m = await loadUserContextMod();
+    const learned = m.loadUserContextMd() || m.refreshUserContext(state.notesData).md;
+    els.aiContextPreview.textContent =
+      m.composeAiMemoryMd(learned, state.settings) || '(ยังไม่มีความจำ)';
+  } catch {
+    els.aiContextPreview.textContent = '(ยังไม่มีความจำ)';
+  }
 }
 
-function currentAiMemoryMd() {
-  const learned = loadUserContextMd() || refreshUserContext(state.notesData).md;
-  return composeAiMemoryMd(learned, state.settings);
+async function currentAiMemoryMd() {
+  try {
+    const m = await loadUserContextMod();
+    const learned = m.loadUserContextMd() || m.refreshUserContext(state.notesData).md;
+    return m.composeAiMemoryMd(learned, state.settings);
+  } catch {
+    return '';
+  }
 }
 
 function renderAiTagRulesList() {
@@ -2742,7 +2785,30 @@ function getPriorityIcons() {
   return normalizePriorityIcons(state.settings?.priorityIcons || DEFAULT_PRIORITY_ICONS);
 }
 
+function getCardDisplay() {
+  return normalizeCardDisplay(state.settings?.cardDisplay || DEFAULT_CARD_DISPLAY);
+}
+
+function metaShowsText(mode) {
+  return mode === 'text' || mode === 'both';
+}
+function metaShowsIcon(mode) {
+  return mode === 'icon' || mode === 'both';
+}
+
+function priorityIconColor(prio) {
+  const display = getCardDisplay();
+  const defaults = normalizePriorityColors(state.settings.priorityColors);
+  if (display.iconColorMode === 'custom') {
+    const custom = display.priorityIconColors?.[prio];
+    if (custom) return custom;
+  }
+  return defaults[prio] || defaults.normal;
+}
+
 function cardLeadingIconHtml(note, tags) {
+  const display = getCardDisplay();
+  if (!display.leadIcon) return '';
   const firstTag = (tags || [])[0];
   const prio = notePriority(note);
   const prioIcons = getPriorityIcons();
@@ -2752,8 +2818,7 @@ function cardLeadingIconHtml(note, tags) {
     return `<span class="card-lead-icon" style="--lead:${color}" title="${escapeHtml(firstTag.name)}">${iconSvg(iconId, { size: 16, className: 'card-lead-svg' })}</span>`;
   }
   const iconId = prioIcons[prio] || DEFAULT_PRIORITY_ICONS[prio] || 'circle';
-  const prioColors = normalizePriorityColors(state.settings.priorityColors);
-  const color = prioColors[prio] || prioColors.normal;
+  const color = priorityIconColor(prio);
   return `<span class="card-lead-icon is-prio" style="--lead:${color}" title="${escapeHtml(priorityLabel(prio))}">${iconSvg(iconId, { size: 16, className: 'card-lead-svg' })}</span>`;
 }
 
@@ -2807,6 +2872,40 @@ function applyPickedIcon(iconId) {
   closeIconPicker();
 }
 
+
+function applyCardDisplaySettingsUi() {
+  const display = getCardDisplay();
+  state.settings.cardDisplay = display;
+  els.cardLeadIconSeg?.querySelectorAll('[data-card-lead]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.cardLead === (display.leadIcon ? '1' : '0'));
+  });
+  ['tag', 'priority', 'due', 'recurrence'].forEach((key) => {
+    const seg = document.querySelector(`[data-card-meta="${key}"]`);
+    seg?.querySelectorAll('[data-meta-show]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.metaShow === display[key]);
+    });
+  });
+  els.cardIconColorSeg?.querySelectorAll('[data-icon-color-mode]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.iconColorMode === display.iconColorMode);
+  });
+  if (els.cardIconColorCustom) {
+    els.cardIconColorCustom.hidden = display.iconColorMode !== 'custom';
+  }
+  const defaults = normalizePriorityColors(state.settings.priorityColors);
+  els.priorityIconColorGrid?.querySelectorAll('[data-prio-icon-color]').forEach((input) => {
+    const key = input.dataset.prioIconColor;
+    input.value = display.priorityIconColors?.[key] || defaults[key] || '#8b929a';
+  });
+}
+
+function persistCardDisplayPatch(patch) {
+  const next = normalizeCardDisplay({ ...getCardDisplay(), ...patch });
+  state.settings.cardDisplay = next;
+  saveSettings(state.settings);
+  applyCardDisplaySettingsUi();
+  renderNotesList();
+}
+
 function renderPriorityIconSettings() {
   const grid = els.priorityIconGrid;
   if (!grid) return;
@@ -2827,31 +2926,61 @@ function renderPriorityIconSettings() {
  */
 function cardMetaInlineHtml(note, tags) {
   if (state.listGroup !== NOTE_STATUS.ACTIVE) return '';
+  const display = getCardDisplay();
   const parts = [];
   const firstTag = (tags || [])[0];
-  if (firstTag) {
+  if (firstTag && display.tag !== 'off') {
+    const color = safeTagColor(firstTag.color);
+    const iconId = normalizeIconId(firstTag.icon || bestIconForLabel(firstTag.name), 'doc');
+    const iconPart = metaShowsIcon(display.tag)
+      ? `<span class="meta-ico" aria-hidden="true">${iconSvg(iconId, { size: 12, className: 'meta-ico-svg' })}</span>`
+      : '';
+    const textPart = metaShowsText(display.tag)
+      ? `<span class="meta-txt">${escapeHtml(firstTag.name)}</span>`
+      : '';
     parts.push(
-      `<span class="meta-bit meta-tag" style="--tag:${safeTagColor(firstTag.color)}" title="${escapeHtml(firstTag.name)}">${escapeHtml(firstTag.name)}</span>`,
+      `<span class="meta-bit meta-tag" style="--tag:${color}" title="${escapeHtml(firstTag.name)}">${iconPart}${textPart}</span>`,
     );
   }
   const priority = notePriority(note);
-  if (priority !== NOTE_PRIORITY.NORMAL) {
+  if (priority !== NOTE_PRIORITY.NORMAL && display.priority !== 'off') {
+    const prioIcons = getPriorityIcons();
+    const iconId = prioIcons[priority] || DEFAULT_PRIORITY_ICONS[priority] || 'circle';
+    const color = priorityIconColor(priority);
+    const iconPart = metaShowsIcon(display.priority)
+      ? `<span class="meta-ico" style="color:${color}" aria-hidden="true">${iconSvg(iconId, { size: 12, className: 'meta-ico-svg' })}</span>`
+      : '';
+    const textPart = metaShowsText(display.priority)
+      ? `<span class="meta-txt">${escapeHtml(priorityLabel(priority, { short: true }))}</span>`
+      : '';
     parts.push(
-      `<span class="meta-bit meta-prio priority-${escapeHtml(priority)}" title="${escapeHtml(priorityLabel(priority))}">${escapeHtml(priorityLabel(priority, { short: true }))}</span>`,
+      `<span class="meta-bit meta-prio priority-${escapeHtml(priority)}" style="--prio-meta:${color}" title="${escapeHtml(priorityLabel(priority))}">${iconPart}${textPart}</span>`,
     );
   }
   const recur = recurrenceLabel(note.recurrence, { short: true });
-  if (recur) {
+  if (recur && display.recurrence !== 'off') {
+    const iconPart = metaShowsIcon(display.recurrence)
+      ? `<span class="meta-ico" aria-hidden="true">${iconSvg('clock', { size: 12, className: 'meta-ico-svg' })}</span>`
+      : '';
+    const textPart = metaShowsText(display.recurrence)
+      ? `<span class="meta-txt">${escapeHtml(recur)}</span>`
+      : '';
     parts.push(
-      `<span class="meta-bit meta-recur" title="ทำซ้ำ">${escapeHtml(recur)}</span>`,
+      `<span class="meta-bit meta-recur" title="ทำซ้ำ">${iconPart}${textPart}</span>`,
     );
   }
-  if (note.scheduledAt) {
+  if (note.scheduledAt && display.due !== 'off') {
     const prox = scheduleProximity(note.scheduledAt);
     if (prox.level !== 'none' && prox.label) {
       const tip = relativeDayLabel(note.scheduledAt);
+      const iconPart = metaShowsIcon(display.due)
+        ? `<span class="meta-ico" aria-hidden="true">${iconSvg('calendar', { size: 12, className: 'meta-ico-svg' })}</span>`
+        : '';
+      const textPart = metaShowsText(display.due)
+        ? `<span class="meta-txt">${escapeHtml(prox.label)}</span>`
+        : '';
       parts.push(
-        `<span class="meta-bit meta-due due-${escapeHtml(prox.level)}" title="${escapeHtml(tip)}">${escapeHtml(prox.label)}</span>`,
+        `<span class="meta-bit meta-due due-${escapeHtml(prox.level)}" title="${escapeHtml(tip)}">${iconPart}${textPart}</span>`,
       );
     }
   }
@@ -3585,6 +3714,7 @@ function openSettings() {
   fillAiContextPreview();
   applyCameraSettingsUi();
   applyTheme();
+  applyCardDisplaySettingsUi();
   renderTagManager();
   renderPriorityIconSettings();
   applyNotifySettingsUi();
@@ -3633,11 +3763,13 @@ function openCameraSettingsFromOverlay() {
   }
 }
 
-/** @type {ReturnType<typeof createInAppCamera>|null} */
+/** @type {any} */
 let inAppCameraCtl = null;
 
-function initInAppCamera() {
+async function initInAppCamera() {
   if (!els.inAppCamera || !els.inAppCameraVideo) return;
+  if (inAppCameraCtl) return inAppCameraCtl;
+  const { createInAppCamera } = await loadCameraMod();
   inAppCameraCtl = createInAppCamera({
     root: els.inAppCamera,
     video: els.inAppCameraVideo,
@@ -3687,7 +3819,8 @@ function initInAppCamera() {
   });
 }
 
-function openInAppCameraOrFallback() {
+async function openInAppCameraOrFallback() {
+  await initInAppCamera();
   if (inAppCameraCtl) {
     inAppCameraCtl.open();
     return;
@@ -3722,7 +3855,10 @@ function fillGeminiModelSelect(selectedId) {
   const list =
     geminiModelsCache && geminiModelsCache.length
       ? geminiModelsCache
-      : FALLBACK_GEMINI_MODELS;
+      : [
+          { id: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
+          { id: 'gemini-2.5-pro', label: 'gemini-2.5-pro' },
+        ];
   sel.innerHTML = '';
   let hasWanted = false;
   list.forEach((m) => {
@@ -3756,6 +3892,7 @@ async function loadGeminiModelsFromApi() {
   if (els.geminiLoadModelsBtn) els.geminiLoadModelsBtn.disabled = true;
   if (els.geminiModelHint) els.geminiModelHint.textContent = 'กำลังโหลดโมเดลจาก API…';
   try {
+    const { listGeminiModels } = await loadGeminiMod();
     const models = await listGeminiModels(key);
     if (!models.length) {
       geminiModelsCache = null;
@@ -4972,6 +5109,7 @@ async function addAiMediaFiles(fileList) {
       break;
     }
     try {
+      const { prepareAiMedia } = await loadGeminiMod();
       const prepared = await prepareAiMedia(file);
       const index = aiPendingMedia.length;
       aiPendingMedia.push({
@@ -5021,15 +5159,21 @@ async function runAiSummarize() {
   const aiImages = aiPendingMedia.map((m) => m.aiPart).filter(Boolean);
   setAiNoteStatus(aiImages.length ? 'กำลังอ่าน…' : 'กำลังสรุป…', { kind: 'working' });
   try {
-    const ctx = refreshUserContext(state.notesData);
+    const [{ summarizeToNoteDraft }, uc] = await Promise.all([
+      loadGeminiMod(),
+      loadUserContextMod(),
+    ]);
+    const ctx = uc.refreshUserContext(state.notesData);
+    const memory =
+      (await currentAiMemoryMd()) || ctx.md || uc.loadUserContextMd() || '';
     let draft = await summarizeToNoteDraft(apiKey, combined || source, {
       model: state.settings.geminiModel,
       existingTags: state.notesData.tags || [],
       images: aiImages,
-      userContextMd: currentAiMemoryMd() || ctx.md || loadUserContextMd(),
+      userContextMd: memory,
       now: new Date(),
     });
-    draft = refineDraftWithContext(
+    draft = uc.refineDraftWithContext(
       draft,
       state.notesData,
       `${combined}\n${draft.title || ''}\n${draft.summary || ''}`,
@@ -5565,7 +5709,7 @@ function paintNotesFromLocal(data) {
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
-  try { refreshUserContext(state.notesData); } catch {}
+  refreshUserContextLazy(state.notesData);
   applyTheme();
   applyCardDensity();
   applyDockScale();
@@ -5591,7 +5735,7 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   state.online = result.online;
   state.syncBaseUpdatedAt = merged?.updatedAt || result.data?.updatedAt || null;
   saveNotes(state.notesData);
-  try { refreshUserContext(state.notesData); } catch {}
+  refreshUserContextLazy(state.notesData);
 
   const didScheduleSnap =
     (localVerBefore != null && localVerBefore < 5) || Boolean(result.scheduleSnap);
@@ -5924,11 +6068,45 @@ async function init() {
   els.aiProfile?.addEventListener('change', persistAiProfileFromUi);
   els.aiProfile?.addEventListener('blur', persistAiProfileFromUi);
   els.aiTagRuleForm?.addEventListener('submit', addAiTagRuleFromForm);
-  els.aiContextRefreshBtn?.addEventListener('click', () => {
+  els.aiContextRefreshBtn?.addEventListener('click', async () => {
     persistAiProfileFromUi();
-    const ctx = refreshUserContext(state.notesData);
-    fillAiContextPreview();
-    setStatus(`รีเฟรชความจำแล้ว · แท็ก ${ctx.tagCount} · โน้ต ${ctx.noteCount}`);
+    const ctx = await refreshUserContextLazy(state.notesData);
+    await fillAiContextPreview();
+    setStatus(`รีเฟรชความจำแล้ว · แท็ก ${ctx.tagCount || 0} · โน้ต ${ctx.noteCount || 0}`);
+  });
+
+
+  els.cardLeadIconSeg?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-card-lead]');
+    if (!btn) return;
+    persistCardDisplayPatch({ leadIcon: btn.dataset.cardLead === '1' });
+  });
+  document.querySelectorAll('[data-card-meta]').forEach((seg) => {
+    seg.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-meta-show]');
+      if (!btn || !seg.contains(btn)) return;
+      const key = seg.dataset.cardMeta;
+      if (!key) return;
+      persistCardDisplayPatch({ [key]: btn.dataset.metaShow });
+    });
+  });
+  els.cardIconColorSeg?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-icon-color-mode]');
+    if (!btn) return;
+    persistCardDisplayPatch({ iconColorMode: btn.dataset.iconColorMode });
+  });
+  els.priorityIconColorGrid?.addEventListener('input', (e) => {
+    const input = e.target.closest('[data-prio-icon-color]');
+    if (!input) return;
+    const key = input.dataset.prioIconColor;
+    const cur = getCardDisplay();
+    persistCardDisplayPatch({
+      iconColorMode: 'custom',
+      priorityIconColors: {
+        ...cur.priorityIconColors,
+        [key]: input.value,
+      },
+    });
   });
 
   els.priorityIconGrid?.addEventListener('click', (e) => {

@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="146">
-  <meta name="pnote-built" content="2026-08-05T10:00:00+07:00">
+  <meta name="pnote-build" content="147">
+  <meta name="pnote-built" content="2026-08-05T10:30:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=146"></script>
+  <script src="js/cache-bootstrap.js?v=147"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=146">
+  <link rel="stylesheet" href="css/pnote.css?v=147">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -301,7 +301,85 @@
       <div class="settings-panel" role="dialog" aria-labelledby="settings-title">
         <h2 id="settings-title">ตั้งค่า</h2>
 
-        <details class="settings-group" id="tags-settings-row" open>
+        <details class="settings-group" id="card-display-settings-row" open>
+          <summary class="settings-group-summary">กล่องงาน · แสดงอะไร</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-tight">
+              <span class="settings-label">ไอคอนนำหน้า</span>
+              <div class="segmented" id="card-lead-icon-seg">
+                <button type="button" data-card-lead="0">ปิด</button>
+                <button type="button" data-card-lead="1" class="active">เปิด</button>
+              </div>
+            </div>
+            <div class="settings-row settings-row-tight">
+              <span class="settings-label">แท็ก</span>
+              <div class="segmented segmented-wrap" data-card-meta="tag" id="card-meta-tag-seg">
+                <button type="button" data-meta-show="off">ปิด</button>
+                <button type="button" data-meta-show="text">ข้อความ</button>
+                <button type="button" data-meta-show="icon">ไอคอน</button>
+                <button type="button" data-meta-show="both" class="active">ทั้งคู่</button>
+              </div>
+            </div>
+            <div class="settings-row settings-row-tight">
+              <span class="settings-label">ความสำคัญ</span>
+              <div class="segmented segmented-wrap" data-card-meta="priority" id="card-meta-priority-seg">
+                <button type="button" data-meta-show="off">ปิด</button>
+                <button type="button" data-meta-show="text" class="active">ข้อความ</button>
+                <button type="button" data-meta-show="icon">ไอคอน</button>
+                <button type="button" data-meta-show="both">ทั้งคู่</button>
+              </div>
+            </div>
+            <div class="settings-row settings-row-tight">
+              <span class="settings-label">วัน / กำหนด</span>
+              <div class="segmented segmented-wrap" data-card-meta="due" id="card-meta-due-seg">
+                <button type="button" data-meta-show="off">ปิด</button>
+                <button type="button" data-meta-show="text" class="active">ข้อความ</button>
+                <button type="button" data-meta-show="icon">ไอคอน</button>
+                <button type="button" data-meta-show="both">ทั้งคู่</button>
+              </div>
+            </div>
+            <div class="settings-row settings-row-tight">
+              <span class="settings-label">ทำซ้ำ</span>
+              <div class="segmented segmented-wrap" data-card-meta="recurrence" id="card-meta-recurrence-seg">
+                <button type="button" data-meta-show="off">ปิด</button>
+                <button type="button" data-meta-show="text" class="active">ข้อความ</button>
+                <button type="button" data-meta-show="icon">ไอคอน</button>
+                <button type="button" data-meta-show="both">ทั้งคู่</button>
+              </div>
+            </div>
+            <div class="settings-row settings-row-tight">
+              <span class="settings-label">สีไอคอน</span>
+              <div class="segmented" id="card-icon-color-seg">
+                <button type="button" data-icon-color-mode="auto" class="active">อัตโนมัติ</button>
+                <button type="button" data-icon-color-mode="custom">กำหนดเอง</button>
+              </div>
+              <p class="settings-hint">อัตโนมัติ = ตามสีแท็ก / สีความสำคัญ</p>
+            </div>
+            <div class="settings-row settings-row-last" id="card-icon-color-custom" hidden>
+              <span class="settings-label">สีไอคอนความสำคัญ</span>
+              <div class="box-color-grid" id="priority-icon-color-grid" aria-label="สีไอคอนความสำคัญ">
+                <label class="box-color-row" for="icon-color-critical">
+                  <span>สำคัญเร่งด่วน</span>
+                  <input id="icon-color-critical" type="color" data-prio-icon-color="critical" value="#ef4444">
+                </label>
+                <label class="box-color-row" for="icon-color-important">
+                  <span>สำคัญ</span>
+                  <input id="icon-color-important" type="color" data-prio-icon-color="important" value="#f59e0b">
+                </label>
+                <label class="box-color-row" for="icon-color-urgent">
+                  <span>เร่งด่วน</span>
+                  <input id="icon-color-urgent" type="color" data-prio-icon-color="urgent" value="#06b6d4">
+                </label>
+                <label class="box-color-row" for="icon-color-normal">
+                  <span>ทั่วไป</span>
+                  <input id="icon-color-normal" type="color" data-prio-icon-color="normal" value="#8b929a">
+                </label>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="settings-group" id="tags-settings-row">
           <summary class="settings-group-summary">แท็ก · ไอคอน</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-tags">
@@ -703,7 +781,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/app.js?v=146"></script>
-  <script src="js/update-watch.js?v=146"></script>
+  <script type="module" src="js/app.js?v=147"></script>
+  <script src="js/update-watch.js?v=147"></script>
 </body>
 </html>

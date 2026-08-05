@@ -1,7 +1,7 @@
 import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=116';
 import { normalizeSheetBlocks } from './sheet.js?v=137';
 import { normalizeTextPrefs } from './note-text.js?v=142';
-import { bestIconForLabel, normalizeIconId } from './icons.js?v=146';
+import { bestIconForLabel, normalizeIconId } from './icons.js?v=147';
 
 export const TAG_PALETTE = [
   '#6c63ff',

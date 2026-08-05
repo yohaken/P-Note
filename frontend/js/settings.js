@@ -4,7 +4,7 @@ import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
 } from './schedule.js?v=122';
-import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=146';
+import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=147';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -24,6 +24,28 @@ const CAMERA_QUALITIES = ['max', 'high', 'medium'];
 const CAMERA_FACINGS = ['environment', 'user'];
 
 export const DEFAULT_FILTER_ORDER = ['due', 'sort', 'priority', 'recurrence'];
+
+export const META_SHOW_MODES = ['off', 'text', 'icon', 'both'];
+
+/** What to show inside work cards (meta row + lead icon). */
+export const DEFAULT_CARD_DISPLAY = {
+  leadIcon: true,
+  tag: 'both',
+  priority: 'text',
+  due: 'text',
+  recurrence: 'text',
+  iconColorMode: 'auto', // auto | custom
+  priorityIconColors: {
+    critical: null,
+    important: null,
+    urgent: null,
+    normal: null,
+  },
+};
+
+export function normalizeMetaShow(value, fallback = 'text') {
+  return META_SHOW_MODES.includes(value) ? value : fallback;
+}
 
 /** Fixed chrome — no user UI customization (avoids broken desktop/mobile layouts). */
 export const FIXED_UI = {
@@ -74,6 +96,8 @@ const DEFAULTS = {
   listShowContent: false,
   /** Leading icons for priority levels on work cards */
   priorityIcons: { ...DEFAULT_PRIORITY_ICONS },
+  /** Work-card meta visibility / icon mode */
+  cardDisplay: { ...DEFAULT_CARD_DISPLAY, priorityIconColors: { ...DEFAULT_CARD_DISPLAY.priorityIconColors } },
   /** Last opened workspace id (legacy device key) */
   lastWorkspaceId: null,
   /** 'work' = งานหลัก · 'note' = Note (plain notepad pages) */
@@ -98,6 +122,7 @@ function withFixedUi(settings) {
     dueColors: { ...DEFAULT_DUE_COLORS },
     listShowContent: FIXED_UI.listShowContent,
     priorityIcons: normalizePriorityIcons(settings.priorityIcons),
+    cardDisplay: normalizeCardDisplay(settings.cardDisplay),
   };
 }
 
@@ -148,6 +173,32 @@ export function normalizeDueColors(raw) {
 }
 
 /** @returns {'max'|'high'|'medium'} */
+
+export function normalizeCardDisplay(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const pc = src.priorityIconColors && typeof src.priorityIconColors === 'object'
+    ? src.priorityIconColors
+    : {};
+  const colorOrNull = (value, fallback) => {
+    if (value == null || value === '') return null;
+    return safeHexColor(value, fallback);
+  };
+  return {
+    leadIcon: src.leadIcon !== false,
+    tag: normalizeMetaShow(src.tag, DEFAULT_CARD_DISPLAY.tag),
+    priority: normalizeMetaShow(src.priority, DEFAULT_CARD_DISPLAY.priority),
+    due: normalizeMetaShow(src.due, DEFAULT_CARD_DISPLAY.due),
+    recurrence: normalizeMetaShow(src.recurrence, DEFAULT_CARD_DISPLAY.recurrence),
+    iconColorMode: src.iconColorMode === 'custom' ? 'custom' : 'auto',
+    priorityIconColors: {
+      critical: colorOrNull(pc.critical, DEFAULT_PRIORITY_COLORS.critical),
+      important: colorOrNull(pc.important, DEFAULT_PRIORITY_COLORS.important),
+      urgent: colorOrNull(pc.urgent, DEFAULT_PRIORITY_COLORS.urgent),
+      normal: colorOrNull(pc.normal, DEFAULT_PRIORITY_COLORS.normal),
+    },
+  };
+}
+
 export function normalizeCameraQuality(value) {
   return CAMERA_QUALITIES.includes(value) ? value : 'max';
 }
