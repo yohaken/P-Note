@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="143">
-  <meta name="pnote-built" content="2026-08-03T21:40:00+07:00">
-  <meta name="theme-color" content="#f7f3ec">
+  <meta name="pnote-build" content="144">
+  <meta name="pnote-built" content="2026-08-05T09:20:00+07:00">
+  <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=143"></script>
+  <script src="js/cache-bootstrap.js?v=144"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=143">
+  <link rel="stylesheet" href="css/pnote.css?v=144">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -80,67 +80,76 @@
       </header>
       <div class="editor-body">
         <input id="note-title" class="note-title" type="text" placeholder="หัวข้อโน้ต" autocomplete="off">
-        <div class="schedule-field">
-          <span class="schedule-label">ทำซ้ำประจำ</span>
-          <div id="editor-recurrence" class="editor-recurrence" aria-label="ทำซ้ำประจำ"></div>
-          <label class="schedule-label" for="note-schedule">กำหนดวันที่</label>
-          <div class="schedule-input-row">
-            <input id="note-schedule" class="note-schedule" type="datetime-local">
-            <button id="clear-schedule-btn" class="btn btn-text" type="button">ล้าง</button>
-          </div>
-          <details class="notify-details" id="note-notify-details">
-            <summary class="notify-details-summary">
-              <span>แจ้งเตือน</span>
-              <span class="notify-details-preview" id="note-notify-preview">ปิดอยู่</span>
-            </summary>
-            <div class="notify-details-body">
-              <label class="schedule-label" for="note-remind-before">เตือนก่อน</label>
-              <select id="note-remind-before" class="note-remind-before" aria-label="แจ้งเตือนก่อนกำหนด">
-                <option value="default">ตามตั้งค่าแอป</option>
-                <option value="at">ตรงเวลา</option>
-                <option value="5m">ก่อน 5 นาที</option>
-                <option value="15m">ก่อน 15 นาที</option>
-                <option value="30m">ก่อน 30 นาที</option>
-                <option value="1h">ก่อน 1 ชั่วโมง</option>
-                <option value="2h">ก่อน 2 ชั่วโมง</option>
-                <option value="1d">ก่อน 1 วัน</option>
-                <option value="2d">ก่อน 2 วัน</option>
-                <option value="1w">ก่อน 1 สัปดาห์</option>
-                <option value="2w">ก่อน 2 สัปดาห์</option>
-                <option value="1mo">ก่อน 1 เดือน</option>
-              </select>
-              <label class="schedule-label" for="note-notify-repeat">แจ้งเตือนซ้ำ</label>
-              <select id="note-notify-repeat" class="note-remind-before" aria-label="แจ้งเตือนซ้ำ"></select>
-              <p class="settings-hint schedule-remind-hint">
-                ทำซ้ำประจำ = รอบงานถัดไปเมื่อทำแล้ว · แจ้งเตือนซ้ำ = เตือนย้ำจนกว่าเสร็จ · เปิดแจ้งเตือนเครื่องในตั้งค่าด้วย
-              </p>
+
+        <section class="form-module" aria-label="กำหนดเวลา">
+          <div class="schedule-field">
+            <span class="schedule-label">ทำซ้ำประจำ</span>
+            <div id="editor-recurrence" class="editor-recurrence" aria-label="ทำซ้ำประจำ"></div>
+            <label class="schedule-label" for="note-schedule">กำหนดวันที่</label>
+            <div class="schedule-input-row">
+              <input id="note-schedule" class="note-schedule" type="datetime-local">
+              <button id="clear-schedule-btn" class="btn btn-text" type="button">ล้าง</button>
             </div>
-          </details>
-        </div>
-        <div class="priority-field">
-          <span class="schedule-label">ความสำคัญ</span>
-          <div id="editor-priority" class="editor-priority" aria-label="ระดับความสำคัญ"></div>
-        </div>
-        <div id="editor-tags" class="editor-tags" aria-label="แท็กของโน้ต"></div>
-        <div class="notepad-content-stack" id="notepad-content-stack">
-          <div class="note-text-bar" id="note-text-bar" hidden aria-label="ปรับข้อความโน้ต">
-            <button type="button" class="note-text-btn" id="note-text-smaller" aria-label="ตัวอักษรเล็กลง" title="เล็กลง">A−</button>
-            <button type="button" class="note-text-btn" id="note-text-larger" aria-label="ตัวอักษรใหญ่ขึ้น" title="ใหญ่ขึ้น">A+</button>
-            <button type="button" class="note-text-btn note-text-code-btn" id="note-text-code" aria-pressed="false" title="โหมดโค้ด · Tab เยื้องบรรทัด">โค้ด</button>
-            <span class="note-text-bar-sep" aria-hidden="true"></span>
-            <button type="button" class="note-text-btn note-text-tab-btn" id="note-text-tab-2" data-tab-width="2" aria-pressed="true" title="Tab = 2">2</button>
-            <button type="button" class="note-text-btn note-text-tab-btn" id="note-text-tab-4" data-tab-width="4" aria-pressed="false" title="Tab = 4">4</button>
+            <details class="notify-details" id="note-notify-details">
+              <summary class="notify-details-summary">
+                <span>แจ้งเตือน</span>
+                <span class="notify-details-preview" id="note-notify-preview">ปิดอยู่</span>
+              </summary>
+              <div class="notify-details-body">
+                <label class="schedule-label" for="note-remind-before">เตือนก่อน</label>
+                <select id="note-remind-before" class="note-remind-before" aria-label="แจ้งเตือนก่อนกำหนด">
+                  <option value="default">ตามตั้งค่าแอป</option>
+                  <option value="at">ตรงเวลา</option>
+                  <option value="5m">ก่อน 5 นาที</option>
+                  <option value="15m">ก่อน 15 นาที</option>
+                  <option value="30m">ก่อน 30 นาที</option>
+                  <option value="1h">ก่อน 1 ชั่วโมง</option>
+                  <option value="2h">ก่อน 2 ชั่วโมง</option>
+                  <option value="1d">ก่อน 1 วัน</option>
+                  <option value="2d">ก่อน 2 วัน</option>
+                  <option value="1w">ก่อน 1 สัปดาห์</option>
+                  <option value="2w">ก่อน 2 สัปดาห์</option>
+                  <option value="1mo">ก่อน 1 เดือน</option>
+                </select>
+                <label class="schedule-label" for="note-notify-repeat">แจ้งเตือนซ้ำ</label>
+                <select id="note-notify-repeat" class="note-remind-before" aria-label="แจ้งเตือนซ้ำ"></select>
+                <p class="settings-hint schedule-remind-hint">
+                  ทำซ้ำประจำ = รอบงานถัดไปเมื่อทำแล้ว · แจ้งเตือนซ้ำ = เตือนย้ำจนกว่าเสร็จ · เปิดแจ้งเตือนเครื่องในตั้งค่าด้วย
+                </p>
+              </div>
+            </details>
           </div>
-          <textarea id="note-content" class="note-content" placeholder="พิมพ์โน้ตของคุณ..." spellcheck="true"></textarea>
-          <div id="notepad-sheet-blocks" class="notepad-sheet-blocks" aria-label="ตารางคำนวณในโน้ต"></div>
-          <button type="button" class="notepad-add-sheet-btn" id="notepad-add-sheet-btn" hidden>
-            ＋ เพิ่มตารางคำนวณ
-          </button>
-          <p class="notepad-sheet-hint" id="notepad-sheet-hint" hidden>
-            กดเพิ่มเมื่อต้องการ · สูตรเช่น <code>=A1+B1</code> · <code>=A1*B1</code> · <code>=SUM(A1:A10)</code>
-          </p>
-        </div>
-        <div id="note-attachments" class="note-attachments" aria-label="ไฟล์แนบ"></div>
+        </section>
+
+        <section class="form-module" aria-label="ความสำคัญและแท็ก">
+          <div class="priority-field">
+            <span class="schedule-label">ความสำคัญ</span>
+            <div id="editor-priority" class="editor-priority" aria-label="ระดับความสำคัญ"></div>
+          </div>
+          <div id="editor-tags" class="editor-tags" aria-label="แท็กของโน้ต"></div>
+        </section>
+
+        <section class="form-module form-module-content" aria-label="เนื้อหา">
+          <div class="notepad-content-stack" id="notepad-content-stack">
+            <div class="note-text-bar" id="note-text-bar" hidden aria-label="ปรับข้อความโน้ต">
+              <button type="button" class="note-text-btn" id="note-text-smaller" aria-label="ตัวอักษรเล็กลง" title="เล็กลง">A−</button>
+              <button type="button" class="note-text-btn" id="note-text-larger" aria-label="ตัวอักษรใหญ่ขึ้น" title="ใหญ่ขึ้น">A+</button>
+              <button type="button" class="note-text-btn note-text-code-btn" id="note-text-code" aria-pressed="false" title="โหมดโค้ด · Tab เยื้องบรรทัด">โค้ด</button>
+              <span class="note-text-bar-sep" aria-hidden="true"></span>
+              <button type="button" class="note-text-btn note-text-tab-btn" id="note-text-tab-2" data-tab-width="2" aria-pressed="true" title="Tab = 2">2</button>
+              <button type="button" class="note-text-btn note-text-tab-btn" id="note-text-tab-4" data-tab-width="4" aria-pressed="false" title="Tab = 4">4</button>
+            </div>
+            <textarea id="note-content" class="note-content" placeholder="พิมพ์โน้ตของคุณ..." spellcheck="true"></textarea>
+            <div id="notepad-sheet-blocks" class="notepad-sheet-blocks" aria-label="ตารางคำนวณในโน้ต"></div>
+            <button type="button" class="notepad-add-sheet-btn" id="notepad-add-sheet-btn" hidden>
+              ＋ เพิ่มตารางคำนวณ
+            </button>
+            <p class="notepad-sheet-hint" id="notepad-sheet-hint" hidden>
+              กดเพิ่มเมื่อต้องการ · สูตรเช่น <code>=A1+B1</code> · <code>=A1*B1</code> · <code>=SUM(A1:A10)</code>
+            </p>
+          </div>
+          <div id="note-attachments" class="note-attachments" aria-label="ไฟล์แนบ"></div>
+        </section>
       </div>
       <footer class="editor-footer">
         <button id="delete-btn" class="trash-mini-btn" type="button" aria-label="ย้ายโน้ตไปถังขยะ" title="ย้ายไปถังขยะ">ลบ</button>
@@ -288,50 +297,7 @@
       <div class="settings-panel" role="dialog" aria-labelledby="settings-title">
         <h2 id="settings-title">ตั้งค่า</h2>
 
-        <details class="settings-group" open>
-          <summary class="settings-group-summary">ทั่วไป · หน้าจอ</summary>
-          <div class="settings-group-body">
-            <div class="settings-row settings-row-tight">
-              <span class="settings-label">ธีม</span>
-              <div class="segmented" id="theme-segmented">
-                <button id="theme-dark-btn" type="button" class="active">มืด</button>
-                <button id="theme-light-btn" type="button">สว่าง</button>
-              </div>
-            </div>
-            <div class="settings-row settings-row-tight">
-              <span class="settings-label">รายการโน้ต</span>
-              <div class="segmented" id="list-preview-segmented">
-                <button id="list-preview-title-btn" type="button" class="active" data-list-preview="0">เฉพาะหัวข้อ</button>
-                <button id="list-preview-content-btn" type="button" data-list-preview="1">หัวข้อ + เนื้อหา</button>
-              </div>
-              <p class="settings-hint">ค่าเริ่มต้นแสดงเฉพาะหัวข้อ · เปิดเนื้อหาได้เมื่อต้องการ</p>
-              <span class="settings-label" style="margin-top:0.65rem">ลำดับตัวกรองแถบล่าง (ซ้าย → ขวา)</span>
-              <p class="settings-hint" style="margin-top:0.2rem">เลื่อน ↑↓ เพื่อจัดเอง · จดจำอัตโนมัติ</p>
-              <div id="filter-order-list" class="fab-order-list" aria-label="ลำดับตัวกรอง"></div>
-            </div>
-            <div class="settings-row settings-row-tight">
-              <label class="settings-label" for="card-density-slider">ความหนาแน่นการ์ดโน้ต</label>
-              <input id="card-density-slider" type="range" min="0" max="100" value="70" step="5">
-            </div>
-            <div class="settings-row settings-row-tight">
-              <label class="settings-label" for="dock-scale-slider">ขนาดปุ่มแถบล่าง</label>
-              <input id="dock-scale-slider" type="range" min="0" max="100" value="50" step="5">
-              <p class="settings-hint">เลื่อนเพื่อดูขนาดจริง · จัดกลางจอ</p>
-              <div class="dock-scale-preview" id="dock-scale-preview" aria-hidden="true">
-                <span class="dock-scale-preview-chip">ล่าสุด</span>
-                <span class="dock-scale-preview-chip">ความสำคัญ</span>
-                <span class="dock-scale-preview-chip">การซ้ำ</span>
-              </div>
-            </div>
-            <div class="settings-row settings-row-tight settings-row-last">
-              <label class="settings-label" for="dock-offset-y-slider">ตำแหน่งแถบล่าง (บน–ล่าง)</label>
-              <input id="dock-offset-y-slider" type="range" min="0" max="100" value="70" step="5">
-              <p class="settings-hint">เลื่อนขวา = ดันลงใกล้ขอบจอ · ใช้พื้นที่ว่างด้านล่าง</p>
-            </div>
-          </div>
-        </details>
-
-        <details class="settings-group" id="tags-settings-row">
+        <details class="settings-group" id="tags-settings-row" open>
           <summary class="settings-group-summary">แท็ก · ตัวกรอง</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-row-last settings-tags">
@@ -341,74 +307,6 @@
                 <button id="add-tag-btn" class="btn btn-primary" type="submit">เพิ่ม</button>
               </form>
               <div id="tag-manager-list" class="tag-manager-list" aria-label="รายการแท็ก"></div>
-            </div>
-          </div>
-        </details>
-
-        <details class="settings-group" id="box-colors-settings-row">
-          <summary class="settings-group-summary">สีกล่องรายการ</summary>
-          <div class="settings-group-body">
-            <div class="settings-row settings-row-last">
-              <p class="settings-hint" style="margin-top:0">
-                กำหนดสีกล่องในรายการโน้ต · แท็กซ้าย · เนื้อหาตามความสำคัญ · ขวาตามระยะเวลาที่ใกล้เข้ามา
-              </p>
-
-              <span class="settings-label">ความสำคัญ (กล่องกลาง)</span>
-              <div class="box-color-grid" id="priority-color-grid" aria-label="สีความสำคัญ">
-                <label class="box-color-row" for="color-priority-critical">
-                  <span>สำคัญเร่งด่วน</span>
-                  <input id="color-priority-critical" type="color" data-priority-color="critical" value="#ef4444">
-                </label>
-                <label class="box-color-row" for="color-priority-important">
-                  <span>สำคัญ</span>
-                  <input id="color-priority-important" type="color" data-priority-color="important" value="#f59e0b">
-                </label>
-                <label class="box-color-row" for="color-priority-urgent">
-                  <span>เร่งด่วน</span>
-                  <input id="color-priority-urgent" type="color" data-priority-color="urgent" value="#06b6d4">
-                </label>
-                <label class="box-color-row" for="color-priority-normal">
-                  <span>ทั่วไป</span>
-                  <input id="color-priority-normal" type="color" data-priority-color="normal" value="#8b929a">
-                </label>
-              </div>
-
-              <span class="settings-label" style="margin-top:0.75rem">ระยะเวลาที่ใกล้เข้ามา (กล่องขวา)</span>
-              <div class="box-color-grid" id="due-color-grid" aria-label="สีระยะเวลา">
-                <label class="box-color-row" for="color-due-far">
-                  <span>ไกล</span>
-                  <input id="color-due-far" type="color" data-due-color="far" value="#6b8f71">
-                </label>
-                <label class="box-color-row" for="color-due-mid">
-                  <span>ใกล้ขึ้น</span>
-                  <input id="color-due-mid" type="color" data-due-color="mid" value="#c4a035">
-                </label>
-                <label class="box-color-row" for="color-due-near">
-                  <span>ใกล้มาก</span>
-                  <input id="color-due-near" type="color" data-due-color="near" value="#e0893a">
-                </label>
-                <label class="box-color-row" for="color-due-today">
-                  <span>วันนี้</span>
-                  <input id="color-due-today" type="color" data-due-color="today" value="#e85d2c">
-                </label>
-                <label class="box-color-row" for="color-due-overdue">
-                  <span>เลยกำหนด</span>
-                  <input id="color-due-overdue" type="color" data-due-color="overdue" value="#e23b2e">
-                </label>
-              </div>
-
-              <span class="settings-label" style="margin-top:0.75rem">แท็ก (กล่องซ้าย)</span>
-              <p class="settings-hint">
-                สีแท็กกำหนดรายตัวที่หมวด <strong>แท็ก · ตัวกรอง</strong> · กล่องซ้ายใช้สีนั้นโดยตรง
-              </p>
-              <button id="goto-tag-colors-btn" class="btn btn-secondary" type="button">ไปตั้งสีแท็ก</button>
-
-              <div class="box-color-preview" aria-hidden="true">
-                <div class="box-color-preview-col is-tag">แท็ก</div>
-                <div class="box-color-preview-col is-body">เนื้อหา</div>
-                <div class="box-color-preview-col is-due">ใกล้</div>
-              </div>
-              <button id="reset-box-colors-btn" class="btn btn-secondary" type="button" style="margin-top:0.55rem">รีเซ็ตสีเริ่มต้น</button>
             </div>
           </div>
         </details>
@@ -492,14 +390,6 @@
             </div>
           </div>
         </details>
-
-        <div class="settings-row" hidden>
-          <input id="thickness-sort" type="range" min="0" max="100" value="0" step="1" hidden>
-          <input id="thickness-tag" type="range" min="0" max="100" value="0" step="1" hidden>
-          <input id="thickness-priority" type="range" min="0" max="100" value="0" step="1" hidden>
-          <input id="thickness-recurrence" type="range" min="0" max="100" value="0" step="1" hidden>
-          <button id="reset-bars-btn" type="button" hidden>รีเซ็ตตำแหน่งแถบ</button>
-        </div>
 
         <details class="settings-group" id="gemini-settings-row">
           <summary class="settings-group-summary">Gemini AI</summary>
@@ -792,7 +682,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/app.js?v=143"></script>
-  <script src="js/update-watch.js?v=143"></script>
+  <script type="module" src="js/app.js?v=144"></script>
+  <script src="js/update-watch.js?v=144"></script>
 </body>
 </html>

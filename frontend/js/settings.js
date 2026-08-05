@@ -24,11 +24,25 @@ const CAMERA_FACINGS = ['environment', 'user'];
 
 export const DEFAULT_FILTER_ORDER = ['due', 'sort', 'priority', 'recurrence'];
 
-const DEFAULTS = {
+/** Fixed chrome — no user UI customization (avoids broken desktop/mobile layouts). */
+export const FIXED_UI = {
   theme: 'light',
   cardDensity: 70,
-  dockScale: 38,
-  dockOffsetY: 70,
+  dockScale: 50,
+  dockOffsetY: 85,
+  fabOrder: [...DEFAULT_FAB_ORDER],
+  filterOrder: [...DEFAULT_FILTER_ORDER],
+  barThickness: { sort: 0, tag: 0, priority: 0, recurrence: 0 },
+  priorityColors: null, // resolved to DEFAULT_PRIORITY_COLORS on load
+  dueColors: null, // resolved to DEFAULT_DUE_COLORS on load
+  listShowContent: false,
+};
+
+const DEFAULTS = {
+  theme: FIXED_UI.theme,
+  cardDensity: FIXED_UI.cardDensity,
+  dockScale: FIXED_UI.dockScale,
+  dockOffsetY: FIXED_UI.dockOffsetY,
   fabOrder: [...DEFAULT_FAB_ORDER],
   filterOrder: [...DEFAULT_FILTER_ORDER],
   sortMode: 'updated',
@@ -36,7 +50,7 @@ const DEFAULTS = {
   priorityFilter: null,
   recurrenceFilter: null,
   tagOrder: [],
-  barThickness: { sort: 0, tag: 0, priority: 0, recurrence: 0 },
+  barThickness: { ...FIXED_UI.barThickness },
   notificationsEnabled: false,
   notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
   /** Google AI Studio key — stored on this device only */
@@ -50,12 +64,12 @@ const DEFAULTS = {
   cameraSaveToDevice: true,
   cameraFacing: 'environment',
   cameraQuality: 'max',
-  /** List box colors — user-defined */
+  /** List box colors — locked to defaults */
   priorityColors: null,
   dueColors: null,
   /** Month intervals offered in ทำซ้ำ / แจ้งเตือนซ้ำ (e.g. 3,5,6) */
   notifyMonthPresets: [3, 5, 6],
-  /** List cards: false = title only (default), true = title + content preview */
+  /** List cards: title only (fixed) */
   listShowContent: false,
   /** Last opened workspace id (legacy device key) */
   lastWorkspaceId: null,
@@ -66,6 +80,22 @@ const DEFAULTS = {
   /** Recent notepad ids for bottom quick-title bar (most recent first) */
   recentNotepadIds: [],
 };
+
+function withFixedUi(settings) {
+  return {
+    ...settings,
+    theme: FIXED_UI.theme,
+    cardDensity: FIXED_UI.cardDensity,
+    dockScale: FIXED_UI.dockScale,
+    dockOffsetY: FIXED_UI.dockOffsetY,
+    fabOrder: [...FIXED_UI.fabOrder],
+    filterOrder: [...FIXED_UI.filterOrder],
+    barThickness: { ...FIXED_UI.barThickness },
+    priorityColors: { ...DEFAULT_PRIORITY_COLORS },
+    dueColors: { ...DEFAULT_DUE_COLORS },
+    listShowContent: FIXED_UI.listShowContent,
+  };
+}
 
 export const DEFAULT_PRIORITY_COLORS = {
   normal: '#8b929a',
@@ -275,55 +305,34 @@ export function loadSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (!raw) {
-      return {
+      return withFixedUi({
         ...DEFAULTS,
         tagOrder: [],
-        barThickness: { ...DEFAULTS.barThickness },
         barLayout: [...DEFAULT_BAR_LAYOUT],
         notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
         geminiApiKey: '',
         geminiModel: DEFAULTS.geminiModel,
         aiProfile: '',
         aiTagRules: [],
-        dockScale: DEFAULTS.dockScale,
-        dockOffsetY: DEFAULTS.dockOffsetY,
-        fabOrder: [...DEFAULT_FAB_ORDER],
-        filterOrder: [...DEFAULT_FILTER_ORDER],
         cameraSaveToDevice: true,
         cameraFacing: 'environment',
         cameraQuality: 'max',
-        priorityColors: { ...DEFAULT_PRIORITY_COLORS },
-        dueColors: { ...DEFAULT_DUE_COLORS },
         notifyMonthPresets: [3, 5, 6],
-        listShowContent: false,
         lastWorkspaceId: null,
         appMode: 'work',
         lastNotepadId: null,
         recentNotepadIds: [],
-      };
+      });
     }
     const parsed = JSON.parse(raw);
-    const bt = parsed.barThickness || {};
     const notifyPrefs = normalizeNotifyPrefs(parsed.notifyPrefs, parsed.notificationsEnabled);
-    return {
-      theme: parsed.theme === 'light' ? 'light' : 'dark',
-      cardDensity: clampPct(parsed.cardDensity, DEFAULTS.cardDensity),
-      dockScale: clampPct(parsed.dockScale, 50),
-      dockOffsetY: clampPct(parsed.dockOffsetY, 70),
-      fabOrder: normalizeFabOrder(parsed.fabOrder),
-      filterOrder: normalizeFilterOrder(parsed.filterOrder),
+    return withFixedUi({
       sortMode: SORT_MODES.includes(parsed.sortMode) ? parsed.sortMode : 'updated',
       tagFilterId: normalizeTagFilterId(parsed.tagFilterId),
       priorityFilter: normalizePriorityFilter(parsed.priorityFilter),
       recurrenceFilter: normalizeRecurrenceFilterSetting(parsed.recurrenceFilter),
       dueScope: ['today', 'soon', 'overdue'].includes(parsed.dueScope) ? parsed.dueScope : null,
       tagOrder: normalizeTagOrder(parsed.tagOrder),
-      barThickness: {
-        sort: clampPct(bt.sort),
-        tag: clampPct(bt.tag),
-        priority: clampPct(bt.priority),
-        recurrence: clampPct(bt.recurrence),
-      },
       barLayout: normalizeLayout(parsed.barLayout),
       notificationsEnabled: notifyPrefs.enabled,
       notifyPrefs,
@@ -334,20 +343,16 @@ export function loadSettings() {
       cameraSaveToDevice: normalizeCameraSaveToDevice(parsed.cameraSaveToDevice),
       cameraFacing: normalizeCameraFacing(parsed.cameraFacing),
       cameraQuality: normalizeCameraQuality(parsed.cameraQuality),
-      priorityColors: normalizePriorityColors(parsed.priorityColors),
-      dueColors: normalizeDueColors(parsed.dueColors),
       notifyMonthPresets: normalizeMonthPresets(parsed.notifyMonthPresets),
-      listShowContent: parsed.listShowContent === true,
       lastWorkspaceId: parsed.lastWorkspaceId ? String(parsed.lastWorkspaceId) : null,
       appMode: parsed.appMode === 'note' ? 'note' : 'work',
       lastNotepadId: parsed.lastNotepadId ? String(parsed.lastNotepadId) : null,
       recentNotepadIds: normalizeRecentNotepadIds(parsed.recentNotepadIds, parsed.lastNotepadId),
-    };
+    });
   } catch {
-    return {
+    return withFixedUi({
       ...DEFAULTS,
       tagOrder: [],
-      barThickness: { ...DEFAULTS.barThickness },
       barLayout: [...DEFAULT_BAR_LAYOUT],
       notificationsEnabled: false,
       notifyPrefs: { ...DEFAULT_NOTIFY_PREFS },
@@ -355,22 +360,15 @@ export function loadSettings() {
       geminiModel: DEFAULTS.geminiModel,
       aiProfile: '',
       aiTagRules: [],
-      dockScale: DEFAULTS.dockScale,
-      dockOffsetY: DEFAULTS.dockOffsetY,
-      fabOrder: [...DEFAULT_FAB_ORDER],
-      filterOrder: [...DEFAULT_FILTER_ORDER],
       cameraSaveToDevice: true,
       cameraFacing: 'environment',
       cameraQuality: 'max',
-      priorityColors: { ...DEFAULT_PRIORITY_COLORS },
-      dueColors: { ...DEFAULT_DUE_COLORS },
       notifyMonthPresets: [3, 5, 6],
-      listShowContent: false,
       lastWorkspaceId: null,
       appMode: 'work',
       lastNotepadId: null,
       recentNotepadIds: [],
-    };
+    });
   }
 }
 
@@ -379,10 +377,8 @@ export function saveSettings(settings) {
     settings.notifyPrefs,
     settings.notificationsEnabled,
   );
-  const next = {
+  const next = withFixedUi({
     ...settings,
-    fabOrder: normalizeFabOrder(settings.fabOrder),
-    filterOrder: normalizeFilterOrder(settings.filterOrder),
     notifyPrefs,
     notificationsEnabled: notifyPrefs.enabled,
     geminiApiKey: String(settings.geminiApiKey || '').trim().slice(0, 200),
@@ -392,15 +388,12 @@ export function saveSettings(settings) {
     cameraSaveToDevice: normalizeCameraSaveToDevice(settings.cameraSaveToDevice),
     cameraFacing: normalizeCameraFacing(settings.cameraFacing),
     cameraQuality: normalizeCameraQuality(settings.cameraQuality),
-    priorityColors: normalizePriorityColors(settings.priorityColors),
-    dueColors: normalizeDueColors(settings.dueColors),
     notifyMonthPresets: normalizeMonthPresets(settings.notifyMonthPresets),
-    listShowContent: settings.listShowContent === true,
     lastWorkspaceId: settings.lastWorkspaceId ? String(settings.lastWorkspaceId) : null,
     appMode: settings.appMode === 'note' ? 'note' : 'work',
     lastNotepadId: settings.lastNotepadId ? String(settings.lastNotepadId) : null,
     recentNotepadIds: normalizeRecentNotepadIds(settings.recentNotepadIds, settings.lastNotepadId),
-  };
+  });
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
 

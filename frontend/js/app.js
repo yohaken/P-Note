@@ -101,7 +101,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=136';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=141';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=144';
 import {
   notificationPermission,
   notificationSupported,
@@ -705,49 +705,31 @@ function flushEditorToState() {
 }
 
 function applyCardDensity() {
-  const unit = densityToCssUnit(state.settings.cardDensity);
-  els.listView.style.setProperty('--card-density', String(unit));
-  if (els.cardDensitySlider) {
-    els.cardDensitySlider.value = String(state.settings.cardDensity);
-  }
+  const unit = densityToCssUnit(FIXED_UI.cardDensity);
+  els.listView?.style.setProperty('--card-density', String(unit));
 }
 
 function applyDockScale() {
-  const scale = dockScaleToCss(state.settings.dockScale ?? 50);
-  const lift = dockOffsetYToLiftPx(state.settings.dockOffsetY ?? 70);
-  const value = String(scale);
+  const scale = dockScaleToCss(FIXED_UI.dockScale);
+  const lift = dockOffsetYToLiftPx(FIXED_UI.dockOffsetY);
   if (els.filterDock) {
-    els.filterDock.style.setProperty('--dock-scale', value);
+    els.filterDock.style.setProperty('--dock-scale', String(scale));
     els.filterDock.style.setProperty('--dock-lift', `${lift}px`);
-  }
-  if (els.dockScalePreview) els.dockScalePreview.style.setProperty('--dock-scale', value);
-  if (els.dockScaleSlider) {
-    els.dockScaleSlider.value = String(
-      Number.isFinite(state.settings.dockScale) ? state.settings.dockScale : 50,
-    );
-  }
-  if (els.dockOffsetYSlider) {
-    els.dockOffsetYSlider.value = String(
-      Number.isFinite(state.settings.dockOffsetY) ? state.settings.dockOffsetY : 70,
-    );
   }
   applyDockOffset();
   requestAnimationFrame(applyDockOffset);
 }
 
 function applyTheme() {
-  const light = state.settings.theme === 'light';
-  document.body.classList.toggle('light', light);
-  els.themeDarkBtn?.classList.toggle('active', !light);
-  els.themeLightBtn?.classList.toggle('active', light);
+  document.body.classList.add('light');
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', light ? '#f7f3ec' : '#000000');
+  if (meta) meta.setAttribute('content', '#e8f0ea');
   applyBoxColors();
 }
 
 function applyBoxColors() {
-  const prio = normalizePriorityColors(state.settings.priorityColors);
-  const due = normalizeDueColors(state.settings.dueColors);
+  const prio = { ...DEFAULT_PRIORITY_COLORS };
+  const due = { ...DEFAULT_DUE_COLORS };
   state.settings.priorityColors = prio;
   state.settings.dueColors = due;
   const root = document.documentElement;
@@ -760,110 +742,17 @@ function applyBoxColors() {
   root.style.setProperty('--due-near', due.near);
   root.style.setProperty('--due-today', due.today);
   root.style.setProperty('--due-overdue', due.overdue);
-
-  const preview = document.querySelector('.box-color-preview');
-  if (preview) {
-    preview.style.setProperty('--preview-prio', prio.important);
-    preview.style.setProperty('--preview-due', due.today);
-    const firstTag = (state.notesData?.tags || [])[0];
-    preview.style.setProperty(
-      '--preview-tag',
-      firstTag ? safeTagColor(firstTag.color) : '#22c55e',
-    );
-  }
 }
-
-function applyBoxColorsSettingsUi() {
-  const prio = normalizePriorityColors(state.settings.priorityColors);
-  const due = normalizeDueColors(state.settings.dueColors);
-  els.priorityColorGrid?.querySelectorAll('[data-priority-color]').forEach((input) => {
-    const key = input.dataset.priorityColor;
-    if (key && prio[key]) input.value = prio[key];
-  });
-  els.dueColorGrid?.querySelectorAll('[data-due-color]').forEach((input) => {
-    const key = input.dataset.dueColor;
-    if (key && due[key]) input.value = due[key];
-  });
-  applyBoxColors();
-}
-
-function persistBoxColorsFromUi() {
-  const nextPrio = { ...normalizePriorityColors(state.settings.priorityColors) };
-  const nextDue = { ...normalizeDueColors(state.settings.dueColors) };
-  els.priorityColorGrid?.querySelectorAll('[data-priority-color]').forEach((input) => {
-    const key = input.dataset.priorityColor;
-    if (key) nextPrio[key] = input.value;
-  });
-  els.dueColorGrid?.querySelectorAll('[data-due-color]').forEach((input) => {
-    const key = input.dataset.dueColor;
-    if (key) nextDue[key] = input.value;
-  });
-  state.settings.priorityColors = normalizePriorityColors(nextPrio);
-  state.settings.dueColors = normalizeDueColors(nextDue);
-  saveSettings(state.settings);
-  applyBoxColors();
-  renderNotesList();
-}
-
-function resetBoxColorsToDefaults() {
-  state.settings.priorityColors = { ...DEFAULT_PRIORITY_COLORS };
-  state.settings.dueColors = { ...DEFAULT_DUE_COLORS };
-  saveSettings(state.settings);
-  applyBoxColorsSettingsUi();
-  renderNotesList();
-  setStatus('รีเซ็ตสีกล่องแล้ว');
-}
-
-const FILTER_ORDER_LABELS = {
-  due: 'กำหนด',
-  sort: 'เรียง',
-  priority: 'ความสำคัญ',
-  recurrence: 'การซ้ำ',
-};
 
 function applyFilterOrder() {
   const cluster = els.filterDockFilters;
   if (!cluster) return;
-  const order = normalizeFilterOrder(state.settings.filterOrder);
+  const order = normalizeFilterOrder(FIXED_UI.filterOrder);
   state.settings.filterOrder = order;
   order.forEach((id) => {
     const el = cluster.querySelector(`.filter-dd[data-filter="${CSS.escape(id)}"]`);
     if (el) cluster.appendChild(el);
   });
-}
-
-function renderFilterOrderList() {
-  const list = els.filterOrderList;
-  if (!list) return;
-  const order = normalizeFilterOrder(state.settings.filterOrder);
-  list.innerHTML = order
-    .map((id, i) => {
-      const label = FILTER_ORDER_LABELS[id] || id;
-      const upDisabled = i === 0 ? ' disabled' : '';
-      const downDisabled = i === order.length - 1 ? ' disabled' : '';
-      return `<div class="fab-order-row" data-filter-order-id="${id}">
-        <span class="fab-order-label">${label}</span>
-        <div class="fab-order-actions">
-          <button type="button" class="fab-order-btn" data-filter-move="up" aria-label="เลื่อนขึ้น"${upDisabled}>↑</button>
-          <button type="button" class="fab-order-btn" data-filter-move="down" aria-label="เลื่อนลง"${downDisabled}>↓</button>
-        </div>
-      </div>`;
-    })
-    .join('');
-}
-
-function moveFilterInOrder(id, direction) {
-  const order = normalizeFilterOrder(state.settings.filterOrder);
-  const i = order.indexOf(id);
-  if (i < 0) return;
-  const j = direction === 'up' ? i - 1 : i + 1;
-  if (j < 0 || j >= order.length) return;
-  const next = [...order];
-  [next[i], next[j]] = [next[j], next[i]];
-  state.settings.filterOrder = next;
-  saveSettings(state.settings);
-  applyFilterOrder();
-  renderFilterOrderList();
 }
 
 function getNotifyPrefs() {
@@ -996,7 +885,7 @@ function barWrapper(bar) {
 }
 
 function applyBarThickness() {
-  const bt = state.settings.barThickness || { sort: 0, tag: 0, priority: 0, recurrence: 0 };
+  const bt = FIXED_UI.barThickness;
   ['sort', 'tag', 'priority', 'recurrence'].forEach((bar) => {
     const wrap = barWrapper(bar);
     if (!wrap) return;
@@ -1013,10 +902,6 @@ function applyBarThickness() {
       });
     }
   });
-  if (els.thicknessSort) els.thicknessSort.value = String(bt.sort || 0);
-  if (els.thicknessTag) els.thicknessTag.value = String(bt.tag || 0);
-  if (els.thicknessPriority) els.thicknessPriority.value = String(bt.priority || 0);
-  if (els.thicknessRecurrence) els.thicknessRecurrence.value = String(bt.recurrence || 0);
 }
 
 function openDrawer() {
@@ -3585,7 +3470,6 @@ function closeTagManager() {
 
 function openSettings() {
   els.settingsOverlay.hidden = false;
-  els.cardDensitySlider.value = String(state.settings.cardDensity);
   applyDockScale();
   if (els.geminiApiKey) els.geminiApiKey.value = state.settings.geminiApiKey || '';
   fillGeminiModelSelect(state.settings.geminiModel);
@@ -3594,28 +3478,12 @@ function openSettings() {
   renderAiTagRulesList();
   fillAiContextPreview();
   applyCameraSettingsUi();
-  applyBoxColorsSettingsUi();
   applyTheme();
-  renderFilterOrderList();
   renderTagManager();
   applyNotifySettingsUi();
   applyBarThickness();
   refreshScheduleSelectOptions();
-  applyListPreviewSettingsUi();
-}
-
-function applyListPreviewSettingsUi() {
-  const show = state.settings.listShowContent === true;
-  els.listPreviewTitleBtn?.classList.toggle('active', !show);
-  els.listPreviewContentBtn?.classList.toggle('active', show);
   syncTitlesOnlyListClass();
-}
-
-function setListShowContent(show) {
-  state.settings.listShowContent = Boolean(show);
-  saveSettings(state.settings);
-  applyListPreviewSettingsUi();
-  renderNotesList();
 }
 
 function applyCameraSettingsUi() {
@@ -3724,7 +3592,6 @@ function closeSettings() {
   persistGeminiSettingsFromUi();
   persistAiProfileFromUi();
   persistCameraSettingsFromUi();
-  persistBoxColorsFromUi();
   els.settingsOverlay.hidden = true;
 }
 
@@ -5925,16 +5792,6 @@ async function init() {
     });
     persistCameraSettingsFromUi();
   });
-  els.priorityColorGrid?.addEventListener('input', persistBoxColorsFromUi);
-  els.dueColorGrid?.addEventListener('input', persistBoxColorsFromUi);
-  els.resetBoxColorsBtn?.addEventListener('click', resetBoxColorsToDefaults);
-  els.gotoTagColorsBtn?.addEventListener('click', () => {
-    const row = els.tagsSettingsRow;
-    if (row) {
-      row.open = true;
-      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-  });
   els.geminiApiKey?.addEventListener('change', persistGeminiSettingsFromUi);
   els.geminiModel?.addEventListener('change', persistGeminiSettingsFromUi);
   els.geminiLoadModelsBtn?.addEventListener('click', () => {
@@ -5956,27 +5813,8 @@ async function init() {
   els.openDrawerBtn?.addEventListener('click', toggleDrawer);
   els.drawerBackdrop.addEventListener('click', closeDrawer);
 
-  const setTheme = (theme) => {
-    state.settings.theme = theme;
-    saveSettings(state.settings);
-    applyTheme();
-  };
-  els.themeDarkBtn.addEventListener('click', () => setTheme('dark'));
-  els.themeLightBtn.addEventListener('click', () => setTheme('light'));
-
   applyFilterOrder();
-  renderFilterOrderList();
-  els.filterOrderList?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-filter-move]');
-    if (!btn || btn.disabled) return;
-    const row = btn.closest('[data-filter-order-id]');
-    if (!row) return;
-    moveFilterInOrder(row.dataset.filterOrderId, btn.dataset.filterMove);
-  });
-
-  els.listPreviewTitleBtn?.addEventListener('click', () => setListShowContent(false));
-  els.listPreviewContentBtn?.addEventListener('click', () => setListShowContent(true));
-  applyListPreviewSettingsUi();
+  syncTitlesOnlyListClass();
 
   els.modeSwitchBtn?.addEventListener('click', () => {
     if (els.modeMenuOverlay && !els.modeMenuOverlay.hidden) closeModeMenu();
@@ -6113,53 +5951,8 @@ async function init() {
   });
   applyNotifySettingsUi();
 
-  els.cardDensitySlider.addEventListener('input', () => {
-    state.settings.cardDensity = Number(els.cardDensitySlider.value);
-    saveSettings(state.settings);
-    applyCardDensity();
-  });
-  els.dockScaleSlider?.addEventListener('input', () => {
-    state.settings.dockScale = Number(els.dockScaleSlider.value);
-    saveSettings(state.settings);
-    applyDockScale();
-  });
-  els.dockOffsetYSlider?.addEventListener('input', () => {
-    state.settings.dockOffsetY = Number(els.dockOffsetYSlider.value);
-    saveSettings(state.settings);
-    applyDockScale();
-  });
   initAiScheduleControls();
   bindAiFormDirtyWatchers();
-  els.thicknessSort.addEventListener('input', () => {
-    state.settings.barThickness.sort = Number(els.thicknessSort.value);
-    saveSettings(state.settings);
-    applyBarThickness();
-  });
-  els.thicknessTag.addEventListener('input', () => {
-    state.settings.barThickness.tag = Number(els.thicknessTag.value);
-    saveSettings(state.settings);
-    applyBarThickness();
-  });
-  els.thicknessPriority.addEventListener('input', () => {
-    state.settings.barThickness.priority = Number(els.thicknessPriority.value);
-    saveSettings(state.settings);
-    applyBarThickness();
-  });
-  if (els.thicknessRecurrence) {
-    els.thicknessRecurrence.addEventListener('input', () => {
-      if (!state.settings.barThickness) state.settings.barThickness = {};
-      state.settings.barThickness.recurrence = Number(els.thicknessRecurrence.value);
-      saveSettings(state.settings);
-      applyBarThickness();
-    });
-  }
-  els.resetBarsBtn?.addEventListener('click', () => {
-    state.settings.barLayout = [...DEFAULT_BAR_LAYOUT];
-    saveSettings(state.settings);
-    reapplyBarLayout();
-    renderNotesList();
-    setStatus('รีเซ็ตตำแหน่งแถบแล้ว');
-  });
   els.exportNotesBtn?.addEventListener('click', exportNotesBackup);
   els.importNotesBtn?.addEventListener('click', () => els.importNotesFile?.click());
   els.importNotesFile?.addEventListener('change', async () => {

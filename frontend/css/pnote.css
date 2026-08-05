@@ -19,17 +19,20 @@
 }
 
 body.light {
-  --bg: #f7f3ec;
-  --surface: #fffaf5;
-  --surface-2: #efe9df;
-  --surface-3: #e4ddd2;
-  --text: #2a2622;
-  --text-muted: #8a847a;
-  --border: rgba(42, 38, 34, 0.12);
-  --border-strong: rgba(42, 38, 34, 0.2);
+  --bg: #e8f0ea;
+  --surface: #ffffff;
+  --surface-2: #f3f7f4;
+  --surface-3: #e4ebe6;
+  --text: #243028;
+  --text-muted: #6b7a70;
+  --border: rgba(36, 48, 40, 0.12);
+  --border-strong: rgba(36, 48, 40, 0.2);
   --accent: #3d5a4c;
   --danger: #b54a3c;
   --success: #4a7c59;
+  --radius: 12px;
+  --radius-sm: 10px;
+  --module-radius: 16px;
 }
 
 /*
@@ -1591,11 +1594,41 @@ body.reordering-active .list-scroll {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  padding: 0.6rem 0.75rem;
-  gap: 0.6rem;
+  padding: 0.6rem 0.75rem 1rem;
+  gap: 0.7rem;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
 }
 body.notepad-dock .editor-body {
   padding-bottom: calc(0.8rem + var(--filters-dock-h, 0px));
+}
+
+/* Standard form modules (add/edit) — same shell on phone + desktop */
+.form-module {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--module-radius, 16px);
+  box-shadow: 0 1px 2px rgba(36, 48, 40, 0.04);
+}
+.form-module-content {
+  gap: 0.45rem;
+}
+.form-module .schedule-field,
+.form-module .priority-field {
+  margin: 0;
+}
+.form-module .note-content {
+  border-color: transparent;
+  background: var(--surface-2);
+  min-height: 32dvh;
+}
+.form-module .note-attachments {
+  margin-top: 0.15rem;
 }
 
 .note-title,
@@ -4825,4 +4858,71 @@ body:not(.notepad-editing) .note-text-bar {
 .notepad-sheet-cell.is-error {
   color: var(--danger, #b54a3c);
   font-weight: 700;
+}
+
+/* ===== Standard modules: phone + desktop ===== */
+@media (min-width: 768px) {
+  .modal {
+    place-items: center;
+    padding: 2rem;
+    align-content: center;
+  }
+  .modal-card,
+  .modal-card-ai {
+    width: min(480px, 100%);
+    max-width: 480px;
+    max-height: min(80dvh, 720px);
+    border-radius: var(--module-radius, 16px);
+    box-shadow: 0 12px 40px rgba(36, 48, 40, 0.14);
+  }
+  .modal-card-ai {
+    overflow: hidden;
+  }
+  .ai-note-step-compact {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .settings-overlay {
+    align-items: center;
+    padding: 2rem;
+  }
+  .settings-panel {
+    width: min(480px, 100%);
+    max-width: 480px;
+    max-height: min(80dvh, 720px);
+    border-radius: var(--module-radius, 16px);
+    box-shadow: 0 12px 40px rgba(36, 48, 40, 0.14);
+  }
+  #editor-view .editor-topbar,
+  #editor-view .editor-footer {
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+  .filter-dock-inner {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .modal {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    place-items: unset;
+    padding: 0;
+  }
+  .modal-card-ai {
+    width: 100%;
+    max-width: none;
+    max-height: min(92dvh, 100%);
+    border-radius: var(--module-radius, 16px) var(--module-radius, 16px) 0 0;
+    margin: 0;
+  }
+  .ai-note-step-compact {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
