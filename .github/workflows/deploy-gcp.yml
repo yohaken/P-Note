@@ -121,6 +121,12 @@ jobs:
       - name: Deploy Firebase Hosting + Firestore rules
         run: npx firebase-tools@13 deploy --only hosting,firestore:rules --project ${{ env.PROJECT_ID }} --non-interactive
 
+      - name: Fix Google Auth IdP (redirect_uri_mismatch)
+        continue-on-error: true
+        run: |
+          npm install google-auth-library@9 --no-save
+          node scripts/fix-google-idp.mjs
+
       - name: Deployment summary
         run: |
           echo "## Deployment complete" >> $GITHUB_STEP_SUMMARY
