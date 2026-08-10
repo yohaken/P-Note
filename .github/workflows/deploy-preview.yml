@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: mynote-f1bbc
+  PROJECT_ID: pnote
   CHANNEL_ID: dev
 
 jobs:

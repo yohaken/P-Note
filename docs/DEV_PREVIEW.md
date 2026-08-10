@@ -4,7 +4,7 @@
 
 | โหมด | Branch | URL | ข้อมูล |
 |------|--------|-----|--------|
-| **ใช้งานจริง** | `main` | https://mynote-f1bbc.web.app | space id จริง |
+| **ใช้งานจริง** | `main` | https://pnote.web.app | space id จริง |
 | **ทดลองฟีเจอร์** | `dev` | Firebase Preview (ดู Actions) | space id คนละตัว เช่น `sp-dev-test` |
 
 ## ท่อ
@@ -20,7 +20,7 @@ push → dev   → Deploy Preview (dev)    → preview Hosting เท่าน�
 1. งานระหว่างทางทำบน branch `dev` แล้ว `git push`
 2. เปิด GitHub → **Actions** → **Deploy Preview (dev)** → ดู URL ใน Summary
 3. เปิด URL บนมือถือ → Settings → ใส่ sync code **ทดสอบ** (อย่าใช้ของจริง)
-4. ของใช้ประจำยังเปิด https://mynote-f1bbc.web.app ตามเดิม
+4. ของใช้ประจำยังเปิด https://pnote.web.app ตามเดิม
 5. พอฟีเจอร์นิ่ง → merge `dev` → `main` → prod อัปเดตเอง
 
 ไม่ต้องติดตั้ง `gcloud` / `firebase` บนเครื่อง — ใช้ secret `GCP_SA_KEY` ที่มีอยู่แล้ว

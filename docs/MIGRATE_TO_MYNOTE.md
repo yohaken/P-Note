@@ -1,3 +1,5 @@
+> **เลิกใช้แล้ว** — โปรเจกต์ปัจจุบันคือ [`pnote`](./MIGRATE_TO_PNOTE.md)
+
 # ย้ายไป Firebase MyNote (`mynote-f1bbc`)
 
 โค้ดใน repo ชี้ไปโปรเจกต์ **MyNote / mynote-f1bbc** แล้ว และตัดลิงก์ MyPeer (`mypeer-501909`) ออก
