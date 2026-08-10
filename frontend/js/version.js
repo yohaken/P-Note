@@ -6,6 +6,12 @@ export function getAppBuild() {
   return document.querySelector('meta[name="pnote-build"]')?.content || '0';
 }
 
+/** Short UI label, e.g. v153 */
+export function formatAppBuildLabel(build = getAppBuild()) {
+  const n = String(build || '0').replace(/^v/i, '');
+  return n ? `v${n}` : 'v0';
+}
+
 /** ISO timestamp from <meta name="pnote-built"> — set when bumping the build. */
 export function getAppBuiltAt() {
   return document.querySelector('meta[name="pnote-built"]')?.content || '';
