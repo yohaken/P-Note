@@ -102,7 +102,7 @@ import {
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=148';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=153';
 import {
   allIcons,
   bestIconForLabel,
@@ -175,7 +175,7 @@ import {
 } from './remote.js?v=133';
 import { normalizeNotesData } from './notes.js?v=148';
 import { SaveManager } from './sync.js?v=122';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuiltAt } from './version.js?v=122';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
 
 function hasCloudContent(data) {
   return hasAnyNotes(data)
@@ -5552,7 +5552,7 @@ function updateAppVersionLabel() {
     if (ver) ver.textContent = verLabel;
   }
   const barVer = document.getElementById('mode-switch-ver');
-  if (barVer) barVer.textContent = build || '';
+  if (barVer) barVer.textContent = formatAppBuildLabel(build);
   const shellVer = document.getElementById('shellNoteVersion');
   if (shellVer) shellVer.textContent = verLabel;
 }

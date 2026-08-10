@@ -36,7 +36,7 @@ import {
   dockScaleToCss,
   dockOffsetYToLiftPx,
   densityToCssUnit,
-} from './settings.js?v=148';
+} from './settings.js?v=153';
 import {
   bestIconForLabel,
   DEFAULT_PRIORITY_ICONS,
@@ -209,8 +209,10 @@ function applyListChrome(settings) {
   if (modeName) modeName.textContent = settings.appMode === 'note' ? 'Note' : 'งานหลัก';
   const barVer = document.getElementById('mode-switch-ver');
   if (barVer) {
-    barVer.textContent =
+    const build =
       document.querySelector('meta[name="pnote-build"]')?.content || '';
+    const n = String(build).replace(/^v/i, '');
+    barVer.textContent = n ? `v${n}` : '';
   }
 }
 

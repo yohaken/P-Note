@@ -399,6 +399,9 @@ export function loadSettings() {
       cameraFacing: normalizeCameraFacing(parsed.cameraFacing),
       cameraQuality: normalizeCameraQuality(parsed.cameraQuality),
       notifyMonthPresets: normalizeMonthPresets(parsed.notifyMonthPresets),
+      /** User card/icon prefs — always restore from localStorage */
+      priorityIcons: normalizePriorityIcons(parsed.priorityIcons),
+      cardDisplay: normalizeCardDisplay(parsed.cardDisplay),
       lastWorkspaceId: parsed.lastWorkspaceId ? String(parsed.lastWorkspaceId) : null,
       appMode: parsed.appMode === 'note' ? 'note' : 'work',
       lastNotepadId: parsed.lastNotepadId ? String(parsed.lastNotepadId) : null,
