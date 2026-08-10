@@ -1,11 +1,16 @@
 export const CONFIG = {
   APP_FOLDER_NAME: 'P-Note',
   NOTES_FILE_NAME: 'my_notes.json',
-  AUTOSAVE_DELAY_MS: 2000,
+  /** Near-immediate cloud write after edits (localStorage is still sync). */
+  AUTOSAVE_DELAY_MS: 280,
   EDITOR_SYNC_DELAY_MS: 450,
   UPDATE_CHECK_MS: 20000,
 
-  // Local → Express :8080. Prod → same-origin (Firebase Hosting rewrite → Cloud Run).
+  /** Only this Google account may use cloud sync (also enforced in firestore.rules). */
+  ALLOWED_EMAILS: ['yohaken@gmail.com'],
+
+  // File attachments still use Cloud Run signed URLs when present.
+  // Notes sync no longer uses this API — see remote.js (direct Firestore).
   API_BASE_URL: window.location.hostname === 'localhost'
     ? 'http://localhost:8080'
     : '',

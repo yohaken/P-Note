@@ -4126,6 +4126,63 @@ body.light .priority-badge.priority-urgent {
   display: none !important;
 }
 
+/* Google auth gate — single-owner cloud sync */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 260;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(72, 120, 90, 0.18), transparent 55%),
+    linear-gradient(165deg, #eef4ef 0%, #e2ebe4 45%, #d7e3da 100%);
+}
+
+.auth-overlay[hidden] {
+  display: none !important;
+}
+
+.auth-panel {
+  width: min(22rem, 100%);
+  text-align: center;
+  padding: 1.5rem 1.25rem 1.35rem;
+}
+
+.auth-brand {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.auth-title {
+  margin: 0.55rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.auth-copy {
+  margin: 0.55rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.auth-login-btn {
+  margin-top: 1.15rem;
+  min-width: 12rem;
+}
+
+.auth-error {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+  color: #b42318;
+}
+
 .spinner {
   width: 32px;
   height: 32px;

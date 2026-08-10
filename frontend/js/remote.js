@@ -1,18 +1,22 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=149';
+import { STORAGE_KEYS } from './config.js?v=154';
+import { initFirebase, getDb, auth } from './firebase.js?v=154';
+import {
+  doc,
+  getDoc,
+  setDoc,
+} from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 /**
- * Talks to the backend notes API (Firestore-backed database).
- * One shared cloud space for all devices — no sync code to copy.
- * Local-first: paint from localStorage immediately, then warm/sync
- * Firestore in the background (merge by per-note / notepad updatedAt).
+ * Direct Firestore sync (no Express API).
+ * One shared cloud doc for the owner account — local-first paint, then warm/sync.
  */
 
 /** Fixed personal space — phone + desktop always use this Firestore doc. */
 export const SHARED_SPACE_ID = 'sp-pnote-shared';
 
 const SPACE_RE = /^[A-Za-z0-9_-]{6,64}$/;
-const REQUEST_TIMEOUT_MS = 8000;
 const PREV_SPACE_KEY = 'pnote_prev_space_id';
+const COLLECTION = 'spaces';
 
 function persistSharedSpaceId() {
   const previous = localStorage.getItem(STORAGE_KEYS.SPACE_ID);
@@ -22,7 +26,6 @@ function persistSharedSpaceId() {
     SPACE_RE.test(previous) &&
     !localStorage.getItem(PREV_SPACE_KEY)
   ) {
-    // Keep once so bootstrap can merge the old device space into shared.
     localStorage.setItem(PREV_SPACE_KEY, previous);
   }
   localStorage.setItem(STORAGE_KEYS.SPACE_ID, SHARED_SPACE_ID);
@@ -39,7 +42,6 @@ export function setSpaceId(_id) {
   return persistSharedSpaceId();
 }
 
-/** Previous per-device space id (if any), for one-shot migrate into shared. */
 export function getPreviousSpaceId() {
   const prev = localStorage.getItem(PREV_SPACE_KEY);
   return prev && SPACE_RE.test(prev) && prev !== SHARED_SPACE_ID ? prev : null;
@@ -49,49 +51,71 @@ export function clearPreviousSpaceId() {
   localStorage.removeItem(PREV_SPACE_KEY);
 }
 
-function apiUrl(spaceId) {
-  return `${CONFIG.API_BASE_URL}/api/spaces/${encodeURIComponent(spaceId)}/notes`;
+function emptyPayload() {
+  return {
+    version: 7,
+    updatedAt: new Date().toISOString(),
+    tags: [],
+    notes: [],
+    workspaces: [],
+    notepads: [],
+  };
 }
 
-async function fetchWithTimeout(url, options = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal, mode: 'cors' });
-  } finally {
-    clearTimeout(timer);
+function normalizePayload(raw) {
+  const data = raw && typeof raw === 'object' ? raw : {};
+  return {
+    version: Number(data.version) || 7,
+    updatedAt: data.updatedAt || new Date().toISOString(),
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    notes: Array.isArray(data.notes) ? data.notes : [],
+    workspaces: Array.isArray(data.workspaces) ? data.workspaces : [],
+    notepads: Array.isArray(data.notepads) ? data.notepads : [],
+  };
+}
+
+/** Strip undefined (Firestore rejects them) and non-JSON values. */
+function toFirestorePayload(data) {
+  const normalized = normalizePayload(data);
+  normalized.updatedAt = new Date().toISOString();
+  return JSON.parse(JSON.stringify(normalized));
+}
+
+function requireSignedIn() {
+  if (!auth?.currentUser) {
+    throw new Error('Not signed in');
   }
+}
+
+function spaceRef(spaceId) {
+  const id = SPACE_RE.test(spaceId) ? spaceId : SHARED_SPACE_ID;
+  return doc(getDb(), COLLECTION, id);
 }
 
 export async function fetchRemoteNotes(spaceId) {
-  const res = await fetchWithTimeout(apiUrl(spaceId), {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) {
-    throw new Error(`GET failed (${res.status})`);
+  await initFirebase();
+  requireSignedIn();
+  const snap = await getDoc(spaceRef(spaceId || SHARED_SPACE_ID));
+  if (!snap.exists()) {
+    return emptyPayload();
   }
-  return res.json();
+  return normalizePayload(snap.data());
 }
 
 export async function pushRemoteNotes(spaceId, data) {
-  const res = await fetchWithTimeout(apiUrl(spaceId), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    throw new Error(`PUT failed (${res.status})`);
-  }
-  return res.json();
+  await initFirebase();
+  requireSignedIn();
+  const payload = toFirestorePayload(data);
+  await setDoc(spaceRef(spaceId || SHARED_SPACE_ID), payload);
+  return payload;
 }
 
+/** True when browser is online and Firebase Auth session exists. */
 export async function checkDbOnline() {
+  if (!navigator.onLine) return false;
   try {
-    const res = await fetchWithTimeout(`${CONFIG.API_BASE_URL}/api/db-status`);
-    if (!res.ok) return false;
-    const body = await res.json();
-    return Boolean(body.ok);
+    await initFirebase();
+    return Boolean(auth?.currentUser);
   } catch {
     return false;
   }

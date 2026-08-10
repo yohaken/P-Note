@@ -2,7 +2,7 @@
  * List-first entry — paint the work board ASAP, then hydrate full app.
  * Other surfaces (settings / AI / editor / camera) load with app.js after paint.
  */
-import { paintListFromLocal } from './list-paint.js?v=153';
+import { paintListFromLocal } from './list-paint.js?v=154';
 
 document.documentElement.dataset.pnoteBoot = '1';
 
@@ -17,7 +17,7 @@ try {
 }
 
 // Full app (interactions, sync, settings, AI) after first paint.
-import('./app.js?v=153')
+import('./app.js?v=154')
   .then((m) => {
     if (typeof m.hydrateApp === 'function') return m.hydrateApp();
     return undefined;

@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=51';
+import { CONFIG } from './config.js?v=154';
 import { saveNotes } from './local.js?v=122';
 
 export class SaveManager {
@@ -51,9 +51,9 @@ export class SaveManager {
     if (typeof this.remotePush === 'function') {
       try {
         await this.remotePush(notesData);
-        this.onStatus('บันทึกในฐานข้อมูลแล้ว');
+        this.onStatus('บันทึกคลาวด์แล้ว');
       } catch {
-        this.onStatus('บันทึกในเครื่อง (ออฟไลน์)');
+        this.onStatus('บันทึกในเครื่อง (รอเข้าสู่ระบบ/ออฟไลน์)');
       }
     } else {
       this.onStatus('บันทึกแล้ว');

@@ -118,11 +118,11 @@ jobs:
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Cloud Run URL: $URL"
 
-      - name: Deploy Firebase Hosting
-        run: npx firebase-tools@13 deploy --only hosting --project ${{ env.PROJECT_ID }} --non-interactive
+      - name: Deploy Firebase Hosting + Firestore rules
+        run: npx firebase-tools@13 deploy --only hosting,firestore:rules --project ${{ env.PROJECT_ID }} --non-interactive
 
       - name: Deployment summary
         run: |
           echo "## Deployment complete" >> $GITHUB_STEP_SUMMARY
-          echo "- API: ${{ steps.run-url.outputs.url }}/api/health" >> $GITHUB_STEP_SUMMARY
-          echo "- App: https://${{ env.PROJECT_ID }}.web.app" >> $GITHUB_STEP_SUMMARY
+          echo "- App: https://${{ env.PROJECT_ID }}.web.app (Auth + Firestore direct)" >> $GITHUB_STEP_SUMMARY
+          echo "- API (files only): ${{ steps.run-url.outputs.url }}/api/health" >> $GITHUB_STEP_SUMMARY

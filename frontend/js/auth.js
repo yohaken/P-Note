@@ -1,5 +1,5 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=51';
-import { auth, initFirebase } from './firebase.js?v=152';
+import { CONFIG } from './config.js?v=154';
+import { auth, initFirebase } from './firebase.js?v=154';
 import {
   GoogleAuthProvider,
   getRedirectResult,
@@ -9,25 +9,7 @@ import {
   signOut as firebaseSignOut,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
 
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const AUTH_REDIRECT_FLAG = 'pnote_auth_redirect';
-
-// Google OAuth access tokens live ~1h; refresh a little early to be safe.
-const TOKEN_TTL_MS = 55 * 60 * 1000;
-
-function cacheAccessToken(token) {
-  localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
-  localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRY, String(Date.now() + TOKEN_TTL_MS));
-}
-
-function getCachedAccessToken() {
-  const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-  const expiry = Number(localStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRY) || 0);
-  if (token && expiry > Date.now()) {
-    return token;
-  }
-  return null;
-}
 
 function markRedirectPending() {
   sessionStorage.setItem(AUTH_REDIRECT_FLAG, '1');
@@ -43,12 +25,12 @@ function clearRedirectPending() {
 
 function googleProvider() {
   const provider = new GoogleAuthProvider();
-  provider.addScope(DRIVE_SCOPE);
   provider.addScope('email');
+  provider.setCustomParameters({ prompt: 'select_account' });
   return provider;
 }
 
-/** Popups are unreliable on phones/tablets and in installed PWAs — use full-page redirect. */
+/** Popups are unreliable on phones/tablets and installed PWAs — use redirect. */
 export function shouldPreferRedirectAuth() {
   const host = window.location.hostname;
   if (host === 'localhost' || host === '127.0.0.1') {
@@ -73,30 +55,28 @@ function mapAuthError(error) {
     return new Error('เปิดหน้าต่างล็อกอินไม่ได้ — กำลังลองวิธีอื่น...');
   }
   if (code === 'auth/configuration-not-found' || code === 'auth/operation-not-allowed') {
-    return new Error('ยังไม่ได้เปิด Google Sign-In ใน Firebase Console — ดู docs/PHASE2_FIREBASE_AUTH.md');
+    return new Error('ยังไม่ได้เปิด Google Sign-In ใน Firebase Console');
   }
   return new Error(error?.message || 'การล็อกอินล้มเหลว');
 }
 
-function tokenFromCredential(result) {
-  const credential = GoogleAuthProvider.credentialFromResult(result);
-  return credential?.accessToken || null;
+export function allowedEmails() {
+  return (CONFIG.ALLOWED_EMAILS || []).map((e) => String(e).toLowerCase());
 }
 
-export function clearSession() {
-  clearRedirectPending();
-  Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
+export function isAllowedEmail(email) {
+  return allowedEmails().includes(String(email || '').toLowerCase());
 }
 
 async function verifyEmail(email) {
-  if (!CONFIG.ALLOWED_EMAILS.includes(email)) {
+  if (!isAllowedEmail(email)) {
     await signOut();
-    throw new Error('Access Denied: บัญชีนี้ไม่มีสิทธิ์ใช้งาน');
+    throw new Error('Access Denied: ใช้ได้เฉพาะ yohaken@gmail.com');
   }
-  return email;
+  return String(email).toLowerCase();
 }
 
-async function waitForAuthUser() {
+function waitForAuthUser() {
   return new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, (user) => {
       unsub();
@@ -105,15 +85,13 @@ async function waitForAuthUser() {
   });
 }
 
-async function finalizeSignInResult(result) {
-  const accessToken = tokenFromCredential(result);
-  if (!accessToken) {
-    throw new Error('ไม่สามารถเข้าถึง Google Drive ได้ กรุณาลองใหม่');
+async function finalizeSignIn(user) {
+  if (!user?.email) {
+    throw new Error('ไม่พบอีเมลจาก Google');
   }
-  await verifyEmail(result.user.email);
-  cacheAccessToken(accessToken);
+  await verifyEmail(user.email);
   clearRedirectPending();
-  return accessToken;
+  return user;
 }
 
 async function signInWithRedirectFlow() {
@@ -122,13 +100,11 @@ async function signInWithRedirectFlow() {
   return null;
 }
 
-async function getDriveAccessToken() {
+async function signInInteractive() {
   const provider = googleProvider();
-
-  // User gesture (button click): try popup first — works on many phones too.
   try {
     const result = await signInWithPopup(auth, provider);
-    return finalizeSignInResult(result);
+    return finalizeSignIn(result.user);
   } catch (error) {
     const code = error?.code || '';
     if (code === 'auth/popup-closed-by-user' || code === 'auth/redirect-cancelled-by-user') {
@@ -145,19 +121,16 @@ async function getDriveAccessToken() {
   }
 }
 
-/** Call once on every page load — completes mobile redirect sign-in when returning from Google. */
+/** Call once on page load — completes mobile redirect sign-in. */
 export async function handleAuthRedirect() {
   await initFirebase();
   try {
     const result = await getRedirectResult(auth);
     if (!result?.user) {
-      if (!isAuthRedirectPending()) {
-        return null;
-      }
-      clearRedirectPending();
+      if (isAuthRedirectPending()) clearRedirectPending();
       return null;
     }
-    return finalizeSignInResult(result);
+    return finalizeSignIn(result.user);
   } catch (error) {
     clearRedirectPending();
     throw mapAuthError(error);
@@ -167,37 +140,41 @@ export async function handleAuthRedirect() {
 export async function startLogin() {
   try {
     await initFirebase();
-    return getDriveAccessToken();
+    return signInInteractive();
   } catch (error) {
     clearRedirectPending();
     throw mapAuthError(error);
   }
 }
 
-export async function autoLogin() {
+/** Returns current allowed user, or null if signed out / wrong account. */
+export async function getAllowedUser() {
   await initFirebase();
-  const user = auth.currentUser || await waitForAuthUser();
+  let user = auth.currentUser;
   if (!user) {
+    user = await waitForAuthUser();
+  }
+  if (!user?.email) return null;
+  if (!isAllowedEmail(user.email)) {
+    await signOut();
     return null;
   }
+  return user;
+}
 
-  try {
-    await verifyEmail(user.email);
-
-    const cachedToken = getCachedAccessToken();
-    if (cachedToken) {
-      return cachedToken;
+export function watchAuth(callback) {
+  return onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      callback(null);
+      return;
     }
-
-    // Firebase session exists but Drive token expired — require an explicit tap
-    // (mobile browsers block popup/redirect without a user gesture).
-    return null;
-  } catch (error) {
-    if (error.message.includes('Access Denied')) {
-      throw error;
+    if (!isAllowedEmail(user.email)) {
+      await signOut();
+      callback(null);
+      return;
     }
-    throw mapAuthError(error);
-  }
+    callback(user);
+  });
 }
 
 export async function signOut() {
@@ -209,5 +186,5 @@ export async function signOut() {
   } catch {
     // Best-effort sign out.
   }
-  clearSession();
+  clearRedirectPending();
 }

@@ -4,6 +4,7 @@ import {
   getAuth,
   setPersistence,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
+import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 /**
  * MyNote (mynote-f1bbc) — fallback when /__/firebase/init.json is unavailable
@@ -19,6 +20,7 @@ const PROJECT_DEFAULTS = {
 
 let app = null;
 export let auth = null;
+export let db = null;
 
 /**
  * Keep authDomain on the Firebase default domain — its /__/auth/handler redirect URI
@@ -44,12 +46,13 @@ async function loadFirebaseConfig() {
 
 export async function initFirebase() {
   if (app) {
-    return auth;
+    return { app, auth, db };
   }
 
   const config = await loadFirebaseConfig();
   app = initializeApp(config);
   auth = getAuth(app);
+  db = getFirestore(app);
 
   try {
     await setPersistence(auth, browserLocalPersistence);
@@ -57,5 +60,12 @@ export async function initFirebase() {
     // Persistence is best-effort.
   }
 
-  return auth;
+  return { app, auth, db };
+}
+
+export function getDb() {
+  if (!db) {
+    throw new Error('Firestore not initialized — call initFirebase() first');
+  }
+  return db;
 }

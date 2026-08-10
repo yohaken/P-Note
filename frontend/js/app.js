@@ -1,8 +1,15 @@
 import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=148';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
-import { CONFIG } from './config.js?v=149';
+import { CONFIG } from './config.js?v=154';
 import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=148';
+import {
+  getAllowedUser,
+  handleAuthRedirect,
+  startLogin,
+  signOut,
+  watchAuth,
+} from './auth.js?v=154';
 import {
   addTag,
   addNotepad,
@@ -172,9 +179,9 @@ import {
   clearPreviousSpaceId,
   pushRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=133';
+} from './remote.js?v=154';
 import { normalizeNotesData } from './notes.js?v=148';
-import { SaveManager } from './sync.js?v=122';
+import { SaveManager } from './sync.js?v=154';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
 
 function hasCloudContent(data) {
@@ -204,6 +211,7 @@ const state = {
   view: 'list',
   spaceId: null,
   online: false,
+  authUser: null,
   syncBaseUpdatedAt: null,
   contextNoteId: null,
   draftNoteId: null,
@@ -436,6 +444,8 @@ const els = {
   thicknessPriority: document.getElementById('thickness-priority'),
   thicknessRecurrence: document.getElementById('thickness-recurrence'),
   dbSyncHint: document.getElementById('db-sync-hint'),
+  authAccountHint: document.getElementById('auth-account-hint'),
+  signOutBtn: document.getElementById('sign-out-btn'),
   exportNotesBtn: document.getElementById('export-notes-btn'),
   importNotesBtn: document.getElementById('import-notes-btn'),
   importNotesFile: document.getElementById('import-notes-file'),
@@ -452,6 +462,9 @@ const els = {
   noteConfirmCancel: document.getElementById('note-confirm-cancel'),
   noteConfirmOk: document.getElementById('note-confirm-ok'),
   loadingOverlay: document.getElementById('loading-overlay'),
+  authOverlay: document.getElementById('auth-overlay'),
+  googleLoginBtn: document.getElementById('google-login-btn'),
+  authError: document.getElementById('auth-error'),
 };
 
 function showView(view) {
@@ -466,6 +479,72 @@ function showView(view) {
 function setLoading(visible, message = 'กำลังโหลด...') {
   els.loadingOverlay.hidden = !visible;
   els.loadingOverlay.querySelector('p').textContent = message;
+}
+
+function setAuthOverlayVisible(visible) {
+  if (!els.authOverlay) return;
+  els.authOverlay.hidden = !visible;
+  document.body.classList.toggle('auth-required', Boolean(visible));
+}
+
+function setAuthError(message = '') {
+  if (!els.authError) return;
+  els.authError.textContent = message || '';
+  els.authError.hidden = !message;
+}
+
+function refreshAuthAccountHint() {
+  if (!els.authAccountHint) return;
+  if (state.authUser?.email) {
+    els.authAccountHint.textContent = `เข้าสู่ระบบ: ${state.authUser.email}`;
+  } else {
+    els.authAccountHint.textContent = 'ยังไม่ได้เข้าสู่ระบบ — คลาวด์จะบันทึกหลังล็อกอิน';
+  }
+  if (els.signOutBtn) els.signOutBtn.hidden = !state.authUser;
+}
+
+function onSignedIn(user) {
+  state.authUser = user;
+  setAuthOverlayVisible(false);
+  setAuthError('');
+  refreshAuthAccountHint();
+}
+
+async function requireCloudAuth() {
+  try {
+    await handleAuthRedirect();
+  } catch (err) {
+    setAuthError(err?.message || 'ล็อกอินไม่สำเร็จ');
+  }
+  const user = await getAllowedUser();
+  if (user) {
+    onSignedIn(user);
+    return user;
+  }
+  state.authUser = null;
+  refreshAuthAccountHint();
+  setAuthOverlayVisible(true);
+  return null;
+}
+
+async function handleGoogleLoginClick() {
+  setAuthError('');
+  if (els.googleLoginBtn) els.googleLoginBtn.disabled = true;
+  try {
+    const user = await startLogin();
+    if (!user) {
+      // Redirect flow — page will reload after Google.
+      setAuthError('กำลังพาไปหน้า Google…');
+      return;
+    }
+    onSignedIn(user);
+    setSyncStatus('busy', 'กำลังเชื่อมคลาวด์…');
+    void syncSpaceInBackground({ force: true, announce: true });
+  } catch (err) {
+    setAuthError(err?.message || 'ล็อกอินไม่สำเร็จ');
+  } finally {
+    if (els.googleLoginBtn) els.googleLoginBtn.disabled = false;
+  }
 }
 
 let undoHandler = null;
@@ -4349,7 +4428,14 @@ async function applyImportedNotes(text, { merge } = {}) {
   renderTagManager();
   refreshNoteNotifications();
   scheduleUserContextRefresh();
-  setStatus(useMerge ? 'รวมสำรองแล้ว' : 'นำเข้าแทนที่แล้ว');
+  if (!state.authUser) {
+    setStatus(useMerge ? 'รวมแล้วในเครื่อง · ล็อกอินเพื่อบันทึกคลาวด์' : 'นำเข้าแล้วในเครื่อง · ล็อกอินเพื่อบันทึกคลาวด์');
+    setAuthOverlayVisible(true);
+  } else if (state.online !== false) {
+    setStatus(useMerge ? 'รวมสำรองแล้ว · บันทึกคลาวด์แล้ว' : 'นำเข้าแทนที่แล้ว · บันทึกคลาวด์แล้ว');
+  } else {
+    setStatus(useMerge ? 'รวมสำรองแล้ว' : 'นำเข้าแทนที่แล้ว');
+  }
   return true;
 }
 
@@ -5774,13 +5860,13 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   if (didScheduleSnap && hadScheduled) {
     setStatus('ปรับเวลาแจ้งเตือนเป็น 09:00 แล้ว');
   } else if (result.migrated) {
-    setStatus('ย้ายโน้ตเข้าฐานข้อมูลแล้ว');
+    setStatus('ย้ายโน้ตเข้าคลาวด์แล้ว');
   } else if (!result.online) {
     setStatus(result.autoSource ? 'โหมดออฟไลน์ (กู้คืนข้อมูลเดิม)' : 'โหมดออฟไลน์ (เก็บในเครื่อง)');
   } else if (contentChanged) {
-    setStatus('ซิงค์ข้อมูลล่าสุดแล้ว');
+    setStatus('ซิงค์คลาวด์ล่าสุดแล้ว');
   } else {
-    setStatus('เชื่อมฐานข้อมูลแล้ว');
+    setStatus('เชื่อมคลาวด์แล้ว');
   }
   return contentChanged;
 }
@@ -5831,7 +5917,7 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
 }
 
 async function bootstrapData() {
-  // Local-first: paint from device cache immediately, then warm remote.
+  // Local-first: paint from device cache immediately, then auth + Firestore.
   try {
     state.spaceId = getSpaceId();
     state.settings = loadSettings();
@@ -5847,13 +5933,43 @@ async function bootstrapData() {
 
     saveManager.configure({
       onStatus: (message) => setStatus(message),
-      remotePush: (data) => safePushRemote(data),
+      remotePush: async (data) => {
+        if (!state.authUser) {
+          throw new Error('Not signed in');
+        }
+        return safePushRemote(data);
+      },
     });
 
     paintNotesFromLocal(localData);
     setLoading(false);
-    setSyncStatus('busy', 'กำลังเชื่อมฐานข้อมูล…');
+    refreshAuthAccountHint();
 
+    const user = await requireCloudAuth();
+    watchAuth((nextUser) => {
+      if (!nextUser) {
+        const wasSignedIn = Boolean(state.authUser);
+        state.authUser = null;
+        state.online = false;
+        refreshAuthAccountHint();
+        setAuthOverlayVisible(true);
+        if (wasSignedIn) setSyncStatus('offline', 'ออกจากระบบแล้ว');
+        return;
+      }
+      const first = !state.authUser;
+      onSignedIn(nextUser);
+      if (first) {
+        setSyncStatus('busy', 'กำลังเชื่อมคลาวด์…');
+        void syncSpaceInBackground({ localVerBefore, force: true, announce: true });
+      }
+    });
+
+    if (!user) {
+      setSyncStatus('offline', 'รอเข้าสู่ระบบเพื่อซิงค์คลาวด์');
+      return;
+    }
+
+    setSyncStatus('busy', 'กำลังเชื่อมคลาวด์…');
     void syncSpaceInBackground({ localVerBefore, force: true, announce: true });
   } catch (err) {
     console.warn('bootstrap failed', err);
@@ -6277,6 +6393,22 @@ async function init({ fromBoot = false } = {}) {
 
   initAiScheduleControls();
   bindAiFormDirtyWatchers();
+  els.googleLoginBtn?.addEventListener('click', () => {
+    void handleGoogleLoginClick();
+  });
+  els.signOutBtn?.addEventListener('click', async () => {
+    const ok = await showConfirm('ออกจากระบบ? ข้อมูลในเครื่องยังอยู่ — คลาวด์จะหยุดซิงค์', {
+      okLabel: 'ออกจากระบบ',
+      danger: true,
+    });
+    if (!ok) return;
+    await signOut();
+    state.authUser = null;
+    state.online = false;
+    refreshAuthAccountHint();
+    setAuthOverlayVisible(true);
+    setSyncStatus('offline', 'ออกจากระบบแล้ว');
+  });
   els.exportNotesBtn?.addEventListener('click', exportNotesBackup);
   els.importNotesBtn?.addEventListener('click', () => els.importNotesFile?.click());
   els.importNotesFile?.addEventListener('change', async () => {
