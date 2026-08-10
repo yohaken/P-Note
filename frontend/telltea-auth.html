@@ -122,10 +122,11 @@
     // Uses Hosting init.json when available; otherwise MyNote project defaults.
     // Paste Web app config from Firebase Console → Project settings if Auth fails locally.
     let firebaseConfig = {
-      apiKey: "",
+      apiKey: "AIzaSyAswz15_kbwp0owNI0R2_6x8YoNHmZfeeI",
       authDomain: "mynote-f1bbc.firebaseapp.com",
       projectId: "mynote-f1bbc",
-      appId: "",
+      messagingSenderId: "570843838870",
+      storageBucket: "mynote-f1bbc.firebasestorage.app",
     };
     try {
       const initRes = await fetch("/__/firebase/init.json");
@@ -134,10 +135,6 @@
       }
     } catch {
       /* local / non-hosting */
-    }
-    if (!firebaseConfig.apiKey) {
-      setStatus("ยังไม่ได้ตั้ง Firebase Web config (mynote-f1bbc)");
-      throw new Error("Firebase apiKey missing for mynote-f1bbc");
     }
     const app = initializeApp(firebaseConfig);
 
