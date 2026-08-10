@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: mynote-f1bbc
+  PROJECT_ID: pnote
   REGION: asia-southeast1
   SERVICE_NAME: p-note-api
   REPOSITORY: p-note
