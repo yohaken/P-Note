@@ -207,6 +207,11 @@ function applyListChrome(settings) {
 
   const modeName = document.getElementById('mode-switch-name');
   if (modeName) modeName.textContent = settings.appMode === 'note' ? 'Note' : 'งานหลัก';
+  const barVer = document.getElementById('mode-switch-ver');
+  if (barVer) {
+    barVer.textContent =
+      document.querySelector('meta[name="pnote-build"]')?.content || '';
+  }
 }
 
 /**

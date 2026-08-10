@@ -4565,6 +4565,16 @@ body.light .editor-save-dot {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.mode-switch-ver {
+  flex: 0 0 auto;
+  margin-left: 0.15rem;
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0;
+  line-height: 1;
+  opacity: 0.8;
+}
 .mode-switch-chev {
   flex: 0 0 auto;
   font-size: 0.7rem;
