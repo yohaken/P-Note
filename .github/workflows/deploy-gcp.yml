@@ -30,17 +30,34 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Enable required Google APIs
+        run: |
+          gcloud services enable \
+            artifactregistry.googleapis.com \
+            run.googleapis.com \
+            cloudbuild.googleapis.com \
+            firestore.googleapis.com \
+            storage.googleapis.com \
+            firebase.googleapis.com \
+            firebasehosting.googleapis.com \
+            iam.googleapis.com \
+            --project=${{ env.PROJECT_ID }} \
+            --quiet
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
       - name: Ensure Artifact Registry repository
         run: |
           gcloud artifacts repositories describe ${{ env.REPOSITORY }} \
+            --project=${{ env.PROJECT_ID }} \
             --location=${{ env.REGION }} 2>/dev/null || \
           gcloud artifacts repositories create ${{ env.REPOSITORY }} \
+            --project=${{ env.PROJECT_ID }} \
             --repository-format=docker \
             --location=${{ env.REGION }} \
-            --description="P-Note Docker images"
+            --description="P-Note Docker images" \
+            --quiet
 
       - name: Ensure Firestore database (Native mode)
         run: |
