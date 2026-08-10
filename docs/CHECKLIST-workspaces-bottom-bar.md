@@ -62,4 +62,4 @@ Build **131** — แยก **งานหลัก** (งานเดิมช�
 - [x] popup สร้างงานสั้นลงชัดเจนบนมือถือ
 - [x] แผ่นงานเพิ่ม/rename/สลับได้ · ห้ามลบเมื่อยังมีโน้ต
 - [x] local-first ลื่น · sync เบื้องหลังไม่บล็อก UI
-- [ ] live: https://mynote-f1bbc.web.app
+- [ ] live: https://pnote.web.app
