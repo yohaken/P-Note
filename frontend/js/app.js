@@ -9,7 +9,7 @@ import {
   startLogin,
   signOut,
   watchAuth,
-} from './auth.js?v=154';
+} from './auth.js?v=155';
 import {
   addTag,
   addNotepad,
