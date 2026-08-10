@@ -1,5 +1,5 @@
-import { CONFIG } from './config.js?v=154';
-import { auth, initFirebase } from './firebase.js?v=154';
+import { CONFIG } from './config.js?v=155';
+import { auth, initFirebase } from './firebase.js?v=155';
 import {
   GoogleAuthProvider,
   getRedirectResult,
@@ -48,6 +48,7 @@ export function shouldPreferRedirectAuth() {
 
 function mapAuthError(error) {
   const code = error?.code || '';
+  const msg = String(error?.message || '');
   if (code === 'auth/popup-closed-by-user' || code === 'auth/redirect-cancelled-by-user') {
     return new Error('การล็อกอินถูกยกเลิก');
   }
@@ -57,7 +58,12 @@ function mapAuthError(error) {
   if (code === 'auth/configuration-not-found' || code === 'auth/operation-not-allowed') {
     return new Error('ยังไม่ได้เปิด Google Sign-In ใน Firebase Console');
   }
-  return new Error(error?.message || 'การล็อกอินล้มเหลว');
+  if (/redirect_uri_mismatch/i.test(msg) || /invalid.request/i.test(msg)) {
+    return new Error(
+      'OAuth redirect_uri_mismatch — ต้องเพิ่ม https://mynote-f1bbc.firebaseapp.com/__/auth/handler ใน Google Cloud Credentials',
+    );
+  }
+  return new Error(msg || 'การล็อกอินล้มเหลว');
 }
 
 export function allowedEmails() {
