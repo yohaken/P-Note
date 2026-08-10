@@ -4,9 +4,9 @@ const CLIENT_ID = '470549580687-ca7vl7cechdq430510e6jc6ch3b0ptr1.apps.googleuser
 const CANDIDATES = [
   'https://yohaken.github.io/P-Note/frontend/',
   'https://yohaken.github.io/P-Note/',
-  'https://pnote.web.app/',
-  'https://pnote.web.app',
-  'https://pnote.firebaseapp.com/',
+  'https://mynote-f1bbc.web.app/',
+  'https://mynote-f1bbc.web.app',
+  'https://mynote-f1bbc.firebaseapp.com/',
   'https://p-note.web.app/',
   'http://localhost:8080/',
   'http://localhost:3000/',

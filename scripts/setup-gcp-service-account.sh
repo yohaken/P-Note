@@ -4,12 +4,12 @@
 
 set -euo pipefail
 
-PROJECT_ID="${GCP_PROJECT_ID:-pnote}"
+PROJECT_ID="${GCP_PROJECT_ID:-mynote-f1bbc}"
 SA_NAME="pnote-github-deploy"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 KEY_FILE="pnote-gcp-sa-key.json"
 
-echo "=== P-Note: สร้าง Service Account (pnote) ==="
+echo "=== P-Note: สร้าง Service Account (MyNote) ==="
 echo "Project: $PROJECT_ID"
 echo ""
 

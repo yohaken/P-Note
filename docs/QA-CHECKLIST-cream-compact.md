@@ -1,6 +1,6 @@
 # QA Checklist — Cream compact · โน้ตหน้าแรก · ไม่มีไอคอน
 
-Local: `http://localhost:5000/note.html` · Live: https://pnote.web.app/note.html  
+Local: `http://localhost:5000/note.html` · Live: https://mynote-f1bbc.web.app/note.html  
 (โปรดักชัน `/` → `note.html` ผ่าน Firebase; python `http.server` ไม่ redirect)
 
 ## A. โหลดหน้าแรก

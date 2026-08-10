@@ -6,20 +6,15 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
 
 /**
- * P-Note Firebase project (`pnote`) — fallback when /__/firebase/init.json is unavailable
+ * MyNote (mynote-f1bbc) — fallback when /__/firebase/init.json is unavailable
  * (local static serve). On Firebase Hosting, init.json overlays these values.
- *
- * Paste Web app config from:
- * https://console.firebase.google.com/project/pnote/settings/general
- * (apiKey + messagingSenderId + appId). Until then, Auth works on Hosting only.
  */
 const PROJECT_DEFAULTS = {
-  apiKey: '',
-  authDomain: 'pnote.firebaseapp.com',
-  projectId: 'pnote',
-  storageBucket: 'pnote.firebasestorage.app',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: 'AIzaSyAswz15_kbwp0owNI0R2_6x8YoNHmZfeeI',
+  authDomain: 'mynote-f1bbc.firebaseapp.com',
+  projectId: 'mynote-f1bbc',
+  storageBucket: 'mynote-f1bbc.firebasestorage.app',
+  messagingSenderId: '570843838870',
 };
 
 let app = null;
@@ -53,11 +48,6 @@ export async function initFirebase() {
   }
 
   const config = await loadFirebaseConfig();
-  if (!config.apiKey) {
-    throw new Error(
-      'Firebase apiKey ยังว่าง — วาง Web config จากโปรเจกต์ pnote ใน js/firebase.js หรือเปิดผ่าน Firebase Hosting',
-    );
-  }
   app = initializeApp(config);
   auth = getAuth(app);
 

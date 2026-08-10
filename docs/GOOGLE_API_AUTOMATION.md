@@ -15,7 +15,7 @@ flowchart LR
     GH -->|"GCP_SA_KEY"| GHA["GitHub Actions"]
     GHA --> CR["Cloud Run API"]
     GHA --> FH["Firebase Hosting"]
-    FH --> App["pnote.web.app"]
+    FH --> App["mynote-f1bbc.web.app"]
 ```
 
 ---
@@ -37,7 +37,7 @@ chmod +x scripts/setup-gcp-service-account.sh
 
 ### วิธี B — ทำมือใน Console
 
-1. เปิด https://console.cloud.google.com/iam-admin/serviceaccounts?project=pnote
+1. เปิด https://console.cloud.google.com/iam-admin/serviceaccounts?project=mynote-f1bbc
 2. **Create Service Account** → ชื่อ `pnote-github-deploy`
 3. ให้ Roles:
    - Cloud Run Admin
@@ -78,7 +78,7 @@ gh secret set FIREBASE_TOKEN --repo yohaken/P-Note
 
 ## ขั้นที่ 3: เปิด APIs ที่จำเป็น
 
-ใน https://console.cloud.google.com/apis/library?project=pnote เปิด:
+ใน https://console.cloud.google.com/apis/library?project=mynote-f1bbc เปิด:
 
 - [x] Google Drive API (มีแล้ว)
 - [ ] Cloud Run API
@@ -92,11 +92,11 @@ gh secret set FIREBASE_TOKEN --repo yohaken/P-Note
 
 ```bash
 firebase login
-firebase use pnote
+firebase use mynote-f1bbc
 firebase deploy --only hosting
 ```
 
-ได้ลิงก์คงที่: **https://pnote.web.app**
+ได้ลิงก์คงที่: **https://mynote-f1bbc.web.app**
 
 ---
 
@@ -109,7 +109,7 @@ firebase deploy --only hosting
 3. รอ 3–5 นาที
 4. ตรวจสอบ:
    - API: `curl https://p-note-api-XXXX.asia-southeast1.run.app/api/health`
-   - App: https://pnote.web.app
+   - App: https://mynote-f1bbc.web.app
 
 ---
 
@@ -141,7 +141,7 @@ firebase deploy --only hosting
 | Actions ล้มเหลว `GCP_SA_KEY` | ตรวจ secret ว่าใส่ JSON ครบทั้งไฟล์ |
 | Firebase deploy skip | เพิ่ม `FIREBASE_TOKEN` secret |
 | Cloud Run 403 | เปิด Cloud Run API + ตรวจ IAM roles |
-| `pnote.web.app` 404 | รัน `firebase deploy` ครั้งแรก / ตรวจ `GCP_SA_KEY` ชี้ pnote |
+| `mynote-f1bbc.web.app` 404 | รัน `firebase deploy` ครั้งแรก / ตรวจ `GCP_SA_KEY` ชี้ MyNote |
 
 ---
 

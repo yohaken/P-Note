@@ -1,7 +1,7 @@
 import { chromium, devices } from 'playwright';
 
 const LOCAL = process.env.TEST_URL || 'http://localhost:5000/';
-const PROD = 'https://pnote.web.app/';
+const PROD = 'https://mynote-f1bbc.web.app/';
 
 async function testMobileLogin(url, label) {
   const browser = await chromium.launch({ headless: true });
