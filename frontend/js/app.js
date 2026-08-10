@@ -5551,6 +5551,8 @@ function updateAppVersionLabel() {
     const ver = els.appTitle.querySelector('.title-version');
     if (ver) ver.textContent = verLabel;
   }
+  const barVer = document.getElementById('mode-switch-ver');
+  if (barVer) barVer.textContent = build || '';
   const shellVer = document.getElementById('shellNoteVersion');
   if (shellVer) shellVer.textContent = verLabel;
 }
