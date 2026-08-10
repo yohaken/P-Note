@@ -10,7 +10,7 @@ if [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ ! -f "./pnote-gcp-sa-key.js
 fi
 
 export GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS:-./pnote-gcp-sa-key.json}"
-PROJECT_ID="${GCP_PROJECT_ID:-pnote}"
+PROJECT_ID="${GCP_PROJECT_ID:-mynote-f1bbc}"
 
 echo "=== ทดสอบ Google Cloud API ==="
 echo "Project: $PROJECT_ID"

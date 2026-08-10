@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "pnote",
+    "site": "mynote-f1bbc",
     "public": "frontend",
     "ignore": [
       "firebase.json",
