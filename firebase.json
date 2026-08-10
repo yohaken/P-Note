@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "mypeer-501909",
+    "site": "mynote-f1bbc",
     "public": "frontend",
     "ignore": [
       "firebase.json",
@@ -12,6 +12,15 @@
         "source": "/",
         "destination": "/note.html",
         "type": 302
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "p-note-api",
+          "region": "asia-southeast1"
+        }
       }
     ],
     "headers": [

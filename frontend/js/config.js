@@ -5,10 +5,10 @@ export const CONFIG = {
   EDITOR_SYNC_DELAY_MS: 450,
   UPDATE_CHECK_MS: 20000,
 
-  // Backend API (Phase 3+ — not used while login is disabled)
+  // Local → Express :8080. Prod → same-origin (Firebase Hosting rewrite → Cloud Run).
   API_BASE_URL: window.location.hostname === 'localhost'
     ? 'http://localhost:8080'
-    : 'https://p-note-api-cwpgmqlv2q-as.a.run.app',
+    : '',
 };
 
 /** Bump <meta name="pnote-build"> when releasing; cache-bootstrap clears stale SW. */

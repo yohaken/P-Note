@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const URL = process.env.TEST_URL || 'https://mypeer-501909.web.app/';
+const URL = process.env.TEST_URL || 'https://mynote-f1bbc.web.app/';
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ serviceWorkers: 'block' });

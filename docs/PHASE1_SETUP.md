@@ -6,8 +6,9 @@
 
 | ส่วน | URL |
 |------|-----|
-| แอป (ผู้ใช้) | `https://p-note.web.app` |
-| แอป (สำรอง) | `https://p-note.firebaseapp.com` |
+| แอป (ผู้ใช้) | `https://mynote-f1bbc.web.app` |
+| แอป (สำรอง) | `https://mynote-f1bbc.firebaseapp.com` |
+| GCP / Firebase | **MyNote** / `mynote-f1bbc` |
 | API | `https://p-note-api-<hash>.asia-southeast1.run.app` |
 | โค้ด | `https://github.com/yohaken/P-Note` |
 
@@ -16,9 +17,9 @@
 ## ขั้นที่ 1: Firebase Project
 
 1. เปิด https://console.firebase.google.com
-2. **Add project** → เลือก GCP project **mypoer** (หรือสร้างใหม่)
+2. **Add project** → เลือก GCP project **mynote-f1bbc** (MyNote)
 3. เปิด **Hosting** → **Get started**
-4. ตั้งชื่อ site: `p-note` → ได้ URL `p-note.web.app`
+4. Site เริ่มต้น: `mynote-f1bbc` → URL `mynote-f1bbc.web.app`
 
 ---
 
@@ -73,11 +74,11 @@ curl https://p-note-api-XXXX.asia-southeast1.run.app/api/health
 ```bash
 npm install -g firebase-tools
 firebase login
-firebase use mypoer
+firebase use mynote-f1bbc
 firebase deploy --only hosting
 ```
 
-เปิด `https://p-note.web.app`
+เปิด `https://mynote-f1bbc.web.app`
 
 ---
 
@@ -99,9 +100,9 @@ firebase deploy --only hosting
 
 | ช่อง | URL |
 |------|-----|
-| JavaScript origins | `https://p-note.web.app` |
+| JavaScript origins | `https://mynote-f1bbc.web.app` |
 | JavaScript origins | `https://p-note.firebaseapp.com` |
-| Redirect URIs | `https://p-note.web.app/` |
+| Redirect URIs | `https://mynote-f1bbc.web.app/` |
 | Redirect URIs | `https://p-note.firebaseapp.com/` |
 
 (เก็บ GitHub Pages URLs เดิมไว้ระหว่าง transition)
@@ -119,7 +120,7 @@ Cloud Console → **Billing** → **Budgets & alerts**
 
 ## ทดสอบ Phase 1
 
-- [ ] `https://p-note.web.app` เปิดได้
+- [ ] `https://mynote-f1bbc.web.app` เปิดได้
 - [ ] `/api/health` บน Cloud Run ตอบ `{"status":"ok"}`
 - [ ] Push ขึ้น GitHub → Cloud Build trigger ทำงาน
 - [ ] แอปเดิม (ล็อกอิน Google) ยังใช้ได้บน Firebase Hosting

@@ -1,7 +1,7 @@
 import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=148';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
-import { CONFIG } from './config.js?v=133';
+import { CONFIG } from './config.js?v=149';
 import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=148';
 import {
   addTag,

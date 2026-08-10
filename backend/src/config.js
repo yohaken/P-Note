@@ -1,15 +1,13 @@
 const DEFAULT_ORIGINS = [
   'http://localhost:5000',
   'http://127.0.0.1:5000',
-  'https://mypeer-501909.web.app',
-  'https://mypeer-501909.firebaseapp.com',
-  'https://p-note.web.app',
-  'https://p-note.firebaseapp.com',
+  'https://mynote-f1bbc.web.app',
+  'https://mynote-f1bbc.firebaseapp.com',
 ].join(',');
 
 /** Firebase Hosting preview channels for this project's sites. */
 const PREVIEW_ORIGIN_RE =
-  /^https:\/\/(mypeer-501909|p-note)--[\w-]+\.(web\.app|firebaseapp\.com)$/;
+  /^https:\/\/mynote-f1bbc--[\w-]+\.(web\.app|firebaseapp\.com)$/;
 
 export const config = {
   port: Number(process.env.PORT) || 8080,
@@ -18,9 +16,9 @@ export const config = {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
-  gcpProjectId: process.env.GCP_PROJECT_ID || 'mypeer-501909',
+  gcpProjectId: process.env.GCP_PROJECT_ID || 'mynote-f1bbc',
   /** GCS bucket for full-size note attachments (empty = disabled, base64 fallback). */
-  filesBucket: String(process.env.FILES_BUCKET || 'mypeer-501909-pnote-files').trim(),
+  filesBucket: String(process.env.FILES_BUCKET || 'mynote-f1bbc-pnote-files').trim(),
 };
 
 export function isAllowedOrigin(origin) {

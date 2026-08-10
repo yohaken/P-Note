@@ -4,12 +4,12 @@
 
 set -euo pipefail
 
-PROJECT_ID="${GCP_PROJECT_ID:-mypoer}"
+PROJECT_ID="${GCP_PROJECT_ID:-mynote-f1bbc}"
 SA_NAME="pnote-github-deploy"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 KEY_FILE="pnote-gcp-sa-key.json"
 
-echo "=== P-Note: สร้าง Service Account ==="
+echo "=== P-Note: สร้าง Service Account (MyNote) ==="
 echo "Project: $PROJECT_ID"
 echo ""
 
@@ -23,9 +23,14 @@ gcloud iam service-accounts create "$SA_NAME" \
 # ให้สิทธิ์ที่จำเป็น (เท่าที่ deploy ต้องใช้)
 ROLES=(
   "roles/run.admin"
-  "roles/artifactregistry.writer"
+  "roles/artifactregistry.admin"
   "roles/iam.serviceAccountUser"
   "roles/cloudbuild.builds.editor"
+  "roles/firebasehosting.admin"
+  "roles/firebase.admin"
+  "roles/datastore.owner"
+  "roles/storage.admin"
+  "roles/serviceusage.serviceUsageAdmin"
 )
 
 for ROLE in "${ROLES[@]}"; do

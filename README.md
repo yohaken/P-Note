@@ -6,7 +6,7 @@
 
 | | URL |
 |---|-----|
-| **แอป (prod)** | https://p-note.web.app |
+| **แอป (prod)** | https://mynote-f1bbc.web.app |
 | **Preview (dev)** | push branch `dev` → ดู URL ใน Actions |
 | **GitHub** | https://github.com/yohaken/P-Note |
 | **API Health** | `GET /api/health` |
@@ -57,6 +57,7 @@ P-Note/
 
 - ตั้งค่า Google Cloud: **[docs/PHASE1_SETUP.md](docs/PHASE1_SETUP.md)**
 - **เชื่อม API อัตโนมัติ:** **[docs/GOOGLE_API_AUTOMATION.md](docs/GOOGLE_API_AUTOMATION.md)** ← อ่านนี้เพื่อให้ deploy อัตโนมัติ
+- **ย้ายไป MyNote (`mynote-f1bbc`):** **[docs/MIGRATE_TO_MYNOTE.md](docs/MIGRATE_TO_MYNOTE.md)**
 
 ### รัน Backend ในเครื่อง
 

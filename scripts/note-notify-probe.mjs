@@ -5,7 +5,7 @@
 import { chromium } from 'playwright';
 import { reminderFireAtMs } from '../frontend/js/schedule.js';
 
-const TARGET = process.argv[2] || 'https://mypeer-501909.web.app/note.html';
+const TARGET = process.argv[2] || 'https://mynote-f1bbc.web.app/note.html';
 const origin = new URL(TARGET).origin;
 
 const browser = await chromium.launch({ headless: true });
