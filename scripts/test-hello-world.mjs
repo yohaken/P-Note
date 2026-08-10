@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const URL = process.env.TEST_URL || 'https://pnote.web.app/';
+const URL = process.env.TEST_URL || 'https://mynote-f1bbc.web.app/';
 
 async function runScenario(name, options = {}) {
   const browser = await chromium.launch({ headless: true });
