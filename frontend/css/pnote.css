@@ -5234,3 +5234,161 @@ body:not(.notepad-editing) .note-text-bar {
   font-size: 0.72rem;
   padding: 0.28rem 0.35rem;
 }
+
+/* ── Calendar View ── */
+#calendar-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 0.5rem calc(5rem + var(--safe-bottom));
+  gap: 0.5rem;
+  overflow-y: auto;
+}
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.25rem;
+}
+
+.cal-nav-btn {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.cal-month-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text);
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.3rem 0;
+  text-transform: uppercase;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-cell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2px 0 0 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  position: relative;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s ease;
+}
+
+.cal-cell:active {
+  background: var(--surface-3);
+}
+
+.cal-cell.empty {
+  cursor: default;
+}
+
+.cal-cell.today {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.cal-cell.selected {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.cal-cell.selected.today {
+  color: #fff;
+}
+
+.cal-cell-day {
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.cal-cell-dots {
+  display: flex;
+  gap: 2px;
+  margin-top: 1px;
+  min-height: 4px;
+}
+
+.cal-cell-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+.cal-cell.selected .cal-cell-dot {
+  background: #fff;
+  opacity: 1;
+}
+
+.cal-cell.overdue .cal-cell-dot {
+  background: var(--danger);
+}
+
+/* Calendar notes list */
+.cal-notes {
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.cal-notes-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0 0.4rem 0;
+  padding: 0 0.2rem;
+}
+
+.cal-notes-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 1.5rem 0;
+}
+
+.cal-notes .note-card-compact {
+  margin-bottom: 0;
+}
+
+/* Calendar mode: hide dock filters, keep only mode switch + add */
+body.calendar-mode #filter-dock-filters {
+  display: none;
+}
+

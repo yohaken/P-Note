@@ -108,6 +108,9 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
+  buildMonthGrid,
+  monthLabel,
+  notesOnDate,
 } from './schedule.js?v=148';
 import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=153';
 import {
@@ -193,7 +196,14 @@ function hasCloudContent(data) {
 const state = {
   notesData: { version: 7, updatedAt: '', tags: [], notes: [], workspaces: [], notepads: [] },
   settings: loadSettings(),
-  appMode: loadSettings().appMode === 'note' ? 'note' : 'work',
+  appMode: function() {
+    const m = loadSettings().appMode;
+    return (m === 'note' || m === 'calendar') ? m : 'work';
+  }(),
+  /** Calendar view state */
+  calendarMonth: new Date().getMonth(),
+  calendarYear: new Date().getFullYear(),
+  calendarSelectedDate: null,
   activeNotepadId: null,
   /** Draft sheet blocks while editing a notepad (insertable Excel-like modules). */
   editorSheets: [],
@@ -329,6 +339,7 @@ const els = {
   filterDockFiltersWrap: document.getElementById('filter-dock-filters'),
   dockModeWork: document.getElementById('dock-mode-work'),
   dockModeNote: document.getElementById('dock-mode-note'),
+  dockModeCalendar: document.getElementById('dock-mode-calendar'),
   notepadQuickBar: document.getElementById('notepad-quick-bar'),
   notepadQuickScroll: document.getElementById('notepad-quick-scroll'),
   floatTagRail: document.getElementById('float-tag-rail'),
@@ -399,6 +410,7 @@ const els = {
   modeMenuOverlay: document.getElementById('modeMenuOverlay'),
   modeMenuWork: document.getElementById('mode-menu-work'),
   modeMenuNote: document.getElementById('mode-menu-note'),
+  modeMenuCalendar: document.getElementById('mode-menu-calendar'),
   notepadMenuSection: document.getElementById('notepad-menu-section'),
   notepadMenuList: document.getElementById('notepad-menu-list'),
   notepadAddBtn: document.getElementById('notepad-add-btn'),
@@ -465,6 +477,13 @@ const els = {
   authOverlay: document.getElementById('auth-overlay'),
   googleLoginBtn: document.getElementById('google-login-btn'),
   authError: document.getElementById('auth-error'),
+  /* Calendar view */
+  calendarView: document.getElementById('calendar-view'),
+  calPrevMonth: document.getElementById('cal-prev-month'),
+  calNextMonth: document.getElementById('cal-next-month'),
+  calMonthTitle: document.getElementById('cal-month-title'),
+  calGrid: document.getElementById('cal-grid'),
+  calNotes: document.getElementById('cal-notes'),
 };
 
 function showView(view) {
@@ -1119,19 +1138,27 @@ function isNoteMode() {
   return state.appMode === 'note';
 }
 
+function isCalendarMode() {
+  return state.appMode === 'calendar';
+}
+
 function notesForCurrentGroup() {
   // งานหลัก: all task notes (workspaces no longer split the work board)
   return filterNotesByStatus(state.notesData.notes, state.listGroup);
 }
 
 function setAppMode(mode, { persist = true } = {}) {
-  const next = mode === 'note' ? 'note' : 'work';
+  let next;
+  if (mode === 'note') next = 'note';
+  else if (mode === 'calendar') next = 'calendar';
+  else next = 'work';
   if (state.activeNotepadId && state.view === 'editor') {
     flushNotepadToState();
     saveManager.saveNow(() => state.notesData);
   }
   state.appMode = next;
   document.body.classList.toggle('note-mode', next === 'note');
+  document.body.classList.toggle('calendar-mode', next === 'calendar');
   document.body.classList.remove('notepad-editing');
   if (persist) {
     state.settings.appMode = next;
@@ -1147,36 +1174,189 @@ function setAppMode(mode, { persist = true } = {}) {
     // leave editor when switching modes
     showView('list');
   }
+  toggleCalendarView(next === 'calendar');
   renderNotesList();
   updateFilterDockVisibility();
   updateUndoFab();
 }
 
+function toggleCalendarView(show) {
+  if (els.calendarView) {
+    els.calendarView.hidden = !show;
+  }
+  if (els.notesListEl) {
+    els.notesListEl.hidden = show;
+  }
+  if (show) {
+    renderCalendar();
+  }
+}
+
+function renderCalendar() {
+  if (!els.calGrid || !els.calMonthTitle) return;
+
+  const { calendarMonth, calendarYear } = state;
+  const notes = state.notesData.notes;
+
+  els.calMonthTitle.textContent = monthLabel(calendarYear, calendarMonth);
+  els.calPrevMonth.setAttribute('aria-label', monthLabel(calendarYear, calendarMonth - 1));
+  els.calNextMonth.setAttribute('aria-label', monthLabel(calendarYear, calendarMonth + 1));
+
+  const grid = buildMonthGrid(calendarYear, calendarMonth, notes);
+  els.calGrid.innerHTML = '';
+
+  grid.cells.forEach((cell) => {
+    const div = document.createElement('div');
+    div.className = 'cal-cell';
+    if (cell.empty) {
+      div.classList.add('empty');
+      els.calGrid.appendChild(div);
+      return;
+    }
+
+    if (cell.isToday) div.classList.add('today');
+    if (state.calendarSelectedDate && cell.dateKey === state.calendarSelectedDate) {
+      div.classList.add('selected');
+    }
+
+    div.setAttribute('role', 'button');
+    div.setAttribute('tabindex', '0');
+    div.setAttribute('aria-label', `${cell.day} ${monthLabel(calendarYear, calendarMonth).replace(/[0-9]+/, '').trim()}`);
+    div.dataset.dateKey = cell.dateKey;
+
+    div.innerHTML = `<span class="cal-cell-day">${cell.day}</span>`;
+
+    if (cell.count > 0) {
+      const dateNotes = notesOnDate(notes, cell.dateKey);
+      const hasOverdue = dateNotes.some((n) => {
+        const prox = scheduleProximity(n.scheduledAt);
+        return prox.level === 'overdue' || prox.level === 'today';
+      });
+      const dots = document.createElement('div');
+      dots.className = 'cal-cell-dots';
+      if (hasOverdue) div.classList.add('overdue');
+      const dotCount = Math.min(cell.count, 3);
+      for (let i = 0; i < dotCount; i++) {
+        const dot = document.createElement('span');
+        dot.className = 'cal-cell-dot';
+        dots.appendChild(dot);
+      }
+      div.appendChild(dots);
+    }
+
+    div.addEventListener('click', () => selectCalendarDate(cell.dateKey));
+    els.calGrid.appendChild(div);
+  });
+
+  if (state.calendarSelectedDate) {
+    renderCalendarNotes(state.calendarSelectedDate);
+  }
+}
+
+function selectCalendarDate(dateKey) {
+  state.calendarSelectedDate = dateKey;
+
+  // Highlight selected cell
+  if (els.calGrid) {
+    els.calGrid.querySelectorAll('.cal-cell.selected').forEach((c) => c.classList.remove('selected'));
+    const cell = els.calGrid.querySelector(`.cal-cell[data-date-key="${dateKey}"]`);
+    if (cell) cell.classList.add('selected');
+  }
+
+  renderCalendarNotes(dateKey);
+}
+
+function renderCalendarNotes(dateKey) {
+  if (!els.calNotes) return;
+
+  const notes = state.notesData.notes;
+  const dateNotes = notesOnDate(notes, dateKey);
+
+  // Format the date label
+  const d = new Date(dateKey + 'T00:00:00');
+  const dateLabel = d.toLocaleDateString('th-TH', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  if (dateNotes.length === 0) {
+    els.calNotes.innerHTML = `<p class="cal-notes-empty">${dateLabel} — ไม่มีงาน</p>`;
+    return;
+  }
+
+  // Sort scheduled notes first
+  const sorted = [...dateNotes].sort((a, b) => {
+    const aHasTime = !!a.scheduledAt;
+    const bHasTime = !!b.scheduledAt;
+    if (aHasTime && !bHasTime) return -1;
+    if (!aHasTime && bHasTime) return 1;
+    if (aHasTime && bHasTime) return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
+  let html = `<p class="cal-notes-title">${dateLabel}</p>`;
+
+  sorted.forEach((note) => {
+    const priority = notePriority(note);
+    const prioColors = loadSettings().priorityColors || DEFAULT_PRIORITY_COLORS;
+    const prioColor = prioColors[priority] || prioColors.normal;
+    const tags = getTagsForNote(note, state.notesData.tags || []);
+    const titleText = stripLeadingEmoji(note.title || '') || 'ไม่มีหัวข้อ';
+    const metaHtml = cardMetaInlineHtml(note, tags);
+    const leadHtml = cardLeadingIconHtml(note, tags);
+
+    html += `<div class="note-card note-card-split note-card-compact" data-note-id="${escapeHtml(note.id)}" role="button" tabindex="0">
+      <div class="card-compact-body" style="--prio:${escapeHtml(prioColor)}">
+        <div class="card-compact-row">
+          ${leadHtml}
+          <h3 class="card-title">${escapeHtml(titleText)}</h3>
+          ${metaHtml}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  els.calNotes.innerHTML = html;
+
+  // Click handler for calendar note cards — open editor
+  els.calNotes.querySelectorAll('.note-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const noteId = card.dataset.noteId;
+      if (noteId) openEditor(noteId);
+    });
+  });
+}
+
 function renderModeSwitcher() {
   if (els.modeSwitchName) {
-    els.modeSwitchName.textContent = isNoteMode() ? 'Note' : 'งานหลัก';
+    if (isCalendarMode()) els.modeSwitchName.textContent = 'ปฏิทิน';
+    else els.modeSwitchName.textContent = isNoteMode() ? 'Note' : 'งานหลัก';
   }
   if (els.modeSwitchBtn) {
-    els.modeSwitchBtn.setAttribute(
-      'aria-label',
-      isNoteMode() ? 'โหมด Note' : 'โหมดงานหลัก',
-    );
+    let ariaLabel = 'โหมดงานหลัก';
+    if (isCalendarMode()) ariaLabel = 'โหมดปฏิทิน';
+    else if (isNoteMode()) ariaLabel = 'โหมด Note';
+    els.modeSwitchBtn.setAttribute('aria-label', ariaLabel);
   }
-  els.modeMenuWork?.setAttribute('aria-current', isNoteMode() ? 'false' : 'page');
-  els.modeMenuNote?.setAttribute('aria-current', isNoteMode() ? 'page' : 'false');
   if (els.modeMenuWork) {
-    if (isNoteMode()) els.modeMenuWork.removeAttribute('aria-current');
-    else els.modeMenuWork.setAttribute('aria-current', 'page');
+    els.modeMenuWork.setAttribute('aria-current', (!isNoteMode() && !isCalendarMode()) ? 'page' : 'false');
   }
   if (els.modeMenuNote) {
-    if (isNoteMode()) els.modeMenuNote.setAttribute('aria-current', 'page');
-    else els.modeMenuNote.removeAttribute('aria-current');
+    els.modeMenuNote.setAttribute('aria-current', isNoteMode() ? 'page' : 'false');
+  }
+  if (els.modeMenuCalendar) {
+    els.modeMenuCalendar.setAttribute('aria-current', isCalendarMode() ? 'page' : 'false');
   }
   if (els.dockModeWork) {
-    els.dockModeWork.setAttribute('aria-pressed', isNoteMode() ? 'false' : 'true');
+    els.dockModeWork.setAttribute('aria-pressed', (!isNoteMode() && !isCalendarMode()) ? 'true' : 'false');
   }
   if (els.dockModeNote) {
     els.dockModeNote.setAttribute('aria-pressed', isNoteMode() ? 'true' : 'false');
+  }
+  if (els.dockModeCalendar) {
+    els.dockModeCalendar.setAttribute('aria-pressed', isCalendarMode() ? 'true' : 'false');
   }
   if (els.notepadMenuSection) {
     els.notepadMenuSection.hidden = !isNoteMode();
@@ -1699,17 +1879,18 @@ function updateFilterDockVisibility() {
   const list = state.view === 'list';
   const selecting = list && state.selectionMode && !isNoteMode();
   const notepadEditing = isNoteMode() && state.view === 'editor' && Boolean(state.activeNotepadId);
+  const calMode = isCalendarMode();
   if (els.filterDock) {
     const showDock = (list && !state.selectionMode) || notepadEditing;
     els.filterDock.hidden = !showDock;
-    const showFilters = showDock && list && !isNoteMode() && state.listGroup === NOTE_STATUS.ACTIVE;
+    const showFilters = showDock && list && !isNoteMode() && !calMode && state.listGroup === NOTE_STATUS.ACTIVE;
     if (els.filterDockFiltersWrap) els.filterDockFiltersWrap.hidden = !showFilters;
-    // In Note mode: hide group drawer, keep left slot so mode switch stays centered
+    // In Note/Calendar mode: hide group drawer, keep left slot so mode switch stays centered
     if (els.groupNavBtn) {
       els.groupNavBtn.hidden = false;
-      els.groupNavBtn.classList.toggle('is-slot-empty', isNoteMode());
-      els.groupNavBtn.tabIndex = isNoteMode() ? -1 : 0;
-      els.groupNavBtn.setAttribute('aria-hidden', isNoteMode() ? 'true' : 'false');
+      els.groupNavBtn.classList.toggle('is-slot-empty', isNoteMode() || calMode);
+      els.groupNavBtn.tabIndex = (isNoteMode() || calMode) ? -1 : 0;
+      els.groupNavBtn.setAttribute('aria-hidden', (isNoteMode() || calMode) ? 'true' : 'false');
     }
     if (!showFilters) closeFilterMenus();
     renderNotepadQuickBar();
@@ -5792,8 +5973,10 @@ function notesContentKey(data) {
 function paintNotesFromLocal(data) {
   state.notesData = normalizeNotesData(data);
   state.syncBaseUpdatedAt = state.notesData?.updatedAt || null;
-  state.appMode = state.settings.appMode === 'note' ? 'note' : 'work';
+  const m = state.settings.appMode;
+  state.appMode = (m === 'note' || m === 'calendar') ? m : 'work';
   document.body.classList.toggle('note-mode', isNoteMode());
+  document.body.classList.toggle('calendar-mode', isCalendarMode());
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
@@ -5804,6 +5987,7 @@ function paintNotesFromLocal(data) {
   reapplyBarLayout();
   applyBarThickness();
   renderModeSwitcher();
+  toggleCalendarView(isCalendarMode());
   renderNotesList();
   showView('list');
   updateAppVersionLabel();
@@ -6268,6 +6452,30 @@ async function init({ fromBoot = false } = {}) {
   };
   els.dockModeWork?.addEventListener('click', onDockModeClick);
   els.dockModeNote?.addEventListener('click', onDockModeClick);
+  els.dockModeCalendar?.addEventListener('click', onDockModeClick);
+  /* Calendar navigation */
+  els.calPrevMonth?.addEventListener('click', () => {
+    if (state.calendarMonth === 0) {
+      state.calendarMonth = 11;
+      state.calendarYear -= 1;
+    } else {
+      state.calendarMonth -= 1;
+    }
+    state.calendarSelectedDate = null;
+    renderCalendar();
+    if (els.calNotes) els.calNotes.innerHTML = '<p class="cal-notes-empty">เลือกวันที่เพื่อดูงาน</p>';
+  });
+  els.calNextMonth?.addEventListener('click', () => {
+    if (state.calendarMonth === 11) {
+      state.calendarMonth = 0;
+      state.calendarYear += 1;
+    } else {
+      state.calendarMonth += 1;
+    }
+    state.calendarSelectedDate = null;
+    renderCalendar();
+    if (els.calNotes) els.calNotes.innerHTML = '<p class="cal-notes-empty">เลือกวันที่เพื่อดูงาน</p>';
+  });
   els.notepadQuickScroll?.addEventListener('click', (e) => {
     const chip = e.target.closest?.('[data-notepad-quick-id]');
     if (!chip || !els.notepadQuickScroll.contains(chip)) return;
