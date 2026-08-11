@@ -488,8 +488,18 @@ const els = {
 
 function showView(view) {
   state.view = view;
-  els.listView.hidden = view !== 'list';
+  const calendarList = isCalendarMode() && view === 'list';
+  // In calendar mode, list = calendar surface (not the work list)
+  els.listView.hidden = view !== 'list' && !calendarList;
   els.editorView.hidden = view !== 'editor';
+  if (calendarList) {
+    // Return to calendar — keep notes list hidden, show calendar
+    if (els.notesListEl) els.notesListEl.hidden = true;
+    if (els.calendarView) els.calendarView.hidden = false;
+  } else if (!isCalendarMode()) {
+    // Not calendar mode — list view shows notes list normally
+    if (els.notesListEl) els.notesListEl.hidden = false;
+  }
   updateFilterDockVisibility();
   updateUndoFab();
   if (view !== 'editor') hideEditorSaveDot();
