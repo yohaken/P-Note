@@ -67,6 +67,8 @@ import {
 } from './sheet.js?v=148';
 import {
   addDayFromLast,
+  appendQuickExercise,
+  appendQuickMeal,
   computeTotals,
   deleteDay,
   formatDateDisplay,
@@ -77,7 +79,7 @@ import {
   renderCalorieTotalsHtml,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=161';
+} from './calorie.js?v=162';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -510,6 +512,16 @@ const els = {
   calorieAddDayBtn: document.getElementById('calorie-add-day-btn'),
   calorieProteinFactor: document.getElementById('calorie-protein-factor'),
   calorieDefaultBase: document.getElementById('calorie-default-base'),
+  calorieFabs: document.getElementById('calorie-fabs'),
+  calorieFabMeal: document.getElementById('calorie-fab-meal'),
+  calorieFabMus: document.getElementById('calorie-fab-mus'),
+  calorieQuickOverlay: document.getElementById('calorie-quick-overlay'),
+  calorieQuickBackdrop: document.getElementById('calorie-quick-backdrop'),
+  calorieQuickTitle: document.getElementById('calorie-quick-title'),
+  calorieQuickHint: document.getElementById('calorie-quick-hint'),
+  calorieQuickInput: document.getElementById('calorie-quick-input'),
+  calorieQuickCancel: document.getElementById('calorie-quick-cancel'),
+  calorieQuickOk: document.getElementById('calorie-quick-ok'),
   dockModeCalorie: document.getElementById('dock-mode-calorie'),
   modeMenuCalorie: document.getElementById('mode-menu-calorie'),
 };
@@ -1348,6 +1360,70 @@ function addCalorieDay() {
   });
 }
 
+function syncCalorieFabs() {
+  if (els.calorieFabs) els.calorieFabs.hidden = !isCalorieMode();
+}
+
+let calorieQuickMode = null; // 'meal' | 'mus'
+
+function openCalorieQuick(mode) {
+  calorieQuickMode = mode === 'mus' ? 'mus' : 'meal';
+  if (!els.calorieQuickOverlay) return;
+  if (els.calorieQuickTitle) {
+    els.calorieQuickTitle.textContent = calorieQuickMode === 'mus' ? 'เพิ่มออกกำลัง' : 'เพิ่มมื้อ';
+  }
+  if (els.calorieQuickHint) {
+    els.calorieQuickHint.textContent = calorieQuickMode === 'mus'
+      ? 'เช่น ไหล่ 30kg 150 หรือ คาร์ดิโอ 200'
+      : 'เช่น 130,27 หรือ ข้าวต้ม 180,12';
+  }
+  if (els.calorieQuickInput) {
+    els.calorieQuickInput.value = '';
+    els.calorieQuickInput.placeholder = calorieQuickMode === 'mus' ? 'ท่า + แคลที่เผา' : 'แคล,โปรตีน';
+  }
+  els.calorieQuickOverlay.hidden = false;
+  requestAnimationFrame(() => {
+    try { els.calorieQuickInput?.focus({ preventScroll: false }); } catch { /* ignore */ }
+  });
+}
+
+function closeCalorieQuick() {
+  calorieQuickMode = null;
+  if (els.calorieQuickOverlay) els.calorieQuickOverlay.hidden = true;
+}
+
+function submitCalorieQuick() {
+  const text = String(els.calorieQuickInput?.value || '').trim();
+  if (!text) {
+    setStatus(calorieQuickMode === 'mus' ? 'พิมพ์ท่า + แคลก่อน' : 'พิมพ์แคล/โปรตีนก่อน');
+    return;
+  }
+  try {
+    if (calorieQuickMode === 'mus') {
+      const { sheet, parsed } = appendQuickExercise(ensureCaloriePayload(), text);
+      state.calorieActiveMonth = monthKeyFromDate(toDateKey());
+      persistCalorie(sheet, {
+        status: `+mus ${parsed.burn}${parsed.label ? ` · ${parsed.label}` : ''}`,
+        fullRender: true,
+      });
+    } else {
+      const { sheet, slot, parsed } = appendQuickMeal(ensureCaloriePayload(), text);
+      state.calorieActiveMonth = monthKeyFromDate(toDateKey());
+      persistCalorie(sheet, {
+        status: `มื้อ ${slot}: ${parsed.cal}${parsed.prot ? `,${parsed.prot}` : ''}`,
+        fullRender: true,
+      });
+    }
+    closeCalorieQuick();
+    requestAnimationFrame(() => {
+      if (els.calorieScroll) els.calorieScroll.scrollTop = els.calorieScroll.scrollHeight;
+      syncCalorieMonthFromScroll();
+    });
+  } catch (err) {
+    setStatus(err?.message || 'เพิ่มไม่ได้');
+  }
+}
+
 function setAppMode(mode, { persist = true } = {}) {
   let next;
   if (mode === 'note') next = 'note';
@@ -1371,6 +1447,7 @@ function setAppMode(mode, { persist = true } = {}) {
     state.activeNotepadId = null;
     clearNotepadSheetUi();
   }
+  if (next !== 'calorie') closeCalorieQuick();
   closeModeMenu();
   renderModeSwitcher();
   // Always land on the mode's own sheet (never overlay calendar on list)
@@ -1382,6 +1459,7 @@ function setAppMode(mode, { persist = true } = {}) {
   }
   updateFilterDockVisibility();
   updateUndoFab();
+  syncCalorieFabs();
 }
 
 function renderCalendar() {
@@ -6216,8 +6294,9 @@ function paintNotesFromLocal(data) {
   applyBarThickness();
   renderModeSwitcher();
   showView(boardHomeView());
-  if (!isCalendarMode()) renderNotesList();
+  if (!isCalendarMode() && !isCalorieMode()) renderNotesList();
   updateAppVersionLabel();
+  syncCalorieFabs();
 }
 
 /**
@@ -6708,6 +6787,20 @@ async function init({ fromBoot = false } = {}) {
     if (els.calNotes) els.calNotes.innerHTML = '<p class="cal-notes-empty">เลือกวันที่เพื่อดูงาน</p>';
   });
   els.calorieAddDayBtn?.addEventListener('click', () => addCalorieDay());
+  els.calorieFabMeal?.addEventListener('click', () => openCalorieQuick('meal'));
+  els.calorieFabMus?.addEventListener('click', () => openCalorieQuick('mus'));
+  els.calorieQuickCancel?.addEventListener('click', closeCalorieQuick);
+  els.calorieQuickBackdrop?.addEventListener('click', closeCalorieQuick);
+  els.calorieQuickOk?.addEventListener('click', submitCalorieQuick);
+  els.calorieQuickInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitCalorieQuick();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCalorieQuick();
+    }
+  });
   const onCalorieFactorChange = () => {
     const sheet = ensureCaloriePayload();
     const pf = Number(els.calorieProteinFactor?.value);

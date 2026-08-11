@@ -55,6 +55,104 @@ export function formatMealCell(cal, prot) {
   return p ? `${c},${p}` : String(c);
 }
 
+/**
+ * Quick-add meal text → { cal, prot, label }.
+ * Accepts "130,27", "350", "ข้าวต้ม 180,12", "นม 120".
+ */
+export function parseQuickMeal(text) {
+  const s = String(text || '').trim();
+  if (!s) return null;
+  const m = s.match(/(\d+(?:\.\d+)?)(?:\s*[,;]\s*(\d+(?:\.\d+)?))?/);
+  if (!m) return null;
+  const cal = Number(m[1]);
+  const prot = m[2] != null ? Number(m[2]) : 0;
+  if (!Number.isFinite(cal) || cal <= 0) return null;
+  const label = s.replace(m[0], ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  return {
+    cal: Math.round(cal),
+    prot: Number.isFinite(prot) ? round(prot, 1) : 0,
+    label,
+  };
+}
+
+/**
+ * Quick-add exercise text → { burn, label }.
+ * Accepts "150", "ไหล่ 30kg 150", "คาร์ดิโอ 200".
+ */
+export function parseQuickExercise(text) {
+  const s = String(text || '').trim();
+  if (!s) return null;
+  const nums = [...s.matchAll(/(\d+(?:\.\d+)?)/g)].map((x) => Number(x[1]));
+  if (!nums.length) return null;
+  // Prefer the last number as burn kcal (names often have weights earlier).
+  const burn = Math.round(nums[nums.length - 1]);
+  if (!Number.isFinite(burn) || burn <= 0) return null;
+  let label = s;
+  const last = String(nums[nums.length - 1]);
+  const idx = s.lastIndexOf(last);
+  if (idx >= 0) label = `${s.slice(0, idx)}${s.slice(idx + last.length)}`;
+  label = label.replace(/\s+/g, ' ').trim().replace(/[,\s]+$/g, '').slice(0, 80);
+  return { burn, label: label || `ออกกำลัง ${burn}` };
+}
+
+/** Ensure a day exists (clone body from last), return { sheet, day }. */
+export function ensureDay(calorie, dateKey = toDateKey(new Date())) {
+  const { sheet, day, created } = addDayFromLast(calorie, dateKey);
+  return { sheet, day, created };
+}
+
+/** Put meal into the first empty slot (1–7) for that day; append label to note. */
+export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date())) {
+  const parsed = parseQuickMeal(text);
+  if (!parsed) {
+    const err = new Error('ใส่แคลอรี่ เช่น 130,27 หรือ ข้าว 180,12');
+    err.code = 'bad_meal';
+    throw err;
+  }
+  const { sheet, day } = ensureDay(calorie, dateKey);
+  const meals = [...(day.meals || [])];
+  while (meals.length < MEAL_SLOTS) meals.push('');
+  const slot = meals.findIndex((c) => parseMealCell(c).empty);
+  if (slot < 0) {
+    const err = new Error('มื้อครบ 7 ช่องแล้ว — แก้ในตารางหรือลบมื้อก่อน');
+    err.code = 'meals_full';
+    throw err;
+  }
+  meals[slot] = formatMealCell(parsed.cal, parsed.prot);
+  let note = String(day.note || '');
+  if (parsed.label) {
+    note = note ? `${note} · ${parsed.label}` : parsed.label;
+    note = note.slice(0, 200);
+  }
+  return {
+    sheet: patchDay(sheet, day.id, { meals, note }),
+    slot: slot + 1,
+    parsed,
+    dayId: day.id,
+  };
+}
+
+/** Add exercise burn into mus; append label to note. */
+export function appendQuickExercise(calorie, text, dateKey = toDateKey(new Date())) {
+  const parsed = parseQuickExercise(text);
+  if (!parsed) {
+    const err = new Error('ใส่ออกกำลัง + แคล เช่น ไหล่ 150 หรือ คาร์ดิโอ 200');
+    err.code = 'bad_exercise';
+    throw err;
+  }
+  const { sheet, day } = ensureDay(calorie, dateKey);
+  const mus = (Number.isFinite(day.mus) ? day.mus : 0) + parsed.burn;
+  let note = String(day.note || '');
+  const bit = parsed.label;
+  note = note ? `${note} · ${bit}` : bit;
+  note = note.slice(0, 200);
+  return {
+    sheet: patchDay(sheet, day.id, { mus, note }),
+    parsed,
+    dayId: day.id,
+  };
+}
+
 /** YYYY-MM-DD in local timezone. */
 export function toDateKey(date = new Date()) {
   const d = date instanceof Date ? date : new Date(date);
@@ -481,16 +579,16 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date())) {
           <input class="cal-date-picker" type="date" data-cal-field="date" data-day-id="${esc(row.id)}" value="${esc(row.date)}" tabindex="-1" aria-hidden="true">
         </td>
         <td class="cal-col-day">${esc(row.dayName)}</td>
-        <td class="cal-col-num"><input class="cal-cell" data-cal-field="waist" data-day-id="${esc(row.id)}" value="${row.waist ?? ''}" inputmode="decimal" aria-label="รอบเอว"></td>
-        <td class="cal-col-num"><input class="cal-cell" data-cal-field="weight" data-day-id="${esc(row.id)}" value="${row.weight ?? ''}" inputmode="decimal" aria-label="น้ำหนัก"></td>
+        <td class="cal-col-body"><input class="cal-cell" data-cal-field="waist" data-day-id="${esc(row.id)}" value="${row.waist ?? ''}" inputmode="decimal" aria-label="รอบเอว"></td>
+        <td class="cal-col-body"><input class="cal-cell" data-cal-field="weight" data-day-id="${esc(row.id)}" value="${row.weight ?? ''}" inputmode="decimal" aria-label="น้ำหนัก"></td>
         <td class="cal-col-sum cal-col-add cal-derived">${m.addCal ?? ''}</td>
         <td class="cal-col-sum cal-derived">${m.prot ?? ''}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.pRm)}">${m.pRm == null ? '' : formatSigned(m.pRm, 1)}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.balance)}">${m.balance == null ? '' : formatSigned(m.balance, 0)}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
         ${meals}
-        <td class="cal-col-num"><input class="cal-cell" data-cal-field="mus" data-day-id="${esc(row.id)}" value="${row.mus ?? ''}" inputmode="numeric" aria-label="ออกกำลัง"></td>
-        <td class="cal-col-num"><input class="cal-cell" data-cal-field="base" data-day-id="${esc(row.id)}" value="${row.base ?? ''}" inputmode="numeric" aria-label="base"></td>
+        <td class="cal-col-burn"><input class="cal-cell" data-cal-field="mus" data-day-id="${esc(row.id)}" value="${row.mus ?? ''}" inputmode="numeric" aria-label="ออกกำลัง"></td>
+        <td class="cal-col-burn"><input class="cal-cell" data-cal-field="base" data-day-id="${esc(row.id)}" value="${row.base ?? ''}" inputmode="numeric" aria-label="base"></td>
         <td class="cal-col-sum cal-derived">${m.bsum ?? ''}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.pctBl)}">${m.pctBl == null ? '' : `${m.pctBl}%`}</td>
         <td class="cal-col-note"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${esc(row.id)}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>
