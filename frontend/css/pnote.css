@@ -676,12 +676,12 @@ body.selection-mode .undo-fab {
   left: 0;
   width: 100%;
   z-index: 56;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding-top: calc(0.1rem + var(--dock-lift));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.28);
-  transition: padding-top 0.12s ease;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0 0.45rem calc(0.28rem + env(safe-area-inset-bottom, 0px) + var(--dock-lift));
+  pointer-events: none;
+  transition: padding-bottom 0.12s ease;
 }
 .filter-dock[hidden] {
   display: none !important;
@@ -695,21 +695,104 @@ body.filter-menu-open .filter-dd-backdrop {
 body.filter-menu-open .filter-dd-menu:not([hidden]) {
   z-index: 70;
 }
-.filter-dock-inner {
+.filter-dock-float {
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.38rem;
+  width: 100%;
+  max-width: min(100%, 28rem);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+/* Legacy class kept for any leftover selectors */
+.filter-dock-inner,
+.filter-dock-inner-stack {
+  display: contents;
+}
+.dock-context-rail {
+  pointer-events: none;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  padding: calc(0.22rem * var(--dock-scale)) 0.4rem calc(0.28rem * var(--dock-scale));
-  max-width: 100%;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 0;
+}
+.dock-context-rail:not(:has(> :not([hidden]))) {
+  display: none;
+}
+.dock-context-rail > * {
+  pointer-events: auto;
+}
+.dock-context-calorie {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.dock-context-calorie[hidden] {
+  display: none !important;
+}
+.dock-ctx-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.28rem;
+  min-height: calc(2.15rem * var(--dock-scale, 1));
+  padding: 0.28rem 0.72rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: calc(0.72rem * var(--dock-scale, 1));
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 2px 10px rgba(36, 48, 40, 0.12);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+.dock-ctx-btn svg {
+  flex: 0 0 auto;
+  display: block;
+}
+.dock-ctx-btn:active {
+  transform: scale(0.97);
+  opacity: 0.92;
+}
+.dock-ctx-primary {
+  background: #e07a2f;
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(224, 122, 47, 0.35);
+}
+.dock-ctx-mus {
+  background: #2f6f4e;
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(47, 111, 78, 0.28);
+}
+.filter-dock-primary {
+  pointer-events: auto;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 6px 22px rgba(36, 48, 40, 0.16);
+  padding: calc(0.22rem * var(--dock-scale)) calc(0.35rem * var(--dock-scale));
   box-sizing: border-box;
 }
-.filter-dock-inner-stack {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.28rem;
-  padding-top: calc(0.28rem * var(--dock-scale));
-  padding-bottom: calc(0.32rem * var(--dock-scale));
+body.light .filter-dock-primary {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .filter-dock-actions {
   display: flex;
@@ -718,7 +801,7 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
   justify-content: center;
   gap: 0.35rem;
   width: 100%;
-  padding: 0 0.15rem;
+  padding: 0 0.1rem;
   box-sizing: border-box;
 }
 .dock-actions-center {
@@ -726,51 +809,86 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 0.28rem;
+  gap: 0.22rem;
   flex: 0 1 auto;
   min-width: 0;
+  width: 100%;
 }
 .dock-mode-switch {
   display: inline-flex;
   flex-direction: row;
   align-items: stretch;
+  flex: 1 1 auto;
   min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 9px;
+  border: none;
+  border-radius: 999px;
   overflow: hidden;
-  background: var(--bg);
+  background: transparent;
+  gap: 0.08rem;
+}
+.dock-actions-center .dock-action-btn {
+  border-radius: 999px;
+  flex: 0 0 auto;
 }
 .dock-actions-center .dock-action-primary {
-  border-radius: 9px;
+  border-radius: 999px;
 }
 body.light .dock-mode-switch {
-  background: var(--surface-2, #efeae2);
+  background: transparent;
 }
 .dock-mode-btn {
   appearance: none;
   border: none;
   margin: 0;
-  min-width: 2.35rem;
-  height: calc(2.15rem * var(--dock-scale, 1));
-  padding: 0 0.45rem;
+  flex: 1 1 0;
+  min-width: 0;
+  height: calc(2.45rem * var(--dock-scale, 1));
+  padding: 0.12rem 0.18rem;
   font: inherit;
-  font-size: calc(0.72rem * var(--dock-scale, 1));
+  font-size: calc(0.58rem * var(--dock-scale, 1));
   font-weight: 700;
   color: var(--text-muted);
   background: transparent;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.06rem;
+  border-radius: 12px;
+  line-height: 1.05;
 }
 .dock-mode-btn + .dock-mode-btn {
-  border-left: 1px solid var(--border);
+  border-left: none;
+}
+.dock-mode-icon {
+  display: block;
+  width: calc(1.05rem * var(--dock-scale, 1));
+  height: calc(1.05rem * var(--dock-scale, 1));
+  flex: 0 0 auto;
+}
+.dock-mode-label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dock-mode-btn[aria-pressed="true"] {
-  background: var(--accent);
-  color: #fff;
+  background: color-mix(in srgb, var(--success, #4a7c59) 22%, var(--surface-2, #f3f7f4));
+  color: var(--accent);
+}
+.dock-mode-btn[aria-pressed="true"] .dock-mode-icon {
+  color: var(--accent);
 }
 .dock-mode-btn:active {
   opacity: 0.88;
+}
+.filter-dock-filters {
+  width: 100%;
+  min-width: 0;
 }
 .filter-dock-filters[hidden] {
   display: none !important;
@@ -835,10 +953,10 @@ body.light .notepad-quick-chip {
   white-space: nowrap;
 }
 .dock-action-btn {
-  width: 2.15rem;
-  height: 2.15rem;
+  width: calc(2.35rem * var(--dock-scale, 1));
+  height: calc(2.45rem * var(--dock-scale, 1));
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--bg);
   color: var(--text);
   font-size: 0.95rem;
@@ -849,6 +967,7 @@ body.light .notepad-quick-chip {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  flex: 0 0 auto;
 }
 .dock-action-btn:active {
   transform: scale(0.96);
@@ -916,8 +1035,9 @@ body.light .dock-action-btn.active {
   max-width: calc(6.4rem * var(--dock-scale));
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: calc(0.22rem * var(--dock-scale)) calc(0.38rem * var(--dock-scale));
-  border-radius: var(--radius-sm);
+  padding: calc(0.32rem * var(--dock-scale)) calc(0.55rem * var(--dock-scale));
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(36, 48, 40, 0.1);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -5005,9 +5125,8 @@ body:not(.notepad-editing) .note-text-bar {
     margin-right: auto;
     width: 100%;
   }
-  .filter-dock-inner {
+  .filter-dock-float {
     max-width: 560px;
-    margin: 0 auto;
   }
 }
 
@@ -5530,7 +5649,7 @@ body.calorie-mode #notepad-quick-bar {
   min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0 0 calc(5.2rem + var(--safe-bottom));
+  padding: 0 0 calc(0.55rem + var(--filters-dock-h, 5.5rem));
   border-top: 1px solid var(--border);
 }
 
@@ -5808,48 +5927,6 @@ body.calorie-mode #notepad-quick-bar {
   font-size: 0.75rem;
   padding: 1.2rem 0.5rem;
   margin: 0;
-}
-
-/* Floating quick-add (meal / exercise) — calorie mode only */
-.calorie-fabs {
-  position: fixed;
-  right: 0.55rem;
-  bottom: calc(4.85rem + var(--safe-bottom));
-  z-index: 45;
-  display: none;
-  flex-direction: column;
-  gap: 0.4rem;
-  pointer-events: none;
-}
-
-body.calorie-mode .calorie-fabs:not([hidden]) {
-  display: flex;
-}
-
-.calorie-fab {
-  pointer-events: auto;
-  width: 2.55rem;
-  height: 2.55rem;
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #fff;
-  background: #2f6f4e;
-  box-shadow: 0 2px 8px rgba(30, 60, 40, 0.22);
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-
-.calorie-fab:active {
-  transform: scale(0.96);
-  opacity: 0.92;
-}
-
-.calorie-fab-mus {
-  background: #c2410c;
 }
 
 .calorie-quick-overlay {

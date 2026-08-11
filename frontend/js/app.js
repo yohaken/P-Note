@@ -79,7 +79,7 @@ import {
   renderCalorieTotalsHtml,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=162';
+} from './calorie.js?v=163';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -512,9 +512,10 @@ const els = {
   calorieAddDayBtn: document.getElementById('calorie-add-day-btn'),
   calorieProteinFactor: document.getElementById('calorie-protein-factor'),
   calorieDefaultBase: document.getElementById('calorie-default-base'),
-  calorieFabs: document.getElementById('calorie-fabs'),
+  calorieFabs: document.getElementById('dock-context-calorie'),
   calorieFabMeal: document.getElementById('calorie-fab-meal'),
   calorieFabMus: document.getElementById('calorie-fab-mus'),
+  dockContextRail: document.getElementById('dock-context-rail'),
   calorieQuickOverlay: document.getElementById('calorie-quick-overlay'),
   calorieQuickBackdrop: document.getElementById('calorie-quick-backdrop'),
   calorieQuickTitle: document.getElementById('calorie-quick-title'),
@@ -1361,7 +1362,8 @@ function addCalorieDay() {
 }
 
 function syncCalorieFabs() {
-  if (els.calorieFabs) els.calorieFabs.hidden = !isCalorieMode();
+  const show = isCalorieMode() && els.filterDock && !els.filterDock.hidden;
+  if (els.calorieFabs) els.calorieFabs.hidden = !show;
 }
 
 let calorieQuickMode = null; // 'meal' | 'mus'
@@ -2186,6 +2188,7 @@ function updateFilterDockVisibility() {
     }
     if (!showFilters) closeFilterMenus();
     renderNotepadQuickBar();
+    syncCalorieFabs();
   }
   document.body.classList.toggle('notepad-dock', Boolean(notepadEditing));
   if (els.selectionDock) {
