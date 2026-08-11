@@ -53,24 +53,26 @@ export function clearPreviousSpaceId() {
 
 function emptyPayload() {
   return {
-    version: 7,
+    version: 8,
     updatedAt: new Date().toISOString(),
     tags: [],
     notes: [],
     workspaces: [],
     notepads: [],
+    calorie: null,
   };
 }
 
 function normalizePayload(raw) {
   const data = raw && typeof raw === 'object' ? raw : {};
   return {
-    version: Number(data.version) || 7,
+    version: Number(data.version) || 8,
     updatedAt: data.updatedAt || new Date().toISOString(),
     tags: Array.isArray(data.tags) ? data.tags : [],
     notes: Array.isArray(data.notes) ? data.notes : [],
     workspaces: Array.isArray(data.workspaces) ? data.workspaces : [],
     notepads: Array.isArray(data.notepads) ? data.notepads : [],
+    calorie: data.calorie && typeof data.calorie === 'object' ? data.calorie : null,
   };
 }
 

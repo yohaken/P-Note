@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="159">
-  <meta name="pnote-built" content="2026-08-10T18:40:00+00:00">
+  <meta name="pnote-build" content="160">
+  <meta name="pnote-built" content="2026-08-11T15:40:00+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=159"></script>
+  <script src="js/cache-bootstrap.js?v=160"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=159">
+  <link rel="stylesheet" href="css/pnote.css?v=160">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -166,6 +166,57 @@
       <button id="group-done-btn" class="drawer-item" type="button">ทำแล้ว</button>
       <button id="group-trash-btn" class="drawer-item" type="button">ถังขยะ</button>
     </aside>
+
+    <section id="calorie-view" class="view calorie-view" hidden aria-label="แผ่นงานแคลอรี่">
+      <div class="calorie-toolbar">
+        <div class="calorie-totals" id="calorie-totals" aria-live="polite"></div>
+        <div class="calorie-toolbar-actions">
+          <label class="calorie-factor-label" title="เป้าโปรตีน = น้ำหนัก × ค่านี้">
+            prot×
+            <input id="calorie-protein-factor" class="calorie-factor-input" type="number" min="0.5" max="4" step="0.05" inputmode="decimal" aria-label="ตัวคูณโปรตีนต่อกก.">
+          </label>
+          <label class="calorie-factor-label" title="base เริ่มต้นเมื่อยังไม่ใส่">
+            base
+            <input id="calorie-default-base" class="calorie-factor-input" type="number" min="800" max="5000" step="1" inputmode="numeric" aria-label="เผาผลาญฐานเริ่มต้น">
+          </label>
+          <button type="button" class="btn btn-mini" id="calorie-add-day-btn">+ วัน</button>
+        </div>
+      </div>
+      <div class="calorie-scroll" id="calorie-scroll">
+        <p class="calorie-hint">มื้อใส่ <code>แคล,โปรตีน</code> เช่น <code>130,27</code> · p-rm = prot − หนัก×ตัวคูณ · balance = Add cal − bsum</p>
+        <table class="calorie-table" id="calorie-table" aria-label="ตารางแคลอรี่รายวัน">
+          <thead>
+            <tr>
+              <th class="cal-col-sticky cal-col-n" scope="col">#</th>
+              <th class="cal-col-sticky cal-col-date" scope="col">วันที่</th>
+              <th class="cal-col-day" scope="col">วัน</th>
+              <th class="cal-col-num" scope="col">รอบเอว</th>
+              <th class="cal-col-num" scope="col">หนัก</th>
+              <th class="cal-col-sum cal-col-add" scope="col">Add cal</th>
+              <th class="cal-col-sum" scope="col">prot</th>
+              <th class="cal-col-sum" scope="col">p-rm</th>
+              <th class="cal-col-sum" scope="col">balance</th>
+              <th class="cal-col-sum" scope="col">bl-kg</th>
+              <th class="cal-col-meal" scope="col">1</th>
+              <th class="cal-col-meal" scope="col">2</th>
+              <th class="cal-col-meal" scope="col">3</th>
+              <th class="cal-col-meal" scope="col">4</th>
+              <th class="cal-col-meal" scope="col">5</th>
+              <th class="cal-col-meal" scope="col">6</th>
+              <th class="cal-col-meal" scope="col">7</th>
+              <th class="cal-col-num" scope="col">mus</th>
+              <th class="cal-col-num" scope="col">base</th>
+              <th class="cal-col-sum" scope="col">bsum</th>
+              <th class="cal-col-sum" scope="col">%bl</th>
+              <th class="cal-col-note" scope="col">หลัก</th>
+              <th class="cal-col-del" scope="col"><span class="sr-only">ลบ</span></th>
+            </tr>
+          </thead>
+          <tbody id="calorie-tbody"></tbody>
+        </table>
+        <p class="calorie-empty" id="calorie-empty" hidden>ยังไม่มีวัน — กด + วัน หรือปุ่มเพิ่มด้านล่าง</p>
+      </div>
+    </section>
 
     <section id="calendar-view" class="view calendar-view" hidden aria-label="ปฏิทิน">
       <header class="cal-header">
@@ -764,6 +815,7 @@
             <button type="button" class="dock-mode-btn" id="dock-mode-work" data-app-mode="work" aria-pressed="true">งาน</button>
             <button type="button" class="dock-mode-btn" id="dock-mode-note" data-app-mode="note" aria-pressed="false">โน้ต</button>
             <button type="button" class="dock-mode-btn" id="dock-mode-calendar" data-app-mode="calendar" aria-pressed="false">ปฏิทิน</button>
+            <button type="button" class="dock-mode-btn" id="dock-mode-calorie" data-app-mode="calorie" aria-pressed="false">แคล</button>
           </div>
           <button type="button" class="dock-action-btn dock-action-primary" id="add-note-btn" aria-label="เพิ่มงาน" title="เพิ่มงาน">
             <svg class="dock-action-ai-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
@@ -805,6 +857,9 @@
       <button type="button" class="mode-menu-item" role="menuitem" data-app-mode="calendar" id="mode-menu-calendar">
         <span>ปฏิทิน</span><span class="pm-sub">ดูตามวันที่</span>
       </button>
+      <button type="button" class="mode-menu-item" role="menuitem" data-app-mode="calorie" id="mode-menu-calorie">
+        <span>แคลอรี่</span><span class="pm-sub">แผ่นงานรายวัน</span>
+      </button>
       <div id="notepad-menu-section" class="notepad-menu-section" hidden>
         <p class="mode-menu-title" style="margin-top:0.55rem">Note ของฉัน</p>
         <div id="notepad-menu-list" class="workspace-menu-list"></div>
@@ -815,7 +870,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=159"></script>
-  <script src="js/update-watch.js?v=159"></script>
+  <script type="module" src="js/boot.js?v=160"></script>
+  <script src="js/update-watch.js?v=160"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import { normalizeNotesData } from './notes.js?v=148';
+import { mergeCalorieByUpdatedAt } from './calorie.js?v=160';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -89,11 +90,13 @@ export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
 
   const localAt = new Date(local.updatedAt || 0).getTime();
   const remoteAt = new Date(remote.updatedAt || 0).getTime();
+  const calorie = mergeCalorieByUpdatedAt(local.calorie, remote.calorie);
 
   return normalizeNotesData({
-    version: Math.max(Number(local.version) || 7, Number(remote.version) || 7, 7),
+    version: Math.max(Number(local.version) || 8, Number(remote.version) || 8, 8),
     workspaces: [...workspaces.values()],
     notepads: [...notepads.values()],
+    calorie,
     tags: [...tags.values()],
     notes: [...notes.values()],
     updatedAt: new Date(Math.max(localAt, remoteAt, Date.now())).toISOString(),
@@ -116,14 +119,24 @@ function entityNeedsPush(localList, remoteList) {
 export function localNeedsRemotePush(localRaw, remoteRaw) {
   const local = normalizeNotesData(localRaw);
   const remote = normalizeNotesData(remoteRaw);
+  const localCalDays = Array.isArray(local.calorie?.days) ? local.calorie.days.length : 0;
+  const remoteCalDays = Array.isArray(remote.calorie?.days) ? remote.calorie.days.length : 0;
   const localHas =
-    hasAnyNotes(local) || (Array.isArray(local.notepads) && local.notepads.length > 0);
+    hasAnyNotes(local)
+    || (Array.isArray(local.notepads) && local.notepads.length > 0)
+    || localCalDays > 0;
   const remoteHas =
-    hasAnyNotes(remote) || (Array.isArray(remote.notepads) && remote.notepads.length > 0);
+    hasAnyNotes(remote)
+    || (Array.isArray(remote.notepads) && remote.notepads.length > 0)
+    || remoteCalDays > 0;
   if (!localHas) return false;
   if (!remoteHas) return true;
   if (entityNeedsPush(local.notes, remote.notes)) return true;
   if (entityNeedsPush(local.notepads, remote.notepads)) return true;
+  if (entityNeedsPush(local.calorie?.days || [], remote.calorie?.days || [])) return true;
+  const localCalAt = new Date(local.calorie?.updatedAt || 0).getTime();
+  const remoteCalAt = new Date(remote.calorie?.updatedAt || 0).getTime();
+  if (localCalAt > remoteCalAt) return true;
   return false;
 }
 

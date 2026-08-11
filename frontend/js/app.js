@@ -66,6 +66,16 @@ import {
   sheetFingerprint,
 } from './sheet.js?v=148';
 import {
+  addDayFromLast,
+  computeTotals,
+  deleteDay,
+  normalizeCalorie,
+  patchDay,
+  renderCalorieRowsHtml,
+  renderCalorieTotalsHtml,
+  toDateKey,
+} from './calorie.js?v=160';
+import {
   applyTextPrefsToTextarea,
   clampFontSize,
   DEFAULT_TEXT_PREFS,
@@ -190,15 +200,16 @@ import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } 
 function hasCloudContent(data) {
   return hasAnyNotes(data)
     || (Array.isArray(data?.notepads) && data.notepads.length > 0)
-    || (Array.isArray(data?.tags) && data.tags.length > 0);
+    || (Array.isArray(data?.tags) && data.tags.length > 0)
+    || (Array.isArray(data?.calorie?.days) && data.calorie.days.length > 0);
 }
 
 const state = {
-  notesData: { version: 7, updatedAt: '', tags: [], notes: [], workspaces: [], notepads: [] },
+  notesData: { version: 8, updatedAt: '', tags: [], notes: [], workspaces: [], notepads: [], calorie: null },
   settings: loadSettings(),
   appMode: function() {
     const m = loadSettings().appMode;
-    return (m === 'note' || m === 'calendar') ? m : 'work';
+    return (m === 'note' || m === 'calendar' || m === 'calorie') ? m : 'work';
   }(),
   /** Calendar view state */
   calendarMonth: new Date().getMonth(),
@@ -485,29 +496,47 @@ const els = {
   calMonthTitle: document.getElementById('cal-month-title'),
   calGrid: document.getElementById('cal-grid'),
   calNotes: document.getElementById('cal-notes'),
+  /* Calorie spreadsheet */
+  calorieView: document.getElementById('calorie-view'),
+  calorieTotals: document.getElementById('calorie-totals'),
+  calorieTbody: document.getElementById('calorie-tbody'),
+  calorieEmpty: document.getElementById('calorie-empty'),
+  calorieScroll: document.getElementById('calorie-scroll'),
+  calorieAddDayBtn: document.getElementById('calorie-add-day-btn'),
+  calorieProteinFactor: document.getElementById('calorie-protein-factor'),
+  calorieDefaultBase: document.getElementById('calorie-default-base'),
+  dockModeCalorie: document.getElementById('dock-mode-calorie'),
+  modeMenuCalorie: document.getElementById('mode-menu-calorie'),
 };
 
 function boardHomeView() {
-  return isCalendarMode() ? 'calendar' : 'list';
+  if (isCalendarMode()) return 'calendar';
+  if (isCalorieMode()) return 'calorie';
+  return 'list';
 }
 
 function showView(view) {
-  // Normalize: calendar mode never shares the work/note list sheet
+  // Normalize: calendar/calorie modes never share the work/note list sheet
   let next = view;
   if (next === 'list' && isCalendarMode()) next = 'calendar';
-  if (next === 'calendar' && !isCalendarMode()) next = 'list';
+  if (next === 'list' && isCalorieMode()) next = 'calorie';
+  if (next === 'calendar' && !isCalendarMode()) next = isCalorieMode() ? 'calorie' : 'list';
+  if (next === 'calorie' && !isCalorieMode()) next = isCalendarMode() ? 'calendar' : 'list';
   state.view = next;
 
   const onList = next === 'list';
   const onCal = next === 'calendar';
+  const onCalorie = next === 'calorie';
   const onEditor = next === 'editor';
 
-  if (els.boardTopbar) els.boardTopbar.hidden = !(onList || onCal);
+  if (els.boardTopbar) els.boardTopbar.hidden = !(onList || onCal || onCalorie);
   els.listView.hidden = !onList;
   els.editorView.hidden = !onEditor;
   if (els.calendarView) els.calendarView.hidden = !onCal;
+  if (els.calorieView) els.calorieView.hidden = !onCalorie;
   if (els.notesList) els.notesList.hidden = false;
   if (onCal) renderCalendar();
+  if (onCalorie) renderCalorieSheet();
   updateFilterDockVisibility();
   updateUndoFab();
   if (next !== 'editor') hideEditorSaveDot();
@@ -1160,15 +1189,87 @@ function isCalendarMode() {
   return state.appMode === 'calendar';
 }
 
+function isCalorieMode() {
+  return state.appMode === 'calorie';
+}
+
 function notesForCurrentGroup() {
   // งานหลัก: all task notes (workspaces no longer split the work board)
   return filterNotesByStatus(state.notesData.notes, state.listGroup);
+}
+
+function ensureCaloriePayload() {
+  const cal = normalizeCalorie(state.notesData.calorie);
+  if (state.notesData.calorie !== cal) {
+    state.notesData = { ...state.notesData, calorie: cal };
+  }
+  return cal;
+}
+
+function persistCalorie(nextCalorie, { status = 'บันทึกแผ่นแคลอรี่แล้ว' } = {}) {
+  state.notesData = {
+    ...state.notesData,
+    calorie: normalizeCalorie(nextCalorie),
+    updatedAt: new Date().toISOString(),
+  };
+  saveManager.save(() => state.notesData);
+  if (status) setStatus(status);
+  if (isCalorieMode()) renderCalorieSheet({ preserveFocus: true });
+}
+
+function renderCalorieSheet({ preserveFocus = false } = {}) {
+  if (!els.calorieTbody) return;
+  const active = document.activeElement;
+  const focusKey = preserveFocus && active?.dataset?.dayId && active?.dataset?.calField
+    ? {
+        dayId: active.dataset.dayId,
+        field: active.dataset.calField,
+        mealIndex: active.dataset.mealIndex,
+        selStart: typeof active.selectionStart === 'number' ? active.selectionStart : null,
+        selEnd: typeof active.selectionEnd === 'number' ? active.selectionEnd : null,
+      }
+    : null;
+
+  const { sheet, rows, totals } = computeTotals(ensureCaloriePayload());
+  if (els.calorieTotals) els.calorieTotals.innerHTML = renderCalorieTotalsHtml(totals);
+  if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
+    els.calorieProteinFactor.value = String(sheet.proteinFactor);
+  }
+  if (els.calorieDefaultBase && document.activeElement !== els.calorieDefaultBase) {
+    els.calorieDefaultBase.value = String(sheet.defaultBase);
+  }
+  els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows);
+  if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
+
+  if (focusKey) {
+    let sel = `input[data-day-id="${CSS.escape(focusKey.dayId)}"][data-cal-field="${CSS.escape(focusKey.field)}"]`;
+    if (focusKey.field === 'meal' && focusKey.mealIndex != null) {
+      sel += `[data-meal-index="${CSS.escape(String(focusKey.mealIndex))}"]`;
+    }
+    const el = els.calorieTbody.querySelector(sel);
+    if (el) {
+      el.focus({ preventScroll: true });
+      if (focusKey.selStart != null && typeof el.setSelectionRange === 'function') {
+        try { el.setSelectionRange(focusKey.selStart, focusKey.selEnd ?? focusKey.selStart); } catch { /* ignore */ }
+      }
+    }
+  }
+}
+
+function addCalorieDay() {
+  const { sheet, created } = addDayFromLast(ensureCaloriePayload(), toDateKey(new Date()));
+  persistCalorie(sheet, { status: created ? 'เพิ่มวันนี้แล้ว' : 'มีวันนี้แล้ว' });
+  // Scroll to bottom (latest day)
+  requestAnimationFrame(() => {
+    if (els.calorieScroll) els.calorieScroll.scrollTop = els.calorieScroll.scrollHeight;
+  });
 }
 
 function setAppMode(mode, { persist = true } = {}) {
   let next;
   if (mode === 'note') next = 'note';
   else if (mode === 'calendar') next = 'calendar';
+  else if (mode === 'calorie') next = 'calorie';
   else next = 'work';
   if (state.activeNotepadId && state.view === 'editor') {
     flushNotepadToState();
@@ -1177,6 +1278,7 @@ function setAppMode(mode, { persist = true } = {}) {
   state.appMode = next;
   document.body.classList.toggle('note-mode', next === 'note');
   document.body.classList.toggle('calendar-mode', next === 'calendar');
+  document.body.classList.toggle('calorie-mode', next === 'calorie');
   document.body.classList.remove('notepad-editing');
   if (persist) {
     state.settings.appMode = next;
@@ -1190,8 +1292,8 @@ function setAppMode(mode, { persist = true } = {}) {
   renderModeSwitcher();
   // Always land on the mode's own sheet (never overlay calendar on list)
   showView(boardHomeView());
-  if (next === 'calendar') {
-    /* calendar painted by showView */
+  if (next === 'calendar' || next === 'calorie') {
+    /* painted by showView */
   } else {
     renderNotesList();
   }
@@ -1338,17 +1440,20 @@ function renderCalendarNotes(dateKey) {
 
 function renderModeSwitcher() {
   if (els.modeSwitchName) {
-    if (isCalendarMode()) els.modeSwitchName.textContent = 'ปฏิทิน';
+    if (isCalorieMode()) els.modeSwitchName.textContent = 'แคลอรี่';
+    else if (isCalendarMode()) els.modeSwitchName.textContent = 'ปฏิทิน';
     else els.modeSwitchName.textContent = isNoteMode() ? 'Note' : 'งานหลัก';
   }
   if (els.modeSwitchBtn) {
     let ariaLabel = 'โหมดงานหลัก';
-    if (isCalendarMode()) ariaLabel = 'โหมดปฏิทิน';
+    if (isCalorieMode()) ariaLabel = 'โหมดแคลอรี่';
+    else if (isCalendarMode()) ariaLabel = 'โหมดปฏิทิน';
     else if (isNoteMode()) ariaLabel = 'โหมด Note';
     els.modeSwitchBtn.setAttribute('aria-label', ariaLabel);
   }
+  const onWork = !isNoteMode() && !isCalendarMode() && !isCalorieMode();
   if (els.modeMenuWork) {
-    els.modeMenuWork.setAttribute('aria-current', (!isNoteMode() && !isCalendarMode()) ? 'page' : 'false');
+    els.modeMenuWork.setAttribute('aria-current', onWork ? 'page' : 'false');
   }
   if (els.modeMenuNote) {
     els.modeMenuNote.setAttribute('aria-current', isNoteMode() ? 'page' : 'false');
@@ -1356,14 +1461,20 @@ function renderModeSwitcher() {
   if (els.modeMenuCalendar) {
     els.modeMenuCalendar.setAttribute('aria-current', isCalendarMode() ? 'page' : 'false');
   }
+  if (els.modeMenuCalorie) {
+    els.modeMenuCalorie.setAttribute('aria-current', isCalorieMode() ? 'page' : 'false');
+  }
   if (els.dockModeWork) {
-    els.dockModeWork.setAttribute('aria-pressed', (!isNoteMode() && !isCalendarMode()) ? 'true' : 'false');
+    els.dockModeWork.setAttribute('aria-pressed', onWork ? 'true' : 'false');
   }
   if (els.dockModeNote) {
     els.dockModeNote.setAttribute('aria-pressed', isNoteMode() ? 'true' : 'false');
   }
   if (els.dockModeCalendar) {
     els.dockModeCalendar.setAttribute('aria-pressed', isCalendarMode() ? 'true' : 'false');
+  }
+  if (els.dockModeCalorie) {
+    els.dockModeCalorie.setAttribute('aria-pressed', isCalorieMode() ? 'true' : 'false');
   }
   if (els.notepadMenuSection) {
     els.notepadMenuSection.hidden = !isNoteMode();
@@ -1849,12 +1960,19 @@ function renderGroupNav() {
   els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
-  if (isNoteMode()) {
+  if (isNoteMode() || isCalorieMode()) {
     if (els.addNoteBtn) els.addNoteBtn.hidden = false;
     if (els.addBlankBtn) els.addBlankBtn.hidden = true;
   } else {
     if (els.addNoteBtn) els.addNoteBtn.hidden = !isActiveGroup;
     if (els.addBlankBtn) els.addBlankBtn.hidden = !isActiveGroup;
+  }
+  if (els.addNoteBtn) {
+    els.addNoteBtn.setAttribute(
+      'aria-label',
+      isCalorieMode() ? 'เพิ่มวัน' : isNoteMode() ? 'เพิ่ม Note' : 'เพิ่มงาน',
+    );
+    els.addNoteBtn.title = isCalorieMode() ? 'เพิ่มวัน' : isNoteMode() ? 'เพิ่ม Note' : 'เพิ่มงาน';
   }
   updateFilterDockVisibility();
   renderModeSwitcher();
@@ -1866,11 +1984,13 @@ function renderGroupNav() {
       : state.listGroup === NOTE_STATUS.TRASH
         ? 'ถังขยะ'
         : 'งานหลัก';
-  const name = isNoteMode()
-    ? 'Note'
-    : groupTitle === 'งานหลัก'
-      ? 'งานหลัก'
-      : `งานหลัก · ${groupTitle}`;
+  const name = isCalorieMode()
+    ? 'แคลอรี่'
+    : isNoteMode()
+      ? 'Note'
+      : groupTitle === 'งานหลัก'
+        ? 'งานหลัก'
+        : `งานหลัก · ${groupTitle}`;
   if (els.appTitle) {
     els.appTitle.textContent = `${name} · ${NOTE_APP_VERSION} · b${build}`;
   }
@@ -1883,23 +2003,25 @@ const SORT_FILTER_OPTIONS = [
 ];
 
 function updateFilterDockVisibility() {
-  const onBoard = state.view === 'list' || state.view === 'calendar';
+  const onBoard = state.view === 'list' || state.view === 'calendar' || state.view === 'calorie';
   const onList = state.view === 'list';
-  const selecting = onList && state.selectionMode && !isNoteMode();
+  const selecting = onList && state.selectionMode && !isNoteMode() && !isCalorieMode();
   const notepadEditing = isNoteMode() && state.view === 'editor' && Boolean(state.activeNotepadId);
   const calMode = isCalendarMode();
+  const calorieMode = isCalorieMode();
   if (els.filterDock) {
     const showDock = (onBoard && !state.selectionMode) || notepadEditing;
     els.filterDock.hidden = !showDock;
-    // Filters are work-list only — not on the calendar sheet
-    const showFilters = showDock && onList && !isNoteMode() && !calMode && state.listGroup === NOTE_STATUS.ACTIVE;
+    // Filters are work-list only — not on calendar/calorie sheets
+    const showFilters = showDock && onList && !isNoteMode() && !calMode && !calorieMode && state.listGroup === NOTE_STATUS.ACTIVE;
     if (els.filterDockFiltersWrap) els.filterDockFiltersWrap.hidden = !showFilters;
-    // In Note/Calendar mode: hide group drawer, keep left slot so mode switch stays centered
+    // In Note/Calendar/Calorie mode: hide group drawer, keep left slot so mode switch stays centered
     if (els.groupNavBtn) {
+      const hideGroup = isNoteMode() || calMode || calorieMode;
       els.groupNavBtn.hidden = false;
-      els.groupNavBtn.classList.toggle('is-slot-empty', isNoteMode() || calMode);
-      els.groupNavBtn.tabIndex = (isNoteMode() || calMode) ? -1 : 0;
-      els.groupNavBtn.setAttribute('aria-hidden', (isNoteMode() || calMode) ? 'true' : 'false');
+      els.groupNavBtn.classList.toggle('is-slot-empty', hideGroup);
+      els.groupNavBtn.tabIndex = hideGroup ? -1 : 0;
+      els.groupNavBtn.setAttribute('aria-hidden', hideGroup ? 'true' : 'false');
     }
     if (!showFilters) closeFilterMenus();
     renderNotepadQuickBar();
@@ -5991,9 +6113,10 @@ function paintNotesFromLocal(data) {
   state.notesData = normalizeNotesData(data);
   state.syncBaseUpdatedAt = state.notesData?.updatedAt || null;
   const m = state.settings.appMode;
-  state.appMode = (m === 'note' || m === 'calendar') ? m : 'work';
+  state.appMode = (m === 'note' || m === 'calendar' || m === 'calorie') ? m : 'work';
   document.body.classList.toggle('note-mode', isNoteMode());
   document.body.classList.toggle('calendar-mode', isCalendarMode());
+  document.body.classList.toggle('calorie-mode', isCalorieMode());
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
@@ -6044,9 +6167,10 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   }
 
   const contentChanged = notesContentKey(state.notesData) !== beforeKey;
-  if (contentChanged && (state.view === 'list' || state.view === 'calendar')) {
+  if (contentChanged && (state.view === 'list' || state.view === 'calendar' || state.view === 'calorie')) {
     renderModeSwitcher();
     if (state.view === 'calendar') renderCalendar();
+    else if (state.view === 'calorie') renderCalorieSheet();
     else renderNotesList();
   } else if (contentChanged && state.activeNotepadId) {
     const pad = getNotepad(state.notesData, state.activeNotepadId);
@@ -6289,7 +6413,8 @@ async function init({ fromBoot = false } = {}) {
   // Camera / attach viewer / AI-heavy wiring: after list is usable
 
   els.addNoteBtn?.addEventListener('click', () => {
-    if (isNoteMode()) promptNewNotepad();
+    if (isCalorieMode()) addCalorieDay();
+    else if (isNoteMode()) promptNewNotepad();
     else openAddNoteModal();
   });
   els.emptyAddAiBtn?.addEventListener('click', openAddNoteModal);
@@ -6470,6 +6595,7 @@ async function init({ fromBoot = false } = {}) {
   els.dockModeWork?.addEventListener('click', onDockModeClick);
   els.dockModeNote?.addEventListener('click', onDockModeClick);
   els.dockModeCalendar?.addEventListener('click', onDockModeClick);
+  els.dockModeCalorie?.addEventListener('click', onDockModeClick);
   /* Calendar navigation */
   els.calPrevMonth?.addEventListener('click', () => {
     if (state.calendarMonth === 0) {
@@ -6493,6 +6619,71 @@ async function init({ fromBoot = false } = {}) {
     renderCalendar();
     if (els.calNotes) els.calNotes.innerHTML = '<p class="cal-notes-empty">เลือกวันที่เพื่อดูงาน</p>';
   });
+  els.calorieAddDayBtn?.addEventListener('click', () => addCalorieDay());
+  const onCalorieFactorChange = () => {
+    const sheet = ensureCaloriePayload();
+    const pf = Number(els.calorieProteinFactor?.value);
+    const base = Number(els.calorieDefaultBase?.value);
+    persistCalorie({
+      ...sheet,
+      proteinFactor: Number.isFinite(pf) ? pf : sheet.proteinFactor,
+      defaultBase: Number.isFinite(base) ? base : sheet.defaultBase,
+    }, { status: 'อัปเดตค่าตั้งต้นแล้ว' });
+  };
+  els.calorieProteinFactor?.addEventListener('change', onCalorieFactorChange);
+  els.calorieDefaultBase?.addEventListener('change', onCalorieFactorChange);
+  const applyCalorieField = (input) => {
+    if (!input || !els.calorieTbody?.contains(input)) return;
+    const dayId = input.dataset.dayId;
+    const field = input.dataset.calField;
+    if (!dayId || !field) return;
+    const sheet = ensureCaloriePayload();
+    if (field === 'meal') {
+      const idx = Number(input.dataset.mealIndex);
+      const day = sheet.days.find((d) => d.id === dayId);
+      if (!day || !Number.isFinite(idx)) return;
+      const meals = [...(day.meals || [])];
+      while (meals.length < 7) meals.push('');
+      meals[idx] = String(input.value || '').trim().slice(0, 32);
+      persistCalorie(patchDay(sheet, dayId, { meals }), { status: '' });
+      return;
+    }
+    if (field === 'note') {
+      persistCalorie(patchDay(sheet, dayId, { note: String(input.value || '').slice(0, 200) }), { status: '' });
+      return;
+    }
+    if (field === 'date') {
+      const v = String(input.value || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+      persistCalorie(patchDay(sheet, dayId, { date: v }), { status: '' });
+      return;
+    }
+    const num = String(input.value || '').trim();
+    const parsed = num === '' ? null : Number(num);
+    if (num !== '' && !Number.isFinite(parsed)) return;
+    persistCalorie(patchDay(sheet, dayId, { [field]: parsed }), { status: '' });
+  };
+  els.calorieTbody?.addEventListener('change', (e) => {
+    const input = e.target?.closest?.('input[data-cal-field]');
+    if (input) applyCalorieField(input);
+  });
+  els.calorieTbody?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const input = e.target?.closest?.('input[data-cal-field]');
+    if (!input) return;
+    e.preventDefault();
+    input.blur();
+  });
+  els.calorieTbody?.addEventListener('click', (e) => {
+    const del = e.target?.closest?.('[data-cal-delete]');
+    if (!del || !els.calorieTbody.contains(del)) return;
+    e.preventDefault();
+    const id = del.dataset.calDelete;
+    if (!id) return;
+    if (!confirm('ลบวันนี้จากแผ่นแคลอรี่?')) return;
+    persistCalorie(deleteDay(ensureCaloriePayload(), id), { status: 'ลบวันแล้ว' });
+  });
+
   els.notepadQuickScroll?.addEventListener('click', (e) => {
     const chip = e.target.closest?.('[data-notepad-quick-id]');
     if (!chip || !els.notepadQuickScroll.contains(chip)) return;

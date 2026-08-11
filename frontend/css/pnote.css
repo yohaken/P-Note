@@ -750,11 +750,11 @@ body.light .dock-mode-switch {
   appearance: none;
   border: none;
   margin: 0;
-  min-width: 3.1rem;
+  min-width: 2.35rem;
   height: calc(2.15rem * var(--dock-scale, 1));
-  padding: 0 0.85rem;
+  padding: 0 0.45rem;
   font: inherit;
-  font-size: calc(0.78rem * var(--dock-scale, 1));
+  font-size: calc(0.72rem * var(--dock-scale, 1));
   font-weight: 700;
   color: var(--text-muted);
   background: transparent;
@@ -5420,5 +5420,298 @@ body.calendar-mode #filter-dock-filters {
 body.calendar-mode #search-toggle-btn,
 body.calendar-mode #note-search-row {
   display: none !important;
+}
+
+/* ——— Calorie spreadsheet mode ——— */
+body.calorie-mode #list-view,
+body.calorie-mode #calendar-view,
+body.calorie-mode #editor-view {
+  display: none !important;
+}
+
+body:not(.calorie-mode) #calorie-view {
+  display: none !important;
+}
+
+body.calorie-mode #filter-dock-filters,
+body.calorie-mode #search-toggle-btn,
+body.calorie-mode #note-search-row,
+body.calorie-mode #notepad-quick-bar {
+  display: none !important;
+}
+
+.calorie-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 0 0;
+  gap: 0.35rem;
+  overflow: hidden;
+}
+
+.calorie-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.6rem;
+  padding: 0 0.5rem;
+}
+
+.calorie-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.calorie-totals .ct-item strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.calorie-totals .ct-item.is-neg strong {
+  color: #c2410c;
+}
+
+.calorie-totals .ct-item.is-pos strong {
+  color: #15803d;
+}
+
+.calorie-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.calorie-factor-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.calorie-factor-input {
+  width: 3.4rem;
+  height: 1.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 0.3rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--surface-2, #fff);
+  color: var(--text);
+}
+
+.calorie-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0 calc(5.2rem + var(--safe-bottom));
+  border-top: 1px solid var(--border);
+}
+
+.calorie-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.calorie-table th,
+.calorie-table td {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  padding: 0.15rem 0.2rem;
+  white-space: nowrap;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.calorie-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.calorie-table thead th.cal-col-meal {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.calorie-table thead th.cal-col-sum {
+  background: #ffedd5;
+}
+
+.calorie-table .cal-col-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg, #faf8f5);
+}
+
+.calorie-table thead th.cal-col-sticky {
+  z-index: 4;
+  background: #fff7ed;
+}
+
+.calorie-table .cal-col-n {
+  left: 0;
+  min-width: 1.6rem;
+}
+
+.calorie-table .cal-col-date {
+  left: 1.6rem;
+  min-width: 4.6rem;
+  z-index: 2;
+}
+
+.calorie-table thead th.cal-col-date {
+  z-index: 4;
+}
+
+.calorie-table .cal-col-day {
+  min-width: 3.4rem;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.calorie-table .cal-col-num {
+  min-width: 3.2rem;
+}
+
+.calorie-table .cal-col-sum {
+  min-width: 3.4rem;
+  font-weight: 700;
+}
+
+.calorie-table .cal-col-add {
+  color: #b91c1c;
+  font-style: italic;
+}
+
+.calorie-table .cal-col-meal {
+  min-width: 3.6rem;
+  background: color-mix(in srgb, #dcfce7 35%, transparent);
+}
+
+.calorie-table .cal-col-note {
+  min-width: 6rem;
+  text-align: left;
+}
+
+.calorie-table .cal-col-del {
+  min-width: 1.8rem;
+}
+
+.calorie-table input.cal-cell {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0.2rem 0.15rem;
+}
+
+.calorie-table input.cal-cell:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: #fff;
+}
+
+.calorie-table input.cal-cell-date {
+  min-width: 4.2rem;
+}
+
+.calorie-table input.cal-cell-meal {
+  font-weight: 500;
+  font-size: 0.68rem;
+}
+
+.calorie-table input.cal-cell-note {
+  text-align: left;
+  font-weight: 500;
+  min-width: 5.5rem;
+}
+
+.calorie-table .cal-derived {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.calorie-table .cal-derived.is-pos {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.calorie-table .cal-derived.is-neg {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.calorie-table .cal-derived.is-zero {
+  color: var(--text-muted);
+}
+
+.calorie-table tr.cal-row-today td {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.calorie-table button.cal-del-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+  line-height: 1;
+}
+
+.calorie-table button.cal-del-btn:hover {
+  color: #b91c1c;
+}
+
+.calorie-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 2rem 1rem;
+  margin: 0;
+}
+
+.calorie-hint {
+  margin: 0;
+  padding: 0 0.6rem 0.2rem;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.calorie-hint code {
+  font-size: 0.65rem;
+  background: var(--surface-2, #efeae2);
+  padding: 0.05rem 0.25rem;
+  border-radius: 3px;
 }
 

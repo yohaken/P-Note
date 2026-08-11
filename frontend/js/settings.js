@@ -403,7 +403,7 @@ export function loadSettings() {
       priorityIcons: normalizePriorityIcons(parsed.priorityIcons),
       cardDisplay: normalizeCardDisplay(parsed.cardDisplay),
       lastWorkspaceId: parsed.lastWorkspaceId ? String(parsed.lastWorkspaceId) : null,
-      appMode: parsed.appMode === 'note' ? 'note' : 'work',
+      appMode: normalizeAppMode(parsed.appMode),
       lastNotepadId: parsed.lastNotepadId ? String(parsed.lastNotepadId) : null,
       recentNotepadIds: normalizeRecentNotepadIds(parsed.recentNotepadIds, parsed.lastNotepadId),
     });
@@ -430,6 +430,11 @@ export function loadSettings() {
   }
 }
 
+export function normalizeAppMode(mode) {
+  if (mode === 'note' || mode === 'calendar' || mode === 'calorie') return mode;
+  return 'work';
+}
+
 export function saveSettings(settings) {
   const notifyPrefs = normalizeNotifyPrefs(
     settings.notifyPrefs,
@@ -448,7 +453,7 @@ export function saveSettings(settings) {
     cameraQuality: normalizeCameraQuality(settings.cameraQuality),
     notifyMonthPresets: normalizeMonthPresets(settings.notifyMonthPresets),
     lastWorkspaceId: settings.lastWorkspaceId ? String(settings.lastWorkspaceId) : null,
-    appMode: settings.appMode === 'note' ? 'note' : 'work',
+    appMode: normalizeAppMode(settings.appMode),
     lastNotepadId: settings.lastNotepadId ? String(settings.lastNotepadId) : null,
     recentNotepadIds: normalizeRecentNotepadIds(settings.recentNotepadIds, settings.lastNotepadId),
   });

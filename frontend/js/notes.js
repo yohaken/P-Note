@@ -1,5 +1,6 @@
 import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=148';
 import { bestIconForLabel, normalizeIconId } from './icons.js?v=148';
+import { createEmptyCalorie, normalizeCalorie } from './calorie.js?v=160';
 
 /** Lite notepad helpers — keep notes.js free of sheet.js / note-text.js on boot. */
 function normalizeTextPrefs(raw) {
@@ -657,6 +658,7 @@ export function formatDate(iso) {
 // v5: snap all scheduledAt times to local 09:00 (one-time when version < 5).
 // v6: workspaces[] + note.workspaceId (legacy; งานหลัก no longer filters by these).
 // v7: notepads[] for Note mode (plain text); migrate extra workspaces → notepads.
+// v8: calorie spreadsheet payload (day rows + protein/base settings).
 export function normalizeNotesData(data) {
   const base = data && typeof data === 'object' ? data : {};
   const prevVersion = Number(base.version) || 1;
@@ -668,6 +670,9 @@ export function normalizeNotesData(data) {
     prevVersion < 7
       ? migrateWorkspacesToNotepads(workspaces, base.notepads)
       : normalizeNotepads(base.notepads);
+  const calorie = base.calorie
+    ? normalizeCalorie(base.calorie)
+    : createEmptyCalorie();
 
   const tags = Array.isArray(base.tags)
     ? base.tags
@@ -743,13 +748,14 @@ export function normalizeNotesData(data) {
 
   const bumped =
     (snapScheduleTimes && Array.isArray(base.notes) && base.notes.some((n) => n?.scheduledAt)) ||
-    prevVersion < 7;
+    prevVersion < 8;
 
   return {
-    version: 7,
+    version: 8,
     updatedAt: bumped ? new Date().toISOString() : base.updatedAt || new Date().toISOString(),
     workspaces,
     notepads,
+    calorie,
     tags,
     notes,
   };
