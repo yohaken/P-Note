@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="157">
+  <meta name="pnote-build" content="158">
   <meta name="pnote-built" content="2026-08-10T18:40:00+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=157"></script>
+  <script src="js/cache-bootstrap.js?v=158"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=157">
+  <link rel="stylesheet" href="css/pnote.css?v=158">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -28,33 +28,35 @@
 </head>
 <body class="light">
   <div id="app">
+    <!-- Shared chrome for work/note list + calendar (not part of any one sheet) -->
+    <header id="board-topbar" class="topbar topbar-thin" hidden>
+      <div class="topbar-title">
+        <button type="button" class="mode-switch-btn" id="mode-switch-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="modeMenuOverlay" title="สลับโหมด">
+          <span class="mode-switch-name" id="mode-switch-name">งานหลัก</span>
+          <span class="mode-switch-ver" id="mode-switch-ver" aria-hidden="true"></span>
+          <span class="mode-switch-chev" aria-hidden="true">▾</span>
+        </button>
+        <h1 id="app-title" class="sr-only">P-Note</h1>
+        <p id="app-built" class="app-built">อัปเดต —</p>
+      </div>
+      <div class="topbar-actions">
+        <button id="search-toggle-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="โฟกัสค้นหา" aria-expanded="true" aria-controls="note-search-row" hidden>⌕</button>
+        <button
+          id="sync-status-btn"
+          class="btn btn-mini sync-status-btn"
+          type="button"
+          data-state="idle"
+          aria-label="สถานะฐานข้อมูล"
+          title="สถานะฐานข้อมูล"
+        >
+          <span class="sync-status-glyph" aria-hidden="true"></span>
+          <span id="sync-status-tip" class="sync-status-tip" hidden></span>
+        </button>
+        <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">ตั้งค่า</button>
+      </div>
+    </header>
+
     <section id="list-view" class="view" hidden>
-      <header class="topbar topbar-thin">
-        <div class="topbar-title">
-          <button type="button" class="mode-switch-btn" id="mode-switch-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="modeMenuOverlay" title="สลับโหมด">
-            <span class="mode-switch-name" id="mode-switch-name">งานหลัก</span>
-            <span class="mode-switch-ver" id="mode-switch-ver" aria-hidden="true"></span>
-            <span class="mode-switch-chev" aria-hidden="true">▾</span>
-          </button>
-          <h1 id="app-title" class="sr-only">P-Note</h1>
-          <p id="app-built" class="app-built">อัปเดต —</p>
-        </div>
-        <div class="topbar-actions">
-          <button id="search-toggle-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="โฟกัสค้นหา" aria-expanded="true" aria-controls="note-search-row" hidden>⌕</button>
-          <button
-            id="sync-status-btn"
-            class="btn btn-mini sync-status-btn"
-            type="button"
-            data-state="idle"
-            aria-label="สถานะฐานข้อมูล"
-            title="สถานะฐานข้อมูล"
-          >
-            <span class="sync-status-glyph" aria-hidden="true"></span>
-            <span id="sync-status-tip" class="sync-status-tip" hidden></span>
-          </button>
-          <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">ตั้งค่า</button>
-        </div>
-      </header>
       <div id="note-search-row" class="note-search-row">
         <input id="note-search-input" class="note-search-input" type="search" placeholder="ค้นหาโน้ต…" autocomplete="off" enterkeyhint="search">
         <button id="note-search-clear" class="btn btn-text note-search-clear" type="button" hidden aria-label="ล้างค้นหา">×</button>
@@ -165,7 +167,7 @@
       <button id="group-trash-btn" class="drawer-item" type="button">ถังขยะ</button>
     </aside>
 
-    <section id="calendar-view" class="calendar-view" hidden>
+    <section id="calendar-view" class="view calendar-view" hidden aria-label="ปฏิทิน">
       <header class="cal-header">
         <button type="button" class="cal-nav-btn" id="cal-prev-month" aria-label="เดือนก่อน">‹</button>
         <h2 class="cal-month-title" id="cal-month-title"></h2>
@@ -813,7 +815,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=157"></script>
-  <script src="js/update-watch.js?v=157"></script>
+  <script type="module" src="js/boot.js?v=158"></script>
+  <script src="js/update-watch.js?v=158"></script>
 </body>
 </html>

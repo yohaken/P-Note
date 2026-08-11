@@ -5235,14 +5235,34 @@ body:not(.notepad-editing) .note-text-bar {
   padding: 0.28rem 0.35rem;
 }
 
-/* ── Calendar View ── */
-#calendar-view {
-  flex: 1;
+/* Shared board chrome (mode / sync / settings) — above list OR calendar sheet */
+#board-topbar {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+#board-topbar[hidden] {
+  display: none !important;
+}
+
+/* ── Calendar View (own sheet; never stacked on #list-view) ── */
+#calendar-view.calendar-view {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 0.75rem 0.5rem calc(5rem + var(--safe-bottom));
   gap: 0.5rem;
   overflow-y: auto;
+}
+
+/* .view[hidden] already forces display:none; keep calendar exclusive */
+body.calendar-mode #list-view {
+  display: none !important;
+}
+
+body:not(.calendar-mode) #calendar-view {
+  display: none !important;
 }
 
 .cal-header {

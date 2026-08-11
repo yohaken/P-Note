@@ -234,6 +234,7 @@ const saveManager = new SaveManager();
 let statusTimer = null;
 
 const els = {
+  boardTopbar: document.getElementById('board-topbar'),
   listView: document.getElementById('list-view'),
   editorView: document.getElementById('editor-view'),
   notesList: document.getElementById('notes-list'),
@@ -486,23 +487,30 @@ const els = {
   calNotes: document.getElementById('cal-notes'),
 };
 
+function boardHomeView() {
+  return isCalendarMode() ? 'calendar' : 'list';
+}
+
 function showView(view) {
-  state.view = view;
-  const calendarList = isCalendarMode() && view === 'list';
-  // In calendar mode, list = calendar surface (not the work list)
-  els.listView.hidden = view !== 'list' && !calendarList;
-  els.editorView.hidden = view !== 'editor';
-  if (calendarList) {
-    // Return to calendar — keep notes list hidden, show calendar
-    if (els.notesListEl) els.notesListEl.hidden = true;
-    if (els.calendarView) els.calendarView.hidden = false;
-  } else if (!isCalendarMode()) {
-    // Not calendar mode — list view shows notes list normally
-    if (els.notesListEl) els.notesListEl.hidden = false;
-  }
+  // Normalize: calendar mode never shares the work/note list sheet
+  let next = view;
+  if (next === 'list' && isCalendarMode()) next = 'calendar';
+  if (next === 'calendar' && !isCalendarMode()) next = 'list';
+  state.view = next;
+
+  const onList = next === 'list';
+  const onCal = next === 'calendar';
+  const onEditor = next === 'editor';
+
+  if (els.boardTopbar) els.boardTopbar.hidden = !(onList || onCal);
+  els.listView.hidden = !onList;
+  els.editorView.hidden = !onEditor;
+  if (els.calendarView) els.calendarView.hidden = !onCal;
+  if (els.notesList) els.notesList.hidden = false;
+  if (onCal) renderCalendar();
   updateFilterDockVisibility();
   updateUndoFab();
-  if (view !== 'editor') hideEditorSaveDot();
+  if (next !== 'editor') hideEditorSaveDot();
 }
 
 function setLoading(visible, message = 'กำลังโหลด...') {
@@ -682,7 +690,7 @@ function canUndo() {
 function updateUndoFab() {
   const btn = els.undoFabBtn;
   if (!btn) return;
-  const show = state.view === 'list';
+  const show = state.view === 'list' || state.view === 'calendar';
   btn.hidden = !show;
   btn.disabled = !canUndo();
   btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');
@@ -1180,26 +1188,15 @@ function setAppMode(mode, { persist = true } = {}) {
   }
   closeModeMenu();
   renderModeSwitcher();
-  if (state.view === 'editor') {
-    // leave editor when switching modes
-    showView('list');
+  // Always land on the mode's own sheet (never overlay calendar on list)
+  showView(boardHomeView());
+  if (next === 'calendar') {
+    /* calendar painted by showView */
+  } else {
+    renderNotesList();
   }
-  toggleCalendarView(next === 'calendar');
-  renderNotesList();
   updateFilterDockVisibility();
   updateUndoFab();
-}
-
-function toggleCalendarView(show) {
-  if (els.calendarView) {
-    els.calendarView.hidden = !show;
-  }
-  if (els.notesListEl) {
-    els.notesListEl.hidden = show;
-  }
-  if (show) {
-    renderCalendar();
-  }
 }
 
 function renderCalendar() {
@@ -1886,14 +1883,16 @@ const SORT_FILTER_OPTIONS = [
 ];
 
 function updateFilterDockVisibility() {
-  const list = state.view === 'list';
-  const selecting = list && state.selectionMode && !isNoteMode();
+  const onBoard = state.view === 'list' || state.view === 'calendar';
+  const onList = state.view === 'list';
+  const selecting = onList && state.selectionMode && !isNoteMode();
   const notepadEditing = isNoteMode() && state.view === 'editor' && Boolean(state.activeNotepadId);
   const calMode = isCalendarMode();
   if (els.filterDock) {
-    const showDock = (list && !state.selectionMode) || notepadEditing;
+    const showDock = (onBoard && !state.selectionMode) || notepadEditing;
     els.filterDock.hidden = !showDock;
-    const showFilters = showDock && list && !isNoteMode() && !calMode && state.listGroup === NOTE_STATUS.ACTIVE;
+    // Filters are work-list only — not on the calendar sheet
+    const showFilters = showDock && onList && !isNoteMode() && !calMode && state.listGroup === NOTE_STATUS.ACTIVE;
     if (els.filterDockFiltersWrap) els.filterDockFiltersWrap.hidden = !showFilters;
     // In Note/Calendar mode: hide group drawer, keep left slot so mode switch stays centered
     if (els.groupNavBtn) {
@@ -3805,6 +3804,10 @@ function renderNotepadList() {
 }
 
 function renderNotesList() {
+  if (isCalendarMode()) {
+    if (state.view === 'calendar') renderCalendar();
+    return;
+  }
   if (isNoteMode()) {
     renderNotepadList();
     return;
@@ -5791,7 +5794,7 @@ function backToList() {
     document.body.classList.remove('notepad-editing');
     clearNotepadSheetUi();
     renderNotesList();
-    showView('list');
+    showView(boardHomeView());
     return;
   }
   persistLocalChanges();
@@ -5803,8 +5806,12 @@ function backToList() {
   }
   state.activeNoteId = null;
   document.body.classList.remove('notepad-editing');
-  renderNotesList();
-  showView('list');
+  if (isCalendarMode()) {
+    showView('calendar');
+  } else {
+    renderNotesList();
+    showView('list');
+  }
 }
 
 function escapeHtml(value) {
@@ -5997,9 +6004,8 @@ function paintNotesFromLocal(data) {
   reapplyBarLayout();
   applyBarThickness();
   renderModeSwitcher();
-  toggleCalendarView(isCalendarMode());
-  renderNotesList();
-  showView('list');
+  showView(boardHomeView());
+  if (!isCalendarMode()) renderNotesList();
   updateAppVersionLabel();
 }
 
@@ -6038,9 +6044,10 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   }
 
   const contentChanged = notesContentKey(state.notesData) !== beforeKey;
-  if (contentChanged && state.view === 'list') {
+  if (contentChanged && (state.view === 'list' || state.view === 'calendar')) {
     renderModeSwitcher();
-    renderNotesList();
+    if (state.view === 'calendar') renderCalendar();
+    else renderNotesList();
   } else if (contentChanged && state.activeNotepadId) {
     const pad = getNotepad(state.notesData, state.activeNotepadId);
     if (pad) {
@@ -6171,8 +6178,8 @@ async function bootstrapData() {
       state.notesData = loadNotes().data;
       state.settings = state.settings || loadSettings();
       applyTheme();
-      renderNotesList();
-      showView('list');
+      showView(boardHomeView());
+      if (!isCalendarMode()) renderNotesList();
       setDbStatusMessage('โหลดไม่สำเร็จ — ใช้ข้อมูลในเครื่อง');
     } catch (fallbackErr) {
       console.warn('bootstrap fallback failed', fallbackErr);

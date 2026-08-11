@@ -206,7 +206,10 @@ function applyListChrome(settings) {
   root.style.setProperty('--prio-critical', prio.critical);
 
   const modeName = document.getElementById('mode-switch-name');
-  if (modeName) modeName.textContent = settings.appMode === 'note' ? 'Note' : 'งานหลัก';
+  if (modeName) {
+    if (settings.appMode === 'calendar') modeName.textContent = 'ปฏิทิน';
+    else modeName.textContent = settings.appMode === 'note' ? 'Note' : 'งานหลัก';
+  }
   const barVer = document.getElementById('mode-switch-ver');
   if (barVer) {
     const build =
@@ -236,10 +239,14 @@ export function paintListFromLocal() {
 
   applyListChrome(bootSettings);
 
+  const boardTopbar = document.getElementById('board-topbar');
   const listView = document.getElementById('list-view');
   const editorView = document.getElementById('editor-view');
+  const calendarView = document.getElementById('calendar-view');
   const loading = document.getElementById('loading-overlay');
   if (editorView) editorView.hidden = true;
+  if (calendarView) calendarView.hidden = true;
+  if (boardTopbar) boardTopbar.hidden = false;
   if (listView) listView.hidden = false;
   if (loading) loading.hidden = true;
 
