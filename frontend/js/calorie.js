@@ -9,7 +9,11 @@ export const DEFAULT_KCAL_PER_KG = 7700;
 export const DEFAULT_BASE_KCAL = 1784;
 export const MEAL_SLOTS = 7;
 
-const THAI_DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+const THAI_DAYS_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const THAI_MONTHS_SHORT = [
+  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+];
 
 function nowIso() {
   return new Date().toISOString();
@@ -68,6 +72,7 @@ export function parseDateKey(key) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** Compact date: D/M/YY (no leading zeros). */
 export function formatDateDisplay(dateKey) {
   const d = parseDateKey(dateKey);
   if (!d) return String(dateKey || '');
@@ -77,7 +82,77 @@ export function formatDateDisplay(dateKey) {
 export function thaiDayName(dateKey) {
   const d = parseDateKey(dateKey);
   if (!d) return '';
-  return THAI_DAYS[d.getDay()] || '';
+  return THAI_DAYS_SHORT[d.getDay()] || '';
+}
+
+/** 'YYYY-MM' from a date key. */
+export function monthKeyFromDate(dateKey) {
+  const d = parseDateKey(dateKey);
+  if (!d) return String(dateKey || '').slice(0, 7);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${d.getFullYear()}-${m}`;
+}
+
+export function formatMonthLabel(monthKey) {
+  const m = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return String(monthKey || '');
+  const month = Number(m[2]);
+  const name = THAI_MONTHS_SHORT[month - 1] || m[2];
+  return `${name} ${m[1].slice(-2)}`;
+}
+
+function emptyTotals() {
+  return {
+    addCal: 0,
+    prot: 0,
+    balance: 0,
+    blKg: null,
+    base: 0,
+    bsum: 0,
+    mus: 0,
+    days: 0,
+  };
+}
+
+function accumulateTotals(into, metrics) {
+  into.addCal += metrics.addCal || 0;
+  into.prot += metrics.prot || 0;
+  into.balance += metrics.balance || 0;
+  into.base += metrics.base || 0;
+  into.bsum += metrics.bsum || 0;
+  into.mus += metrics.mus || 0;
+  into.days += 1;
+}
+
+function finalizeTotals(raw, kcalPerKg, proteinFactor) {
+  const balance = raw.balance;
+  return {
+    addCal: round(raw.addCal, 0),
+    prot: round(raw.prot, 1),
+    balance: round(balance, 0),
+    blKg: kcalPerKg ? round(balance / kcalPerKg, 2) : null,
+    base: round(raw.base, 0),
+    bsum: round(raw.bsum, 0),
+    mus: round(raw.mus, 0),
+    days: raw.days,
+    proteinFactor,
+  };
+}
+
+/** Last non-null waist / weight / base walking newest → oldest. */
+export function lastKnownBody(calorie) {
+  const sheet = normalizeCalorie(calorie);
+  let waist = null;
+  let weight = null;
+  let base = null;
+  for (let i = sheet.days.length - 1; i >= 0; i -= 1) {
+    const d = sheet.days[i];
+    if (waist == null && Number.isFinite(d.waist)) waist = d.waist;
+    if (weight == null && Number.isFinite(d.weight)) weight = d.weight;
+    if (base == null && Number.isFinite(d.base)) base = d.base;
+    if (waist != null && weight != null && base != null) break;
+  }
+  return { waist, weight, base: base ?? sheet.defaultBase };
 }
 
 export function createEmptyCalorie(overrides = {}) {
@@ -191,42 +266,62 @@ export function computeDayMetrics(day, { proteinFactor, kcalPerKg, defaultBase }
 
 export function computeTotals(calorie) {
   const sheet = normalizeCalorie(calorie);
-  let addCal = 0;
-  let prot = 0;
-  let balance = 0;
-  let base = 0;
-  let bsum = 0;
-  let mus = 0;
-  const rows = sheet.days.map((day, index) => {
+  const all = emptyTotals();
+  const byMonth = new Map();
+  const monthIndex = new Map();
+  const rows = sheet.days.map((day) => {
     const metrics = computeDayMetrics(day, sheet);
-    addCal += metrics.addCal || 0;
-    prot += metrics.prot || 0;
-    balance += metrics.balance || 0;
-    base += metrics.base || 0;
-    bsum += metrics.bsum || 0;
-    mus += metrics.mus || 0;
+    const monthKey = monthKeyFromDate(day.date);
+    const mi = (monthIndex.get(monthKey) || 0) + 1;
+    monthIndex.set(monthKey, mi);
+    accumulateTotals(all, metrics);
+    if (!byMonth.has(monthKey)) byMonth.set(monthKey, emptyTotals());
+    accumulateTotals(byMonth.get(monthKey), metrics);
     return {
       ...day,
-      count: index + 1,
+      count: mi,
+      monthKey,
+      monthLabel: formatMonthLabel(monthKey),
       metrics,
       dayName: thaiDayName(day.date),
       dateDisplay: formatDateDisplay(day.date),
     };
   });
+  const months = [...byMonth.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, totals]) => ({
+      key,
+      label: formatMonthLabel(key),
+      totals: finalizeTotals(totals, sheet.kcalPerKg, sheet.proteinFactor),
+      rows: rows.filter((r) => r.monthKey === key),
+    }));
   return {
     sheet,
     rows,
-    totals: {
-      addCal: round(addCal, 0),
-      prot: round(prot, 1),
-      balance: round(balance, 0),
-      blKg: sheet.kcalPerKg ? round(balance / sheet.kcalPerKg, 2) : null,
-      base: round(base, 0),
-      bsum: round(bsum, 0),
-      mus: round(mus, 0),
-      proteinFactor: sheet.proteinFactor,
-      days: rows.length,
-    },
+    months,
+    totals: finalizeTotals(all, sheet.kcalPerKg, sheet.proteinFactor),
+  };
+}
+
+export function totalsForMonth(calorie, monthKey) {
+  const { months, totals, sheet } = computeTotals(calorie);
+  if (!monthKey) {
+    const last = months[months.length - 1];
+    return {
+      monthKey: last?.key || monthKeyFromDate(toDateKey()),
+      label: last?.label || formatMonthLabel(monthKeyFromDate(toDateKey())),
+      totals: last ? last.totals : { ...emptyTotals(), proteinFactor: sheet.proteinFactor },
+      months,
+    };
+  }
+  const hit = months.find((m) => m.key === monthKey);
+  return {
+    monthKey,
+    label: hit?.label || formatMonthLabel(monthKey),
+    totals: hit
+      ? hit.totals
+      : { ...emptyTotals(), proteinFactor: sheet.proteinFactor },
+    months,
   };
 }
 
@@ -265,17 +360,17 @@ export function deleteDay(calorie, dayId) {
   };
 }
 
-/** Add today (or next empty date) cloning last weight/waist/base. */
+/** Add today (or next empty date) cloning last known waist/weight/base. */
 export function addDayFromLast(calorie, dateKey = toDateKey(new Date())) {
   const sheet = normalizeCalorie(calorie);
   const existing = sheet.days.find((d) => d.date === dateKey);
   if (existing) return { sheet, day: existing, created: false };
-  const last = sheet.days[sheet.days.length - 1];
+  const known = lastKnownBody(sheet);
   const day = createDayRow({
     date: dateKey,
-    waist: last?.waist ?? null,
-    weight: last?.weight ?? null,
-    base: last?.base ?? sheet.defaultBase,
+    waist: known.waist,
+    weight: known.weight,
+    base: known.base,
     meals: [],
     mus: null,
     note: '',
@@ -336,26 +431,32 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-export function renderCalorieTotalsHtml(totals) {
+export function renderCalorieTotalsHtml(totals, { monthLabel = '' } = {}) {
   const items = [
-    ['Add cal', totals.addCal, null],
+    ['cal', totals.addCal, null],
     ['prot', totals.prot, null],
-    ['balance', totals.balance, toneClass(totals.balance)],
-    ['bl-kg', totals.blKg, toneClass(totals.blKg)],
-    ['base', totals.base, null],
-    ['bsum', totals.bsum, null],
+    ['bal', totals.balance, toneClass(totals.balance)],
+    ['kg', totals.blKg, toneClass(totals.blKg)],
+    ['Σ', totals.bsum, null],
     ['วัน', totals.days, null],
   ];
-  return items
+  const month = monthLabel
+    ? `<span class="ct-month">${esc(monthLabel)}</span>`
+    : '';
+  const body = items
     .map(([label, val, cls]) => {
       const v = val == null || val === '' ? '—' : val;
       return `<span class="ct-item ${cls || ''}">${esc(label)} <strong>${esc(v)}</strong></span>`;
     })
     .join('');
+  return `${month}${body}`;
 }
+
+const COL_COUNT = 23;
 
 export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date())) {
   if (!rows.length) return '';
+  let lastMonth = '';
   return rows
     .map((row) => {
       const m = row.metrics;
@@ -366,9 +467,19 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date())) {
             `<td class="cal-col-meal"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}"></td>`,
         )
         .join('');
-      return `<tr class="cal-row${today}" data-day-id="${esc(row.id)}">
+      let sep = '';
+      if (row.monthKey && row.monthKey !== lastMonth) {
+        lastMonth = row.monthKey;
+        sep = `<tr class="cal-month-sep" data-month="${esc(row.monthKey)}" aria-label="${esc(row.monthLabel)}">
+          <td colspan="${COL_COUNT}"><span>${esc(row.monthLabel)}</span></td>
+        </tr>`;
+      }
+      return `${sep}<tr class="cal-row${today}" data-day-id="${esc(row.id)}" data-month="${esc(row.monthKey || '')}">
         <td class="cal-col-sticky cal-col-n">${row.count}</td>
-        <td class="cal-col-sticky cal-col-date"><input class="cal-cell cal-cell-date" type="date" data-cal-field="date" data-day-id="${esc(row.id)}" value="${esc(row.date)}" aria-label="วันที่"></td>
+        <td class="cal-col-sticky cal-col-date">
+          <button type="button" class="cal-date-btn" data-cal-date-open="${esc(row.id)}" aria-label="วันที่ ${esc(row.dateDisplay)}">${esc(row.dateDisplay)}</button>
+          <input class="cal-date-picker" type="date" data-cal-field="date" data-day-id="${esc(row.id)}" value="${esc(row.date)}" tabindex="-1" aria-hidden="true">
+        </td>
         <td class="cal-col-day">${esc(row.dayName)}</td>
         <td class="cal-col-num"><input class="cal-cell" data-cal-field="waist" data-day-id="${esc(row.id)}" value="${row.waist ?? ''}" inputmode="decimal" aria-label="รอบเอว"></td>
         <td class="cal-col-num"><input class="cal-cell" data-cal-field="weight" data-day-id="${esc(row.id)}" value="${row.weight ?? ''}" inputmode="decimal" aria-label="น้ำหนัก"></td>

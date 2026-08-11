@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="160">
-  <meta name="pnote-built" content="2026-08-11T15:40:00+00:00">
+  <meta name="pnote-build" content="161">
+  <meta name="pnote-built" content="2026-08-11T16:40:00+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=160"></script>
+  <script src="js/cache-bootstrap.js?v=161"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=160">
+  <link rel="stylesheet" href="css/pnote.css?v=161">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -172,31 +172,30 @@
         <div class="calorie-totals" id="calorie-totals" aria-live="polite"></div>
         <div class="calorie-toolbar-actions">
           <label class="calorie-factor-label" title="เป้าโปรตีน = น้ำหนัก × ค่านี้">
-            prot×
+            ×
             <input id="calorie-protein-factor" class="calorie-factor-input" type="number" min="0.5" max="4" step="0.05" inputmode="decimal" aria-label="ตัวคูณโปรตีนต่อกก.">
           </label>
           <label class="calorie-factor-label" title="base เริ่มต้นเมื่อยังไม่ใส่">
             base
             <input id="calorie-default-base" class="calorie-factor-input" type="number" min="800" max="5000" step="1" inputmode="numeric" aria-label="เผาผลาญฐานเริ่มต้น">
           </label>
-          <button type="button" class="btn btn-mini" id="calorie-add-day-btn">+ วัน</button>
+          <button type="button" class="btn btn-mini calorie-add-mini" id="calorie-add-day-btn">+วัน</button>
         </div>
       </div>
       <div class="calorie-scroll" id="calorie-scroll">
-        <p class="calorie-hint">มื้อใส่ <code>แคล,โปรตีน</code> เช่น <code>130,27</code> · p-rm = prot − หนัก×ตัวคูณ · balance = Add cal − bsum</p>
         <table class="calorie-table" id="calorie-table" aria-label="ตารางแคลอรี่รายวัน">
           <thead>
             <tr>
               <th class="cal-col-sticky cal-col-n" scope="col">#</th>
-              <th class="cal-col-sticky cal-col-date" scope="col">วันที่</th>
-              <th class="cal-col-day" scope="col">วัน</th>
-              <th class="cal-col-num" scope="col">รอบเอว</th>
-              <th class="cal-col-num" scope="col">หนัก</th>
-              <th class="cal-col-sum cal-col-add" scope="col">Add cal</th>
-              <th class="cal-col-sum" scope="col">prot</th>
-              <th class="cal-col-sum" scope="col">p-rm</th>
-              <th class="cal-col-sum" scope="col">balance</th>
-              <th class="cal-col-sum" scope="col">bl-kg</th>
+              <th class="cal-col-sticky cal-col-date" scope="col">ว/ด/ป</th>
+              <th class="cal-col-day" scope="col">ว</th>
+              <th class="cal-col-num" scope="col">เอว</th>
+              <th class="cal-col-num" scope="col">กก</th>
+              <th class="cal-col-sum cal-col-add" scope="col">cal</th>
+              <th class="cal-col-sum" scope="col">P</th>
+              <th class="cal-col-sum" scope="col">p±</th>
+              <th class="cal-col-sum" scope="col">bal</th>
+              <th class="cal-col-sum" scope="col">kg</th>
               <th class="cal-col-meal" scope="col">1</th>
               <th class="cal-col-meal" scope="col">2</th>
               <th class="cal-col-meal" scope="col">3</th>
@@ -206,15 +205,15 @@
               <th class="cal-col-meal" scope="col">7</th>
               <th class="cal-col-num" scope="col">mus</th>
               <th class="cal-col-num" scope="col">base</th>
-              <th class="cal-col-sum" scope="col">bsum</th>
-              <th class="cal-col-sum" scope="col">%bl</th>
+              <th class="cal-col-sum" scope="col">Σ</th>
+              <th class="cal-col-sum" scope="col">%</th>
               <th class="cal-col-note" scope="col">หลัก</th>
               <th class="cal-col-del" scope="col"><span class="sr-only">ลบ</span></th>
             </tr>
           </thead>
           <tbody id="calorie-tbody"></tbody>
         </table>
-        <p class="calorie-empty" id="calorie-empty" hidden>ยังไม่มีวัน — กด + วัน หรือปุ่มเพิ่มด้านล่าง</p>
+        <p class="calorie-empty" id="calorie-empty" hidden>ยังไม่มีวัน — กด +วัน</p>
       </div>
     </section>
 
@@ -870,7 +869,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=160"></script>
-  <script src="js/update-watch.js?v=160"></script>
+  <script type="module" src="js/boot.js?v=161"></script>
+  <script src="js/update-watch.js?v=161"></script>
 </body>
 </html>

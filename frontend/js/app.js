@@ -69,12 +69,15 @@ import {
   addDayFromLast,
   computeTotals,
   deleteDay,
+  formatDateDisplay,
+  monthKeyFromDate,
   normalizeCalorie,
   patchDay,
   renderCalorieRowsHtml,
   renderCalorieTotalsHtml,
   toDateKey,
-} from './calorie.js?v=160';
+  totalsForMonth,
+} from './calorie.js?v=161';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -215,6 +218,8 @@ const state = {
   calendarMonth: new Date().getMonth(),
   calendarYear: new Date().getFullYear(),
   calendarSelectedDate: null,
+  /** Active month key (YYYY-MM) for calorie summary strip */
+  calorieActiveMonth: null,
   activeNotepadId: null,
   /** Draft sheet blocks while editing a notepad (insertable Excel-like modules). */
   editorSheets: [],
@@ -1231,11 +1236,43 @@ function setDerivedCell(td, text, valueForTone = null) {
   if (valueForTone != null) td.classList.add(calorieToneClass(valueForTone));
 }
 
-/** Update totals + derived columns without destroying inputs (avoids losing in-progress edits). */
+function paintCalorieMonthTotals(monthKey) {
+  const info = totalsForMonth(ensureCaloriePayload(), monthKey);
+  state.calorieActiveMonth = info.monthKey;
+  if (els.calorieTotals) {
+    els.calorieTotals.innerHTML = renderCalorieTotalsHtml(info.totals, {
+      monthLabel: info.label,
+    });
+  }
+  return info;
+}
+
+/** Pick month from the top-most visible day row while scrolling. */
+function syncCalorieMonthFromScroll() {
+  if (!els.calorieScroll || !els.calorieTbody) return;
+  const scrollTop = els.calorieScroll.scrollTop;
+  const headerH = els.calorieScroll.querySelector('thead')?.getBoundingClientRect?.().height || 20;
+  const probe = scrollTop + headerH + 8;
+  const rows = els.calorieTbody.querySelectorAll('tr.cal-row[data-month]');
+  if (!rows.length) {
+    paintCalorieMonthTotals(monthKeyFromDate(toDateKey()));
+    return;
+  }
+  let active = rows[0].dataset.month;
+  for (const tr of rows) {
+    if (tr.offsetTop <= probe) active = tr.dataset.month || active;
+    else break;
+  }
+  if (active && active !== state.calorieActiveMonth) {
+    paintCalorieMonthTotals(active);
+  }
+}
+
+/** Update monthly totals + derived columns without destroying inputs. */
 function refreshCalorieDerived() {
   if (!els.calorieTbody) return;
-  const { sheet, rows, totals } = computeTotals(ensureCaloriePayload());
-  if (els.calorieTotals) els.calorieTotals.innerHTML = renderCalorieTotalsHtml(totals);
+  const { sheet, rows } = computeTotals(ensureCaloriePayload());
+  paintCalorieMonthTotals(state.calorieActiveMonth);
   if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
     els.calorieProteinFactor.value = String(sheet.proteinFactor);
   }
@@ -1249,8 +1286,10 @@ function refreshCalorieDerived() {
     const m = row.metrics;
     const dayCell = tr.querySelector('.cal-col-day');
     if (dayCell) dayCell.textContent = row.dayName || '';
+    const dateBtn = tr.querySelector('.cal-date-btn');
+    if (dateBtn) dateBtn.textContent = row.dateDisplay || formatDateDisplay(row.date);
     const derived = tr.querySelectorAll('td.cal-derived');
-    // Order in renderCalorieRowsHtml: addCal, prot, pRm, balance, blKg, bsum, pctBl
+    // Order: addCal, prot, pRm, balance, blKg, bsum, pctBl
     setDerivedCell(derived[0], m.addCal ?? '', null);
     setDerivedCell(derived[1], m.prot ?? '', null);
     setDerivedCell(
@@ -1279,8 +1318,12 @@ function refreshCalorieDerived() {
 
 function renderCalorieSheet() {
   if (!els.calorieTbody) return;
-  const { sheet, rows, totals } = computeTotals(ensureCaloriePayload());
-  if (els.calorieTotals) els.calorieTotals.innerHTML = renderCalorieTotalsHtml(totals);
+  const { sheet, rows, months } = computeTotals(ensureCaloriePayload());
+  const fallbackMonth = months[months.length - 1]?.key || monthKeyFromDate(toDateKey());
+  if (!state.calorieActiveMonth || !months.some((m) => m.key === state.calorieActiveMonth)) {
+    state.calorieActiveMonth = fallbackMonth;
+  }
+  paintCalorieMonthTotals(state.calorieActiveMonth);
   if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
     els.calorieProteinFactor.value = String(sheet.proteinFactor);
   }
@@ -1289,17 +1332,19 @@ function renderCalorieSheet() {
   }
   els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
+  requestAnimationFrame(() => syncCalorieMonthFromScroll());
 }
 
 function addCalorieDay() {
   const { sheet, created } = addDayFromLast(ensureCaloriePayload(), toDateKey(new Date()));
+  state.calorieActiveMonth = monthKeyFromDate(toDateKey());
   persistCalorie(sheet, {
     status: created ? 'เพิ่มวันนี้แล้ว' : 'มีวันนี้แล้ว',
     fullRender: true,
   });
-  // Scroll to bottom (latest day)
   requestAnimationFrame(() => {
     if (els.calorieScroll) els.calorieScroll.scrollTop = els.calorieScroll.scrollHeight;
+    syncCalorieMonthFromScroll();
   });
 }
 
@@ -6675,6 +6720,14 @@ async function init({ fromBoot = false } = {}) {
   };
   els.calorieProteinFactor?.addEventListener('change', onCalorieFactorChange);
   els.calorieDefaultBase?.addEventListener('change', onCalorieFactorChange);
+  let calorieScrollTick = 0;
+  els.calorieScroll?.addEventListener('scroll', () => {
+    if (calorieScrollTick) return;
+    calorieScrollTick = requestAnimationFrame(() => {
+      calorieScrollTick = 0;
+      syncCalorieMonthFromScroll();
+    });
+  }, { passive: true });
   const applyCalorieField = (input) => {
     if (!input || !els.calorieTbody?.contains(input)) return;
     const dayId = input.dataset.dayId;
@@ -6698,7 +6751,9 @@ async function init({ fromBoot = false } = {}) {
     if (field === 'date') {
       const v = String(input.value || '').trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
-      persistCalorie(patchDay(sheet, dayId, { date: v }), { status: '' });
+      const next = patchDay(sheet, dayId, { date: v });
+      state.calorieActiveMonth = monthKeyFromDate(v);
+      persistCalorie(next, { status: '', fullRender: true });
       return;
     }
     const num = String(input.value || '').trim();
@@ -6718,6 +6773,27 @@ async function init({ fromBoot = false } = {}) {
     input.blur();
   });
   els.calorieTbody?.addEventListener('click', (e) => {
+    const dateOpen = e.target?.closest?.('[data-cal-date-open]');
+    if (dateOpen && els.calorieTbody.contains(dateOpen)) {
+      e.preventDefault();
+      const id = dateOpen.dataset.calDateOpen;
+      const picker = els.calorieTbody.querySelector(
+        `input.cal-date-picker[data-day-id="${CSS.escape(id)}"]`,
+      );
+      if (picker) {
+        try {
+          if (typeof picker.showPicker === 'function') picker.showPicker();
+          else {
+            picker.style.pointerEvents = 'auto';
+            picker.focus();
+            picker.click();
+          }
+        } catch {
+          picker.focus();
+        }
+      }
+      return;
+    }
     const del = e.target?.closest?.('[data-cal-delete]');
     if (!del || !els.calorieTbody.contains(del)) return;
     e.preventDefault();
