@@ -713,7 +713,7 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
 }
 .dock-context-rail {
   pointer-events: none;
-  display: flex;
+  display: none;
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -721,8 +721,8 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
   width: 100%;
   min-height: 0;
 }
-.dock-context-rail:not(:has(> :not([hidden]))) {
-  display: none;
+.dock-context-rail.is-active {
+  display: flex;
 }
 .dock-context-rail > * {
   pointer-events: auto;
@@ -782,7 +782,7 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
 .filter-dock-primary {
   pointer-events: auto;
   width: 100%;
-  background: var(--surface);
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 999px;
   box-shadow: 0 6px 22px rgba(36, 48, 40, 0.16);
@@ -790,9 +790,10 @@ body.filter-menu-open .filter-dd-menu:not([hidden]) {
   box-sizing: border-box;
 }
 body.light .filter-dock-primary {
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: #fff;
+}
+body:not(.light) .filter-dock-primary {
+  background: var(--surface);
 }
 .filter-dock-actions {
   display: flex;

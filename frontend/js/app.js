@@ -79,7 +79,7 @@ import {
   renderCalorieTotalsHtml,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=163';
+} from './calorie.js?v=164';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -1364,6 +1364,14 @@ function addCalorieDay() {
 function syncCalorieFabs() {
   const show = isCalorieMode() && els.filterDock && !els.filterDock.hidden;
   if (els.calorieFabs) els.calorieFabs.hidden = !show;
+  syncDockContextRail();
+}
+
+function syncDockContextRail() {
+  const rail = els.dockContextRail;
+  if (!rail) return;
+  const active = Array.from(rail.children).some((el) => !el.hidden);
+  rail.classList.toggle('is-active', active);
 }
 
 let calorieQuickMode = null; // 'meal' | 'mus'
@@ -2189,6 +2197,7 @@ function updateFilterDockVisibility() {
     if (!showFilters) closeFilterMenus();
     renderNotepadQuickBar();
     syncCalorieFabs();
+    syncDockContextRail();
   }
   document.body.classList.toggle('notepad-dock', Boolean(notepadEditing));
   if (els.selectionDock) {
