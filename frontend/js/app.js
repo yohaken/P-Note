@@ -1206,30 +1206,79 @@ function ensureCaloriePayload() {
   return cal;
 }
 
-function persistCalorie(nextCalorie, { status = 'บันทึกแผ่นแคลอรี่แล้ว' } = {}) {
+function persistCalorie(nextCalorie, { status = 'บันทึกแผ่นแคลอรี่แล้ว', fullRender = false } = {}) {
   state.notesData = {
     ...state.notesData,
     calorie: normalizeCalorie(nextCalorie),
     updatedAt: new Date().toISOString(),
   };
-  saveManager.save(() => state.notesData);
+  saveManager.scheduleSave(() => state.notesData);
   if (status) setStatus(status);
-  if (isCalorieMode()) renderCalorieSheet({ preserveFocus: true });
+  if (!isCalorieMode()) return;
+  if (fullRender) renderCalorieSheet();
+  else refreshCalorieDerived();
 }
 
-function renderCalorieSheet({ preserveFocus = false } = {}) {
-  if (!els.calorieTbody) return;
-  const active = document.activeElement;
-  const focusKey = preserveFocus && active?.dataset?.dayId && active?.dataset?.calField
-    ? {
-        dayId: active.dataset.dayId,
-        field: active.dataset.calField,
-        mealIndex: active.dataset.mealIndex,
-        selStart: typeof active.selectionStart === 'number' ? active.selectionStart : null,
-        selEnd: typeof active.selectionEnd === 'number' ? active.selectionEnd : null,
-      }
-    : null;
+function calorieToneClass(n) {
+  if (n == null || !Number.isFinite(n) || n === 0) return 'is-zero';
+  return n > 0 ? 'is-pos' : 'is-neg';
+}
 
+function setDerivedCell(td, text, valueForTone = null) {
+  if (!td) return;
+  td.textContent = text == null ? '' : String(text);
+  td.classList.remove('is-pos', 'is-neg', 'is-zero');
+  if (valueForTone != null) td.classList.add(calorieToneClass(valueForTone));
+}
+
+/** Update totals + derived columns without destroying inputs (avoids losing in-progress edits). */
+function refreshCalorieDerived() {
+  if (!els.calorieTbody) return;
+  const { sheet, rows, totals } = computeTotals(ensureCaloriePayload());
+  if (els.calorieTotals) els.calorieTotals.innerHTML = renderCalorieTotalsHtml(totals);
+  if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
+    els.calorieProteinFactor.value = String(sheet.proteinFactor);
+  }
+  if (els.calorieDefaultBase && document.activeElement !== els.calorieDefaultBase) {
+    els.calorieDefaultBase.value = String(sheet.defaultBase);
+  }
+  if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
+  rows.forEach((row) => {
+    const tr = els.calorieTbody.querySelector(`tr[data-day-id="${CSS.escape(row.id)}"]`);
+    if (!tr) return;
+    const m = row.metrics;
+    const dayCell = tr.querySelector('.cal-col-day');
+    if (dayCell) dayCell.textContent = row.dayName || '';
+    const derived = tr.querySelectorAll('td.cal-derived');
+    // Order in renderCalorieRowsHtml: addCal, prot, pRm, balance, blKg, bsum, pctBl
+    setDerivedCell(derived[0], m.addCal ?? '', null);
+    setDerivedCell(derived[1], m.prot ?? '', null);
+    setDerivedCell(
+      derived[2],
+      m.pRm == null ? '' : (m.pRm > 0 ? `+${m.pRm}` : String(m.pRm)),
+      m.pRm,
+    );
+    setDerivedCell(
+      derived[3],
+      m.balance == null ? '' : (m.balance > 0 ? `+${m.balance}` : String(m.balance)),
+      m.balance,
+    );
+    setDerivedCell(
+      derived[4],
+      m.blKg == null ? '' : (m.blKg > 0 ? `+${m.blKg}` : String(m.blKg)),
+      m.blKg,
+    );
+    setDerivedCell(derived[5], m.bsum ?? '', null);
+    setDerivedCell(
+      derived[6],
+      m.pctBl == null ? '' : `${m.pctBl}%`,
+      m.pctBl,
+    );
+  });
+}
+
+function renderCalorieSheet() {
+  if (!els.calorieTbody) return;
   const { sheet, rows, totals } = computeTotals(ensureCaloriePayload());
   if (els.calorieTotals) els.calorieTotals.innerHTML = renderCalorieTotalsHtml(totals);
   if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
@@ -1240,25 +1289,14 @@ function renderCalorieSheet({ preserveFocus = false } = {}) {
   }
   els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
-
-  if (focusKey) {
-    let sel = `input[data-day-id="${CSS.escape(focusKey.dayId)}"][data-cal-field="${CSS.escape(focusKey.field)}"]`;
-    if (focusKey.field === 'meal' && focusKey.mealIndex != null) {
-      sel += `[data-meal-index="${CSS.escape(String(focusKey.mealIndex))}"]`;
-    }
-    const el = els.calorieTbody.querySelector(sel);
-    if (el) {
-      el.focus({ preventScroll: true });
-      if (focusKey.selStart != null && typeof el.setSelectionRange === 'function') {
-        try { el.setSelectionRange(focusKey.selStart, focusKey.selEnd ?? focusKey.selStart); } catch { /* ignore */ }
-      }
-    }
-  }
 }
 
 function addCalorieDay() {
   const { sheet, created } = addDayFromLast(ensureCaloriePayload(), toDateKey(new Date()));
-  persistCalorie(sheet, { status: created ? 'เพิ่มวันนี้แล้ว' : 'มีวันนี้แล้ว' });
+  persistCalorie(sheet, {
+    status: created ? 'เพิ่มวันนี้แล้ว' : 'มีวันนี้แล้ว',
+    fullRender: true,
+  });
   // Scroll to bottom (latest day)
   requestAnimationFrame(() => {
     if (els.calorieScroll) els.calorieScroll.scrollTop = els.calorieScroll.scrollHeight;
@@ -6106,7 +6144,12 @@ function notesContentKey(data) {
     )
     .sort()
     .join(',');
-  return `${notePart}|${tagPart}|${padPart}`;
+  const calDays = Array.isArray(data?.calorie?.days) ? data.calorie.days : [];
+  const calPart = `${data?.calorie?.updatedAt || ''}:${calDays
+    .map((d) => `${d.id}:${d.updatedAt || ''}`)
+    .sort()
+    .join(',')}`;
+  return `${notePart}|${tagPart}|${padPart}|${calPart}`;
 }
 
 function paintNotesFromLocal(data) {
@@ -6628,7 +6671,7 @@ async function init({ fromBoot = false } = {}) {
       ...sheet,
       proteinFactor: Number.isFinite(pf) ? pf : sheet.proteinFactor,
       defaultBase: Number.isFinite(base) ? base : sheet.defaultBase,
-    }, { status: 'อัปเดตค่าตั้งต้นแล้ว' });
+    }, { status: 'อัปเดตค่าตั้งต้นแล้ว', fullRender: true });
   };
   els.calorieProteinFactor?.addEventListener('change', onCalorieFactorChange);
   els.calorieDefaultBase?.addEventListener('change', onCalorieFactorChange);
@@ -6681,7 +6724,7 @@ async function init({ fromBoot = false } = {}) {
     const id = del.dataset.calDelete;
     if (!id) return;
     if (!confirm('ลบวันนี้จากแผ่นแคลอรี่?')) return;
-    persistCalorie(deleteDay(ensureCaloriePayload(), id), { status: 'ลบวันแล้ว' });
+    persistCalorie(deleteDay(ensureCaloriePayload(), id), { status: 'ลบวันแล้ว', fullRender: true });
   });
 
   els.notepadQuickScroll?.addEventListener('click', (e) => {
