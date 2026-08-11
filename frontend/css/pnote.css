@@ -148,6 +148,11 @@ body {
   color: var(--text);
 }
 
+/* display:grid above would otherwise override the [hidden] attribute */
+.btn-mini-icon[hidden] {
+  display: none !important;
+}
+
 /* Ultra-thin app title bar — flush to top */
 .topbar {
   position: sticky;
@@ -5407,8 +5412,13 @@ body:not(.calendar-mode) #calendar-view {
   margin-bottom: 0;
 }
 
-/* Calendar mode: hide dock filters, keep only mode switch + add */
+/* Calendar mode: hide list-only chrome; keep mode switch + add */
 body.calendar-mode #filter-dock-filters {
   display: none;
+}
+
+body.calendar-mode #search-toggle-btn,
+body.calendar-mode #note-search-row {
+  display: none !important;
 }
 
