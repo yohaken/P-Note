@@ -1269,13 +1269,23 @@ function ensureCaloriePayload() {
   return cal;
 }
 
-function persistCalorie(nextCalorie, { status = 'บันทึกแผ่นแคลอรี่แล้ว', fullRender = false } = {}) {
+function persistCalorie(nextCalorie, { status = 'บันทึกแผ่นแคลอรี่แล้ว', fullRender = false, immediate = true } = {}) {
+  const now = new Date().toISOString();
+  // Always stamp calorie.updatedAt so cloud merge keeps profile/goals (height etc.)
+  // instead of letting a newer remote sheet meta overwrite local choices.
   state.notesData = {
     ...state.notesData,
-    calorie: normalizeCalorie(nextCalorie),
-    updatedAt: new Date().toISOString(),
+    calorie: normalizeCalorie({ ...nextCalorie, updatedAt: now }),
+    updatedAt: now,
   };
-  saveManager.scheduleSave(() => state.notesData);
+  // Standard: write local + cloud immediately (no debounce race with sync).
+  if (immediate) {
+    void saveManager.saveNow(() => state.notesData).catch(() => {
+      /* local already written inside SaveManager; cloud may retry */
+    });
+  } else {
+    saveManager.scheduleSave(() => state.notesData);
+  }
   if (status) setStatus(status);
   if (!isCalorieMode()) return;
   if (state.caloriePane === 'health') {
@@ -1284,6 +1294,48 @@ function persistCalorie(nextCalorie, { status = 'บันทึกแผ่น�
   }
   if (fullRender) renderCalorieSheet();
   else refreshCalorieDerived();
+}
+
+/** Read body-profile / goals from Settings inputs (null = unchanged / invalid skip). */
+function readCalorieProfileFromUi(sheet) {
+  const pf = Number(els.calorieProteinFactor?.value);
+  const height = Number(els.calorieHeight?.value);
+  const birthDate = String(els.calorieBirthdate?.value || '').trim();
+  const sex = els.calorieSex?.value === 'female' ? 'female' : 'male';
+  const goalWaistRaw = String(els.calorieGoalWaist?.value || '').trim();
+  const goalWeightRaw = String(els.calorieGoalWeight?.value || '').trim();
+  const goalWaistCm = goalWaistRaw === '' ? null : Number(goalWaistRaw);
+  const goalWeightKg = goalWeightRaw === '' ? null : Number(goalWeightRaw);
+  return {
+    ...sheet,
+    proteinFactor: Number.isFinite(pf) ? pf : sheet.proteinFactor,
+    heightCm: Number.isFinite(height) ? height : sheet.heightCm,
+    birthDate: /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? birthDate : sheet.birthDate,
+    sex,
+    goalWaistCm: goalWaistRaw === '' || !Number.isFinite(goalWaistCm) ? null : goalWaistCm,
+    goalWeightKg: goalWeightRaw === '' || !Number.isFinite(goalWeightKg) ? null : goalWeightKg,
+  };
+}
+
+function calorieProfileChanged(before, after) {
+  if (!before || !after) return true;
+  return (
+    before.heightCm !== after.heightCm
+    || before.proteinFactor !== after.proteinFactor
+    || before.birthDate !== after.birthDate
+    || before.sex !== after.sex
+    || before.goalWaistCm !== after.goalWaistCm
+    || before.goalWeightKg !== after.goalWeightKg
+  );
+}
+
+/** Immediate local + cloud save for Settings profile/goals. */
+function flushCalorieProfileFromUi({ status = 'บันทึกโปรไฟล์แล้ว', force = false } = {}) {
+  const sheet = ensureCaloriePayload();
+  const next = readCalorieProfileFromUi(sheet);
+  if (!force && !calorieProfileChanged(sheet, next)) return false;
+  persistCalorie(next, { status, fullRender: true, immediate: true });
+  return true;
 }
 
 function calorieToneClass(n) {
@@ -5057,6 +5109,8 @@ function closeSettings() {
   persistGeminiSettingsFromUi();
   persistAiProfileFromUi();
   persistCameraSettingsFromUi();
+  // Number inputs may not have fired `change` yet — flush profile before hide.
+  flushCalorieProfileFromUi({ status: 'บันทึกโปรไฟล์แล้ว' });
   els.settingsOverlay.hidden = true;
 }
 
@@ -7499,31 +7553,21 @@ async function init({ fromBoot = false } = {}) {
     }
   });
   const onCalorieProfileChange = () => {
-    const sheet = ensureCaloriePayload();
-    const pf = Number(els.calorieProteinFactor?.value);
-    const height = Number(els.calorieHeight?.value);
-    const birthDate = String(els.calorieBirthdate?.value || '').trim();
-    const sex = els.calorieSex?.value === 'female' ? 'female' : 'male';
-    const goalWaistRaw = String(els.calorieGoalWaist?.value || '').trim();
-    const goalWeightRaw = String(els.calorieGoalWeight?.value || '').trim();
-    const goalWaistCm = goalWaistRaw === '' ? null : Number(goalWaistRaw);
-    const goalWeightKg = goalWeightRaw === '' ? null : Number(goalWeightRaw);
-    persistCalorie({
-      ...sheet,
-      proteinFactor: Number.isFinite(pf) ? pf : sheet.proteinFactor,
-      heightCm: Number.isFinite(height) ? height : sheet.heightCm,
-      birthDate: /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? birthDate : sheet.birthDate,
-      sex,
-      goalWaistCm: goalWaistRaw === '' || !Number.isFinite(goalWaistCm) ? null : goalWaistCm,
-      goalWeightKg: goalWeightRaw === '' || !Number.isFinite(goalWeightKg) ? null : goalWeightKg,
-    }, { status: 'อัปเดตโปรไฟล์ / เป้าหมายแล้ว', fullRender: true });
+    flushCalorieProfileFromUi({ status: 'บันทึกโปรไฟล์แล้ว · คลาวด์' });
   };
-  els.calorieProteinFactor?.addEventListener('change', onCalorieProfileChange);
-  els.calorieHeight?.addEventListener('change', onCalorieProfileChange);
-  els.calorieBirthdate?.addEventListener('change', onCalorieProfileChange);
-  els.calorieSex?.addEventListener('change', onCalorieProfileChange);
-  els.calorieGoalWaist?.addEventListener('change', onCalorieProfileChange);
-  els.calorieGoalWeight?.addEventListener('change', onCalorieProfileChange);
+  const profileInputs = [
+    els.calorieProteinFactor,
+    els.calorieHeight,
+    els.calorieBirthdate,
+    els.calorieSex,
+    els.calorieGoalWaist,
+    els.calorieGoalWeight,
+  ];
+  profileInputs.forEach((el) => {
+    el?.addEventListener('change', onCalorieProfileChange);
+    // Mobile: value often commits on blur without a reliable change in some WebViews.
+    el?.addEventListener('blur', onCalorieProfileChange);
+  });
   els.calorieQuickFreq?.addEventListener('click', (e) => {
     const chip = e.target?.closest?.('[data-freq-text]');
     if (!chip || !els.calorieQuickFreq.contains(chip)) return;

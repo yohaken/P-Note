@@ -1550,15 +1550,17 @@ export function mergeCalorieByUpdatedAt(localRaw, remoteRaw) {
   });
   const localAt = new Date(local.updatedAt || 0).getTime();
   const remoteAt = new Date(remote.updatedAt || 0).getTime();
-  // Prefer meta from the side that actually has logged days when one is empty.
+  // Sheet meta (height, goals, sex…) follows the newer stamp — never day-count alone.
   const localDays = local.days.length;
   const remoteDays = remote.days.length;
-  let metaSrc = remoteAt >= localAt ? remote : local;
-  if (localDays === 0 && remoteDays > 0) metaSrc = remote;
-  else if (remoteDays === 0 && localDays > 0) metaSrc = local;
+  let metaSrc = localAt > remoteAt ? local : remoteAt > localAt ? remote : local;
+  if (localDays === 0 && remoteDays > 0 && localAt <= remoteAt) metaSrc = remote;
+  else if (remoteDays === 0 && localDays > 0 && remoteAt <= localAt) metaSrc = local;
   return normalizeCalorie({
     ...metaSrc,
     days: [...byDate.values()],
+    // Keep the winning meta's updatedAt when it is newer so a just-saved profile
+    // is not diluted to "now" in a way that loses the causality on the next merge.
     updatedAt: new Date(Math.max(localAt, remoteAt, Date.now())).toISOString(),
   });
 }
