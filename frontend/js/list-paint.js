@@ -7,7 +7,7 @@ import {
   loadSettings,
   dockScaleToCss,
   dockOffsetYToLiftPx,
-} from './settings.js?v=176';
+} from './settings.js?v=177';
 
 function applyCalorieChrome() {
   document.body.classList.add('light', 'calorie-mode', 'calorie-only');
