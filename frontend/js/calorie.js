@@ -810,7 +810,7 @@ export function idealWeightRange(heightCm) {
 
 /** Rolling calendar window of day metrics for summary charts. */
 export function computeTrendSeries(calorie, dayCount = 14, endKey = toDateKey()) {
-  const n = Math.max(3, Math.min(60, Math.round(dayCount) || 14));
+  const n = Math.max(1, Math.min(366, Math.round(dayCount) || 14));
   const sheet = normalizeCalorie(calorie);
   const end = parseDateKey(endKey) || new Date();
   const keys = [];
@@ -870,7 +870,8 @@ function looksLikeMealFragment(s) {
 }
 
 /**
- * Exercise group stats: pose frequency (freqMus + notes) and burn series.
+ * Exercise group stats from live day rows only (no freqMus chip fallback —
+ * cleared mus/notes must disappear from สรุป).
  */
 export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey()) {
   const sheet = normalizeCalorie(calorie);
@@ -884,7 +885,6 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
     if (Number.isFinite(burn) && burn > 0) prev.burn += burn;
     poseMap.set(key, prev);
   };
-  // Prefer labels from days in the window (note fragments on mus days).
   const end = parseDateKey(endKey) || new Date();
   const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (trend.dayCount - 1));
   const startKey = toDateKey(start);
@@ -905,16 +905,6 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
       bump(parsed?.label || bit, parsed?.burn || share);
     });
   });
-  // Fallback: frequent exercise chips when the window has no labeled poses.
-  if (!poseMap.size) {
-    (sheet.freqMus || []).forEach((item) => {
-      const parsed = parseQuickExercise(item.text || item.label || '');
-      const label = parsed?.label || String(item.label || item.text || '').trim();
-      const count = Math.max(1, Number(item.count) || 1);
-      const burnEach = parsed?.burn || 0;
-      for (let i = 0; i < count; i += 1) bump(label, burnEach);
-    });
-  }
   const poses = [...poseMap.values()]
     .sort((a, b) => b.count - a.count || b.burn - a.burn)
     .slice(0, 8)
@@ -933,6 +923,34 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
     startLabel: trend.startLabel,
     endLabel: trend.endLabel,
   };
+}
+
+/** Drop freqMus chips when no day still has burn logged. */
+export function pruneFrequentMus(calorie) {
+  const sheet = normalizeCalorie(calorie);
+  const hasMus = sheet.days.some((d) => Number.isFinite(d.mus) && d.mus > 0);
+  if (hasMus) return sheet;
+  if (!(sheet.freqMus || []).length) return sheet;
+  return { ...sheet, freqMus: [], updatedAt: nowIso() };
+}
+
+/** Preset ranges for health trend charts (days back, inclusive). */
+export const HEALTH_TREND_RANGES = [
+  { days: 1, label: '1 วัน' },
+  { days: 3, label: '3 วัน' },
+  { days: 7, label: '7 วัน' },
+  { days: 14, label: '14 วัน' },
+  { days: 90, label: '3 เดือน' },
+  { days: 180, label: '6 เดือน' },
+  { days: 365, label: '1 ปี' },
+];
+
+export function normalizeTrendDays(raw, fallback = 7) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  const allowed = new Set(HEALTH_TREND_RANGES.map((r) => r.days));
+  if (allowed.has(n)) return n;
+  return fallback;
 }
 
 /** Line / area SVG for a numeric series (nulls = gaps). */
@@ -1035,11 +1053,12 @@ function chartCardHtml(title, values, { signed = false, unit = '', digits = 0 } 
  * Health snapshot for a separate sheet (not on the logging home).
  * WHtR, waist zone, ideal kg, week kg from balance + trend/exercise charts.
  */
-export function computeHealthSnapshot(calorie, endKey = toDateKey()) {
+export function computeHealthSnapshot(calorie, endKey = toDateKey(), trendDays = 7) {
   const sheet = normalizeCalorie(calorie);
+  const days = normalizeTrendDays(trendDays, 7);
   const week = computeWeekSummary(sheet, endKey);
-  const trends = computeTrendSeries(sheet, 14, endKey);
-  const exercise = computeExerciseStats(sheet, 14, endKey);
+  const trends = computeTrendSeries(sheet, days, endKey);
+  const exercise = computeExerciseStats(sheet, days, endKey);
   const known = lastKnownBody(sheet);
   const weight = known.weight;
   const waist = known.waist;
@@ -1058,6 +1077,7 @@ export function computeHealthSnapshot(calorie, endKey = toDateKey()) {
       ? round(week.balSum / sheet.kcalPerKg, 2)
       : null;
   const age = ageFromBirthDate(sheet.birthDate, endKey) ?? sheet.age;
+  const rangeMeta = HEALTH_TREND_RANGES.find((r) => r.days === days) || { days, label: `${days} วัน` };
   return {
     heightCm: height,
     weight,
@@ -1075,6 +1095,8 @@ export function computeHealthSnapshot(calorie, endKey = toDateKey()) {
     proteinFactor: sheet.proteinFactor,
     trends,
     exercise,
+    trendDays: days,
+    trendRangeLabel: rangeMeta.label,
   };
 }
 
@@ -1111,6 +1133,12 @@ export function renderHealthSheetHtml(snap) {
   const levelClass = (lv) =>
     lv === 'ok' ? 'is-ok' : lv === 'watch' ? 'is-watch' : lv === 'high' ? 'is-high' : '';
 
+  const activeDays = normalizeTrendDays(snap.trendDays, 7);
+  const rangeChips = HEALTH_TREND_RANGES.map((r) => {
+    const on = r.days === activeDays ? ' is-active' : '';
+    return `<button type="button" class="chs-range-btn${on}" data-chs-range="${r.days}" aria-pressed="${r.days === activeDays ? 'true' : 'false'}">${esc(r.label)}</button>`;
+  }).join('');
+
   const t = snap.trends;
   const ex = snap.exercise;
   const rangeLabel = t
@@ -1132,7 +1160,7 @@ export function renderHealthSheetHtml(snap) {
       </div>
     </section>`
     : '';
-  const musPts = (ex?.mus || []).filter((v) => v != null && Number.isFinite(v));
+  const musPts = (ex?.mus || []).filter((v) => v != null && Number.isFinite(v) && v > 0);
   const musLast = musPts.length ? musPts[musPts.length - 1] : null;
   const musTone =
     musLast == null || musLast === 0 ? '' : musLast > 0 ? 'is-pos' : '';
@@ -1162,7 +1190,8 @@ export function renderHealthSheetHtml(snap) {
   return `
     <header class="chs-head">
       <h2 class="chs-title">สรุปสุขภาพ</h2>
-      <p class="chs-sub">ตัวเลขจากข้อมูลที่มี · ไม่ลึกเกินจำเป็น</p>
+      <p class="chs-sub">ตัวเลขจากข้อมูลที่มี · เลือกช่วงเวลากราฟด้านล่าง</p>
+      <div class="chs-range" role="toolbar" aria-label="ช่วงเวลากราฟ">${rangeChips}</div>
     </header>
     <div class="chs-grid">
       <article class="chs-card">
@@ -1198,7 +1227,7 @@ export function renderHealthSheetHtml(snap) {
     </div>
     ${trendBlock}
     ${exerciseBlock}
-    <p class="chs-foot">โปรตีนเป้า ≈ น้ำหนัก × ${esc(snap.proteinFactor)} ก./กก. · กราฟย้อนหลัง 14 วัน</p>`;
+    <p class="chs-foot">โปรตีนเป้า ≈ น้ำหนัก × ${esc(snap.proteinFactor)} ก./กก. · กราฟช่วง ${esc(snap.trendRangeLabel || '')}</p>`;
 }
 
 export function computeTotals(calorie) {
@@ -1318,7 +1347,7 @@ export function clearDayValues(calorie, dayId, { clearBody = false } = {}) {
     patch.waist = null;
     patch.weight = null;
   }
-  return patchDay(sheet, dayId, patch);
+  return pruneFrequentMus(patchDay(sheet, dayId, patch));
 }
 
 /** Add today (or date) cloning last known waist/weight. Base is auto from BMR. */
@@ -1457,8 +1486,9 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
       const mealInputs = [];
       for (let i = 0; i < cols; i += 1) {
         const cell = rawMeals[i] || '';
+        const has = cell ? ' has-value' : '';
         mealInputs.push(
-          `<input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}" placeholder="${i + 1}">`,
+          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"><button type="button" class="cal-field-clear" data-cal-clear-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" aria-label="เคลียร์มื้อ ${i + 1}" title="เคลียร์">×</button></span>`,
         );
       }
       let sep = '';
@@ -1486,7 +1516,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}" data-cal-derived="blKg">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
       </tr>
       <tr class="cal-row cal-day-b${today}" data-day-id="${id}" data-month="${month}">
-        <td class="cal-col-burn"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" aria-label="ออกกำลัง"></td>
+        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" aria-label="ออกกำลัง"><button type="button" class="cal-field-clear" data-cal-clear-field="mus" data-day-id="${id}" aria-label="เคลียร์ออกกำลัง" title="เคลียร์">×</button></span></td>
         <td class="cal-col-burn cal-derived cal-base-auto" data-cal-derived="base" title="BMR จากน้ำหนัก × ส่วนสูง × อายุ">${m.base ?? ''}</td>
         <td class="cal-col-sum cal-derived" data-cal-derived="bsum">${m.bsum ?? ''}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.pctBl)}" data-cal-derived="pctBl">${m.pctBl == null ? '' : `${m.pctBl}%`}</td>

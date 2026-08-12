@@ -6282,6 +6282,43 @@ body.calorie-health-pane #dock-calorie-health-btn {
   color: var(--text-muted);
 }
 
+.chs-range {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.1rem;
+  scrollbar-width: none;
+}
+
+.chs-range::-webkit-scrollbar {
+  display: none;
+}
+
+.chs-range-btn {
+  appearance: none;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 0.22rem 0.55rem;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chs-range-btn.is-active {
+  background: color-mix(in srgb, var(--accent, #4a7c59) 16%, #fff);
+  border-color: color-mix(in srgb, var(--accent, #4a7c59) 45%, var(--border));
+  color: var(--accent, #2f6b4f);
+}
+
 .chs-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -6620,6 +6657,13 @@ body.calorie-health-pane #dock-calorie-health-btn {
   min-width: 1.15rem;
 }
 
+.ctc-field-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  position: relative;
+  display: block;
+}
+
 .ctc-field input {
   flex: 1 1 auto;
   width: 100%;
@@ -6628,13 +6672,61 @@ body.calorie-health-pane #dock-calorie-health-btn {
   height: 1.45rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 0 0.28rem;
+  padding: 0 1rem 0 0.28rem;
   font: inherit;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--text);
   background: var(--surface-2, #f7faf7);
   font-variant-numeric: tabular-nums;
+}
+
+.cal-input-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+
+.cal-field-clear {
+  appearance: none;
+  position: absolute;
+  top: 50%;
+  right: 1px;
+  transform: translateY(-50%);
+  width: 0.95rem;
+  height: 0.95rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0;
+  margin: 0;
+  background: color-mix(in srgb, #b91c1c 12%, #fff);
+  color: #b91c1c;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.cal-input-wrap.has-value .cal-field-clear,
+.cal-input-wrap:focus-within .cal-field-clear {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cal-input-wrap-meal .cal-field-clear,
+.ctc-meal .cal-field-clear {
+  width: 0.8rem;
+  height: 0.8rem;
+  font-size: 0.58rem;
+  right: 0;
+}
+
+.calorie-table .cal-input-wrap input.cal-cell {
+  padding-right: 0.85rem;
 }
 
 .ctc-field input:focus {

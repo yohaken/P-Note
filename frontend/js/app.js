@@ -82,7 +82,9 @@ import {
   monthKeyFromDate,
   normalizeCalorie,
   normalizeMeals,
+  normalizeTrendDays,
   patchDay,
+  pruneFrequentMus,
   renderCalorieMealHeaderHtml,
   renderCalorieRowsHtml,
   renderCalorieTotalsHtml,
@@ -92,7 +94,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=178';
+} from './calorie.js?v=179';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -241,6 +243,8 @@ const state = {
   calendarScrollRange: null,
   /** Calorie sub-pane: 'log' (home) | 'health' (summary sheet) */
   caloriePane: 'log',
+  /** Health trend chart window (days), e.g. 1 / 3 / 7 / 90 / 365 */
+  calorieTrendDays: 7,
   /** Active month key (YYYY-MM) for calorie summary strip */
   calorieActiveMonth: null,
   activeNotepadId: null,
@@ -1273,6 +1277,10 @@ function persistCalorie(nextCalorie, { status = 'บันทึกแผ่น�
   saveManager.scheduleSave(() => state.notesData);
   if (status) setStatus(status);
   if (!isCalorieMode()) return;
+  if (state.caloriePane === 'health') {
+    paintCalorieHealthSheet(ensureCaloriePayload());
+    return;
+  }
   if (fullRender) renderCalorieSheet();
   else refreshCalorieDerived();
 }
@@ -1365,7 +1373,9 @@ function paintCalorieHealthSheet(sheet) {
     el.hidden = true;
     return;
   }
-  const snap = computeHealthSnapshot(sheet);
+  const days = normalizeTrendDays(state.calorieTrendDays, 7);
+  state.calorieTrendDays = days;
+  const snap = computeHealthSnapshot(sheet, toDateKey(), days);
   el.hidden = false;
   el.innerHTML = renderHealthSheetHtml(snap);
 }
@@ -1421,12 +1431,22 @@ function paintCalorieTodayCard(rows, sheet) {
   fillIfIdle(els.calorieTodayWeight, row.weight);
   fillIfIdle(els.calorieTodayWaist, row.waist);
   fillIfIdle(els.calorieTodayMus, row.mus);
+  const syncClearWrap = (input) => {
+    const wrap = input?.closest?.('.cal-input-wrap, .ctc-field-wrap');
+    if (!wrap) return;
+    const has = String(input.value || '').trim() !== '';
+    wrap.classList.toggle('has-value', has);
+  };
+  syncClearWrap(els.calorieTodayWeight);
+  syncClearWrap(els.calorieTodayWaist);
+  syncClearWrap(els.calorieTodayMus);
   if (els.calorieTodayMeals && document.activeElement?.closest?.('#calorie-today-meals') == null) {
     const meals = expandMealsForEdit(row.meals);
     const cols = Math.max(meals.length, MIN_MEAL_SLOTS);
     els.calorieTodayMeals.innerHTML = Array.from({ length: cols }, (_, i) => {
       const v = meals[i] || '';
-      return `<label class="ctc-meal" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"></label>`;
+      const has = v ? ' has-value' : '';
+      return `<label class="ctc-meal cal-input-wrap${has}" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"><button type="button" class="cal-field-clear" data-ctc-clear-meal="${i}" aria-label="เคลียร์มื้อ ${i + 1}" title="เคลียร์">×</button></label>`;
     }).join('');
   }
   if (els.calorieTodaySummary) {
@@ -7345,9 +7365,13 @@ async function init({ fromBoot = false } = {}) {
     const num = String(input.value || '').trim();
     const parsed = num === '' ? null : Number(num);
     if (num !== '' && !Number.isFinite(parsed)) return;
-    persistCalorie(patchDay(sheet, dayId, { [field]: parsed }), {
+    let next = patchDay(sheet, dayId, { [field]: parsed });
+    if (field === 'mus' && (parsed == null || parsed === 0)) {
+      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, note: '' }));
+    }
+    persistCalorie(next, {
       status: '',
-      fullRender: field === 'weight',
+      fullRender: field === 'weight' || field === 'mus',
     });
   };
   const onTodayCardChange = (e) => {
@@ -7355,6 +7379,12 @@ async function init({ fromBoot = false } = {}) {
     if (!input || !els.calorieTodayCard?.contains(input)) return;
     applyTodayCardField(input);
   };
+  els.calorieTodayCard?.addEventListener('input', (e) => {
+    const input = e.target?.closest?.('input');
+    if (!input || !els.calorieTodayCard?.contains(input)) return;
+    const wrap = input.closest('.cal-input-wrap, .ctc-field-wrap');
+    if (wrap) wrap.classList.toggle('has-value', String(input.value || '').trim() !== '');
+  });
   els.calorieTodayCard?.addEventListener('change', onTodayCardChange);
   els.calorieTodayCard?.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
@@ -7362,6 +7392,53 @@ async function init({ fromBoot = false } = {}) {
     if (!input || !els.calorieTodayCard.contains(input)) return;
     e.preventDefault();
     input.blur();
+  });
+  els.calorieTodayCard?.addEventListener('click', (e) => {
+    const mealClear = e.target?.closest?.('[data-ctc-clear-meal]');
+    if (mealClear && els.calorieTodayCard.contains(mealClear)) {
+      e.preventDefault();
+      const idx = Number(mealClear.dataset.ctcClearMeal);
+      const dayId = els.calorieTodayCard.dataset.dayId;
+      if (!dayId || !Number.isFinite(idx)) return;
+      const sheet = ensureCaloriePayload();
+      const day = sheet.days.find((d) => d.id === dayId);
+      if (!day) return;
+      const meals = expandMealsForEdit(day.meals);
+      while (meals.length <= idx) meals.push('');
+      meals[idx] = '';
+      persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
+        status: '',
+        fullRender: true,
+      });
+      return;
+    }
+    const fieldClear = e.target?.closest?.('[data-ctc-clear-field]');
+    if (!fieldClear || !els.calorieTodayCard.contains(fieldClear)) return;
+    e.preventDefault();
+    const field = fieldClear.dataset.ctcClearField;
+    const dayId = els.calorieTodayCard.dataset.dayId;
+    if (!dayId || !field) return;
+    const sheet = ensureCaloriePayload();
+    if (field === 'mus') {
+      persistCalorie(pruneFrequentMus(patchDay(sheet, dayId, { mus: null, note: '' })), {
+        status: 'เคลียร์ออกกำลังแล้ว',
+        fullRender: true,
+      });
+      return;
+    }
+    persistCalorie(patchDay(sheet, dayId, { [field]: null }), {
+      status: '',
+      fullRender: field === 'weight',
+    });
+  });
+  els.calorieHealthSheet?.addEventListener('click', (e) => {
+    const btn = e.target?.closest?.('[data-chs-range]');
+    if (!btn || !els.calorieHealthSheet.contains(btn)) return;
+    e.preventDefault();
+    const days = normalizeTrendDays(btn.dataset.chsRange, state.calorieTrendDays);
+    if (days === state.calorieTrendDays) return;
+    state.calorieTrendDays = days;
+    paintCalorieHealthSheet(ensureCaloriePayload());
   });
   let calorieScrollTick = 0;
   els.calorieScroll?.addEventListener('scroll', () => {
@@ -7405,11 +7482,24 @@ async function init({ fromBoot = false } = {}) {
     const num = String(input.value || '').trim();
     const parsed = num === '' ? null : Number(num);
     if (num !== '' && !Number.isFinite(parsed)) return;
-    persistCalorie(patchDay(sheet, dayId, { [field]: parsed }), {
+    let next = patchDay(sheet, dayId, { [field]: parsed });
+    if (field === 'mus' && (parsed == null || parsed === 0)) {
+      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, note: '' }));
+    }
+    persistCalorie(next, {
       status: '',
-      fullRender: field === 'weight',
+      fullRender: field === 'weight' || field === 'mus',
     });
   };
+  const markClearWrap = (input) => {
+    const wrap = input?.closest?.('.cal-input-wrap, .ctc-field-wrap');
+    if (!wrap) return;
+    wrap.classList.toggle('has-value', String(input.value || '').trim() !== '');
+  };
+  els.calorieTbody?.addEventListener('input', (e) => {
+    const input = e.target?.closest?.('input[data-cal-field]');
+    if (input) markClearWrap(input);
+  });
   els.calorieTbody?.addEventListener('change', (e) => {
     const input = e.target?.closest?.('input[data-cal-field]');
     if (input) applyCalorieField(input);
@@ -7422,6 +7512,39 @@ async function init({ fromBoot = false } = {}) {
     input.blur();
   });
   els.calorieTbody?.addEventListener('click', (e) => {
+    const fieldClear = e.target?.closest?.('[data-cal-clear-field]');
+    if (fieldClear && els.calorieTbody.contains(fieldClear)) {
+      e.preventDefault();
+      const dayId = fieldClear.dataset.dayId;
+      const field = fieldClear.dataset.calClearField;
+      if (!dayId || !field) return;
+      const sheet = ensureCaloriePayload();
+      if (field === 'meal') {
+        const idx = Number(fieldClear.dataset.mealIndex);
+        const day = sheet.days.find((d) => d.id === dayId);
+        if (!day || !Number.isFinite(idx)) return;
+        const meals = expandMealsForEdit(day.meals);
+        while (meals.length <= idx) meals.push('');
+        meals[idx] = '';
+        persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
+          status: '',
+          fullRender: true,
+        });
+        return;
+      }
+      if (field === 'mus') {
+        persistCalorie(pruneFrequentMus(patchDay(sheet, dayId, { mus: null, note: '' })), {
+          status: 'เคลียร์ออกกำลังแล้ว',
+          fullRender: true,
+        });
+        return;
+      }
+      persistCalorie(patchDay(sheet, dayId, { [field]: null }), {
+        status: '',
+        fullRender: field === 'weight',
+      });
+      return;
+    }
     const dateOpen = e.target?.closest?.('[data-cal-date-open]');
     if (dateOpen && els.calorieTbody.contains(dateOpen)) {
       e.preventDefault();
