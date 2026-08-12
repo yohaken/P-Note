@@ -6796,36 +6796,9 @@ body.calorie-health-pane #dock-calorie-health-btn {
   line-height: 1.2;
 }
 
-.ctc-fields {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.14rem;
-}
-
-.ctc-field-burn input {
-  border-color: color-mix(in srgb, var(--cal-tone-burn) 22%, var(--border));
-  background: var(--cal-tone-burn-wash);
-}
-
 .ctc-meals .ctc-meal input {
   border-color: color-mix(in srgb, var(--cal-tone-eat) 18%, var(--border));
   background: var(--cal-tone-eat-wash);
-}
-
-.ctc-field {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.2rem;
-  font-size: 0.52rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  min-width: 0;
-}
-
-.ctc-field span {
-  flex: 0 0 auto;
-  min-width: 1.15rem;
 }
 
 .ctc-field-wrap {
@@ -6833,23 +6806,6 @@ body.calorie-health-pane #dock-calorie-health-btn {
   min-width: 0;
   position: relative;
   display: block;
-}
-
-.ctc-field input {
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  height: 1.3rem;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 0 0.28rem;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--text);
-  background: var(--surface-2, #f7faf7);
-  font-variant-numeric: tabular-nums;
 }
 
 .cal-input-wrap {
@@ -6866,12 +6822,6 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .calorie-table .cal-input-wrap input.cal-cell {
   padding-right: 0.15rem;
-}
-
-.ctc-field input:focus {
-  outline: none;
-  border-color: var(--accent);
-  background: #fff;
 }
 
 .ctc-stats {
@@ -6911,6 +6861,10 @@ body.calorie-health-pane #dock-calorie-health-btn {
   font-size: 0.52rem;
   font-weight: 650;
   color: var(--text-muted);
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ctc-stat-kg {
@@ -6939,6 +6893,84 @@ body.calorie-health-pane #dock-calorie-health-btn {
 .ctc-stat.is-empty .ctc-stat-value,
 .ctc-stat.is-empty .ctc-stat-kg {
   color: var(--text-muted);
+}
+
+/* Body / burn boxes — same frame language as ± cards */
+.ctc-stat-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.ctc-stat-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.ctc-stat-field input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 1.45rem;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctc-stat-field input:focus {
+  outline: none;
+  color: var(--accent);
+}
+
+.ctc-stat-burn {
+  cursor: pointer;
+  background: color-mix(in srgb, var(--cal-tone-burn-wash, #e8f7ee) 70%, #fff);
+}
+
+.ctc-burn-wrap {
+  width: auto;
+  flex: 0 1 auto;
+}
+
+.ctc-stat-value-input {
+  width: 4.2rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  height: 1.35rem;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--cal-tone-burn-ink, #1f6b3a);
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.ctc-stat-value-input:focus {
+  outline: none;
+}
+
+.ctc-stat-value-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 700;
 }
 
 .ctc-meals {

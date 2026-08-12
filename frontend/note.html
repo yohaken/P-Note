@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="196">
-  <meta name="pnote-built" content="2026-08-12T12:04:23+00:00">
+  <meta name="pnote-build" content="197">
+  <meta name="pnote-built" content="2026-08-12T12:09:38+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=196"></script>
+  <script src="js/cache-bootstrap.js?v=197"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=196">
+  <link rel="stylesheet" href="css/pnote.css?v=197">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -74,7 +74,7 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/icon-192.png?v=196" width="22" height="22" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/icon-192.png?v=197" width="22" height="22" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
           <span class="mode-switch-ver" id="calorie-app-ver" aria-hidden="true"></span>
         </div>
@@ -240,11 +240,26 @@
             <strong class="ctc-stat-value" id="calorie-today-prot-value">—</strong>
             <span class="ctc-stat-meta" id="calorie-today-prot-meta"></span>
           </div>
-        </div>
-        <div class="ctc-fields">
-          <label class="ctc-field"><span>กก</span><span class="ctc-field-wrap"><input id="calorie-today-weight" type="number" inputmode="decimal" step="0.1" min="20" max="300" autocomplete="off"></span></label>
-          <label class="ctc-field"><span>เอว</span><span class="ctc-field-wrap"><input id="calorie-today-waist" type="number" inputmode="decimal" step="0.1" min="40" max="200" autocomplete="off"></span></label>
-          <label class="ctc-field ctc-field-burn"><span>mus</span><span class="ctc-field-wrap"><input id="calorie-today-mus" type="number" inputmode="numeric" step="1" min="0" max="5000" autocomplete="off" readonly title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></span></label>
+          <div class="ctc-stat ctc-stat-edit" id="calorie-today-body">
+            <span class="ctc-stat-label">ร่างกาย</span>
+            <div class="ctc-stat-duo">
+              <label class="ctc-stat-field">
+                <span>น้ำหนัก · กก</span>
+                <span class="ctc-field-wrap"><input id="calorie-today-weight" type="number" inputmode="decimal" step="0.1" min="20" max="300" autocomplete="off" aria-label="น้ำหนักตัว"></span>
+              </label>
+              <label class="ctc-stat-field">
+                <span>รอบเอว · ซม</span>
+                <span class="ctc-field-wrap"><input id="calorie-today-waist" type="number" inputmode="decimal" step="0.1" min="40" max="200" autocomplete="off" aria-label="รอบเอว"></span>
+              </label>
+            </div>
+          </div>
+          <div class="ctc-stat ctc-stat-burn" id="calorie-today-burn" title="แตะเพื่อแก้เบิร์น / ท่า">
+            <span class="ctc-stat-label">เบิร์น / ท่า</span>
+            <span class="ctc-field-wrap ctc-burn-wrap">
+              <input id="calorie-today-mus" class="ctc-stat-value-input" type="number" inputmode="numeric" step="1" min="0" max="5000" autocomplete="off" readonly aria-label="แคลที่เบิร์น" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก">
+            </span>
+            <span class="ctc-stat-meta" id="calorie-today-pose">ยังไม่มีท่า</span>
+          </div>
         </div>
         <div class="ctc-meals" id="calorie-today-meals" aria-label="มื้อวันนี้ · ปัดซ้ายถ้ามื้อเยอะ"></div>
         <div class="ctc-summary" id="calorie-today-summary" hidden></div>
@@ -844,7 +859,7 @@
 
     <div id="auth-overlay" class="auth-overlay" hidden>
       <div class="auth-panel" role="dialog" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=196" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=197" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">เข้าสู่ระบบ</h2>
         <p class="auth-copy">ใช้ Google บัญชี <strong>yohaken@gmail.com</strong> เท่านั้น · ข้อมูลบันทึกขึ้น Firestore ทันที</p>
         <button id="google-login-btn" class="btn btn-primary auth-login-btn" type="button">Sign in with Google</button>
@@ -1039,7 +1054,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=196"></script>
-  <script src="js/update-watch.js?v=196"></script>
+  <script type="module" src="js/boot.js?v=197"></script>
+  <script src="js/update-watch.js?v=197"></script>
 </body>
 </html>
