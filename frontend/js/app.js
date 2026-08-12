@@ -92,7 +92,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=174';
+} from './calorie.js?v=175';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -1426,7 +1426,7 @@ function paintCalorieTodayCard(rows, sheet) {
     const cols = Math.max(meals.length, MIN_MEAL_SLOTS);
     els.calorieTodayMeals.innerHTML = Array.from({ length: cols }, (_, i) => {
       const v = meals[i] || '';
-      return `<label class="ctc-meal"><span class="ctc-meal-label">${i + 1}</span><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}"></label>`;
+      return `<label class="ctc-meal" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"></label>`;
     }).join('');
   }
   if (els.calorieTodaySummary) {
@@ -7227,7 +7227,6 @@ async function init({ fromBoot = false } = {}) {
   els.iconPickerAll?.addEventListener('click', onIconPickClick);
 
   els.settingsBtn.addEventListener('click', openSettings);
-  document.getElementById('dock-open-settings-btn')?.addEventListener('click', openSettings);
   els.dockCalorieHealthBtn?.addEventListener('click', () => setCaloriePane('health'));
   els.dockCalorieLogBtn?.addEventListener('click', () => setCaloriePane('log'));
   els.closeSettingsBtn.addEventListener('click', closeSettings);

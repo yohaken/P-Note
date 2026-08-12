@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="174">
+  <meta name="pnote-build" content="175">
   <meta name="pnote-built" content="2026-08-12T05:20:00+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=174"></script>
+  <script src="js/cache-bootstrap.js?v=175"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=174">
+  <link rel="stylesheet" href="css/pnote.css?v=175">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -182,22 +182,18 @@
       <!-- Simple 7-day dashboard (numbers + tiny sparks) -->
       <div id="calorie-dash" class="calorie-dash" hidden aria-label="สรุป 7 วัน"></div>
 
-      <!-- Vertical “today” card — primary logging surface on mobile -->
+      <!-- Compact “today” card — primary logging surface on mobile -->
       <div id="calorie-today-card" class="calorie-today-card" hidden>
         <div class="ctc-head">
-          <div class="ctc-title-wrap">
-            <span class="ctc-title" id="calorie-today-title">วันนี้</span>
-            <span class="ctc-sub" id="calorie-today-sub"></span>
-          </div>
-          <div class="ctc-head-metrics">
-            <span class="ctc-pill" id="calorie-today-base" title="BMR อัตโนมัติ">base —</span>
-            <span class="ctc-pill" id="calorie-today-bmi" title="BMI">BMI —</span>
-          </div>
+          <span class="ctc-title" id="calorie-today-title">วันนี้</span>
+          <span class="ctc-sub" id="calorie-today-sub"></span>
+          <span class="ctc-pill" id="calorie-today-base" title="BMR อัตโนมัติ">base —</span>
+          <span class="ctc-pill" id="calorie-today-bmi" title="BMI">BMI —</span>
         </div>
         <div class="ctc-fields">
-          <label class="ctc-field">กก<input id="calorie-today-weight" type="number" inputmode="decimal" step="0.1" min="20" max="300" autocomplete="off"></label>
-          <label class="ctc-field">เอว<input id="calorie-today-waist" type="number" inputmode="decimal" step="0.1" min="40" max="200" autocomplete="off"></label>
-          <label class="ctc-field">mus<input id="calorie-today-mus" type="number" inputmode="numeric" step="1" min="0" max="5000" autocomplete="off" title="ออกกำลัง (ใส่เอง)"></label>
+          <label class="ctc-field"><span>กก</span><input id="calorie-today-weight" type="number" inputmode="decimal" step="0.1" min="20" max="300" autocomplete="off"></label>
+          <label class="ctc-field"><span>เอว</span><input id="calorie-today-waist" type="number" inputmode="decimal" step="0.1" min="40" max="200" autocomplete="off"></label>
+          <label class="ctc-field"><span>mus</span><input id="calorie-today-mus" type="number" inputmode="numeric" step="1" min="0" max="5000" autocomplete="off" title="ออกกำลัง (ใส่เอง)"></label>
         </div>
         <div class="ctc-meals" id="calorie-today-meals" aria-label="มื้อวันนี้"></div>
         <div class="ctc-summary" id="calorie-today-summary"></div>
@@ -890,7 +886,6 @@
             </div>
             <button type="button" class="dock-pill-btn" id="dock-calorie-log-btn" aria-label="หน้าบันทึก" title="หน้าบันทึก" hidden>บันทึก</button>
             <button type="button" class="dock-pill-btn" id="dock-calorie-health-btn" aria-label="สรุปสุขภาพ" title="สรุปสุขภาพ">สรุป</button>
-            <button type="button" class="dock-pill-btn" id="dock-open-settings-btn" aria-label="ตั้งค่าร่างกาย" title="ตั้งค่าร่างกาย">⚙</button>
             <button type="button" class="dock-action-btn dock-action-primary" id="add-note-btn" aria-label="เพิ่มวัน" title="เพิ่มวัน">
               <span class="dock-add-label">+วัน</span>
             </button>
@@ -943,7 +938,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=174"></script>
-  <script src="js/update-watch.js?v=174"></script>
+  <script type="module" src="js/boot.js?v=175"></script>
+  <script src="js/update-watch.js?v=175"></script>
 </body>
 </html>
