@@ -1460,7 +1460,7 @@ function paintCalorieTodayCard(rows, sheet) {
     els.calorieTodayMeals.innerHTML = Array.from({ length: cols }, (_, i) => {
       const v = meals[i] || '';
       const has = v ? ' has-value' : '';
-      return `<label class="ctc-meal cal-input-wrap${has}" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"><button type="button" class="cal-field-clear" data-ctc-clear-meal="${i}" aria-label="เคลียร์มื้อ ${i + 1}" title="เคลียร์">×</button></label>`;
+      return `<label class="ctc-meal cal-input-wrap${has}" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"><button type="button" class="cal-field-clear" data-ctc-clear-meal="${i}" aria-label="เคลียร์มื้อ ${i + 1}" title="เคลียร์">×</button></label>`;
     }).join('');
   }
   if (els.calorieTodaySummary) {
