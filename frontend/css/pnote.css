@@ -5835,7 +5835,13 @@ body.calorie-only .work-only-settings,
 body.calorie-only #search-toggle-btn,
 body.calorie-only #note-search-row,
 body.calorie-only #undo-fab-btn,
-body.calorie-only #selection-dock {
+body.calorie-only #selection-dock,
+body.calorie-only .dock-mode-switch,
+body.calorie-only #group-nav-btn,
+body.calorie-only #dock-mode-work,
+body.calorie-only #dock-mode-note,
+body.calorie-only #dock-mode-calendar,
+body.calorie-only #dock-mode-calorie {
   display: none !important;
 }
 
