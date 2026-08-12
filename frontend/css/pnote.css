@@ -6874,50 +6874,70 @@ body.calorie-health-pane #dock-calorie-health-btn {
   background: #fff;
 }
 
-.ctc-prot {
+.ctc-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2rem;
+  margin: 0.02rem 0 0.06rem;
+}
+
+.ctc-stat {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.2rem 0.45rem;
+  gap: 0.12rem 0.35rem;
   padding: 0.22rem 0.3rem;
-  margin: 0.02rem 0 0.06rem;
   background: color-mix(in srgb, var(--border) 28%, #fff);
   font-variant-numeric: tabular-nums;
-  line-height: 1.2;
+  line-height: 1.15;
+  min-width: 0;
 }
 
-.ctc-prot-label {
-  font-size: 0.62rem;
+.ctc-stat-label {
+  font-size: 0.58rem;
   font-weight: 800;
   color: var(--text-muted);
+  width: 100%;
 }
 
-.ctc-prot-value {
+.ctc-stat-value {
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text);
 }
 
-.ctc-prot-meta {
-  font-size: 0.58rem;
+.ctc-stat-meta {
+  font-size: 0.52rem;
   font-weight: 650;
   color: var(--text-muted);
 }
 
-.ctc-prot.is-pos .ctc-prot-value {
+.ctc-stat-kg {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ctc-stat.is-pos .ctc-stat-value,
+.ctc-stat.is-pos .ctc-stat-kg {
   color: var(--cal-tone-pos-ink, #166534);
 }
 
-.ctc-prot.is-neg .ctc-prot-value {
+.ctc-stat.is-neg .ctc-stat-value,
+.ctc-stat.is-neg .ctc-stat-kg {
   color: var(--cal-tone-neg-ink, #c2410c);
 }
 
-.ctc-prot.is-zero .ctc-prot-value {
+.ctc-stat.is-zero .ctc-stat-value,
+.ctc-stat.is-zero .ctc-stat-kg {
   color: var(--text);
 }
 
-.ctc-prot.is-empty .ctc-prot-value {
+.ctc-stat.is-empty .ctc-stat-value,
+.ctc-stat.is-empty .ctc-stat-kg {
   color: var(--text-muted);
 }
 

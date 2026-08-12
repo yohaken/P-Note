@@ -561,6 +561,10 @@ const els = {
   calorieTodaySub: document.getElementById('calorie-today-sub'),
   calorieTodayBase: document.getElementById('calorie-today-base'),
   calorieTodayBmi: document.getElementById('calorie-today-bmi'),
+  calorieTodayBal: document.getElementById('calorie-today-bal'),
+  calorieTodayBalValue: document.getElementById('calorie-today-bal-value'),
+  calorieTodayBalMeta: document.getElementById('calorie-today-bal-meta'),
+  calorieTodayKgValue: document.getElementById('calorie-today-kg-value'),
   calorieTodayProt: document.getElementById('calorie-today-prot'),
   calorieTodayProtValue: document.getElementById('calorie-today-prot-value'),
   calorieTodayProtMeta: document.getElementById('calorie-today-prot-meta'),
@@ -1562,6 +1566,35 @@ function paintCalorieTodayCard(rows, sheet) {
   if (els.calorieTodayBmi) {
     els.calorieTodayBmi.textContent = m.bmi != null ? `BMI ${m.bmi}` : 'BMI —';
   }
+  if (els.calorieTodayBal && els.calorieTodayBalValue) {
+    const bal = m.balance;
+    const addCal = m.addCal;
+    const burn = m.bsum;
+    const blKg = m.blKg;
+    els.calorieTodayBal.classList.remove('is-pos', 'is-neg', 'is-zero', 'is-empty');
+    if (bal == null || !Number.isFinite(bal)) {
+      els.calorieTodayBal.classList.add('is-empty');
+      els.calorieTodayBalValue.textContent = '—';
+      if (els.calorieTodayKgValue) els.calorieTodayKgValue.textContent = '';
+      if (els.calorieTodayBalMeta) {
+        els.calorieTodayBalMeta.textContent = burn != null
+          ? `กิน ${addCal ?? 0} · เผา ${burn}`
+          : 'ใส่มื้อ / เบิร์นเพื่อดูดุล';
+      }
+    } else {
+      const cls = bal > 0 ? 'is-pos' : bal < 0 ? 'is-neg' : 'is-zero';
+      els.calorieTodayBal.classList.add(cls);
+      els.calorieTodayBalValue.textContent = formatSigned(bal, 0);
+      if (els.calorieTodayKgValue) {
+        els.calorieTodayKgValue.textContent =
+          blKg == null || !Number.isFinite(blKg) ? '' : `${formatSigned(blKg, 2)} กก`;
+      }
+      if (els.calorieTodayBalMeta) {
+        const word = bal > 0 ? 'เกินเผา' : bal < 0 ? 'ขาดเผา' : 'ดุล';
+        els.calorieTodayBalMeta.textContent = `${word} · กิน ${addCal ?? 0} / เผา ${burn ?? '—'}`;
+      }
+    }
+  }
   if (els.calorieTodayProt && els.calorieTodayProtValue) {
     const pRm = m.pRm;
     const prot = m.prot;
@@ -1612,25 +1645,9 @@ function paintCalorieTodayCard(rows, sheet) {
     }).join('');
   }
   if (els.calorieTodaySummary) {
-    const items = [
-      ['cal', m.addCal, null],
-      ['P', m.prot, null],
-      ['p±', m.pRm == null ? null : formatSigned(m.pRm, 1), m.pRm],
-      ['bal', m.balance == null ? null : formatSigned(m.balance, 0), m.balance],
-      ['Σ', m.bsum, null],
-      ['mus', m.mus, null],
-    ];
-    els.calorieTodaySummary.innerHTML = items
-      .map(([label, val, tone]) => {
-        const cls =
-          tone == null || !Number.isFinite(tone) || tone === 0
-            ? ''
-            : tone > 0
-              ? 'is-pos'
-              : 'is-neg';
-        return `<span class="${cls}">${label} <strong>${val == null || val === '' ? '—' : val}</strong></span>`;
-      })
-      .join('');
+    // Big ± cards already show cal / bal / kg / P / p± — keep summary empty.
+    els.calorieTodaySummary.innerHTML = '';
+    els.calorieTodaySummary.hidden = true;
   }
 }
 
