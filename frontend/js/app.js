@@ -1694,7 +1694,12 @@ function scrollCalendarToMonth(year, month, behavior = 'smooth') {
   state.calendarYear = year;
   state.calendarMonth = month;
   updateCalendarChrome();
-  block.scrollIntoView({ behavior, block: 'start' });
+  const top = block.offsetTop;
+  if (behavior === 'smooth' && typeof els.calScroll.scrollTo === 'function') {
+    els.calScroll.scrollTo({ top, behavior: 'smooth' });
+  } else {
+    els.calScroll.scrollTop = top;
+  }
   highlightCalendarSelection();
 }
 
