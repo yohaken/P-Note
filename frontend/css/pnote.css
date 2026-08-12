@@ -6284,11 +6284,17 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .chs-goals-section {
   margin: 0 0 0.55rem;
+  padding: 0.55rem 0.55rem 0.45rem;
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(165deg, color-mix(in srgb, var(--accent, #4a7c59) 12%, #fff) 0%, #fff 55%),
+    #fff;
+  border: 1px solid color-mix(in srgb, var(--accent, #4a7c59) 22%, var(--border));
 }
 
 .chs-goals-lead {
-  margin: 0 0 0.4rem;
-  font-size: 0.72rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.7rem;
   line-height: 1.35;
   color: var(--text-muted);
 }
@@ -6297,19 +6303,87 @@ body.calorie-health-pane #dock-calorie-health-btn {
   margin: 0;
 }
 
-.chs-goal-card.is-primary-goal {
-  border-color: color-mix(in srgb, var(--accent, #4a7c59) 40%, var(--border));
+.chs-goal-card.chs-goal-aim {
+  position: relative;
+  padding-top: 1.15rem;
 }
 
-.chs-goal-slash {
+.chs-goal-card.is-primary-goal {
+  border-color: color-mix(in srgb, var(--accent, #4a7c59) 45%, var(--border));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent, #4a7c59) 12%, transparent);
+}
+
+.chs-goal-card.is-aiming {
+  border-color: color-mix(in srgb, #ca8a04 35%, var(--border));
+  background: color-mix(in srgb, #fef9c3 35%, #fff);
+}
+
+.chs-goal-role {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.45rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--accent, #4a7c59);
+  background: color-mix(in srgb, var(--accent, #4a7c59) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--accent, #4a7c59) 28%, var(--border));
+  border-radius: 0.35rem;
+  padding: 0.08rem 0.35rem;
+}
+
+.chs-goal-card:not(.is-primary-goal) .chs-goal-role {
   color: var(--text-muted);
+  background: color-mix(in srgb, var(--border) 35%, #fff);
+  border-color: var(--border);
+}
+
+.chs-goal-dest {
+  margin: 0.1rem 0 0.15rem;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.chs-goal-path {
+  margin: 0;
+  font-size: 0.72rem;
   font-weight: 600;
-  font-size: 0.85em;
+  color: var(--text);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.chs-goal-arrow {
+  color: var(--accent, #4a7c59);
+  font-weight: 800;
+}
+
+.chs-goal-now.is-muted,
+.chs-goal-path .chs-chart-unit {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.chs-goal-status {
+  margin-top: 0.2rem;
+  font-weight: 600;
+}
+
+.chs-goal-bar-wrap {
+  margin-top: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .chs-goal-bar {
-  margin-top: 0.35rem;
-  height: 0.4rem;
+  flex: 1;
+  height: 0.45rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--border) 70%, #fff);
   overflow: hidden;
@@ -6320,10 +6394,19 @@ body.calorie-health-pane #dock-calorie-health-btn {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #86efac, #15803d);
+  transition: width 0.35s ease;
 }
 
-.chs-goal-card.is-watch .chs-goal-bar i {
-  background: linear-gradient(90deg, #fcd34d, #ca8a04);
+.chs-goal-card.is-aiming .chs-goal-bar i {
+  background: linear-gradient(90deg, #fde68a, #ca8a04);
+}
+
+.chs-goal-bar-label {
+  flex: 0 0 auto;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .chs-goal-set {

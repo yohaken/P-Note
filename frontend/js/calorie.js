@@ -1137,60 +1137,81 @@ export function computeHealthSnapshot(calorie, endKey = toDateKey(), trendDays =
   };
 }
 
-/** One-line status for a lower-is-better body goal (for section summary). */
-function bodyGoalStatusLine(label, unit, progress) {
-  if (!progress?.set) return `${label}: ยังไม่ตั้ง`;
-  if (progress.current == null) return `${label}: ตั้ง ${progress.goal} ${unit} (ยังไม่มีค่าปัจจุบัน)`;
-  if (progress.met) return `${label}: ถึงเป้าแล้ว`;
+/** Compact pursuit line for section summary (lower-is-better goals). */
+function bodyGoalAimLine(label, unit, progress) {
+  if (!progress?.set) return `${label}: ยังไม่ตั้งทิศ`;
+  if (progress.current == null) return `${label}: มุ่ง ${progress.goal} ${unit}`;
+  if (progress.met) return `${label}: ทำได้แล้ว ${progress.goal} ${unit}`;
   const rem = formatSigned(progress.remaining, 1).replace(/^\+/, '');
-  return `${label}: เหลือลด ${rem} ${unit}`;
+  return `${label}: มุ่ง ${progress.goal} · อีก ${rem} ${unit}`;
 }
 
 function summarizeBodyGoals(goalWaist, goalWeight) {
   const waistSet = Boolean(goalWaist?.set);
   const weightSet = Boolean(goalWeight?.set);
   if (!waistSet && !weightSet) {
-    return 'ยังไม่ตั้งเป้าเอว/น้ำหนัก — ตั้งในตั้งค่าได้';
+    return 'ยังไม่มีทิศที่มุ่ง — ตั้งเป้าในตั้งค่า แล้วกลับมาดูความคืบหน้าที่นี่';
   }
-  const parts = [
-    bodyGoalStatusLine('เอว(หลัก)', 'ซม.', goalWaist),
-    bodyGoalStatusLine('น้ำหนัก(รอง)', 'กก.', goalWeight),
-  ];
+  const aiming = [goalWaist, goalWeight].filter((g) => g?.set && !g.met).length;
   const metCount = [goalWaist, goalWeight].filter((g) => g?.set && g.met).length;
-  const setCount = [goalWaist, goalWeight].filter((g) => g?.set).length;
   const head =
-    metCount === setCount && setCount > 0
-      ? `ถึงเป้าแล้ว ${metCount}/${setCount}`
-      : `ติดตาม ${setCount} เป้า`;
-  return `${head} · ${parts.join(' · ')}`;
+    aiming === 0 && metCount > 0
+      ? 'ทำตามเป้าได้แล้ว'
+      : aiming > 0
+        ? `กำลังมุ่งไป ${aiming} ทิศ`
+        : 'กำลังมุ่งไป';
+  return `${head} · ${bodyGoalAimLine('เอว', 'ซม.', goalWaist)} · ${bodyGoalAimLine('น้ำหนัก', 'กก.', goalWeight)}`;
 }
 
+/**
+ * Goal card framed as a destination you're aiming for (not just a deficit).
+ * Shows: เป้าใหญ่ → ตอนนี้ → ระยะที่เหลือ + แถบใกล้เป้า
+ */
 function renderGoalCardHtml(title, unit, progress, { primary = false, hint = '' } = {}) {
+  const role = primary ? 'หลัก' : 'รอง';
   if (!progress?.set) {
-    return `<article class="chs-card chs-goal-card${primary ? ' is-primary-goal' : ''}">
-      <h3>${esc(title)}${primary ? ' · หลัก' : ' · รอง'}</h3>
-      <p class="chs-big chs-big-sm">—</p>
-      <p class="chs-hint">ยังไม่ตั้งเป้า</p>
-      <button type="button" class="chs-goal-set" data-calorie-action="open-settings">ตั้งในตั้งค่า</button>
+    return `<article class="chs-card chs-goal-card chs-goal-aim${primary ? ' is-primary-goal' : ''}">
+      <div class="chs-goal-role">${esc(role)}</div>
+      <h3>${esc(title)}</h3>
+      <p class="chs-goal-dest">ยังไม่มีทิศ</p>
+      <p class="chs-hint">ตั้งเป้าที่มุ่งไปในตั้งค่า</p>
+      <button type="button" class="chs-goal-set" data-calorie-action="open-settings">ตั้งทิศในตั้งค่า</button>
     </article>`;
   }
-  const cur = progress.current == null ? '—' : progress.current;
   const goal = progress.goal;
-  const rem =
-    progress.remaining == null
-      ? 'ยังไม่มีค่าปัจจุบัน'
-      : progress.met
-        ? 'ถึงเป้าแล้ว'
-        : `เหลือลดอีก ${formatSigned(progress.remaining, 1).replace(/^\+/, '')} ${unit}`;
-  const tone = progress.met ? 'is-ok' : progress.remaining != null && progress.remaining > 0 ? 'is-watch' : '';
+  const cur = progress.current;
+  const hasCur = cur != null;
+  let status;
+  let tone = '';
+  if (!hasCur) {
+    status = `มุ่งไปที่ ${goal} ${unit} · รอค่าปัจจุบัน`;
+  } else if (progress.met) {
+    status = `ทำได้แล้ว · อยู่ที่ ${cur} ${unit}`;
+    tone = 'is-ok';
+  } else {
+    const rem = formatSigned(progress.remaining, 1).replace(/^\+/, '');
+    status = `กำลังมุ่งไป · อีก ${rem} ${unit}`;
+    tone = 'is-aiming';
+  }
+  const barPct = progress.pct == null ? null : progress.pct;
+  const barLabel =
+    barPct == null ? '' : progress.met ? 'ถึงเป้า' : `ใกล้เป้า ${barPct}%`;
   const bar =
-    progress.pct == null
+    barPct == null
       ? ''
-      : `<div class="chs-goal-bar" aria-hidden="true"><i style="width:${progress.pct}%"></i></div>`;
-  return `<article class="chs-card chs-goal-card ${tone}${primary ? ' is-primary-goal' : ''}">
-    <h3>${esc(title)}${primary ? ' · หลัก' : ' · รอง'}</h3>
-    <p class="chs-big chs-big-sm">${esc(cur)} <span class="chs-goal-slash">/</span> ${esc(goal)} <span class="chs-chart-unit">${esc(unit)}</span></p>
-    <p class="chs-hint">${esc(rem)}${hint ? ` · ${esc(hint)}` : ''}</p>
+      : `<div class="chs-goal-bar-wrap">
+          <div class="chs-goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${barPct}" aria-label="${esc(barLabel)}"><i style="width:${barPct}%"></i></div>
+          <span class="chs-goal-bar-label">${esc(barLabel)}</span>
+        </div>`;
+  const nowLine = hasCur
+    ? `<p class="chs-goal-path"><span class="chs-goal-now">ตอนนี้ ${esc(cur)}</span><span class="chs-goal-arrow" aria-hidden="true">→</span><span class="chs-goal-target">เป้า ${esc(goal)}</span> <span class="chs-chart-unit">${esc(unit)}</span></p>`
+    : `<p class="chs-goal-path"><span class="chs-goal-target">เป้า ${esc(goal)}</span> <span class="chs-chart-unit">${esc(unit)}</span><span class="chs-goal-now is-muted"> · ยังไม่มีค่าตอนนี้</span></p>`;
+  return `<article class="chs-card chs-goal-card chs-goal-aim ${tone}${primary ? ' is-primary-goal' : ''}">
+    <div class="chs-goal-role">${esc(role)}</div>
+    <h3>${esc(title)}</h3>
+    <p class="chs-goal-dest">${esc(goal)} <span class="chs-chart-unit">${esc(unit)}</span></p>
+    ${nowLine}
+    <p class="chs-hint chs-goal-status">${esc(status)}${hint ? ` · ${esc(hint)}` : ''}</p>
     ${bar}
   </article>`;
 }
@@ -1283,20 +1304,20 @@ export function renderHealthSheetHtml(snap) {
     : '';
 
   const goalSummary = summarizeBodyGoals(snap.goalWaist, snap.goalWeight);
-  const goalBlock = `<section class="chs-section chs-goals-section" aria-label="เป้าหมายร่างกาย">
+  const goalBlock = `<section class="chs-section chs-goals-section" aria-label="เป้าหมายที่มุ่งไป">
       <header class="chs-section-head">
-        <h3 class="chs-section-title">เป้าหมายร่างกาย</h3>
+        <h3 class="chs-section-title">กำลังมุ่งไป</h3>
         <p class="chs-section-sub">${esc(goalSummary)}</p>
       </header>
-      <p class="chs-goals-lead">เอวเป็นหัวใจหลัก · น้ำหนักเป็นเป้าเสริม (กล้ามเนื้อทำให้น้ำหนักขึ้นได้โดยไม่แย่)</p>
+      <p class="chs-goals-lead">ทิศที่ตั้งใจทำให้ได้ · เอวเป็นหัวใจหลัก · น้ำหนักเป็นเป้าเสริม</p>
       <div class="chs-grid chs-goal-grid">
-        ${renderGoalCardHtml('เป้าเอว', 'ซม.', snap.goalWaist, {
+        ${renderGoalCardHtml('เอว', 'ซม.', snap.goalWaist, {
           primary: true,
-          hint: 'หัวใจหลักของแผน',
+          hint: 'หัวใจหลัก',
         })}
-        ${renderGoalCardHtml('เป้าน้ำหนัก', 'กก.', snap.goalWeight, {
+        ${renderGoalCardHtml('น้ำหนัก', 'กก.', snap.goalWeight, {
           primary: false,
-          hint: 'รอง — กล้ามเนื้อทำให้น้ำหนักสูงได้',
+          hint: 'กล้ามเนื้อทำให้น้ำหนักขึ้นได้',
         })}
       </div>
     </section>`;
