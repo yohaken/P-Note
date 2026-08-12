@@ -8,7 +8,7 @@ import {
   normalizeCalorieTones,
   dockScaleToCss,
   dockOffsetYToLiftPx,
-} from './settings.js?v=190';
+} from './settings.js?v=191';
 
 function applyCalorieChrome() {
   document.body.classList.add('light', 'calorie-mode', 'calorie-only');
