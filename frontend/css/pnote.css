@@ -6831,7 +6831,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
 .calorie-table td {
   border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   border-right: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  padding: 0 0.06rem;
+  padding: 0 0.02rem;
   height: 1.3rem;
   white-space: nowrap;
   text-align: center;
@@ -6877,33 +6877,28 @@ body.calorie-health-pane #dock-calorie-health-btn {
   background: #ffedd5;
 }
 
+/* colgroup — #/วันที่แคบ; คอลัมน์ 3–8 กว้าง (ใต้แถบมื้อ colspan6) */
+.calorie-table .cal-cg-n { width: 3%; }
+.calorie-table .cal-cg-date { width: 7%; }
+.calorie-table .cal-cg-mealband { width: 10.75%; }
+.calorie-table .cal-cg-tail { width: 5.5%; }
+.calorie-table .cal-cg-del { width: 3.5%; }
+
 .calorie-table .cal-col-n {
-  width: 6%;
   color: var(--text-muted);
-  font-size: 0.52rem;
+  font-size: 0.48rem;
 }
 
 .calorie-table .cal-col-date {
-  width: 14%;
   overflow: visible;
 }
 
 .calorie-table .cal-col-day {
-  width: 6%;
   color: var(--text-muted);
-  font-size: 0.52rem;
-}
-
-.calorie-table .cal-col-body {
-  width: 9%;
-}
-
-.calorie-table .cal-col-burn {
-  width: 10%;
+  font-size: 0.48rem;
 }
 
 .calorie-table .cal-col-sum {
-  width: 9%;
   font-weight: 700;
 }
 
@@ -6913,7 +6908,6 @@ body.calorie-health-pane #dock-calorie-health-btn {
 }
 
 .calorie-table .cal-col-meals {
-  width: auto;
   background: color-mix(in srgb, #dcfce7 35%, transparent);
   white-space: normal;
   overflow: visible;
@@ -6930,12 +6924,29 @@ body.calorie-health-pane #dock-calorie-health-btn {
 }
 
 .calorie-table .cal-col-note {
-  width: 12%;
   text-align: left;
 }
 
-.calorie-table .cal-col-del {
-  width: 6%;
+.calorie-table .cal-burn-stack {
+  padding: 0 0.04rem !important;
+  line-height: 1.05;
+}
+
+.calorie-table .cal-burn-stack .cal-base-auto {
+  display: block;
+  font-size: 0.5rem;
+}
+
+.calorie-table .cal-burn-stack-sub {
+  display: flex;
+  justify-content: center;
+  gap: 0.15rem;
+  font-size: 0.45rem;
+}
+
+.calorie-table .cal-burn-stack-sub .cal-derived {
+  font-size: 0.45rem;
+  padding: 0;
 }
 
 .calorie-table input.cal-cell {
@@ -6967,8 +6978,9 @@ body.calorie-health-pane #dock-calorie-health-btn {
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 0.56rem;
+  font-size: 0.5rem;
   font-weight: 700;
+  letter-spacing: -0.03em;
   padding: 0;
   cursor: pointer;
   line-height: 1.15rem;
@@ -6992,8 +7004,8 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .calorie-table input.cal-cell-meal {
   font-weight: 500;
-  font-size: 0.48rem;
-  letter-spacing: -0.03em;
+  font-size: 0.52rem;
+  letter-spacing: -0.02em;
   height: 1.2rem;
   min-width: 0;
   padding: 0;
@@ -7019,9 +7031,16 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .calorie-table .cal-derived {
   font-weight: 700;
-  font-size: 0.6rem;
+  font-size: 0.52rem;
   font-variant-numeric: tabular-nums;
-  padding: 0 0.08rem;
+  padding: 0 0.02rem;
+  letter-spacing: -0.02em;
+}
+
+.calorie-table .cal-col-body input.cal-cell,
+.calorie-table .cal-col-burn input.cal-cell,
+.calorie-table .cal-col-sum {
+  font-size: 0.52rem;
 }
 
 .calorie-table .cal-derived.is-pos {

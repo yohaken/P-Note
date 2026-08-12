@@ -94,7 +94,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=179';
+} from './calorie.js?v=180';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -1489,7 +1489,7 @@ function refreshCalorieDerived() {
     if (dayCell) dayCell.textContent = row.dayName || '';
     const dateBtn = trA.querySelector('.cal-date-btn');
     if (dateBtn) dateBtn.textContent = row.dateDisplay || formatDateDisplay(row.date);
-    const cell = (tr, key) => tr?.querySelector(`td[data-cal-derived="${key}"]`);
+    const cell = (tr, key) => tr?.querySelector(`[data-cal-derived="${key}"]`);
     setDerivedCell(cell(trA, 'addCal'), m.addCal ?? '', null);
     setDerivedCell(cell(trA, 'prot'), m.prot ?? '', null);
     setDerivedCell(
