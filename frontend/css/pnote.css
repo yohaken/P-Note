@@ -6739,15 +6739,15 @@ body.calorie-health-pane #dock-calorie-health-btn {
   --cal-tone-burn-ink: #1f6b3a;
   --cal-tone-pos-ink: #166534;
   --cal-tone-neg-ink: #c2410c;
-  --cal-tone-row-line: #e2b090;
+  --cal-tone-row-line: #edd5c0;
 }
 
-/* Today card — compact logging strip above the spreadsheet */
+/* Today card — compact logging strip above the spreadsheet (no dark frame) */
 .calorie-today-card {
   margin: 0 0.28rem;
   padding: 0.18rem 0.32rem 0.16rem;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--cal-tone-eat);
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   border-radius: 0;
   background: var(--cal-tone-empty, #fff);
   box-shadow: none;
@@ -6803,11 +6803,13 @@ body.calorie-health-pane #dock-calorie-health-btn {
 }
 
 .ctc-field-burn input {
-  border-color: var(--cal-tone-burn);
+  border-color: color-mix(in srgb, var(--cal-tone-burn) 22%, var(--border));
+  background: var(--cal-tone-burn-wash);
 }
 
 .ctc-meals .ctc-meal input {
-  border-color: var(--cal-tone-eat);
+  border-color: color-mix(in srgb, var(--cal-tone-eat) 18%, var(--border));
+  background: var(--cal-tone-eat-wash);
 }
 
 .ctc-field {
@@ -6950,7 +6952,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 0 0 calc(0.55rem + var(--filters-dock-h, 5.5rem));
-  border-top: 1px solid var(--border);
+  border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
 }
 
 .calorie-table {
@@ -6966,8 +6968,10 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .calorie-table th,
 .calorie-table td {
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
   border-right: none;
+  border-left: none;
+  border-top: none;
   padding: 0 0.02rem;
   height: 1.3rem;
   white-space: nowrap;
@@ -6997,7 +7001,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
   color: var(--cal-tone-eat-ink);
   font-size: 0.48rem;
   height: 1.05rem;
-  border-bottom: 1px solid var(--cal-tone-row-line);
+  border-bottom: 1px solid color-mix(in srgb, var(--cal-tone-row-line) 40%, transparent);
 }
 
 /* Text accent only — no per-column color blocks */
@@ -7201,7 +7205,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
   height: auto;
   min-height: 1.25rem;
   background: var(--cal-tone-burn-wash);
-  border-bottom: 2px solid var(--cal-tone-row-line);
+  border-bottom: 1px solid color-mix(in srgb, var(--cal-tone-row-line) 35%, transparent);
 }
 
 .calorie-table tr.cal-day-b td.cal-col-meals {
@@ -7214,11 +7218,11 @@ body.calorie-health-pane #dock-calorie-health-btn {
 }
 
 .calorie-table tr.cal-row-today td {
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--cal-tone-empty));
 }
 
 .calorie-table tr.cal-row-today.cal-day-b td {
-  background: var(--cal-tone-burn-wash);
+  background: color-mix(in srgb, var(--accent) 8%, var(--cal-tone-burn-wash));
 }
 
 .calorie-table tr.cal-month-sep td {
@@ -7232,7 +7236,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
   font-weight: 800;
   color: var(--cal-tone-eat-ink);
   background: var(--cal-tone-eat-head);
-  border-bottom: 1px solid var(--cal-tone-row-line);
+  border-bottom: 1px solid color-mix(in srgb, var(--cal-tone-row-line) 40%, transparent);
 }
 
 .cal-tone-grid {
@@ -7255,18 +7259,19 @@ body.calorie-health-pane #dock-calorie-health-btn {
   width: 100%;
   height: 2.2rem;
   padding: 0;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 0.35rem;
-  background: #fff;
+  background: transparent;
   cursor: pointer;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 .cal-tone-preview {
   display: grid;
   grid-template-columns: 1fr 1.4fr 0.8fr;
-  gap: 0;
+  gap: 0.2rem;
   margin-top: 0.45rem;
-  border: 1px solid var(--border);
+  border: none;
   overflow: hidden;
   font-size: 0.62rem;
   font-weight: 700;
@@ -7276,6 +7281,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
   padding: 0.35rem 0.4rem;
   text-align: center;
   color: #222;
+  border-radius: 0.3rem;
 }
 
 .cal-tone-preview [data-tone-swatch="eat"] {
@@ -7291,7 +7297,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
 .cal-tone-preview [data-tone-swatch="empty"] {
   background: var(--cal-tone-empty);
   color: var(--text-muted);
-  border-left: 1px solid var(--border);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 55%, transparent);
 }
 
 .calorie-table tr.cal-month-sep span {
