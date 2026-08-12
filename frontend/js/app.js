@@ -1430,6 +1430,18 @@ function refreshCalorieDerived() {
 
 function renderCalorieSheet() {
   if (!els.calorieTbody) return;
+  // Keep a today row ready so the vertical card is always loggable.
+  {
+    const { sheet: withToday, created } = addDayFromLast(ensureCaloriePayload(), toDateKey());
+    if (created) {
+      state.notesData = {
+        ...state.notesData,
+        calorie: normalizeCalorie(withToday),
+        updatedAt: new Date().toISOString(),
+      };
+      saveManager.scheduleSave(() => state.notesData);
+    }
+  }
   const { sheet, rows, months } = computeTotals(ensureCaloriePayload());
   const fallbackMonth = months[months.length - 1]?.key || monthKeyFromDate(toDateKey());
   if (!state.calorieActiveMonth || !months.some((m) => m.key === state.calorieActiveMonth)) {
