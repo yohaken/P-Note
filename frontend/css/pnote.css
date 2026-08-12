@@ -6159,6 +6159,179 @@ body.calorie-only .dock-action-primary {
   line-height: 1;
 }
 
+.cd-prot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+}
+
+.cd-prot-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  padding: 0.28rem 0.35rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.cd-prot-label {
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: none;
+}
+
+.cd-prot-line {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cd-prot-line strong {
+  color: var(--text);
+}
+
+.cd-prot-need {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.cd-prot-need.is-neg {
+  color: #c2410c;
+}
+
+.cd-prot-need.is-pos {
+  color: #15803d;
+}
+
+/* Separate health summary sheet */
+.calorie-health-sheet {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.35rem 0.45rem calc(0.55rem + var(--filters-dock-h, 5.5rem));
+}
+
+.calorie-health-sheet[hidden] {
+  display: none !important;
+}
+
+body.calorie-health-pane .calorie-toolbar,
+body.calorie-health-pane .calorie-dash,
+body.calorie-health-pane .calorie-today-card,
+body.calorie-health-pane .calorie-scroll,
+body.calorie-health-pane #dock-context-calorie {
+  display: none !important;
+}
+
+body.calorie-health-pane #dock-calorie-log-btn {
+  display: inline-flex !important;
+}
+
+body.calorie-health-pane #dock-calorie-health-btn {
+  display: none !important;
+}
+
+.chs-head {
+  margin-bottom: 0.45rem;
+}
+
+.chs-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.chs-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.chs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.chs-card {
+  grid-column: span 1;
+  padding: 0.45rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.chs-card:first-child {
+  grid-column: 1 / -1;
+}
+
+.chs-card h3 {
+  margin: 0 0 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.chs-card p {
+  margin: 0.1rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.chs-big {
+  margin: 0.1rem 0 !important;
+  font-size: 1.35rem !important;
+  font-weight: 800 !important;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15 !important;
+}
+
+.chs-big-sm {
+  font-size: 1.05rem !important;
+}
+
+.chs-hint {
+  font-size: 0.58rem !important;
+  font-weight: 600 !important;
+  color: var(--text-muted) !important;
+}
+
+.chs-card.is-ok {
+  border-color: color-mix(in srgb, #15803d 35%, var(--border));
+  background: color-mix(in srgb, #15803d 8%, #fff);
+}
+
+.chs-card.is-watch {
+  border-color: color-mix(in srgb, #ca8a04 40%, var(--border));
+  background: color-mix(in srgb, #ca8a04 10%, #fff);
+}
+
+.chs-card.is-high,
+.chs-card.is-neg {
+  border-color: color-mix(in srgb, #c2410c 40%, var(--border));
+  background: color-mix(in srgb, #c2410c 8%, #fff);
+}
+
+.chs-card.is-pos {
+  border-color: color-mix(in srgb, #15803d 35%, var(--border));
+}
+
+.chs-foot {
+  margin: 0.55rem 0 0;
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
 /* Today card — vertical logging above the spreadsheet */
 .calorie-today-card {
   margin: 0 0.3rem;

@@ -586,6 +586,9 @@ export function computeWeekSummary(calorie, endKey = toDateKey()) {
   let addCalSum = 0;
   let balSum = 0;
   let musSum = 0;
+  let protSum = 0;
+  let protTargetSum = 0;
+  let protTargetDays = 0;
   const weights = [];
   const balBars = [];
   logged.forEach((x) => {
@@ -593,6 +596,11 @@ export function computeWeekSummary(calorie, endKey = toDateKey()) {
     addCalSum += m.addCal || 0;
     balSum += m.balance || 0;
     musSum += m.mus || 0;
+    protSum += m.prot || 0;
+    if (m.protTarget != null) {
+      protTargetSum += m.protTarget;
+      protTargetDays += 1;
+    }
     if (Number.isFinite(x.day.weight)) weights.push(x.day.weight);
     balBars.push({
       date: x.date,
@@ -615,6 +623,16 @@ export function computeWeekSummary(calorie, endKey = toDateKey()) {
     weights.length >= 2 ? round(weights[weights.length - 1] - weights[0], 1) : null;
   const startLabel = formatDateDisplay(keys[0]);
   const endLabel = formatDateDisplay(keys[6]);
+  const protRemain =
+    protTargetDays > 0 ? round(protTargetSum - protSum, 1) : null;
+  // Today's protein (end of window) for a clear “ยังขาดอีก…” cue.
+  const todayEntry = series[series.length - 1];
+  const todayProt = todayEntry?.metrics?.prot ?? null;
+  const todayProtTarget = todayEntry?.metrics?.protTarget ?? null;
+  const todayProtRemain =
+    todayProtTarget != null && todayProt != null
+      ? round(todayProtTarget - todayProt, 1)
+      : null;
   return {
     startKey: keys[0],
     endKey: keys[6],
@@ -623,6 +641,12 @@ export function computeWeekSummary(calorie, endKey = toDateKey()) {
     avgCal: n ? Math.round(addCalSum / n) : null,
     balSum: n ? round(balSum, 0) : null,
     musSum: n ? round(musSum, 0) : null,
+    protSum: n ? round(protSum, 1) : null,
+    protTargetSum: protTargetDays ? round(protTargetSum, 1) : null,
+    protRemain,
+    todayProt,
+    todayProtTarget,
+    todayProtRemain,
     weightDelta,
     weightLast: weights.length ? weights[weights.length - 1] : null,
     weightSpark,
@@ -694,6 +718,43 @@ export function renderWeekDashHtml(summary) {
     })
     .join('');
 
+  const todayP = summary.todayProt == null ? '—' : summary.todayProt;
+  const todayGoal = summary.todayProtTarget == null ? '—' : summary.todayProtTarget;
+  const todayNeed =
+    summary.todayProtRemain == null
+      ? '—'
+      : summary.todayProtRemain > 0
+        ? `ขาด ${summary.todayProtRemain}`
+        : summary.todayProtRemain < 0
+          ? `เกิน ${Math.abs(summary.todayProtRemain)}`
+          : 'ครบเป้า';
+  const todayPTone =
+    summary.todayProtRemain == null
+      ? ''
+      : summary.todayProtRemain > 0
+        ? 'is-neg'
+        : summary.todayProtRemain < 0
+          ? 'is-pos'
+          : '';
+  const weekP = summary.protSum == null ? '—' : summary.protSum;
+  const weekGoal = summary.protTargetSum == null ? '—' : summary.protTargetSum;
+  const weekNeed =
+    summary.protRemain == null
+      ? '—'
+      : summary.protRemain > 0
+        ? `ขาด ${summary.protRemain}`
+        : summary.protRemain < 0
+          ? `เกิน ${Math.abs(summary.protRemain)}`
+          : 'ครบ';
+  const weekPTone =
+    summary.protRemain == null
+      ? ''
+      : summary.protRemain > 0
+        ? 'is-neg'
+        : summary.protRemain < 0
+          ? 'is-pos'
+          : '';
+
   return `
     <div class="cd-head">
       <span class="cd-title">7 วันล่าสุด</span>
@@ -705,6 +766,18 @@ export function renderWeekDashHtml(summary) {
       <span class="cd-metric">mus <strong>${esc(mus)}</strong></span>
       <span class="cd-metric ${wTone}">กก <strong>${esc(wDelta)}</strong></span>
     </div>
+    <div class="cd-prot">
+      <div class="cd-prot-block">
+        <span class="cd-prot-label">โปรตีนวันนี้</span>
+        <span class="cd-prot-line">กิน <strong>${esc(todayP)}</strong> / เป้า <strong>${esc(todayGoal)}</strong> ก.</span>
+        <span class="cd-prot-need ${todayPTone}">${esc(todayNeed)}</span>
+      </div>
+      <div class="cd-prot-block">
+        <span class="cd-prot-label">โปรตีน 7 วัน</span>
+        <span class="cd-prot-line">กิน <strong>${esc(weekP)}</strong> / เป้า <strong>${esc(weekGoal)}</strong> ก.</span>
+        <span class="cd-prot-need ${weekPTone}">${esc(weekNeed)}</span>
+      </div>
+    </div>
     <div class="cd-spark-row">
       <span class="cd-spark-label">กก</span>
       ${spark}
@@ -714,6 +787,141 @@ export function renderWeekDashHtml(summary) {
       <span class="cd-spark-label">bal</span>
       <div class="cd-bars">${bars}</div>
     </div>`;
+}
+
+/** Waist risk (Asian cutoffs): male ≥90, female ≥80 cm. */
+export function waistRiskZone(waistCm, sex) {
+  if (!Number.isFinite(waistCm) || waistCm <= 0) return null;
+  const limit = sex === 'female' ? 80 : 90;
+  if (waistCm < limit - 5) return { level: 'ok', label: 'ปกติ', limit };
+  if (waistCm < limit) return { level: 'watch', label: 'ใกล้เกณฑ์', limit };
+  return { level: 'high', label: 'เสี่ยง', limit };
+}
+
+/** Ideal weight range from height at BMI 18.5–24.9 */
+export function idealWeightRange(heightCm) {
+  if (!Number.isFinite(heightCm) || heightCm < 100) return null;
+  const m = heightCm / 100;
+  return {
+    low: round(18.5 * m * m, 1),
+    high: round(24.9 * m * m, 1),
+  };
+}
+
+/**
+ * Health snapshot for a separate sheet (not on the logging home).
+ * WHtR, waist zone, ideal kg, week kg from balance.
+ */
+export function computeHealthSnapshot(calorie, endKey = toDateKey()) {
+  const sheet = normalizeCalorie(calorie);
+  const week = computeWeekSummary(sheet, endKey);
+  const known = lastKnownBody(sheet);
+  const weight = known.weight;
+  const waist = known.waist;
+  const height = sheet.heightCm;
+  const bmi = computeBmi(weight, height);
+  const whtr =
+    Number.isFinite(waist) && Number.isFinite(height) && height > 0
+      ? round(waist / height, 2)
+      : null;
+  const whtrLevel =
+    whtr == null ? null : whtr < 0.5 ? 'ok' : whtr < 0.6 ? 'watch' : 'high';
+  const waistZone = waistRiskZone(waist, sheet.sex);
+  const ideal = idealWeightRange(height);
+  const weekKg =
+    week.balSum != null && sheet.kcalPerKg
+      ? round(week.balSum / sheet.kcalPerKg, 2)
+      : null;
+  const age = ageFromBirthDate(sheet.birthDate, endKey) ?? sheet.age;
+  return {
+    heightCm: height,
+    weight,
+    waist,
+    sex: sheet.sex,
+    age,
+    birthDate: sheet.birthDate,
+    bmi,
+    whtr,
+    whtrLevel,
+    waistZone,
+    ideal,
+    week,
+    weekKg,
+    proteinFactor: sheet.proteinFactor,
+  };
+}
+
+export function renderHealthSheetHtml(snap) {
+  if (!snap) return '';
+  const sexLabel = snap.sex === 'female' ? 'หญิง' : 'ชาย';
+  const bmiV = snap.bmi == null ? '—' : snap.bmi;
+  const whtrV = snap.whtr == null ? '—' : snap.whtr;
+  const whtrHint =
+    snap.whtrLevel === 'ok'
+      ? 'ต่ำกว่า 0.5 — ช่วงกลางตัวโอเค'
+      : snap.whtrLevel === 'watch'
+        ? '0.5–0.6 — ควรลดไขมันช่วงกลางตัว'
+        : snap.whtrLevel === 'high'
+          ? '≥ 0.6 — เสี่ยงสูงขึ้น'
+          : 'เอว ÷ ส่วนสูง';
+  const waistV = snap.waist == null ? '—' : snap.waist;
+  const waistHint = snap.waistZone
+    ? `${snap.waistZone.label} (เกณฑ์เอเชีย ${snap.sex === 'female' ? 'หญิง ≥80' : 'ชาย ≥90'} ซม.)`
+    : 'ยังไม่มีรอบเอว';
+  const idealV = snap.ideal
+    ? `${snap.ideal.low}–${snap.ideal.high} กก.`
+    : '—';
+  const weekKgV =
+    snap.weekKg == null
+      ? '—'
+      : `${snap.weekKg > 0 ? '+' : ''}${snap.weekKg} กก.`;
+  const weekKgTone =
+    snap.weekKg == null || snap.weekKg === 0
+      ? ''
+      : snap.weekKg > 0
+        ? 'is-pos'
+        : 'is-neg';
+  const levelClass = (lv) =>
+    lv === 'ok' ? 'is-ok' : lv === 'watch' ? 'is-watch' : lv === 'high' ? 'is-high' : '';
+
+  return `
+    <header class="chs-head">
+      <h2 class="chs-title">สรุปสุขภาพ</h2>
+      <p class="chs-sub">ตัวเลขจากข้อมูลที่มี · ไม่ลึกเกินจำเป็น</p>
+    </header>
+    <div class="chs-grid">
+      <article class="chs-card">
+        <h3>ร่างกายล่าสุด</h3>
+        <p>สูง <strong>${esc(snap.heightCm ?? '—')}</strong> ซม. · ${esc(sexLabel)} · อายุ <strong>${esc(snap.age ?? '—')}</strong> ปี</p>
+        <p>น้ำหนัก <strong>${esc(snap.weight ?? '—')}</strong> กก. · เอว <strong>${esc(waistV)}</strong> ซม.</p>
+      </article>
+      <article class="chs-card">
+        <h3>BMI</h3>
+        <p class="chs-big">${esc(bmiV)}</p>
+        <p class="chs-hint">น้ำหนัก ÷ ส่วนสูง²</p>
+      </article>
+      <article class="chs-card ${levelClass(snap.whtrLevel)}">
+        <h3>WHtR เอว/สูง</h3>
+        <p class="chs-big">${esc(whtrV)}</p>
+        <p class="chs-hint">${esc(whtrHint)}</p>
+      </article>
+      <article class="chs-card ${levelClass(snap.waistZone?.level)}">
+        <h3>โซนรอบเอว</h3>
+        <p class="chs-big">${esc(snap.waistZone?.label || '—')}</p>
+        <p class="chs-hint">${esc(waistHint)}</p>
+      </article>
+      <article class="chs-card">
+        <h3>ช่วง กก. แนะนำ</h3>
+        <p class="chs-big chs-big-sm">${esc(idealV)}</p>
+        <p class="chs-hint">BMI 18.5–24.9 จากส่วนสูง</p>
+      </article>
+      <article class="chs-card ${weekKgTone}">
+        <h3>แนวโน้ม 7 วัน</h3>
+        <p class="chs-big chs-big-sm">${esc(weekKgV)}</p>
+        <p class="chs-hint">จาก bal รวม ÷ 7700 · คร่าวๆ เท่านั้น</p>
+      </article>
+    </div>
+    <p class="chs-foot">โปรตีนเป้า ≈ น้ำหนัก × ${esc(snap.proteinFactor)} ก./กก. · ดูรายละเอียดบนแดชบอร์ดหน้าแรก</p>`;
 }
 
 export function computeTotals(calorie) {

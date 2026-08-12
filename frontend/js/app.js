@@ -72,6 +72,7 @@ import {
   appendQuickMeal,
   clearDayValues,
   computeTotals,
+  computeHealthSnapshot,
   computeWeekSummary,
   expandMealsForEdit,
   formatDateDisplay,
@@ -85,12 +86,13 @@ import {
   renderCalorieMealHeaderHtml,
   renderCalorieRowsHtml,
   renderCalorieTotalsHtml,
+  renderHealthSheetHtml,
   renderWeekDashHtml,
   thaiDayName,
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=171';
+} from './calorie.js?v=172';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -237,6 +239,8 @@ const state = {
   /** 'month' | 'year' */
   calendarZoom: 'month',
   calendarScrollRange: null,
+  /** Calorie sub-pane: 'log' (home) | 'health' (summary sheet) */
+  caloriePane: 'log',
   /** Active month key (YYYY-MM) for calorie summary strip */
   calorieActiveMonth: null,
   activeNotepadId: null,
@@ -540,6 +544,9 @@ const els = {
   calorieThead: document.getElementById('calorie-thead'),
   calorieQuickFreq: document.getElementById('calorie-quick-freq'),
   calorieDash: document.getElementById('calorie-dash'),
+  calorieHealthSheet: document.getElementById('calorie-health-sheet'),
+  dockCalorieLogBtn: document.getElementById('dock-calorie-log-btn'),
+  dockCalorieHealthBtn: document.getElementById('dock-calorie-health-btn'),
   calorieTodayCard: document.getElementById('calorie-today-card'),
   calorieTodayTitle: document.getElementById('calorie-today-title'),
   calorieTodaySub: document.getElementById('calorie-today-sub'),
@@ -1337,6 +1344,10 @@ function syncCalorieProfileInputs(sheet) {
 function paintCalorieDash(sheet) {
   const el = els.calorieDash;
   if (!el) return;
+  if (state.caloriePane === 'health') {
+    el.hidden = true;
+    return;
+  }
   const summary = computeWeekSummary(sheet);
   if (!summary.daysLogged) {
     el.hidden = true;
@@ -1345,6 +1356,37 @@ function paintCalorieDash(sheet) {
   }
   el.hidden = false;
   el.innerHTML = renderWeekDashHtml(summary);
+}
+
+function paintCalorieHealthSheet(sheet) {
+  const el = els.calorieHealthSheet;
+  if (!el) return;
+  if (state.caloriePane !== 'health') {
+    el.hidden = true;
+    return;
+  }
+  const snap = computeHealthSnapshot(sheet);
+  el.hidden = false;
+  el.innerHTML = renderHealthSheetHtml(snap);
+}
+
+function setCaloriePane(pane) {
+  state.caloriePane = pane === 'health' ? 'health' : 'log';
+  document.body.classList.toggle('calorie-health-pane', state.caloriePane === 'health');
+  if (els.dockCalorieLogBtn) els.dockCalorieLogBtn.hidden = state.caloriePane !== 'health';
+  if (els.dockCalorieHealthBtn) els.dockCalorieHealthBtn.hidden = state.caloriePane === 'health';
+  if (state.caloriePane === 'health') {
+    if (els.calorieTodayCard) els.calorieTodayCard.hidden = true;
+    if (els.calorieDash) els.calorieDash.hidden = true;
+    if (els.calorieScroll) els.calorieScroll.hidden = true;
+    paintCalorieHealthSheet(ensureCaloriePayload());
+    syncCalorieFabs();
+  } else {
+    if (els.calorieScroll) els.calorieScroll.hidden = false;
+    if (els.calorieHealthSheet) els.calorieHealthSheet.hidden = true;
+    renderCalorieSheet();
+  }
+  applyDockOffset();
 }
 
 function paintCalorieTodayCard(rows, sheet) {
@@ -1481,9 +1523,13 @@ function renderCalorieSheet() {
   els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows, toDateKey(), mealCols);
   paintCalorieDash(sheet);
   paintCalorieTodayCard(rows, sheet);
+  paintCalorieHealthSheet(sheet);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
+  document.body.classList.toggle('calorie-health-pane', state.caloriePane === 'health');
+  if (els.calorieScroll) els.calorieScroll.hidden = state.caloriePane === 'health';
+  if (els.calorieTodayCard && state.caloriePane === 'health') els.calorieTodayCard.hidden = true;
   requestAnimationFrame(() => {
-    if (els.calorieScroll) els.calorieScroll.scrollTop = 0;
+    if (els.calorieScroll && state.caloriePane !== 'health') els.calorieScroll.scrollTop = 0;
     syncCalorieMonthFromScroll();
   });
 }
@@ -7182,6 +7228,8 @@ async function init({ fromBoot = false } = {}) {
 
   els.settingsBtn.addEventListener('click', openSettings);
   document.getElementById('dock-open-settings-btn')?.addEventListener('click', openSettings);
+  els.dockCalorieHealthBtn?.addEventListener('click', () => setCaloriePane('health'));
+  els.dockCalorieLogBtn?.addEventListener('click', () => setCaloriePane('log'));
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
 
