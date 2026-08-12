@@ -1606,7 +1606,7 @@ export function renderCalorieTotalsHtml(totals, { monthLabel = '' } = {}) {
   return `${month}${body}`;
 }
 
-/** Fixed fit-width grid: 10 columns (no horizontal scroll). */
+/** Fixed fit-width grid: 10 columns (no × — note spans former clear col). */
 const CAL_FIT_COLS = 10;
 
 function colCountForMeals(_mealCols) {
@@ -1625,7 +1625,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
               <col class="cal-cg-mealband">
               <col class="cal-cg-mealband">
               <col class="cal-cg-tail">
-              <col class="cal-cg-del">
+              <col class="cal-cg-tail">
             </colgroup>
             <tr class="cal-head-a">
               <th class="cal-col-n" scope="col">#</th>
@@ -1643,8 +1643,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
               <th class="cal-col-burn" scope="col">mus</th>
               <th class="cal-col-burn" scope="col" title="base · Σ · %">เบิร์น</th>
               <th class="cal-col-meals" colspan="6" scope="col">มื้อ 1–${n}</th>
-              <th class="cal-col-note" scope="col">หลัก</th>
-              <th class="cal-col-del" scope="col"><span class="sr-only">เคลียร์</span>×</th>
+              <th class="cal-col-note" colspan="2" scope="col">หลัก</th>
             </tr>`;
 }
 
@@ -1663,7 +1662,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         const cell = rawMeals[i] || '';
         const has = cell ? ' has-value' : '';
         mealInputs.push(
-          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"><button type="button" class="cal-field-clear" data-cal-clear-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" aria-label="เคลียร์มื้อ ${i + 1}" title="เคลียร์">×</button></span>`,
+          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></span>`,
         );
       }
       let sep = '';
@@ -1691,7 +1690,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}" data-cal-derived="blKg">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
       </tr>
       <tr class="cal-row cal-day-b${today}" data-day-id="${id}" data-month="${month}">
-        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง"><button type="button" class="cal-field-clear" data-cal-clear-field="mus" data-day-id="${id}" aria-label="เคลียร์ออกกำลัง" title="เคลียร์">×</button></span></td>
+        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></span></td>
         <td class="cal-col-burn cal-burn-stack" title="BMR · รวมเบิร์น · %bal">
           <span class="cal-derived cal-base-auto" data-cal-derived="base">${m.base ?? ''}</span>
           <span class="cal-burn-stack-sub">
@@ -1700,8 +1699,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
           </span>
         </td>
         <td class="cal-col-meals" colspan="6"><div class="cal-meals-fit" style="--cal-meal-n:${cols}">${mealInputs.join('')}</div></td>
-        <td class="cal-col-note"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>
-        <td class="cal-col-del"><button type="button" class="cal-del-btn" data-cal-clear="${id}" aria-label="เคลียร์ค่าวันนี้" title="เคลียร์ค่า">×</button></td>
+        <td class="cal-col-note" colspan="2"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>
       </tr>`;
     })
     .join('');

@@ -5,9 +5,10 @@
 import {
   FIXED_UI,
   loadSettings,
+  normalizeCalorieTones,
   dockScaleToCss,
   dockOffsetYToLiftPx,
-} from './settings.js?v=187';
+} from './settings.js?v=188';
 
 function applyCalorieChrome() {
   document.body.classList.add('light', 'calorie-mode', 'calorie-only');
@@ -20,6 +21,14 @@ function applyCalorieChrome() {
     dock.style.setProperty('--dock-scale', String(dockScaleToCss(FIXED_UI.dockScale)));
     dock.style.setProperty('--dock-lift', `${dockOffsetYToLiftPx(FIXED_UI.dockOffsetY)}px`);
   }
+
+  try {
+    const tones = normalizeCalorieTones(loadSettings().calorieTones);
+    const root = document.documentElement;
+    root.style.setProperty('--cal-tone-eat', tones.eat);
+    root.style.setProperty('--cal-tone-burn', tones.burn);
+    root.style.setProperty('--cal-tone-empty', tones.empty);
+  } catch { /* ignore */ }
 
   const build =
     document.querySelector('meta[name="pnote-build"]')?.content || '';

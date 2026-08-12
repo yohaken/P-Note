@@ -106,6 +106,8 @@ const DEFAULTS = {
   lastNotepadId: null,
   /** Recent notepad ids for bottom quick-title bar (most recent first) */
   recentNotepadIds: [],
+  /** Table / today-card color tones — filled in loadSettings via normalizeCalorieTones */
+  calorieTones: null,
 };
 
 function withFixedUi(settings) {
@@ -140,6 +142,22 @@ export const DEFAULT_DUE_COLORS = {
   today: '#e85d2c',
   overdue: '#e23b2e',
 };
+
+/** Calorie table / today-card tones (eat = caution, burn = green, empty = white). */
+export const DEFAULT_CALORIE_TONES = {
+  eat: '#ea580c',
+  burn: '#16a34a',
+  empty: '#ffffff',
+};
+
+export function normalizeCalorieTones(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return {
+    eat: safeHexColor(src.eat, DEFAULT_CALORIE_TONES.eat),
+    burn: safeHexColor(src.burn, DEFAULT_CALORIE_TONES.burn),
+    empty: safeHexColor(src.empty, DEFAULT_CALORIE_TONES.empty),
+  };
+}
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
@@ -377,6 +395,7 @@ export function loadSettings() {
         appMode: 'calorie',
         lastNotepadId: null,
         recentNotepadIds: [],
+        calorieTones: normalizeCalorieTones(null),
       });
     }
     const parsed = JSON.parse(raw);
@@ -406,6 +425,7 @@ export function loadSettings() {
       appMode: normalizeAppMode(parsed.appMode),
       lastNotepadId: parsed.lastNotepadId ? String(parsed.lastNotepadId) : null,
       recentNotepadIds: normalizeRecentNotepadIds(parsed.recentNotepadIds, parsed.lastNotepadId),
+      calorieTones: normalizeCalorieTones(parsed.calorieTones),
     });
   } catch {
     return withFixedUi({
@@ -426,6 +446,7 @@ export function loadSettings() {
       appMode: 'calorie',
       lastNotepadId: null,
       recentNotepadIds: [],
+      calorieTones: normalizeCalorieTones(null),
     });
   }
 }
@@ -456,6 +477,7 @@ export function saveSettings(settings) {
     appMode: normalizeAppMode(settings.appMode),
     lastNotepadId: settings.lastNotepadId ? String(settings.lastNotepadId) : null,
     recentNotepadIds: normalizeRecentNotepadIds(settings.recentNotepadIds, settings.lastNotepadId),
+    calorieTones: normalizeCalorieTones(settings.calorieTones),
   });
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }

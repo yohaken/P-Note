@@ -97,7 +97,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=187';
+} from './calorie.js?v=188';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -148,7 +148,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=153';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=188';
 import {
   allIcons,
   bestIconForLabel,
@@ -545,6 +545,10 @@ const els = {
   calorieSex: document.getElementById('calorie-sex'),
   calorieGoalWaist: document.getElementById('calorie-goal-waist'),
   calorieGoalWeight: document.getElementById('calorie-goal-weight'),
+  calorieToneEat: document.getElementById('calorie-tone-eat'),
+  calorieToneBurn: document.getElementById('calorie-tone-burn'),
+  calorieToneEmpty: document.getElementById('calorie-tone-empty'),
+  calorieToneReset: document.getElementById('calorie-tone-reset'),
   calorieThead: document.getElementById('calorie-thead'),
   calorieQuickFreq: document.getElementById('calorie-quick-freq'),
   calorieDash: document.getElementById('calorie-dash'),
@@ -999,6 +1003,7 @@ function applyTheme() {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', '#e8f0ea');
   applyBoxColors();
+  applyCalorieTones();
 }
 
 function applyBoxColors() {
@@ -1016,6 +1021,37 @@ function applyBoxColors() {
   root.style.setProperty('--due-near', due.near);
   root.style.setProperty('--due-today', due.today);
   root.style.setProperty('--due-overdue', due.overdue);
+}
+
+function applyCalorieTones() {
+  const tones = normalizeCalorieTones(state.settings.calorieTones);
+  state.settings.calorieTones = tones;
+  const root = document.documentElement;
+  root.style.setProperty('--cal-tone-eat', tones.eat);
+  root.style.setProperty('--cal-tone-burn', tones.burn);
+  root.style.setProperty('--cal-tone-empty', tones.empty);
+  if (els.calorieToneEat && document.activeElement !== els.calorieToneEat) {
+    els.calorieToneEat.value = tones.eat;
+  }
+  if (els.calorieToneBurn && document.activeElement !== els.calorieToneBurn) {
+    els.calorieToneBurn.value = tones.burn;
+  }
+  if (els.calorieToneEmpty && document.activeElement !== els.calorieToneEmpty) {
+    els.calorieToneEmpty.value = tones.empty;
+  }
+}
+
+function persistCalorieTonesFromUi({ reset = false } = {}) {
+  const next = reset
+    ? { ...DEFAULT_CALORIE_TONES }
+    : normalizeCalorieTones({
+      eat: els.calorieToneEat?.value,
+      burn: els.calorieToneBurn?.value,
+      empty: els.calorieToneEmpty?.value,
+    });
+  state.settings.calorieTones = next;
+  saveSettings(state.settings);
+  applyCalorieTones();
 }
 
 function applyFilterOrder() {
@@ -1512,7 +1548,7 @@ function paintCalorieTodayCard(rows, sheet) {
     els.calorieTodayMeals.innerHTML = Array.from({ length: cols }, (_, i) => {
       const v = meals[i] || '';
       const has = v ? ' has-value' : '';
-      return `<label class="ctc-meal cal-input-wrap${has}" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"><button type="button" class="cal-field-clear" data-ctc-clear-meal="${i}" aria-label="เคลียร์มื้อ ${i + 1}" title="เคลียร์">×</button></label>`;
+      return `<label class="ctc-meal cal-input-wrap${has}" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></label>`;
     }).join('');
   }
   if (els.calorieTodaySummary) {
@@ -4988,6 +5024,7 @@ function openSettings() {
   } catch {
     /* calorie payload may be empty before hydrate */
   }
+  applyCalorieTones();
   if (els.geminiApiKey) els.geminiApiKey.value = state.settings.geminiApiKey || '';
   fillGeminiModelSelect(state.settings.geminiModel);
   if (els.aiProfile) els.aiProfile.value = state.settings.aiProfile || '';
@@ -7573,6 +7610,13 @@ async function init({ fromBoot = false } = {}) {
     // Mobile: value often commits on blur without a reliable change in some WebViews.
     el?.addEventListener('blur', onCalorieProfileChange);
   });
+  const onCalorieToneChange = () => persistCalorieTonesFromUi();
+  els.calorieToneEat?.addEventListener('input', onCalorieToneChange);
+  els.calorieToneBurn?.addEventListener('input', onCalorieToneChange);
+  els.calorieToneEmpty?.addEventListener('input', onCalorieToneChange);
+  els.calorieToneReset?.addEventListener('click', () => {
+    persistCalorieTonesFromUi({ reset: true });
+  });
   els.calorieQuickFreq?.addEventListener('click', (e) => {
     const chip = e.target?.closest?.('[data-freq-text]');
     if (!chip || !els.calorieQuickFreq.contains(chip)) return;
@@ -7641,45 +7685,7 @@ async function init({ fromBoot = false } = {}) {
     input.blur();
   });
   els.calorieTodayCard?.addEventListener('click', (e) => {
-    const mealClear = e.target?.closest?.('[data-ctc-clear-meal]');
-    if (mealClear && els.calorieTodayCard.contains(mealClear)) {
-      e.preventDefault();
-      const idx = Number(mealClear.dataset.ctcClearMeal);
-      const dayId = els.calorieTodayCard.dataset.dayId;
-      if (!dayId || !Number.isFinite(idx)) return;
-      const sheet = ensureCaloriePayload();
-      const day = sheet.days.find((d) => d.id === dayId);
-      if (!day) return;
-      const meals = expandMealsForEdit(day.meals);
-      while (meals.length <= idx) meals.push('');
-      meals[idx] = '';
-      persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
-        status: `เคลียร์มื้อ ${idx + 1} แล้ว · อัปเดตแล้ว`,
-        fullRender: true,
-      });
-      return;
-    }
-    const fieldClear = e.target?.closest?.('[data-ctc-clear-field]');
-    if (fieldClear && els.calorieTodayCard.contains(fieldClear)) {
-      e.preventDefault();
-      const field = fieldClear.dataset.ctcClearField;
-      const dayId = els.calorieTodayCard.dataset.dayId;
-      if (!dayId || !field) return;
-      const sheet = ensureCaloriePayload();
-      if (field === 'mus') {
-        persistCalorie(pruneFrequentMus(patchDay(sheet, dayId, { mus: null, note: '' })), {
-          status: 'เคลียร์ mus แล้ว · อัปเดตแล้ว',
-          fullRender: true,
-        });
-        return;
-      }
-      persistCalorie(patchDay(sheet, dayId, { [field]: null }), {
-        status: field === 'weight' ? 'เคลียร์น้ำหนักแล้ว · อัปเดตแล้ว' : 'เคลียร์เอวแล้ว · อัปเดตแล้ว',
-        fullRender: field === 'weight',
-      });
-      return;
-    }
-    // แตะตัวเลขมื้อ/mus → แผ่นเคลียร์+บันทึก
+    // แตะตัวเลขมื้อ/mus → แผ่นเคลียร์+บันทึก (ไม่มี ×)
     const mealInput = e.target?.closest?.('input[data-ctc-meal]');
     if (mealInput && els.calorieTodayCard.contains(mealInput)) {
       e.preventDefault();
@@ -7844,40 +7850,6 @@ async function init({ fromBoot = false } = {}) {
     }
   });
   els.calorieTbody?.addEventListener('click', (e) => {
-    const fieldClear = e.target?.closest?.('[data-cal-clear-field]');
-    if (fieldClear && els.calorieTbody.contains(fieldClear)) {
-      e.preventDefault();
-      e.stopPropagation();
-      const dayId = fieldClear.dataset.dayId;
-      const field = fieldClear.dataset.calClearField;
-      if (!dayId || !field) return;
-      const sheet = ensureCaloriePayload();
-      if (field === 'meal') {
-        const idx = Number(fieldClear.dataset.mealIndex);
-        const day = sheet.days.find((d) => d.id === dayId);
-        if (!day || !Number.isFinite(idx)) return;
-        const meals = expandMealsForEdit(day.meals);
-        while (meals.length <= idx) meals.push('');
-        meals[idx] = '';
-        persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
-          status: `เคลียร์มื้อ ${idx + 1} แล้ว · อัปเดตแล้ว`,
-          fullRender: true,
-        });
-        return;
-      }
-      if (field === 'mus') {
-        persistCalorie(pruneFrequentMus(patchDay(sheet, dayId, { mus: null, note: '' })), {
-          status: 'เคลียร์ mus แล้ว · อัปเดตแล้ว',
-          fullRender: true,
-        });
-        return;
-      }
-      persistCalorie(patchDay(sheet, dayId, { [field]: null }), {
-        status: '',
-        fullRender: field === 'weight',
-      });
-      return;
-    }
     const mealInput = e.target?.closest?.('input[data-cal-field="meal"]');
     if (mealInput && els.calorieTbody.contains(mealInput)) {
       e.preventDefault();
@@ -7918,18 +7890,7 @@ async function init({ fromBoot = false } = {}) {
           picker.focus();
         }
       }
-      return;
     }
-    const clearBtn = e.target?.closest?.('[data-cal-clear]');
-    if (!clearBtn || !els.calorieTbody.contains(clearBtn)) return;
-    e.preventDefault();
-    const id = clearBtn.dataset.calClear;
-    if (!id) return;
-    if (!confirm('เคลียร์ค่าวันนี้?\nมื้อ · ออกกำลัง · โน้ต จะว่าง (วันที่/เอว/กก คงไว้)')) return;
-    persistCalorie(clearDayValues(ensureCaloriePayload(), id), {
-      status: 'เคลียร์ค่าวันแล้ว',
-      fullRender: true,
-    });
   });
 
   els.notepadQuickScroll?.addEventListener('click', (e) => {
