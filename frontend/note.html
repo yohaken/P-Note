@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="180">
+  <meta name="pnote-build" content="181">
   <meta name="pnote-built" content="2026-08-12T05:20:00+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=180"></script>
+  <script src="js/cache-bootstrap.js?v=181"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=180">
+  <link rel="stylesheet" href="css/pnote.css?v=181">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -74,7 +74,7 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/icon-192.png?v=180" width="22" height="22" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/icon-192.png?v=181" width="22" height="22" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
           <span class="mode-switch-ver" id="calorie-app-ver" aria-hidden="true"></span>
         </div>
@@ -459,6 +459,26 @@
           </div>
         </details>
 
+        <details class="settings-group" id="goal-settings-row" open>
+          <summary class="settings-group-summary">เป้าหมายร่างกาย</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-tight">
+              <p class="settings-hint" style="margin-top:0">
+                <strong>เอวเป็นหัวใจหลัก</strong> — ไขมันช่วงกลางตัวสัมพันธ์กับความเสี่ยงสุขภาพ · น้ำหนักเป็นเป้า<strong>รอง</strong> เพราะกล้ามเนื้อทำให้ชั่งขึ้นได้โดยไม่แย่
+              </p>
+              <label class="notify-field" for="calorie-goal-waist">
+                <span>เป้าเอวหลัก (ซม.)</span>
+                <input id="calorie-goal-waist" class="notify-select" type="number" min="40" max="200" step="0.1" inputmode="decimal" placeholder="เช่น 80" aria-label="เป้ารอบเอวเซนติเมตร">
+              </label>
+              <label class="notify-field" for="calorie-goal-weight" style="margin-top:0.45rem">
+                <span>เป้าน้ำหนักรอง (กก.)</span>
+                <input id="calorie-goal-weight" class="notify-select" type="number" min="30" max="300" step="0.1" inputmode="decimal" placeholder="ไม่บังคับ" aria-label="เป้าน้ำหนักกิโลกรัม">
+              </label>
+              <p class="settings-hint">ว่างไว้ = ยังไม่ตั้ง · ความคืบหน้าดูในหน้าสรุป</p>
+            </div>
+          </div>
+        </details>
+
         <details class="settings-group work-only-settings" id="card-display-settings-row" hidden>
           <summary class="settings-group-summary">กล่องงาน · แสดงอะไร</summary>
           <div class="settings-group-body">
@@ -781,7 +801,7 @@
 
     <div id="auth-overlay" class="auth-overlay" hidden>
       <div class="auth-panel" role="dialog" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=180" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=181" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">เข้าสู่ระบบ</h2>
         <p class="auth-copy">ใช้ Google บัญชี <strong>yohaken@gmail.com</strong> เท่านั้น · ข้อมูลบันทึกขึ้น Firestore ทันที</p>
         <button id="google-login-btn" class="btn btn-primary auth-login-btn" type="button">Sign in with Google</button>
@@ -976,7 +996,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=180"></script>
-  <script src="js/update-watch.js?v=180"></script>
+  <script type="module" src="js/boot.js?v=181"></script>
+  <script src="js/update-watch.js?v=181"></script>
 </body>
 </html>

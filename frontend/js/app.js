@@ -94,7 +94,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=180';
+} from './calorie.js?v=181';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -545,6 +545,8 @@ const els = {
   calorieBirthdate: document.getElementById('calorie-birthdate'),
   calorieAgeDisplay: document.getElementById('calorie-age-display'),
   calorieSex: document.getElementById('calorie-sex'),
+  calorieGoalWaist: document.getElementById('calorie-goal-waist'),
+  calorieGoalWeight: document.getElementById('calorie-goal-weight'),
   calorieThead: document.getElementById('calorie-thead'),
   calorieQuickFreq: document.getElementById('calorie-quick-freq'),
   calorieDash: document.getElementById('calorie-dash'),
@@ -1346,6 +1348,14 @@ function syncCalorieProfileInputs(sheet) {
   }
   if (els.calorieSex && document.activeElement !== els.calorieSex) {
     els.calorieSex.value = sheet.sex === 'female' ? 'female' : 'male';
+  }
+  if (els.calorieGoalWaist && document.activeElement !== els.calorieGoalWaist) {
+    els.calorieGoalWaist.value =
+      sheet.goalWaistCm == null ? '' : String(sheet.goalWaistCm);
+  }
+  if (els.calorieGoalWeight && document.activeElement !== els.calorieGoalWeight) {
+    els.calorieGoalWeight.value =
+      sheet.goalWeightKg == null ? '' : String(sheet.goalWeightKg);
   }
 }
 
@@ -7314,18 +7324,26 @@ async function init({ fromBoot = false } = {}) {
     const height = Number(els.calorieHeight?.value);
     const birthDate = String(els.calorieBirthdate?.value || '').trim();
     const sex = els.calorieSex?.value === 'female' ? 'female' : 'male';
+    const goalWaistRaw = String(els.calorieGoalWaist?.value || '').trim();
+    const goalWeightRaw = String(els.calorieGoalWeight?.value || '').trim();
+    const goalWaistCm = goalWaistRaw === '' ? null : Number(goalWaistRaw);
+    const goalWeightKg = goalWeightRaw === '' ? null : Number(goalWeightRaw);
     persistCalorie({
       ...sheet,
       proteinFactor: Number.isFinite(pf) ? pf : sheet.proteinFactor,
       heightCm: Number.isFinite(height) ? height : sheet.heightCm,
       birthDate: /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? birthDate : sheet.birthDate,
       sex,
-    }, { status: 'อัปเดตโปรไฟล์ · คำนวณ base ใหม่', fullRender: true });
+      goalWaistCm: goalWaistRaw === '' || !Number.isFinite(goalWaistCm) ? null : goalWaistCm,
+      goalWeightKg: goalWeightRaw === '' || !Number.isFinite(goalWeightKg) ? null : goalWeightKg,
+    }, { status: 'อัปเดตโปรไฟล์ / เป้าหมายแล้ว', fullRender: true });
   };
   els.calorieProteinFactor?.addEventListener('change', onCalorieProfileChange);
   els.calorieHeight?.addEventListener('change', onCalorieProfileChange);
   els.calorieBirthdate?.addEventListener('change', onCalorieProfileChange);
   els.calorieSex?.addEventListener('change', onCalorieProfileChange);
+  els.calorieGoalWaist?.addEventListener('change', onCalorieProfileChange);
+  els.calorieGoalWeight?.addEventListener('change', onCalorieProfileChange);
   els.calorieQuickFreq?.addEventListener('click', (e) => {
     const chip = e.target?.closest?.('[data-freq-text]');
     if (!chip || !els.calorieQuickFreq.contains(chip)) return;
@@ -7432,6 +7450,22 @@ async function init({ fromBoot = false } = {}) {
     });
   });
   els.calorieHealthSheet?.addEventListener('click', (e) => {
+    const openGoals = e.target?.closest?.('[data-calorie-action="open-settings"]');
+    if (openGoals && els.calorieHealthSheet.contains(openGoals)) {
+      e.preventDefault();
+      openSettings();
+      const goalRow = document.getElementById('goal-settings-row');
+      if (goalRow) {
+        goalRow.open = true;
+        try {
+          goalRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch { /* ignore */ }
+      }
+      try {
+        els.calorieGoalWaist?.focus();
+      } catch { /* ignore */ }
+      return;
+    }
     const btn = e.target?.closest?.('[data-chs-range]');
     if (!btn || !els.calorieHealthSheet.contains(btn)) return;
     e.preventDefault();

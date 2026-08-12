@@ -418,11 +418,42 @@ export function createEmptyCalorie(overrides = {}) {
     heightCm: DEFAULT_HEIGHT_CM,
     birthDate: DEFAULT_BIRTH_DATE,
     sex: DEFAULT_SEX,
+    goalWaistCm: null,
+    goalWeightKg: null,
     days: [],
     freqMeals: [],
     freqMus: [],
     ...overrides,
   });
+}
+
+/** Optional numeric goal — empty/invalid → null (unset). */
+function normalizeOptionalGoal(raw, min, max) {
+  if (raw == null || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  if (n < min || n > max) return null;
+  return round(n, 1);
+}
+
+/**
+ * Progress toward a lower-is-better body goal (waist / weight).
+ * remaining > 0 = still above goal; ≤ 0 = at/under goal.
+ */
+export function computeBodyGoalProgress(current, goal) {
+  if (!Number.isFinite(goal) || goal <= 0) {
+    return { set: false, current: Number.isFinite(current) ? current : null, goal: null };
+  }
+  const cur = Number.isFinite(current) ? current : null;
+  if (cur == null) {
+    return { set: true, current: null, goal, remaining: null, met: false, pct: null };
+  }
+  const remaining = round(cur - goal, 1);
+  const met = remaining <= 0;
+  // How far from a soft start (goal + 20% or +10 units) — for a simple bar.
+  const span = Math.max(goal * 0.2, 10);
+  const pct = met ? 100 : Math.max(0, Math.min(99, round((1 - remaining / span) * 100, 0)));
+  return { set: true, current: cur, goal, remaining, met, pct };
 }
 
 /** Compact store: keep used meals + pad to MIN; drop trailing empties beyond MIN. */
@@ -515,6 +546,8 @@ export function normalizeCalorie(raw) {
     birthDate,
     age: Math.round(age),
     sex,
+    goalWaistCm: normalizeOptionalGoal(src.goalWaistCm, 40, 200),
+    goalWeightKg: normalizeOptionalGoal(src.goalWeightKg, 30, 300),
     freqMeals: normalizeFreqList(src.freqMeals),
     freqMus: normalizeFreqList(src.freqMus),
     days,
@@ -1078,6 +1111,8 @@ export function computeHealthSnapshot(calorie, endKey = toDateKey(), trendDays =
       : null;
   const age = ageFromBirthDate(sheet.birthDate, endKey) ?? sheet.age;
   const rangeMeta = HEALTH_TREND_RANGES.find((r) => r.days === days) || { days, label: `${days} วัน` };
+  const goalWaist = computeBodyGoalProgress(waist, sheet.goalWaistCm);
+  const goalWeight = computeBodyGoalProgress(weight, sheet.goalWeightKg);
   return {
     heightCm: height,
     weight,
@@ -1097,7 +1132,39 @@ export function computeHealthSnapshot(calorie, endKey = toDateKey(), trendDays =
     exercise,
     trendDays: days,
     trendRangeLabel: rangeMeta.label,
+    goalWaist,
+    goalWeight,
   };
+}
+
+function renderGoalCardHtml(title, unit, progress, { primary = false, hint = '' } = {}) {
+  if (!progress?.set) {
+    return `<article class="chs-card chs-goal-card${primary ? ' is-primary-goal' : ''}">
+      <h3>${esc(title)}${primary ? ' · หลัก' : ' · รอง'}</h3>
+      <p class="chs-big chs-big-sm">—</p>
+      <p class="chs-hint">ยังไม่ตั้งเป้า</p>
+      <button type="button" class="chs-goal-set" data-calorie-action="open-settings">ตั้งในตั้งค่า</button>
+    </article>`;
+  }
+  const cur = progress.current == null ? '—' : progress.current;
+  const goal = progress.goal;
+  const rem =
+    progress.remaining == null
+      ? 'ยังไม่มีค่าปัจจุบัน'
+      : progress.met
+        ? 'ถึงเป้าแล้ว'
+        : `เหลือลดอีก ${formatSigned(progress.remaining, 1).replace(/^\+/, '')} ${unit}`;
+  const tone = progress.met ? 'is-ok' : progress.remaining != null && progress.remaining > 0 ? 'is-watch' : '';
+  const bar =
+    progress.pct == null
+      ? ''
+      : `<div class="chs-goal-bar" aria-hidden="true"><i style="width:${progress.pct}%"></i></div>`;
+  return `<article class="chs-card chs-goal-card ${tone}${primary ? ' is-primary-goal' : ''}">
+    <h3>${esc(title)}${primary ? ' · หลัก' : ' · รอง'}</h3>
+    <p class="chs-big chs-big-sm">${esc(cur)} <span class="chs-goal-slash">/</span> ${esc(goal)} <span class="chs-chart-unit">${esc(unit)}</span></p>
+    <p class="chs-hint">${esc(rem)}${hint ? ` · ${esc(hint)}` : ''}</p>
+    ${bar}
+  </article>`;
 }
 
 export function renderHealthSheetHtml(snap) {
@@ -1187,12 +1254,24 @@ export function renderHealthSheetHtml(snap) {
     </section>`
     : '';
 
+  const goalBlock = `<div class="chs-grid chs-goal-grid">
+      ${renderGoalCardHtml('เป้าเอว', 'ซม.', snap.goalWaist, {
+        primary: true,
+        hint: 'หัวใจหลักของแผน',
+      })}
+      ${renderGoalCardHtml('เป้าน้ำหนัก', 'กก.', snap.goalWeight, {
+        primary: false,
+        hint: 'รอง — กล้ามเนื้อทำให้น้ำหนักสูงได้',
+      })}
+    </div>`;
+
   return `
     <header class="chs-head">
       <h2 class="chs-title">สรุปสุขภาพ</h2>
       <p class="chs-sub">ตัวเลขจากข้อมูลที่มี · เลือกช่วงเวลากราฟด้านล่าง</p>
       <div class="chs-range" role="toolbar" aria-label="ช่วงเวลากราฟ">${rangeChips}</div>
     </header>
+    ${goalBlock}
     <div class="chs-grid">
       <article class="chs-card">
         <h3>ร่างกายล่าสุด</h3>

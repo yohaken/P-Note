@@ -6282,6 +6282,56 @@ body.calorie-health-pane #dock-calorie-health-btn {
   color: var(--text-muted);
 }
 
+.chs-goal-grid {
+  margin: 0 0 0.45rem;
+}
+
+.chs-goal-card.is-primary-goal {
+  border-color: color-mix(in srgb, var(--accent, #4a7c59) 40%, var(--border));
+}
+
+.chs-goal-slash {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85em;
+}
+
+.chs-goal-bar {
+  margin-top: 0.35rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 70%, #fff);
+  overflow: hidden;
+}
+
+.chs-goal-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #86efac, #15803d);
+}
+
+.chs-goal-card.is-watch .chs-goal-bar i {
+  background: linear-gradient(90deg, #fcd34d, #ca8a04);
+}
+
+.chs-goal-set {
+  margin-top: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--surface, #fff) 88%, var(--accent, #4a7c59));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chs-goal-set:active {
+  transform: scale(0.98);
+}
+
 .chs-range {
   display: flex;
   flex-wrap: nowrap;
