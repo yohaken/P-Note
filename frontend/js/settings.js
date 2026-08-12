@@ -216,7 +216,7 @@ export function calorieToneCssVars(raw) {
     '--cal-tone-burn-ink': mixHex(t.burn, ink, 0.55),
     '--cal-tone-pos-ink': mixHex(t.burn, ink, 0.7),
     '--cal-tone-neg-ink': mixHex(t.eat, ink, 0.75),
-    '--cal-tone-row-line': mixHex(t.eat, '#c4c4c4', 0.35),
+    '--cal-tone-row-line': mixHex(t.eat, '#ebebeb', 0.18),
   };
 }
 
