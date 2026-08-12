@@ -125,7 +125,10 @@ import {
   DUE_SCOPE_OPTIONS,
   buildMonthGrid,
   monthLabel,
+  monthNameOnly,
+  yearLabel,
   notesOnDate,
+  dateKeyFromDate,
 } from './schedule.js?v=148';
 import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=153';
 import {
@@ -216,10 +219,13 @@ const state = {
     const m = loadSettings().appMode;
     return (m === 'note' || m === 'calendar' || m === 'calorie') ? m : 'work';
   }(),
-  /** Calendar view state */
+  /** Calendar view state (Apple-style: vertical months + year zoom) */
   calendarMonth: new Date().getMonth(),
   calendarYear: new Date().getFullYear(),
   calendarSelectedDate: null,
+  /** 'month' | 'year' */
+  calendarZoom: 'month',
+  calendarScrollRange: null,
   /** Active month key (YYYY-MM) for calorie summary strip */
   calorieActiveMonth: null,
   activeNotepadId: null,
@@ -498,11 +504,16 @@ const els = {
   authError: document.getElementById('auth-error'),
   /* Calendar view */
   calendarView: document.getElementById('calendar-view'),
-  calPrevMonth: document.getElementById('cal-prev-month'),
-  calNextMonth: document.getElementById('cal-next-month'),
+  calYearBack: document.getElementById('cal-year-back'),
+  calYearLabel: document.getElementById('cal-year-label'),
   calMonthTitle: document.getElementById('cal-month-title'),
-  calGrid: document.getElementById('cal-grid'),
+  calWeekdays: document.getElementById('cal-weekdays'),
+  calScroll: document.getElementById('cal-scroll'),
+  calYearView: document.getElementById('cal-year-view'),
   calNotes: document.getElementById('cal-notes'),
+  calTodayBtn: document.getElementById('cal-today-btn'),
+  calZoomOut: document.getElementById('cal-zoom-out'),
+  calZoomIn: document.getElementById('cal-zoom-in'),
   /* Calorie spreadsheet */
   calorieView: document.getElementById('calorie-view'),
   calorieTotals: document.getElementById('calorie-totals'),
@@ -1472,77 +1483,311 @@ function setAppMode(mode, { persist = true } = {}) {
   syncCalorieFabs();
 }
 
+function monthKey(year, month) {
+  return `${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+function parseMonthKey(key) {
+  const [y, m] = String(key || '').split('-').map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return null;
+  return { year: y, month: m - 1 };
+}
+
+function shiftMonth(year, month, delta) {
+  const d = new Date(year, month + delta, 1);
+  return { year: d.getFullYear(), month: d.getMonth() };
+}
+
+function ensureCalendarScrollRange() {
+  if (state.calendarScrollRange) return state.calendarScrollRange;
+  const center = { year: state.calendarYear, month: state.calendarMonth };
+  const start = shiftMonth(center.year, center.month, -12);
+  const end = shiftMonth(center.year, center.month, 12);
+  state.calendarScrollRange = { start, end };
+  return state.calendarScrollRange;
+}
+
+function setCalendarZoom(zoom) {
+  state.calendarZoom = zoom === 'year' ? 'year' : 'month';
+  if (els.calendarView) els.calendarView.dataset.calZoom = state.calendarZoom;
+  const yearMode = state.calendarZoom === 'year';
+  if (els.calWeekdays) els.calWeekdays.hidden = yearMode;
+  if (els.calScroll) els.calScroll.hidden = yearMode;
+  if (els.calYearView) els.calYearView.hidden = !yearMode;
+  if (els.calZoomOut) els.calZoomOut.disabled = yearMode;
+  if (els.calZoomIn) els.calZoomIn.disabled = !yearMode;
+  // Day sheet only on month zoom
+  if (yearMode) collapseCalendarNotes();
+  updateCalendarChrome();
+}
+
+function updateCalendarChrome() {
+  const y = state.calendarYear;
+  const m = state.calendarMonth;
+  if (els.calYearLabel) els.calYearLabel.textContent = yearLabel(y);
+  if (els.calMonthTitle) {
+    if (state.calendarZoom === 'year') {
+      els.calMonthTitle.textContent = yearLabel(y);
+    } else {
+      els.calMonthTitle.textContent = monthNameOnly(y, m);
+    }
+  }
+  if (els.calYearBack) {
+    els.calYearBack.setAttribute(
+      'aria-label',
+      state.calendarZoom === 'year' ? 'ปีก่อนหน้าในมุมมองปี' : `มุมมองรายปี ${yearLabel(y)}`,
+    );
+  }
+}
+
 function renderCalendar() {
-  if (!els.calGrid || !els.calMonthTitle) return;
-
-  const { calendarMonth, calendarYear } = state;
-  const notes = state.notesData.notes;
-
-  els.calMonthTitle.textContent = monthLabel(calendarYear, calendarMonth);
-  els.calPrevMonth.setAttribute('aria-label', monthLabel(calendarYear, calendarMonth - 1));
-  els.calNextMonth.setAttribute('aria-label', monthLabel(calendarYear, calendarMonth + 1));
-
-  const grid = buildMonthGrid(calendarYear, calendarMonth, notes);
-  els.calGrid.innerHTML = '';
-
-  grid.cells.forEach((cell) => {
-    const div = document.createElement('div');
-    div.className = 'cal-cell';
-    if (cell.empty) {
-      div.classList.add('empty');
-      els.calGrid.appendChild(div);
-      return;
-    }
-
-    if (cell.isToday) div.classList.add('today');
-    if (state.calendarSelectedDate && cell.dateKey === state.calendarSelectedDate) {
-      div.classList.add('selected');
-    }
-
-    div.setAttribute('role', 'button');
-    div.setAttribute('tabindex', '0');
-    div.setAttribute('aria-label', `${cell.day} ${monthLabel(calendarYear, calendarMonth).replace(/[0-9]+/, '').trim()}`);
-    div.dataset.dateKey = cell.dateKey;
-
-    div.innerHTML = `<span class="cal-cell-day">${cell.day}</span>`;
-
-    if (cell.count > 0) {
-      const dateNotes = notesOnDate(notes, cell.dateKey);
-      const hasOverdue = dateNotes.some((n) => {
-        const prox = scheduleProximity(n.scheduledAt);
-        return prox.level === 'overdue' || prox.level === 'today';
-      });
-      const dots = document.createElement('div');
-      dots.className = 'cal-cell-dots';
-      if (hasOverdue) div.classList.add('overdue');
-      const dotCount = Math.min(cell.count, 3);
-      for (let i = 0; i < dotCount; i++) {
-        const dot = document.createElement('span');
-        dot.className = 'cal-cell-dot';
-        dots.appendChild(dot);
-      }
-      div.appendChild(dots);
-    }
-
-    div.addEventListener('click', () => selectCalendarDate(cell.dateKey));
-    els.calGrid.appendChild(div);
-  });
-
-  if (state.calendarSelectedDate) {
+  if (!els.calScroll && !els.calYearView) return;
+  setCalendarZoom(state.calendarZoom || 'month');
+  if (state.calendarZoom === 'year') {
+    renderCalendarYearView();
+  } else {
+    renderCalendarMonthScroll({ scrollToCurrent: !els.calScroll?.dataset.ready });
+  }
+  if (state.calendarSelectedDate && state.calendarZoom === 'month') {
     renderCalendarNotes(state.calendarSelectedDate);
   }
 }
 
-function selectCalendarDate(dateKey) {
-  state.calendarSelectedDate = dateKey;
-
-  // Highlight selected cell
-  if (els.calGrid) {
-    els.calGrid.querySelectorAll('.cal-cell.selected').forEach((c) => c.classList.remove('selected'));
-    const cell = els.calGrid.querySelector(`.cal-cell[data-date-key="${dateKey}"]`);
-    if (cell) cell.classList.add('selected');
+function buildCalCellEl(cell, year, month, { mini = false } = {}) {
+  const div = document.createElement('div');
+  div.className = mini ? 'cal-cell cal-cell-mini' : 'cal-cell';
+  if (cell.empty) {
+    div.classList.add('empty');
+    return div;
   }
+  if (cell.isToday) div.classList.add('today');
+  if (state.calendarSelectedDate && cell.dateKey === state.calendarSelectedDate) {
+    div.classList.add('selected');
+  }
+  div.setAttribute('role', 'button');
+  div.setAttribute('tabindex', mini ? '-1' : '0');
+  div.setAttribute(
+    'aria-label',
+    `${cell.day} ${monthNameOnly(year, month)}`,
+  );
+  div.dataset.dateKey = cell.dateKey;
+  div.innerHTML = `<span class="cal-cell-day">${cell.day}</span>`;
 
+  if (!mini && cell.count > 0) {
+    const dateNotes = notesOnDate(state.notesData.notes, cell.dateKey);
+    const hasHot = dateNotes.some((n) => {
+      const prox = scheduleProximity(n.scheduledAt);
+      return prox.level === 'overdue' || prox.level === 'today';
+    });
+    const dots = document.createElement('div');
+    dots.className = 'cal-cell-dots';
+    if (hasHot) div.classList.add('overdue');
+    const dotCount = Math.min(cell.count, 3);
+    for (let i = 0; i < dotCount; i += 1) {
+      const dot = document.createElement('span');
+      dot.className = 'cal-cell-dot';
+      dots.appendChild(dot);
+    }
+    div.appendChild(dots);
+  } else if (mini && cell.count > 0) {
+    div.classList.add('has-notes');
+  }
+  return div;
+}
+
+function renderMonthBlock(year, month, notes) {
+  const section = document.createElement('section');
+  section.className = 'cal-month-block';
+  section.dataset.monthKey = monthKey(year, month);
+  section.dataset.year = String(year);
+  section.dataset.month = String(month);
+
+  const title = document.createElement('h3');
+  title.className = 'cal-month-block-title';
+  title.textContent = monthLabel(year, month);
+  section.appendChild(title);
+
+  const grid = document.createElement('div');
+  grid.className = 'cal-grid';
+  const built = buildMonthGrid(year, month, notes);
+  built.cells.forEach((cell) => {
+    const el = buildCalCellEl(cell, year, month);
+    if (!cell.empty) {
+      el.addEventListener('click', () => selectCalendarDate(cell.dateKey));
+    }
+    grid.appendChild(el);
+  });
+  section.appendChild(grid);
+  return section;
+}
+
+function renderCalendarMonthScroll({ scrollToCurrent = false } = {}) {
+  if (!els.calScroll) return;
+  const notes = state.notesData.notes || [];
+  const range = ensureCalendarScrollRange();
+  els.calScroll.innerHTML = '';
+
+  let cursor = { ...range.start };
+  const endKey = monthKey(range.end.year, range.end.month);
+  while (true) {
+    const key = monthKey(cursor.year, cursor.month);
+    els.calScroll.appendChild(renderMonthBlock(cursor.year, cursor.month, notes));
+    if (key === endKey) break;
+    cursor = shiftMonth(cursor.year, cursor.month, 1);
+  }
+  els.calScroll.dataset.ready = '1';
+  updateCalendarChrome();
+  bindCalendarScrollObserver();
+
+  if (scrollToCurrent) {
+    requestAnimationFrame(() => scrollCalendarToMonth(state.calendarYear, state.calendarMonth, 'auto'));
+  } else {
+    highlightCalendarSelection();
+  }
+}
+
+let calScrollObserver = null;
+
+function bindCalendarScrollObserver() {
+  if (!els.calScroll || typeof IntersectionObserver === 'undefined') return;
+  if (calScrollObserver) {
+    calScrollObserver.disconnect();
+    calScrollObserver = null;
+  }
+  calScrollObserver = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((e) => e.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+      const top = visible[0]?.target;
+      if (!top) return;
+      const y = Number(top.dataset.year);
+      const m = Number(top.dataset.month);
+      if (!Number.isFinite(y) || !Number.isFinite(m)) return;
+      if (y === state.calendarYear && m === state.calendarMonth) return;
+      state.calendarYear = y;
+      state.calendarMonth = m;
+      updateCalendarChrome();
+    },
+    { root: els.calScroll, threshold: [0.35, 0.55, 0.75] },
+  );
+  els.calScroll.querySelectorAll('.cal-month-block').forEach((block) => {
+    calScrollObserver.observe(block);
+  });
+}
+
+function scrollCalendarToMonth(year, month, behavior = 'smooth') {
+  if (!els.calScroll) return;
+  const key = monthKey(year, month);
+  const block = els.calScroll.querySelector(`.cal-month-block[data-month-key="${key}"]`);
+  if (!block) return;
+  state.calendarYear = year;
+  state.calendarMonth = month;
+  updateCalendarChrome();
+  block.scrollIntoView({ behavior, block: 'start' });
+  highlightCalendarSelection();
+}
+
+function renderCalendarYearView() {
+  if (!els.calYearView) return;
+  const notes = state.notesData.notes || [];
+  const year = state.calendarYear;
+  els.calYearView.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'cal-year-nav';
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.className = 'cal-nav-btn';
+  prev.setAttribute('aria-label', 'ปีก่อน');
+  prev.textContent = '‹';
+  prev.addEventListener('click', () => {
+    state.calendarYear -= 1;
+    renderCalendarYearView();
+    updateCalendarChrome();
+  });
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'cal-nav-btn';
+  next.setAttribute('aria-label', 'ปีถัดไป');
+  next.textContent = '›';
+  next.addEventListener('click', () => {
+    state.calendarYear += 1;
+    renderCalendarYearView();
+    updateCalendarChrome();
+  });
+  const label = document.createElement('h3');
+  label.className = 'cal-year-nav-title';
+  label.textContent = yearLabel(year);
+  head.append(prev, label, next);
+  els.calYearView.appendChild(head);
+
+  const grid = document.createElement('div');
+  grid.className = 'cal-year-grid';
+  for (let month = 0; month < 12; month += 1) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'cal-year-month';
+    card.dataset.month = String(month);
+    if (year === new Date().getFullYear() && month === new Date().getMonth()) {
+      card.classList.add('is-current');
+    }
+    const name = document.createElement('span');
+    name.className = 'cal-year-month-name';
+    name.textContent = monthNameOnly(year, month, { short: true });
+    card.appendChild(name);
+
+    const mini = document.createElement('div');
+    mini.className = 'cal-grid cal-grid-mini';
+    const built = buildMonthGrid(year, month, notes);
+    built.cells.forEach((cell) => {
+      mini.appendChild(buildCalCellEl(cell, year, month, { mini: true }));
+    });
+    card.appendChild(mini);
+    card.addEventListener('click', () => {
+      state.calendarMonth = month;
+      state.calendarYear = year;
+      state.calendarScrollRange = null;
+      setCalendarZoom('month');
+      renderCalendarMonthScroll({ scrollToCurrent: true });
+    });
+    grid.appendChild(card);
+  }
+  els.calYearView.appendChild(grid);
+  updateCalendarChrome();
+}
+
+function highlightCalendarSelection() {
+  if (!els.calScroll) return;
+  els.calScroll.querySelectorAll('.cal-cell.selected').forEach((c) => c.classList.remove('selected'));
+  if (!state.calendarSelectedDate) return;
+  els.calScroll
+    .querySelectorAll(`.cal-cell[data-date-key="${state.calendarSelectedDate}"]`)
+    .forEach((c) => c.classList.add('selected'));
+}
+
+function collapseCalendarNotes() {
+  if (!els.calNotes) return;
+  els.calNotes.hidden = true;
+  els.calendarView?.classList.remove('cal-notes-open');
+}
+
+function selectCalendarDate(dateKey) {
+  // Tap same day again → collapse sheet
+  if (state.calendarSelectedDate === dateKey && els.calNotes && !els.calNotes.hidden) {
+    state.calendarSelectedDate = null;
+    highlightCalendarSelection();
+    collapseCalendarNotes();
+    return;
+  }
+  state.calendarSelectedDate = dateKey;
+  const parsed = parseMonthKey(dateKey.slice(0, 7));
+  if (parsed) {
+    state.calendarYear = parsed.year;
+    state.calendarMonth = parsed.month;
+    updateCalendarChrome();
+  }
+  highlightCalendarSelection();
   renderCalendarNotes(dateKey);
 }
 
@@ -1552,8 +1797,7 @@ function renderCalendarNotes(dateKey) {
   const notes = state.notesData.notes;
   const dateNotes = notesOnDate(notes, dateKey);
 
-  // Format the date label
-  const d = new Date(dateKey + 'T00:00:00');
+  const d = new Date(`${dateKey}T00:00:00`);
   const dateLabel = d.toLocaleDateString('th-TH', {
     weekday: 'long',
     year: 'numeric',
@@ -1561,12 +1805,16 @@ function renderCalendarNotes(dateKey) {
     day: 'numeric',
   });
 
+  els.calNotes.hidden = false;
+  els.calendarView?.classList.add('cal-notes-open');
+
   if (dateNotes.length === 0) {
-    els.calNotes.innerHTML = `<p class="cal-notes-empty">${dateLabel} — ไม่มีงาน</p>`;
+    els.calNotes.innerHTML = `
+      <div class="cal-notes-handle" aria-hidden="true"></div>
+      <p class="cal-notes-empty">${dateLabel} — ไม่มีงาน</p>`;
     return;
   }
 
-  // Sort scheduled notes first
   const sorted = [...dateNotes].sort((a, b) => {
     const aHasTime = !!a.scheduledAt;
     const bHasTime = !!b.scheduledAt;
@@ -1576,7 +1824,9 @@ function renderCalendarNotes(dateKey) {
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
-  let html = `<p class="cal-notes-title">${dateLabel}</p>`;
+  let html = `
+    <div class="cal-notes-handle" aria-hidden="true"></div>
+    <p class="cal-notes-title">${dateLabel}</p>`;
 
   sorted.forEach((note) => {
     const priority = notePriority(note);
@@ -1600,13 +1850,38 @@ function renderCalendarNotes(dateKey) {
 
   els.calNotes.innerHTML = html;
 
-  // Click handler for calendar note cards — open editor
   els.calNotes.querySelectorAll('.note-card').forEach((card) => {
     card.addEventListener('click', () => {
       const noteId = card.dataset.noteId;
       if (noteId) openEditor(noteId);
     });
   });
+}
+
+function goCalendarToday() {
+  const now = new Date();
+  state.calendarYear = now.getFullYear();
+  state.calendarMonth = now.getMonth();
+  state.calendarSelectedDate = dateKeyFromDate(now);
+  state.calendarScrollRange = null;
+  if (state.calendarZoom === 'year') {
+    setCalendarZoom('month');
+  }
+  renderCalendarMonthScroll({ scrollToCurrent: true });
+  renderCalendarNotes(state.calendarSelectedDate);
+}
+
+function calendarZoomOut() {
+  if (state.calendarZoom === 'year') return;
+  setCalendarZoom('year');
+  renderCalendarYearView();
+}
+
+function calendarZoomIn() {
+  if (state.calendarZoom !== 'year') return;
+  state.calendarScrollRange = null;
+  setCalendarZoom('month');
+  renderCalendarMonthScroll({ scrollToCurrent: true });
 }
 
 function renderModeSwitcher() {
@@ -6775,28 +7050,26 @@ async function init({ fromBoot = false } = {}) {
   els.dockModeNote?.addEventListener('click', onDockModeClick);
   els.dockModeCalendar?.addEventListener('click', onDockModeClick);
   els.dockModeCalorie?.addEventListener('click', onDockModeClick);
-  /* Calendar navigation */
-  els.calPrevMonth?.addEventListener('click', () => {
-    if (state.calendarMonth === 0) {
-      state.calendarMonth = 11;
+  /* Calendar — Apple-style year back / today / zoom */
+  els.calYearBack?.addEventListener('click', () => {
+    if (state.calendarZoom === 'year') {
       state.calendarYear -= 1;
+      renderCalendarYearView();
+      updateCalendarChrome();
     } else {
-      state.calendarMonth -= 1;
+      calendarZoomOut();
     }
-    state.calendarSelectedDate = null;
-    renderCalendar();
-    if (els.calNotes) els.calNotes.innerHTML = '<p class="cal-notes-empty">เลือกวันที่เพื่อดูงาน</p>';
   });
-  els.calNextMonth?.addEventListener('click', () => {
-    if (state.calendarMonth === 11) {
-      state.calendarMonth = 0;
-      state.calendarYear += 1;
-    } else {
-      state.calendarMonth += 1;
+  els.calTodayBtn?.addEventListener('click', () => goCalendarToday());
+  els.calZoomOut?.addEventListener('click', () => calendarZoomOut());
+  els.calZoomIn?.addEventListener('click', () => calendarZoomIn());
+  // Swipe-down on day sheet handle collapses it
+  els.calNotes?.addEventListener('click', (e) => {
+    if (e.target.closest?.('.cal-notes-handle')) {
+      state.calendarSelectedDate = null;
+      highlightCalendarSelection();
+      collapseCalendarNotes();
     }
-    state.calendarSelectedDate = null;
-    renderCalendar();
-    if (els.calNotes) els.calNotes.innerHTML = '<p class="cal-notes-empty">เลือกวันที่เพื่อดูงาน</p>';
   });
   els.calorieAddDayBtn?.addEventListener('click', () => addCalorieDay());
   els.calorieFabMeal?.addEventListener('click', () => openCalorieQuick('meal'));

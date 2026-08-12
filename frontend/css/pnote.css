@@ -5370,18 +5370,17 @@ body:not(.notepad-editing) .note-text-bar {
   display: none !important;
 }
 
-/* ── Calendar View (own sheet; never stacked on #list-view) ── */
+/* ── Calendar View — Apple-style vertical months + year zoom ── */
 #calendar-view.calendar-view {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0.75rem 0.5rem calc(5rem + var(--safe-bottom));
-  gap: 0.5rem;
-  overflow-y: auto;
+  padding: 0.35rem 0.5rem 0;
+  gap: 0;
+  overflow: hidden;
 }
 
-/* .view[hidden] already forces display:none; keep calendar exclusive */
 body.calendar-mode #list-view {
   display: none !important;
 }
@@ -5391,10 +5390,33 @@ body:not(.calendar-mode) #calendar-view {
 }
 
 .cal-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0.25rem;
+  gap: 0.35rem;
+  padding: 0.15rem 0.15rem 0.25rem;
+}
+
+.cal-year-back {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.25rem 0.35rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 4.5rem;
+  text-align: left;
+}
+
+.cal-year-back:active {
+  opacity: 0.7;
+}
+
+.cal-header-spacer {
+  min-width: 4.5rem;
 }
 
 .cal-nav-btn {
@@ -5413,21 +5435,62 @@ body:not(.calendar-mode) #calendar-view {
 }
 
 .cal-month-title {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.05rem;
+  font-weight: 700;
   margin: 0;
   color: var(--text);
+  text-align: center;
+  flex: 1 1 auto;
 }
 
 .cal-weekdays {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-muted);
-  padding: 0.3rem 0;
-  text-transform: uppercase;
+  padding: 0.2rem 0 0.35rem;
+}
+
+.cal-weekdays[hidden] {
+  display: none !important;
+}
+
+.cal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.cal-scroll,
+.cal-year-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 0.5rem;
+}
+
+.cal-scroll[hidden],
+.cal-year-view[hidden] {
+  display: none !important;
+}
+
+.cal-month-block {
+  padding: 0.35rem 0 1rem;
+  scroll-margin-top: 0.25rem;
+}
+
+.cal-month-block-title {
+  margin: 0 0 0.35rem 0.15rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .cal-grid {
@@ -5443,7 +5506,7 @@ body:not(.calendar-mode) #calendar-view {
   align-items: center;
   justify-content: flex-start;
   padding: 2px 0 0 0;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
@@ -5460,6 +5523,7 @@ body:not(.calendar-mode) #calendar-view {
 
 .cal-cell.empty {
   cursor: default;
+  pointer-events: none;
 }
 
 .cal-cell.today {
@@ -5467,14 +5531,28 @@ body:not(.calendar-mode) #calendar-view {
   color: var(--accent);
 }
 
+.cal-cell.today .cal-cell-day {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  border-radius: 50%;
+  width: 1.7rem;
+  height: 1.7rem;
+  display: grid;
+  place-items: center;
+}
+
 .cal-cell.selected {
-  background: var(--accent);
-  color: #fff;
   font-weight: 700;
 }
 
-.cal-cell.selected.today {
+.cal-cell.selected .cal-cell-day {
+  background: var(--accent);
   color: #fff;
+  border-radius: 50%;
+  width: 1.7rem;
+  height: 1.7rem;
+  display: grid;
+  place-items: center;
+  box-shadow: none;
 }
 
 .cal-cell-day {
@@ -5498,7 +5576,7 @@ body:not(.calendar-mode) #calendar-view {
 }
 
 .cal-cell.selected .cal-cell-dot {
-  background: #fff;
+  background: var(--accent);
   opacity: 1;
 }
 
@@ -5506,11 +5584,117 @@ body:not(.calendar-mode) #calendar-view {
   background: var(--danger);
 }
 
-/* Calendar notes list */
+/* Year overview */
+.cal-year-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.1rem 0.6rem;
+}
+
+.cal-year-nav-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.cal-year-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem 0.45rem;
+  padding-bottom: 0.5rem;
+}
+
+.cal-year-month {
+  border: none;
+  background: transparent;
+  padding: 0.15rem;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.cal-year-month:active {
+  background: var(--surface-2);
+}
+
+.cal-year-month.is-current .cal-year-month-name {
+  color: var(--accent);
+}
+
+.cal-year-month-name {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+  color: var(--text);
+}
+
+.cal-grid-mini {
+  gap: 1px;
+  pointer-events: none;
+}
+
+.cal-cell-mini {
+  font-size: 0.55rem;
+  aspect-ratio: 1 / 1;
+  border-radius: 2px;
+  padding: 0;
+  justify-content: center;
+}
+
+.cal-cell-mini .cal-cell-day {
+  margin: 0;
+  width: auto;
+  height: auto;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: inherit;
+}
+
+.cal-cell-mini.today {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.cal-cell-mini.has-notes {
+  font-weight: 700;
+}
+
+.cal-cell-mini.has-notes .cal-cell-day {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 1px;
+}
+
+/* Day notes sheet — pops under the month scroll */
 .cal-notes {
+  flex: 0 1 auto;
+  max-height: 0;
+  overflow: hidden;
   border-top: 1px solid var(--border);
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
+  background: var(--bg);
+  transition: max-height 0.22s ease;
+}
+
+.cal-notes[hidden] {
+  display: none !important;
+}
+
+#calendar-view.cal-notes-open .cal-notes {
+  max-height: 42vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.35rem 0.2rem 0.5rem;
+}
+
+.cal-notes-handle {
+  width: 2.4rem;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: var(--border);
+  margin: 0.15rem auto 0.45rem;
 }
 
 .cal-notes-title {
@@ -5525,11 +5709,62 @@ body:not(.calendar-mode) #calendar-view {
   text-align: center;
   color: var(--text-muted);
   font-size: 0.85rem;
-  padding: 1.5rem 0;
+  padding: 1rem 0 1.2rem;
 }
 
 .cal-notes .note-card-compact {
   margin-bottom: 0;
+}
+
+/* Bottom toolbar: Today + zoom −/+ (above mode dock) */
+.cal-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.25rem calc(4.6rem + var(--safe-bottom));
+}
+
+.cal-toolbar-btn {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-height: 2.2rem;
+}
+
+.cal-toolbar-btn:active {
+  opacity: 0.7;
+}
+
+.cal-toolbar-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.cal-zoom-group {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 0.1rem;
+}
+
+.cal-zoom-btn {
+  width: 2.2rem;
+  min-width: 2.2rem;
+  padding: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--text);
+  display: grid;
+  place-items: center;
 }
 
 /* Calendar mode: hide list-only chrome; keep mode switch + add */

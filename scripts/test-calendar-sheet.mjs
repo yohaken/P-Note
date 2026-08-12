@@ -1,5 +1,5 @@
 /**
- * Assert calendar is an exclusive sheet (not stacked on list-view).
+ * Assert Apple-style calendar sheet: exclusive view, vertical months, year zoom.
  * Usage: TEST_URL=http://localhost:5000/note.html node scripts/test-calendar-sheet.mjs
  */
 import { chromium } from 'playwright-core';
@@ -23,7 +23,6 @@ page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
 await page.waitForTimeout(1500);
 
-// Dismiss auth gate if present (listeners should still be wired)
 await page.evaluate(() => {
   const auth = document.getElementById('auth-overlay');
   if (auth) auth.hidden = true;
@@ -40,78 +39,90 @@ async function sheetState() {
   return page.evaluate(() => {
     const list = document.getElementById('list-view');
     const cal = document.getElementById('calendar-view');
-    const search = document.getElementById('note-search-row');
-    const empty = document.getElementById('empty-state');
-    const filters = document.getElementById('filter-dock-filters');
+    const scroll = document.getElementById('cal-scroll');
+    const year = document.getElementById('cal-year-view');
+    const notes = document.getElementById('cal-notes');
     return {
       bodyCalendarMode: document.body.classList.contains('calendar-mode'),
+      zoom: cal?.dataset?.calZoom || null,
       modeName: document.getElementById('mode-switch-name')?.textContent || '',
-      listHidden: Boolean(list?.hidden),
       listDisplay: list ? getComputedStyle(list).display : null,
-      calHidden: Boolean(cal?.hidden),
       calDisplay: cal ? getComputedStyle(cal).display : null,
-      searchDisplay: search ? getComputedStyle(search).display : null,
-      emptyDisplay: empty ? getComputedStyle(empty).display : null,
-      filtersDisplay: filters ? getComputedStyle(filters).display : null,
-      calGridCells: document.querySelectorAll('#cal-grid .cal-cell').length,
-      topbarHidden: Boolean(document.getElementById('board-topbar')?.hidden),
+      monthBlocks: scroll ? scroll.querySelectorAll('.cal-month-block').length : 0,
+      scrollHidden: Boolean(scroll?.hidden),
+      yearHidden: Boolean(year?.hidden),
+      yearMonths: year ? year.querySelectorAll('.cal-year-month').length : 0,
+      notesHidden: Boolean(notes?.hidden),
+      notesOpen: Boolean(cal?.classList.contains('cal-notes-open')),
+      hasToday: Boolean(document.getElementById('cal-today-btn')),
+      hasZoomOut: Boolean(document.getElementById('cal-zoom-out')),
+      hasZoomIn: Boolean(document.getElementById('cal-zoom-in')),
     };
   });
 }
 
-const workShot = await snap('calendar-sheet-work.png');
+await snap('cal-apple-work.png');
 await page.click('#dock-mode-calendar');
+await page.waitForTimeout(500);
+const monthState = await sheetState();
+await snap('cal-apple-month.png');
+
+// Tap a day (prefer today, else first numbered cell)
+await page.evaluate(() => {
+  const today = document.querySelector('#cal-scroll .cal-cell.today:not(.empty)');
+  const any = document.querySelector('#cal-scroll .cal-cell[data-date-key]');
+  (today || any)?.click();
+});
+await page.waitForTimeout(300);
+const dayState = await sheetState();
+await snap('cal-apple-day-sheet.png');
+
+await page.click('#cal-zoom-out');
 await page.waitForTimeout(400);
-const calState = await sheetState();
-const calShot = await snap('calendar-sheet-calendar.png');
+const yearState = await sheetState();
+await snap('cal-apple-year.png');
+
+await page.click('#cal-zoom-in');
+await page.waitForTimeout(400);
+const backMonth = await sheetState();
 
 await page.click('#dock-mode-work');
-await page.waitForTimeout(400);
+await page.waitForTimeout(300);
 const workState = await sheetState();
-const workBackShot = await snap('calendar-sheet-work-back.png');
-
-await page.click('#dock-mode-calendar');
-await page.waitForTimeout(400);
-// Simulate back-from-editor path
-await page.evaluate(() => {
-  document.body.classList.add('calendar-mode');
-});
-// Prefer calling showView if exported on module; fallback click already done
-const afterCal = await sheetState();
 
 const passExclusive =
-  calState.bodyCalendarMode === true &&
-  calState.listDisplay === 'none' &&
-  calState.calDisplay !== 'none' &&
-  calState.calHidden === false &&
-  calState.calGridCells > 0;
+  monthState.bodyCalendarMode &&
+  monthState.listDisplay === 'none' &&
+  monthState.calDisplay !== 'none' &&
+  monthState.monthBlocks >= 12;
 
-const passNoListChrome =
-  calState.searchDisplay === 'none' &&
-  (calState.emptyDisplay === 'none' || calState.listDisplay === 'none') &&
-  calState.filtersDisplay === 'none';
+const passDaySheet = dayState.notesOpen === true && dayState.notesHidden === false;
 
-const passWorkRestored =
-  workState.bodyCalendarMode === false &&
-  workState.calDisplay === 'none' &&
-  workState.listDisplay !== 'none';
+const passYearZoom =
+  yearState.zoom === 'year' &&
+  yearState.yearHidden === false &&
+  yearState.scrollHidden === true &&
+  yearState.yearMonths === 12 &&
+  backMonth.zoom === 'month' &&
+  backMonth.scrollHidden === false;
+
+const passWork =
+  workState.bodyCalendarMode === false && workState.calDisplay === 'none';
 
 const report = {
   url,
   passExclusive,
-  passNoListChrome,
-  passWorkRestored,
-  calState,
+  passDaySheet,
+  passYearZoom,
+  passWork,
+  monthState,
+  dayState,
+  yearState,
+  backMonth,
   workState,
-  afterCal,
-  shots: { workShot, calShot, workBackShot },
   pageErrors: errors.slice(0, 8),
 };
 
 console.log(JSON.stringify(report, null, 2));
-
-if (!passExclusive || !passNoListChrome || !passWorkRestored) {
-  process.exitCode = 1;
-}
-
+if (!passExclusive || !passDaySheet || !passYearZoom || !passWork) process.exitCode = 1;
 await browser.close();

@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="164">
-  <meta name="pnote-built" content="2026-08-11T17:00:00+00:00">
+  <meta name="pnote-build" content="165">
+  <meta name="pnote-built" content="2026-08-11T18:00:00+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=164"></script>
+  <script src="js/cache-bootstrap.js?v=165"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=164">
+  <link rel="stylesheet" href="css/pnote.css?v=165">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -230,19 +230,30 @@
       </div>
     </div>
 
-    <section id="calendar-view" class="view calendar-view" hidden aria-label="ปฏิทิน">
+    <section id="calendar-view" class="view calendar-view" hidden aria-label="ปฏิทิน" data-cal-zoom="month">
       <header class="cal-header">
-        <button type="button" class="cal-nav-btn" id="cal-prev-month" aria-label="เดือนก่อน">‹</button>
+        <button type="button" class="cal-year-back" id="cal-year-back" aria-label="มุมมองรายปี">‹ <span id="cal-year-label">—</span></button>
         <h2 class="cal-month-title" id="cal-month-title"></h2>
-        <button type="button" class="cal-nav-btn" id="cal-next-month" aria-label="เดือนถัดไป">›</button>
+        <span class="cal-header-spacer" aria-hidden="true"></span>
       </header>
-      <div class="cal-weekdays" aria-hidden="true">
+      <div class="cal-weekdays" id="cal-weekdays" aria-hidden="true">
         <span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span><span>อา</span>
       </div>
-      <div class="cal-grid" id="cal-grid"></div>
-      <div class="cal-notes" id="cal-notes">
+      <div class="cal-body">
+        <div class="cal-scroll" id="cal-scroll" tabindex="0" aria-label="เลื่อนดูเดือน"></div>
+        <div class="cal-year-view" id="cal-year-view" hidden aria-label="มุมมองรายปี"></div>
+      </div>
+      <div class="cal-notes" id="cal-notes" hidden>
+        <div class="cal-notes-handle" aria-hidden="true"></div>
         <p class="cal-notes-empty">เลือกวันที่เพื่อดูงาน</p>
       </div>
+      <footer class="cal-toolbar" aria-label="ควบคุมปฏิทิน">
+        <button type="button" class="cal-toolbar-btn" id="cal-today-btn">วันนี้</button>
+        <div class="cal-zoom-group" role="group" aria-label="ซูม">
+          <button type="button" class="cal-toolbar-btn cal-zoom-btn" id="cal-zoom-out" aria-label="ซูมออก — มุมมองปี" title="ซูมออก">−</button>
+          <button type="button" class="cal-toolbar-btn cal-zoom-btn" id="cal-zoom-in" aria-label="ซูมเข้า — มุมมองเดือน" title="ซูมเข้า">+</button>
+        </div>
+      </footer>
     </section>
 
     <div id="ai-note-modal" class="modal" hidden>
@@ -914,7 +925,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=164"></script>
-  <script src="js/update-watch.js?v=164"></script>
+  <script type="module" src="js/boot.js?v=165"></script>
+  <script src="js/update-watch.js?v=165"></script>
 </body>
 </html>
