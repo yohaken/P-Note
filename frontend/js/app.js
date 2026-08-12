@@ -2,7 +2,7 @@ import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
 import { CONFIG } from './config.js?v=154';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=191';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=192';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -97,7 +97,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=191';
+} from './calorie.js?v=192';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -148,7 +148,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=191';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=192';
 import {
   allIcons,
   bestIconForLabel,
@@ -1023,15 +1023,24 @@ function applyBoxColors() {
   root.style.setProperty('--due-overdue', due.overdue);
 }
 
+function calorieToneTargets() {
+  return [
+    document.documentElement,
+    document.body,
+    document.getElementById('calorie-view'),
+    document.querySelector('.calorie-table'),
+    document.getElementById('tone-settings-row'),
+  ].filter(Boolean);
+}
+
 function applyCalorieTones() {
   const tones = normalizeCalorieTones(state.settings?.calorieTones);
   if (state.settings) state.settings.calorieTones = tones;
-  // Must set on <body> too — body rules used to pin defaults and blocked :root updates.
-  const targets = [document.documentElement, document.body].filter(Boolean);
-  targets.forEach((el) => {
-    el.style.setProperty('--cal-tone-eat', tones.eat);
-    el.style.setProperty('--cal-tone-burn', tones.burn);
-    el.style.setProperty('--cal-tone-empty', tones.empty);
+  const vars = calorieToneCssVars(tones);
+  calorieToneTargets().forEach((el) => {
+    Object.entries(vars).forEach(([key, value]) => {
+      el.style.setProperty(key, value);
+    });
   });
   if (els.calorieToneEat && document.activeElement !== els.calorieToneEat) {
     els.calorieToneEat.value = tones.eat;
@@ -1042,6 +1051,11 @@ function applyCalorieTones() {
   if (els.calorieToneEmpty && document.activeElement !== els.calorieToneEmpty) {
     els.calorieToneEmpty.value = tones.empty;
   }
+  // Live swatches in Settings so the user sees the change immediately.
+  document.querySelectorAll('[data-tone-swatch]').forEach((node) => {
+    const key = node.getAttribute('data-tone-swatch');
+    if (key && tones[key]) node.style.background = tones[key];
+  });
 }
 
 function persistCalorieTonesFromUi({ reset = false } = {}) {
@@ -1656,6 +1670,7 @@ function renderCalorieSheet() {
   paintCalorieDash(sheet);
   paintCalorieTodayCard(rows, sheet);
   paintCalorieHealthSheet(sheet);
+  applyCalorieTones();
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
   document.body.classList.toggle('calorie-health-pane', state.caloriePane === 'health');
   if (els.calorieScroll) els.calorieScroll.hidden = state.caloriePane === 'health';
@@ -7617,8 +7632,11 @@ async function init({ fromBoot = false } = {}) {
   });
   const onCalorieToneChange = () => persistCalorieTonesFromUi();
   [els.calorieToneEat, els.calorieToneBurn, els.calorieToneEmpty].forEach((el) => {
-    el?.addEventListener('input', onCalorieToneChange);
-    el?.addEventListener('change', onCalorieToneChange);
+    if (!el) return;
+    el.addEventListener('input', onCalorieToneChange);
+    el.addEventListener('change', onCalorieToneChange);
+    // Some mobile WebViews only commit the native color picker on blur.
+    el.addEventListener('blur', onCalorieToneChange);
   });
   els.calorieToneReset?.addEventListener('click', () => {
     persistCalorieTonesFromUi({ reset: true });
