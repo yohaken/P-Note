@@ -108,6 +108,8 @@ const DEFAULTS = {
   recentNotepadIds: [],
   /** Table / today-card color tones — filled in loadSettings via normalizeCalorieTones */
   calorieTones: null,
+  /** Last health-summary chart range (days): 1/3/7/14/90/180/365 */
+  calorieTrendDays: 7,
 };
 
 function withFixedUi(settings) {
@@ -157,6 +159,16 @@ export function normalizeCalorieTones(raw) {
     burn: safeHexColor(src.burn, DEFAULT_CALORIE_TONES.burn),
     empty: safeHexColor(src.empty, DEFAULT_CALORIE_TONES.empty),
   };
+}
+
+/** Keep in sync with HEALTH_TREND_RANGES in calorie.js */
+const CALORIE_TREND_DAY_OPTIONS = [1, 3, 7, 14, 90, 180, 365];
+
+export function normalizeCalorieTrendDays(raw, fallback = 7) {
+  const n = Number(raw);
+  if (CALORIE_TREND_DAY_OPTIONS.includes(n)) return n;
+  const fb = Number(fallback);
+  return CALORIE_TREND_DAY_OPTIONS.includes(fb) ? fb : 7;
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
@@ -447,6 +459,7 @@ export function loadSettings() {
         lastNotepadId: null,
         recentNotepadIds: [],
         calorieTones: normalizeCalorieTones(null),
+        calorieTrendDays: normalizeCalorieTrendDays(null),
       });
     }
     const parsed = JSON.parse(raw);
@@ -477,6 +490,7 @@ export function loadSettings() {
       lastNotepadId: parsed.lastNotepadId ? String(parsed.lastNotepadId) : null,
       recentNotepadIds: normalizeRecentNotepadIds(parsed.recentNotepadIds, parsed.lastNotepadId),
       calorieTones: normalizeCalorieTones(parsed.calorieTones),
+      calorieTrendDays: normalizeCalorieTrendDays(parsed.calorieTrendDays),
     });
   } catch {
     return withFixedUi({
@@ -498,6 +512,7 @@ export function loadSettings() {
       lastNotepadId: null,
       recentNotepadIds: [],
       calorieTones: normalizeCalorieTones(null),
+      calorieTrendDays: normalizeCalorieTrendDays(null),
     });
   }
 }
@@ -529,6 +544,7 @@ export function saveSettings(settings) {
     lastNotepadId: settings.lastNotepadId ? String(settings.lastNotepadId) : null,
     recentNotepadIds: normalizeRecentNotepadIds(settings.recentNotepadIds, settings.lastNotepadId),
     calorieTones: normalizeCalorieTones(settings.calorieTones),
+    calorieTrendDays: normalizeCalorieTrendDays(settings.calorieTrendDays),
   });
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
