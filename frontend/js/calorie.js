@@ -6,7 +6,11 @@
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
 export const DEFAULT_KCAL_PER_KG = 7700;
+/** Fallback base when profile (สูง/อายุ) or weight is incomplete. */
 export const DEFAULT_BASE_KCAL = 1784;
+export const DEFAULT_HEIGHT_CM = 170;
+export const DEFAULT_AGE = 30;
+export const DEFAULT_SEX = 'male';
 export const MEAL_SLOTS = 7;
 
 const THAI_DAYS_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
@@ -237,20 +241,63 @@ function finalizeTotals(raw, kcalPerKg, proteinFactor) {
   };
 }
 
-/** Last non-null waist / weight / base walking newest → oldest. */
+/**
+ * Mifflin–St Jeor BMR (kcal/day).
+ * male: 10w + 6.25h - 5a + 5 · female: 10w + 6.25h - 5a - 161
+ */
+export function computeBmr({ weightKg, heightCm, ageYears, sex } = {}) {
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return null;
+  if (!Number.isFinite(heightCm) || heightCm < 100) return null;
+  if (!Number.isFinite(ageYears) || ageYears < 10) return null;
+  const offset = sex === 'female' ? -161 : 5;
+  return Math.round(10 * weightKg + 6.25 * heightCm - 5 * ageYears + offset);
+}
+
+export function computeBmi(weightKg, heightCm) {
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return null;
+  if (!Number.isFinite(heightCm) || heightCm < 100) return null;
+  const m = heightCm / 100;
+  return round(weightKg / (m * m), 1);
+}
+
+/** Weight for a day: own value, else nearest older day, else any known. */
+export function resolveDayWeight(day, sheet) {
+  if (Number.isFinite(day?.weight) && day.weight > 0) return day.weight;
+  const days = Array.isArray(sheet?.days) ? sheet.days : [];
+  const older = days
+    .filter((d) => d.date < day?.date && Number.isFinite(d.weight) && d.weight > 0)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  if (older[0]) return older[0].weight;
+  const any = days.find((d) => Number.isFinite(d.weight) && d.weight > 0);
+  return any?.weight ?? null;
+}
+
+/** Auto base (BMR) for a day from that day's weight + body profile. */
+export function resolveDayBase(day, sheet) {
+  const weight = resolveDayWeight(day, sheet);
+  const bmr = computeBmr({
+    weightKg: weight,
+    heightCm: sheet?.heightCm,
+    ageYears: sheet?.age,
+    sex: sheet?.sex,
+  });
+  if (bmr != null) return bmr;
+  const fb = Number.isFinite(sheet?.defaultBase) ? sheet.defaultBase : DEFAULT_BASE_KCAL;
+  return Math.round(fb);
+}
+
+/** Last non-null waist / weight walking newest → oldest. Base is always derived. */
 export function lastKnownBody(calorie) {
   const sheet = normalizeCalorie(calorie);
   let waist = null;
   let weight = null;
-  let base = null;
-  for (let i = sheet.days.length - 1; i >= 0; i -= 1) {
-    const d = sheet.days[i];
+  for (const d of sheet.days) {
     if (waist == null && Number.isFinite(d.waist)) waist = d.waist;
     if (weight == null && Number.isFinite(d.weight)) weight = d.weight;
-    if (base == null && Number.isFinite(d.base)) base = d.base;
-    if (waist != null && weight != null && base != null) break;
+    if (waist != null && weight != null) break;
   }
-  return { waist, weight, base: base ?? sheet.defaultBase };
+  const base = resolveDayBase({ weight, waist, date: toDateKey() }, sheet);
+  return { waist, weight, base };
 }
 
 export function createEmptyCalorie(overrides = {}) {
@@ -260,6 +307,9 @@ export function createEmptyCalorie(overrides = {}) {
     proteinFactor: DEFAULT_PROTEIN_FACTOR,
     kcalPerKg: DEFAULT_KCAL_PER_KG,
     defaultBase: DEFAULT_BASE_KCAL,
+    heightCm: DEFAULT_HEIGHT_CM,
+    age: DEFAULT_AGE,
+    sex: DEFAULT_SEX,
     days: [],
     ...overrides,
   });
@@ -306,26 +356,32 @@ export function normalizeCalorie(raw) {
   const proteinFactor = clampNum(src.proteinFactor, 0.5, 4, DEFAULT_PROTEIN_FACTOR);
   const kcalPerKg = clampNum(src.kcalPerKg, 1000, 20000, DEFAULT_KCAL_PER_KG);
   const defaultBase = clampNum(src.defaultBase, 800, 5000, DEFAULT_BASE_KCAL);
+  const heightCm = clampNum(src.heightCm, 100, 250, DEFAULT_HEIGHT_CM);
+  const age = clampNum(src.age, 10, 100, DEFAULT_AGE);
+  const sex = src.sex === 'female' ? 'female' : 'male';
   const days = (Array.isArray(src.days) ? src.days : [])
     .filter((d) => d && typeof d === 'object')
     .map((d) => normalizeDayRow(d, defaultBase))
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .slice(-400);
+    // Newest first — easier to log today at the top.
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+    .slice(0, 400);
   return {
     version: CALORIE_PAYLOAD_VERSION,
     updatedAt: src.updatedAt || nowIso(),
     proteinFactor: round(proteinFactor, 2),
     kcalPerKg: Math.round(kcalPerKg),
     defaultBase: Math.round(defaultBase),
+    heightCm: Math.round(heightCm),
+    age: Math.round(age),
+    sex,
     days,
   };
 }
 
-/** Per-day derived metrics (matches sheet columns). */
-export function computeDayMetrics(day, { proteinFactor, kcalPerKg, defaultBase } = {}) {
-  const pf = Number.isFinite(proteinFactor) ? proteinFactor : DEFAULT_PROTEIN_FACTOR;
-  const kpkg = Number.isFinite(kcalPerKg) ? kcalPerKg : DEFAULT_KCAL_PER_KG;
-  const baseFallback = Number.isFinite(defaultBase) ? defaultBase : DEFAULT_BASE_KCAL;
+/** Per-day derived metrics (matches sheet columns). Base = auto BMR. */
+export function computeDayMetrics(day, sheet = {}) {
+  const pf = Number.isFinite(sheet.proteinFactor) ? sheet.proteinFactor : DEFAULT_PROTEIN_FACTOR;
+  const kpkg = Number.isFinite(sheet.kcalPerKg) ? sheet.kcalPerKg : DEFAULT_KCAL_PER_KG;
 
   let addCal = 0;
   let prot = 0;
@@ -338,13 +394,15 @@ export function computeDayMetrics(day, { proteinFactor, kcalPerKg, defaultBase }
   const weight = Number.isFinite(day?.weight) ? day.weight : null;
   const waist = Number.isFinite(day?.waist) ? day.waist : null;
   const mus = Number.isFinite(day?.mus) ? day.mus : 0;
-  const base = Number.isFinite(day?.base) ? day.base : baseFallback;
+  const base = resolveDayBase(day, sheet);
   const bsum = base + mus;
-  const protTarget = weight != null ? weight * pf : null;
+  const weightForProt = resolveDayWeight(day, sheet);
+  const protTarget = weightForProt != null ? weightForProt * pf : null;
   const pRm = protTarget != null ? prot - protTarget : null;
   const balance = addCal - bsum;
   const blKg = kpkg ? balance / kpkg : null;
   const pctBl = bsum ? (balance / bsum) * 100 : null;
+  const bmi = computeBmi(weightForProt, sheet.heightCm);
 
   return {
     addCal: round(addCal, 0),
@@ -358,6 +416,7 @@ export function computeDayMetrics(day, { proteinFactor, kcalPerKg, defaultBase }
     pctBl: pctBl == null ? null : round(pctBl, 1),
     weight,
     waist,
+    bmi,
     protTarget: protTarget == null ? null : round(protTarget, 1),
   };
 }
@@ -366,18 +425,26 @@ export function computeTotals(calorie) {
   const sheet = normalizeCalorie(calorie);
   const all = emptyTotals();
   const byMonth = new Map();
+  // Day# within month counts oldest→newest even though display is newest-first.
   const monthIndex = new Map();
+  const countById = new Map();
+  [...sheet.days]
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .forEach((day) => {
+      const mk = monthKeyFromDate(day.date);
+      const mi = (monthIndex.get(mk) || 0) + 1;
+      monthIndex.set(mk, mi);
+      countById.set(day.id, mi);
+    });
   const rows = sheet.days.map((day) => {
     const metrics = computeDayMetrics(day, sheet);
     const monthKey = monthKeyFromDate(day.date);
-    const mi = (monthIndex.get(monthKey) || 0) + 1;
-    monthIndex.set(monthKey, mi);
     accumulateTotals(all, metrics);
     if (!byMonth.has(monthKey)) byMonth.set(monthKey, emptyTotals());
     accumulateTotals(byMonth.get(monthKey), metrics);
     return {
       ...day,
-      count: mi,
+      count: countById.get(day.id) || 0,
       monthKey,
       monthLabel: formatMonthLabel(monthKey),
       metrics,
@@ -436,7 +503,7 @@ export function upsertDay(calorie, dayPartial) {
   } else {
     days.push(next);
   }
-  days.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  days.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   return { ...sheet, days, updatedAt: nowIso() };
 }
 
@@ -458,7 +525,7 @@ export function deleteDay(calorie, dayId) {
   };
 }
 
-/** Add today (or next empty date) cloning last known waist/weight/base. */
+/** Add today (or date) cloning last known waist/weight. Base is auto from BMR. */
 export function addDayFromLast(calorie, dateKey = toDateKey(new Date())) {
   const sheet = normalizeCalorie(calorie);
   const existing = sheet.days.find((d) => d.date === dateKey);
@@ -468,7 +535,6 @@ export function addDayFromLast(calorie, dateKey = toDateKey(new Date())) {
     date: dateKey,
     waist: known.waist,
     weight: known.weight,
-    base: known.base,
     meals: [],
     mus: null,
     note: '',
@@ -588,7 +654,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date())) {
         <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
         ${meals}
         <td class="cal-col-burn"><input class="cal-cell" data-cal-field="mus" data-day-id="${esc(row.id)}" value="${row.mus ?? ''}" inputmode="numeric" aria-label="ออกกำลัง"></td>
-        <td class="cal-col-burn"><input class="cal-cell" data-cal-field="base" data-day-id="${esc(row.id)}" value="${row.base ?? ''}" inputmode="numeric" aria-label="base"></td>
+        <td class="cal-col-burn cal-derived cal-base-auto" title="BMR จากน้ำหนัก × ส่วนสูง × อายุ">${m.base ?? ''}</td>
         <td class="cal-col-sum cal-derived">${m.bsum ?? ''}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.pctBl)}">${m.pctBl == null ? '' : `${m.pctBl}%`}</td>
         <td class="cal-col-note"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${esc(row.id)}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>

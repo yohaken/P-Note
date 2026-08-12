@@ -72,14 +72,16 @@ import {
   computeTotals,
   deleteDay,
   formatDateDisplay,
+  formatSigned,
   monthKeyFromDate,
   normalizeCalorie,
   patchDay,
   renderCalorieRowsHtml,
   renderCalorieTotalsHtml,
+  thaiDayName,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=164';
+} from './calorie.js?v=168';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -522,7 +524,19 @@ const els = {
   calorieScroll: document.getElementById('calorie-scroll'),
   calorieAddDayBtn: document.getElementById('calorie-add-day-btn'),
   calorieProteinFactor: document.getElementById('calorie-protein-factor'),
-  calorieDefaultBase: document.getElementById('calorie-default-base'),
+  calorieHeight: document.getElementById('calorie-height'),
+  calorieAge: document.getElementById('calorie-age'),
+  calorieSex: document.getElementById('calorie-sex'),
+  calorieTodayCard: document.getElementById('calorie-today-card'),
+  calorieTodayTitle: document.getElementById('calorie-today-title'),
+  calorieTodaySub: document.getElementById('calorie-today-sub'),
+  calorieTodayBase: document.getElementById('calorie-today-base'),
+  calorieTodayBmi: document.getElementById('calorie-today-bmi'),
+  calorieTodayWeight: document.getElementById('calorie-today-weight'),
+  calorieTodayWaist: document.getElementById('calorie-today-waist'),
+  calorieTodayMus: document.getElementById('calorie-today-mus'),
+  calorieTodayMeals: document.getElementById('calorie-today-meals'),
+  calorieTodaySummary: document.getElementById('calorie-today-summary'),
   calorieFabs: document.getElementById('dock-context-calorie'),
   calorieFabMeal: document.getElementById('calorie-fab-meal'),
   calorieFabMus: document.getElementById('calorie-fab-mus'),
@@ -1293,17 +1307,89 @@ function syncCalorieMonthFromScroll() {
   }
 }
 
+function syncCalorieProfileInputs(sheet) {
+  if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
+    els.calorieProteinFactor.value = String(sheet.proteinFactor);
+  }
+  if (els.calorieHeight && document.activeElement !== els.calorieHeight) {
+    els.calorieHeight.value = String(sheet.heightCm ?? '');
+  }
+  if (els.calorieAge && document.activeElement !== els.calorieAge) {
+    els.calorieAge.value = String(sheet.age ?? '');
+  }
+  if (els.calorieSex && document.activeElement !== els.calorieSex) {
+    els.calorieSex.value = sheet.sex === 'female' ? 'female' : 'male';
+  }
+}
+
+function paintCalorieTodayCard(rows, sheet) {
+  const card = els.calorieTodayCard;
+  if (!card) return;
+  const todayKey = toDateKey();
+  let row = rows.find((r) => r.date === todayKey);
+  if (!row && rows.length) row = rows[0]; // newest day if today missing
+  if (!row) {
+    card.hidden = true;
+    card.dataset.dayId = '';
+    return;
+  }
+  card.hidden = false;
+  card.dataset.dayId = row.id;
+  const isToday = row.date === todayKey;
+  if (els.calorieTodayTitle) {
+    els.calorieTodayTitle.textContent = isToday ? 'วันนี้' : 'วันล่าสุด';
+  }
+  if (els.calorieTodaySub) {
+    els.calorieTodaySub.textContent = `${row.dateDisplay || formatDateDisplay(row.date)} · ${row.dayName || thaiDayName(row.date)}`;
+  }
+  const m = row.metrics || {};
+  if (els.calorieTodayBase) els.calorieTodayBase.textContent = `base ${m.base ?? '—'}`;
+  if (els.calorieTodayBmi) {
+    els.calorieTodayBmi.textContent = m.bmi != null ? `BMI ${m.bmi}` : 'BMI —';
+  }
+  const fillIfIdle = (input, value) => {
+    if (!input || document.activeElement === input) return;
+    input.value = value == null || value === '' ? '' : String(value);
+  };
+  fillIfIdle(els.calorieTodayWeight, row.weight);
+  fillIfIdle(els.calorieTodayWaist, row.waist);
+  fillIfIdle(els.calorieTodayMus, row.mus);
+  if (els.calorieTodayMeals && document.activeElement?.closest?.('#calorie-today-meals') == null) {
+    const meals = row.meals || [];
+    els.calorieTodayMeals.innerHTML = Array.from({ length: 7 }, (_, i) => {
+      const v = meals[i] || '';
+      return `<label class="ctc-meal"><span class="ctc-meal-label">${i + 1}</span><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}"></label>`;
+    }).join('');
+  }
+  if (els.calorieTodaySummary) {
+    const items = [
+      ['cal', m.addCal, null],
+      ['P', m.prot, null],
+      ['bal', m.balance == null ? null : formatSigned(m.balance, 0), m.balance],
+      ['Σ', m.bsum, null],
+      ['mus', m.mus, null],
+    ];
+    els.calorieTodaySummary.innerHTML = items
+      .map(([label, val, tone]) => {
+        const cls =
+          tone == null || !Number.isFinite(tone) || tone === 0
+            ? ''
+            : tone > 0
+              ? 'is-pos'
+              : 'is-neg';
+        return `<span class="${cls}">${label} <strong>${val == null || val === '' ? '—' : val}</strong></span>`;
+      })
+      .join('');
+  }
+}
+
 /** Update monthly totals + derived columns without destroying inputs. */
 function refreshCalorieDerived() {
   if (!els.calorieTbody) return;
   const { sheet, rows } = computeTotals(ensureCaloriePayload());
   paintCalorieMonthTotals(state.calorieActiveMonth);
-  if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
-    els.calorieProteinFactor.value = String(sheet.proteinFactor);
-  }
-  if (els.calorieDefaultBase && document.activeElement !== els.calorieDefaultBase) {
-    els.calorieDefaultBase.value = String(sheet.defaultBase);
-  }
+  syncCalorieProfileInputs(sheet);
+  paintCalorieTodayCard(rows, sheet);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
   rows.forEach((row) => {
     const tr = els.calorieTbody.querySelector(`tr[data-day-id="${CSS.escape(row.id)}"]`);
@@ -1314,7 +1400,7 @@ function refreshCalorieDerived() {
     const dateBtn = tr.querySelector('.cal-date-btn');
     if (dateBtn) dateBtn.textContent = row.dateDisplay || formatDateDisplay(row.date);
     const derived = tr.querySelectorAll('td.cal-derived');
-    // Order: addCal, prot, pRm, balance, blKg, bsum, pctBl
+    // Order: addCal, prot, pRm, balance, blKg, base, bsum, pctBl
     setDerivedCell(derived[0], m.addCal ?? '', null);
     setDerivedCell(derived[1], m.prot ?? '', null);
     setDerivedCell(
@@ -1332,9 +1418,10 @@ function refreshCalorieDerived() {
       m.blKg == null ? '' : (m.blKg > 0 ? `+${m.blKg}` : String(m.blKg)),
       m.blKg,
     );
-    setDerivedCell(derived[5], m.bsum ?? '', null);
+    setDerivedCell(derived[5], m.base ?? '', null);
+    setDerivedCell(derived[6], m.bsum ?? '', null);
     setDerivedCell(
-      derived[6],
+      derived[7],
       m.pctBl == null ? '' : `${m.pctBl}%`,
       m.pctBl,
     );
@@ -1349,15 +1436,14 @@ function renderCalorieSheet() {
     state.calorieActiveMonth = fallbackMonth;
   }
   paintCalorieMonthTotals(state.calorieActiveMonth);
-  if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
-    els.calorieProteinFactor.value = String(sheet.proteinFactor);
-  }
-  if (els.calorieDefaultBase && document.activeElement !== els.calorieDefaultBase) {
-    els.calorieDefaultBase.value = String(sheet.defaultBase);
-  }
+  syncCalorieProfileInputs(sheet);
   els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows);
+  paintCalorieTodayCard(rows, sheet);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
-  requestAnimationFrame(() => syncCalorieMonthFromScroll());
+  requestAnimationFrame(() => {
+    if (els.calorieScroll) els.calorieScroll.scrollTop = 0;
+    syncCalorieMonthFromScroll();
+  });
 }
 
 function addCalorieDay() {
@@ -1368,7 +1454,7 @@ function addCalorieDay() {
     fullRender: true,
   });
   requestAnimationFrame(() => {
-    if (els.calorieScroll) els.calorieScroll.scrollTop = els.calorieScroll.scrollHeight;
+    if (els.calorieScroll) els.calorieScroll.scrollTop = 0;
     syncCalorieMonthFromScroll();
   });
 }
@@ -7101,18 +7187,69 @@ async function init({ fromBoot = false } = {}) {
       closeCalorieQuick();
     }
   });
-  const onCalorieFactorChange = () => {
+  const onCalorieProfileChange = () => {
     const sheet = ensureCaloriePayload();
     const pf = Number(els.calorieProteinFactor?.value);
-    const base = Number(els.calorieDefaultBase?.value);
+    const height = Number(els.calorieHeight?.value);
+    const age = Number(els.calorieAge?.value);
+    const sex = els.calorieSex?.value === 'female' ? 'female' : 'male';
     persistCalorie({
       ...sheet,
       proteinFactor: Number.isFinite(pf) ? pf : sheet.proteinFactor,
-      defaultBase: Number.isFinite(base) ? base : sheet.defaultBase,
-    }, { status: 'อัปเดตค่าตั้งต้นแล้ว', fullRender: true });
+      heightCm: Number.isFinite(height) ? height : sheet.heightCm,
+      age: Number.isFinite(age) ? age : sheet.age,
+      sex,
+    }, { status: 'อัปเดตโปรไฟล์ · คำนวณ base ใหม่', fullRender: true });
   };
-  els.calorieProteinFactor?.addEventListener('change', onCalorieFactorChange);
-  els.calorieDefaultBase?.addEventListener('change', onCalorieFactorChange);
+  els.calorieProteinFactor?.addEventListener('change', onCalorieProfileChange);
+  els.calorieHeight?.addEventListener('change', onCalorieProfileChange);
+  els.calorieAge?.addEventListener('change', onCalorieProfileChange);
+  els.calorieSex?.addEventListener('change', onCalorieProfileChange);
+
+  const applyTodayCardField = (input) => {
+    const dayId = els.calorieTodayCard?.dataset?.dayId;
+    if (!dayId || !input) return;
+    const sheet = ensureCaloriePayload();
+    if (input.hasAttribute('data-ctc-meal')) {
+      const idx = Number(input.getAttribute('data-ctc-meal'));
+      const day = sheet.days.find((d) => d.id === dayId);
+      if (!day || !Number.isFinite(idx)) return;
+      const meals = [...(day.meals || [])];
+      while (meals.length < 7) meals.push('');
+      meals[idx] = String(input.value || '').trim().slice(0, 32);
+      persistCalorie(patchDay(sheet, dayId, { meals }), { status: '' });
+      return;
+    }
+    const field =
+      input === els.calorieTodayWeight
+        ? 'weight'
+        : input === els.calorieTodayWaist
+          ? 'waist'
+          : input === els.calorieTodayMus
+            ? 'mus'
+            : null;
+    if (!field) return;
+    const num = String(input.value || '').trim();
+    const parsed = num === '' ? null : Number(num);
+    if (num !== '' && !Number.isFinite(parsed)) return;
+    persistCalorie(patchDay(sheet, dayId, { [field]: parsed }), {
+      status: '',
+      fullRender: field === 'weight',
+    });
+  };
+  const onTodayCardChange = (e) => {
+    const input = e.target?.closest?.('input');
+    if (!input || !els.calorieTodayCard?.contains(input)) return;
+    applyTodayCardField(input);
+  };
+  els.calorieTodayCard?.addEventListener('change', onTodayCardChange);
+  els.calorieTodayCard?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const input = e.target?.closest?.('input');
+    if (!input || !els.calorieTodayCard.contains(input)) return;
+    e.preventDefault();
+    input.blur();
+  });
   let calorieScrollTick = 0;
   els.calorieScroll?.addEventListener('scroll', () => {
     if (calorieScrollTick) return;
@@ -7125,7 +7262,7 @@ async function init({ fromBoot = false } = {}) {
     if (!input || !els.calorieTbody?.contains(input)) return;
     const dayId = input.dataset.dayId;
     const field = input.dataset.calField;
-    if (!dayId || !field) return;
+    if (!dayId || !field || field === 'base') return;
     const sheet = ensureCaloriePayload();
     if (field === 'meal') {
       const idx = Number(input.dataset.mealIndex);
@@ -7152,7 +7289,10 @@ async function init({ fromBoot = false } = {}) {
     const num = String(input.value || '').trim();
     const parsed = num === '' ? null : Number(num);
     if (num !== '' && !Number.isFinite(parsed)) return;
-    persistCalorie(patchDay(sheet, dayId, { [field]: parsed }), { status: '' });
+    persistCalorie(patchDay(sheet, dayId, { [field]: parsed }), {
+      status: '',
+      fullRender: field === 'weight',
+    });
   };
   els.calorieTbody?.addEventListener('change', (e) => {
     const input = e.target?.closest?.('input[data-cal-field]');

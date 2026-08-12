@@ -1,6 +1,6 @@
 import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=148';
 import { bestIconForLabel, normalizeIconId } from './icons.js?v=148';
-import { createEmptyCalorie, normalizeCalorie } from './calorie.js?v=164';
+import { createEmptyCalorie, normalizeCalorie } from './calorie.js?v=168';
 
 /** Lite notepad helpers — keep notes.js free of sheet.js / note-text.js on boot. */
 function normalizeTextPrefs(raw) {
