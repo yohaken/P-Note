@@ -6970,8 +6970,8 @@ body.calorie-health-pane #dock-calorie-health-btn {
   position: sticky;
   top: 0;
   z-index: 3;
-  background: #fff7ed;
-  color: #9a3412;
+  background: color-mix(in srgb, var(--cal-tone-eat) 8%, #fff);
+  color: color-mix(in srgb, var(--cal-tone-eat) 55%, #555);
   font-size: 0.5rem;
   font-weight: 700;
   letter-spacing: 0;
