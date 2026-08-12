@@ -2,7 +2,7 @@ import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
 import { CONFIG } from './config.js?v=154';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=148';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=185';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -97,7 +97,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=183';
+} from './calorie.js?v=185';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -223,13 +223,6 @@ import { normalizeNotesData } from './notes.js?v=148';
 import { SaveManager } from './sync.js?v=154';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
 
-function hasCloudContent(data) {
-  return hasAnyNotes(data)
-    || (Array.isArray(data?.notepads) && data.notepads.length > 0)
-    || (Array.isArray(data?.tags) && data.tags.length > 0)
-    || (Array.isArray(data?.calorie?.days) && data.calorie.days.length > 0);
-}
-
 const state = {
   notesData: { version: 8, updatedAt: '', tags: [], notes: [], workspaces: [], notepads: [], calorie: null },
   settings: loadSettings(),
@@ -237,6 +230,8 @@ const state = {
     const m = loadSettings().appMode;
     return (m === 'note' || m === 'calendar' || m === 'calorie') ? m : 'work';
   }(),
+  /** True after first successful Firestore pull this session — gates cloud writes. */
+  cloudHydrated: false,
   /** Calendar view state (Apple-style: vertical months + year zoom) */
   calendarMonth: new Date().getMonth(),
   calendarYear: new Date().getFullYear(),
@@ -1542,7 +1537,12 @@ function renderCalorieSheet() {
         calorie: normalizeCalorie(withToday),
         updatedAt: new Date().toISOString(),
       };
-      saveManager.scheduleSave(() => state.notesData);
+      // Local only until Firestore has been pulled — never let a blank today
+      // race ahead and setDoc-wipe the shared cloud space.
+      saveNotes(state.notesData);
+      if (state.cloudHydrated && state.authUser) {
+        saveManager.scheduleSave(() => state.notesData);
+      }
     }
   }
   const { sheet, rows, months } = computeTotals(ensureCaloriePayload());
@@ -5552,14 +5552,15 @@ async function applyImportedNotes(text, { merge } = {}) {
     setStatus('นำเข้าไม่สำเร็จ · ตรวจ JSON');
     return false;
   }
-  if (!hasAnyNotes(next) && !(Array.isArray(next.tags) && next.tags.length)) {
-    setStatus('ไฟล์ว่างหรือไม่ใช่ข้อมูลโน้ต');
+  if (!hasCloudContent(next)) {
+    setStatus('ไฟล์ว่างหรือไม่ใช่ข้อมูลแคลโน้ต');
     return false;
   }
+  const calDays = Array.isArray(next.calorie?.days) ? next.calorie.days.length : 0;
   const ok = await showConfirm(
     useMerge
-      ? `รวมข้อมูลเข้าของเดิม? โน้ต ${next.notes.length} · แท็ก ${next.tags.length}`
-      : `แทนที่ข้อมูลทั้งหมดด้วยสำรองนี้? โน้ต ${next.notes.length} · แท็ก ${next.tags.length}`,
+      ? `รวมข้อมูลเข้าของเดิม? วันแคล ${calDays} · โน้ต ${next.notes.length}`
+      : `แทนที่ข้อมูลทั้งหมดด้วยสำรองนี้? วันแคล ${calDays} · โน้ต ${next.notes.length}`,
     { okLabel: useMerge ? 'รวม' : 'แทนที่', danger: !useMerge },
   );
   if (!ok) return false;
@@ -5586,25 +5587,43 @@ async function applyImportedNotes(text, { merge } = {}) {
 }
 
 async function safePushRemote(data) {
-  if (!state.spaceId) return pushRemoteNotes(getSpaceId(), data);
+  const spaceId = state.spaceId || getSpaceId();
+  let remoteRaw;
   try {
-    const remoteRaw = await fetchRemoteNotes(state.spaceId);
-    const remote = normalizeNotesData(remoteRaw);
-    const remoteAt = new Date(remote.updatedAt || 0).getTime();
-    const baseAt = new Date(state.syncBaseUpdatedAt || 0).getTime();
-    if (hasAnyNotes(remote) && remoteAt > baseAt + 400) {
-      const merged = mergeNotesByUpdatedAt(data, remote);
-      const saved = await pushRemoteNotes(state.spaceId, merged);
-      state.notesData = merged;
-      state.syncBaseUpdatedAt = saved?.updatedAt || merged.updatedAt;
-      renderNotesList();
-      return saved;
-    }
-  } catch {
-    /* offline or race — fall through to direct push */
+    remoteRaw = await fetchRemoteNotes(spaceId);
+  } catch (err) {
+    // Never setDoc-blind when we cannot read cloud — keep local until retry.
+    throw err;
   }
-  const saved = await pushRemoteNotes(state.spaceId, data);
-  state.syncBaseUpdatedAt = saved?.updatedAt || data?.updatedAt || new Date().toISOString();
+  const remote = normalizeNotesData(remoteRaw);
+  const local = normalizeNotesData(data);
+  const remoteHas = hasCloudContent(remote);
+  const localHas = hasCloudContent(local);
+
+  // Sparse/empty local must never overwrite a filled Firestore space.
+  if (!localHas && remoteHas) {
+    state.syncBaseUpdatedAt = remote.updatedAt || state.syncBaseUpdatedAt;
+    return remote;
+  }
+
+  if (remoteHas) {
+    const merged = mergeNotesByUpdatedAt(local, remote);
+    const saved = await pushRemoteNotes(spaceId, merged);
+    // Keep in-memory/local union so the next paint matches Firestore.
+    state.notesData = merged;
+    saveNotes(merged);
+    state.syncBaseUpdatedAt = saved?.updatedAt || merged.updatedAt;
+    return saved;
+  }
+
+  if (!localHas) {
+    // Both empty — skip noisy overwrite.
+    state.syncBaseUpdatedAt = local.updatedAt || state.syncBaseUpdatedAt;
+    return local;
+  }
+
+  const saved = await pushRemoteNotes(spaceId, local);
+  state.syncBaseUpdatedAt = saved?.updatedAt || local.updatedAt || new Date().toISOString();
   return saved;
 }
 
@@ -6979,6 +6998,7 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   const merged = mergeNotesByUpdatedAt(state.notesData, result.data);
   state.notesData = merged;
   state.online = result.online;
+  if (result.online) state.cloudHydrated = true;
   state.syncBaseUpdatedAt = merged?.updatedAt || result.data?.updatedAt || null;
   saveNotes(state.notesData);
 
@@ -7087,7 +7107,7 @@ async function bootstrapData() {
     const localVerBefore = peekLocalNotesVersion();
     let localData = loadNotes().data;
     // Only when cache is empty — recover legacy/bundled before first paint.
-    if (!hasAnyNotes(localData)) {
+    if (!hasCloudContent(localData)) {
       const auto = await tryAutoImport(localData);
       localData = auto.data;
     }
@@ -7097,6 +7117,12 @@ async function bootstrapData() {
       remotePush: async (data) => {
         if (!state.authUser) {
           throw new Error('Not signed in');
+        }
+        // Wait for first cloud pull so we merge instead of wiping Firestore.
+        if (!state.cloudHydrated && spaceSyncInFlight) {
+          try {
+            await spaceSyncInFlight;
+          } catch { /* continue — safePushRemote still merges */ }
         }
         return safePushRemote(data);
       },
@@ -7112,9 +7138,10 @@ async function bootstrapData() {
         const wasSignedIn = Boolean(state.authUser);
         state.authUser = null;
         state.online = false;
+        state.cloudHydrated = false;
         refreshAuthAccountHint();
         setAuthOverlayVisible(true);
-        if (wasSignedIn) setSyncStatus('offline', 'ออกจากระบบแล้ว');
+        if (wasSignedIn) setSyncStatus('offline', 'ออกจากระบบแล้ว · ข้อมูลในเครื่องยังอยู่');
         return;
       }
       const first = !state.authUser;
@@ -7993,6 +8020,7 @@ async function init({ fromBoot = false } = {}) {
     await signOut();
     state.authUser = null;
     state.online = false;
+    state.cloudHydrated = false;
     refreshAuthAccountHint();
     setAuthOverlayVisible(true);
     setSyncStatus('offline', 'ออกจากระบบแล้ว');

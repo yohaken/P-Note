@@ -1504,31 +1504,58 @@ export function addDayFromLast(calorie, dateKey = toDateKey(new Date())) {
   return { sheet: next, day: next.days.find((d) => d.date === dateKey), created: true };
 }
 
+/** How much real logging a day has — empty auto-created shells score 0. */
+function dayContentScore(day) {
+  if (!day) return 0;
+  let score = 0;
+  // null must not count (Number(null) === 0 is finite).
+  if (day.waist != null && Number.isFinite(Number(day.waist))) score += 1;
+  if (day.weight != null && Number.isFinite(Number(day.weight))) score += 1;
+  if (day.mus != null && Number.isFinite(Number(day.mus)) && Number(day.mus) > 0) score += 2;
+  if (String(day.note || '').trim()) score += 1;
+  const meals = Array.isArray(day.meals) ? day.meals : [];
+  meals.forEach((cell) => {
+    if (String(cell || '').trim()) score += 2;
+  });
+  return score;
+}
+
 export function mergeCalorieByUpdatedAt(localRaw, remoteRaw) {
   const local = normalizeCalorie(localRaw);
   const remote = normalizeCalorie(remoteRaw);
   const byId = new Map();
-  const takeNewer = (a, b) => {
+  const takeBetter = (a, b) => {
+    const sa = dayContentScore(a);
+    const sb = dayContentScore(b);
+    // Never let a blank auto-today beat a filled cloud day.
+    if (sa === 0 && sb > 0) return b;
+    if (sb === 0 && sa > 0) return a;
     const at = new Date(a?.updatedAt || 0).getTime();
     const bt = new Date(b?.updatedAt || 0).getTime();
     if (bt > at) return b;
     if (at > bt) return a;
-    return b;
+    // Same time — prefer the richer row.
+    return sb >= sa ? b : a;
   };
   local.days.forEach((d) => byId.set(d.id, d));
   remote.days.forEach((d) => {
     const prev = byId.get(d.id);
-    byId.set(d.id, prev ? takeNewer(prev, d) : d);
+    byId.set(d.id, prev ? takeBetter(prev, d) : d);
   });
   // Also merge by date when ids differ (same calendar day)
   const byDate = new Map();
   [...byId.values()].forEach((d) => {
     const prev = byDate.get(d.date);
-    byDate.set(d.date, prev ? takeNewer(prev, d) : d);
+    byDate.set(d.date, prev ? takeBetter(prev, d) : d);
   });
   const localAt = new Date(local.updatedAt || 0).getTime();
   const remoteAt = new Date(remote.updatedAt || 0).getTime();
-  const metaSrc = remoteAt >= localAt ? remote : local;
+  // Prefer meta from the side that actually has logged days when one is empty.
+  const localDays = local.days.length;
+  const remoteDays = remote.days.length;
+  let metaSrc = remoteAt >= localAt ? remote : local;
+  if (localDays === 0 && remoteDays > 0) metaSrc = remote;
+  else if (remoteDays === 0 && localDays > 0) metaSrc = local;
   return normalizeCalorie({
     ...metaSrc,
     days: [...byDate.values()],
