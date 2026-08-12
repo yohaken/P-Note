@@ -6282,8 +6282,19 @@ body.calorie-health-pane #dock-calorie-health-btn {
   color: var(--text-muted);
 }
 
+.chs-goals-section {
+  margin: 0 0 0.55rem;
+}
+
+.chs-goals-lead {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
 .chs-goal-grid {
-  margin: 0 0 0.45rem;
+  margin: 0;
 }
 
 .chs-goal-card.is-primary-goal {

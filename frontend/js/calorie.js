@@ -1137,6 +1137,34 @@ export function computeHealthSnapshot(calorie, endKey = toDateKey(), trendDays =
   };
 }
 
+/** One-line status for a lower-is-better body goal (for section summary). */
+function bodyGoalStatusLine(label, unit, progress) {
+  if (!progress?.set) return `${label}: ยังไม่ตั้ง`;
+  if (progress.current == null) return `${label}: ตั้ง ${progress.goal} ${unit} (ยังไม่มีค่าปัจจุบัน)`;
+  if (progress.met) return `${label}: ถึงเป้าแล้ว`;
+  const rem = formatSigned(progress.remaining, 1).replace(/^\+/, '');
+  return `${label}: เหลือลด ${rem} ${unit}`;
+}
+
+function summarizeBodyGoals(goalWaist, goalWeight) {
+  const waistSet = Boolean(goalWaist?.set);
+  const weightSet = Boolean(goalWeight?.set);
+  if (!waistSet && !weightSet) {
+    return 'ยังไม่ตั้งเป้าเอว/น้ำหนัก — ตั้งในตั้งค่าได้';
+  }
+  const parts = [
+    bodyGoalStatusLine('เอว(หลัก)', 'ซม.', goalWaist),
+    bodyGoalStatusLine('น้ำหนัก(รอง)', 'กก.', goalWeight),
+  ];
+  const metCount = [goalWaist, goalWeight].filter((g) => g?.set && g.met).length;
+  const setCount = [goalWaist, goalWeight].filter((g) => g?.set).length;
+  const head =
+    metCount === setCount && setCount > 0
+      ? `ถึงเป้าแล้ว ${metCount}/${setCount}`
+      : `ติดตาม ${setCount} เป้า`;
+  return `${head} · ${parts.join(' · ')}`;
+}
+
 function renderGoalCardHtml(title, unit, progress, { primary = false, hint = '' } = {}) {
   if (!progress?.set) {
     return `<article class="chs-card chs-goal-card${primary ? ' is-primary-goal' : ''}">
@@ -1254,16 +1282,24 @@ export function renderHealthSheetHtml(snap) {
     </section>`
     : '';
 
-  const goalBlock = `<div class="chs-grid chs-goal-grid">
-      ${renderGoalCardHtml('เป้าเอว', 'ซม.', snap.goalWaist, {
-        primary: true,
-        hint: 'หัวใจหลักของแผน',
-      })}
-      ${renderGoalCardHtml('เป้าน้ำหนัก', 'กก.', snap.goalWeight, {
-        primary: false,
-        hint: 'รอง — กล้ามเนื้อทำให้น้ำหนักสูงได้',
-      })}
-    </div>`;
+  const goalSummary = summarizeBodyGoals(snap.goalWaist, snap.goalWeight);
+  const goalBlock = `<section class="chs-section chs-goals-section" aria-label="เป้าหมายร่างกาย">
+      <header class="chs-section-head">
+        <h3 class="chs-section-title">เป้าหมายร่างกาย</h3>
+        <p class="chs-section-sub">${esc(goalSummary)}</p>
+      </header>
+      <p class="chs-goals-lead">เอวเป็นหัวใจหลัก · น้ำหนักเป็นเป้าเสริม (กล้ามเนื้อทำให้น้ำหนักขึ้นได้โดยไม่แย่)</p>
+      <div class="chs-grid chs-goal-grid">
+        ${renderGoalCardHtml('เป้าเอว', 'ซม.', snap.goalWaist, {
+          primary: true,
+          hint: 'หัวใจหลักของแผน',
+        })}
+        ${renderGoalCardHtml('เป้าน้ำหนัก', 'กก.', snap.goalWeight, {
+          primary: false,
+          hint: 'รอง — กล้ามเนื้อทำให้น้ำหนักสูงได้',
+        })}
+      </div>
+    </section>`;
 
   return `
     <header class="chs-head">
