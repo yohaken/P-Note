@@ -2,7 +2,7 @@ import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
 import { CONFIG } from './config.js?v=154';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=185';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=188';
 import {
   getAllowedUser,
   handleAuthRedirect,
