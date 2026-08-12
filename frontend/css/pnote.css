@@ -5932,11 +5932,11 @@ body.calorie-only #calorie-app-title {
   letter-spacing: 0.01em;
 }
 
+/* Days auto-create — hide legacy +วัน FAB in calorie-only */
+body.calorie-only #add-note-btn,
+body.calorie-mode #add-note-btn,
 body.calorie-only .dock-action-primary {
-  width: auto;
-  min-width: calc(3.4rem * var(--dock-scale, 1));
-  padding: 0 0.75rem;
-  border-radius: 999px;
+  display: none !important;
 }
 
 .calorie-view {
