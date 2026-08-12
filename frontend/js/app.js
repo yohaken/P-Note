@@ -556,10 +556,9 @@ function boardHomeView() {
   return 'calorie';
 }
 
-function showView(view) {
-  // Calorie-only app — never land on retired work/note/calendar sheets.
-  let next = view === 'editor' ? 'calorie' : 'calorie';
-  if (view === 'editor') next = 'calorie';
+function showView(_view) {
+  // Calorie-only app — always the calorie sheet.
+  const next = 'calorie';
   state.view = next;
 
   const onList = next === 'list';
