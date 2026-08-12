@@ -808,13 +808,238 @@ export function idealWeightRange(heightCm) {
   };
 }
 
+/** Rolling calendar window of day metrics for summary charts. */
+export function computeTrendSeries(calorie, dayCount = 14, endKey = toDateKey()) {
+  const n = Math.max(3, Math.min(60, Math.round(dayCount) || 14));
+  const sheet = normalizeCalorie(calorie);
+  const end = parseDateKey(endKey) || new Date();
+  const keys = [];
+  for (let i = n - 1; i >= 0; i -= 1) {
+    const d = new Date(end.getFullYear(), end.getMonth(), end.getDate() - i);
+    keys.push(toDateKey(d));
+  }
+  const byDate = new Map(sheet.days.map((d) => [d.date, d]));
+  const dates = [];
+  const labels = [];
+  const waist = [];
+  const weight = [];
+  const cal = [];
+  const prot = [];
+  const balance = [];
+  const blKg = [];
+  const mus = [];
+  let logged = 0;
+  keys.forEach((date) => {
+    const day = byDate.get(date) || null;
+    const m = day ? computeDayMetrics(day, sheet) : null;
+    dates.push(date);
+    labels.push(thaiDayName(date));
+    if (day) logged += 1;
+    waist.push(day && Number.isFinite(day.waist) ? day.waist : null);
+    weight.push(day && Number.isFinite(day.weight) ? day.weight : null);
+    cal.push(m ? m.addCal : null);
+    prot.push(m ? m.prot : null);
+    balance.push(m ? m.balance : null);
+    blKg.push(m ? m.blKg : null);
+    mus.push(m && (m.mus || 0) > 0 ? m.mus : day ? 0 : null);
+  });
+  return {
+    dayCount: n,
+    dates,
+    labels,
+    waist,
+    weight,
+    cal,
+    prot,
+    balance,
+    blKg,
+    mus,
+    logged,
+    startLabel: formatDateDisplay(keys[0]),
+    endLabel: formatDateDisplay(keys[keys.length - 1]),
+  };
+}
+
+/** Skip meal-cell-like note fragments when mining exercise poses. */
+function looksLikeMealFragment(s) {
+  const t = String(s || '').trim();
+  if (!t) return true;
+  if (/^\d+(\.\d+)?\s*,\s*\d+(\.\d+)?$/.test(t)) return true;
+  if (/^\d+(\.\d+)?$/.test(t) && Number(t) > 50) return true;
+  return false;
+}
+
+/**
+ * Exercise group stats: pose frequency (freqMus + notes) and burn series.
+ */
+export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey()) {
+  const sheet = normalizeCalorie(calorie);
+  const trend = computeTrendSeries(sheet, dayCount, endKey);
+  const poseMap = new Map();
+  const bump = (label, burn = 0) => {
+    const key = String(label || '').trim().slice(0, 40);
+    if (!key || looksLikeMealFragment(key)) return;
+    const prev = poseMap.get(key) || { label: key, count: 0, burn: 0 };
+    prev.count += 1;
+    if (Number.isFinite(burn) && burn > 0) prev.burn += burn;
+    poseMap.set(key, prev);
+  };
+  // Prefer labels from days in the window (note fragments on mus days).
+  const end = parseDateKey(endKey) || new Date();
+  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (trend.dayCount - 1));
+  const startKey = toDateKey(start);
+  sheet.days.forEach((day) => {
+    if (!day?.date || day.date < startKey || day.date > endKey) return;
+    if (!Number.isFinite(day.mus) || day.mus <= 0) return;
+    const bits = String(day.note || '')
+      .split(/\s*·\s*/)
+      .map((x) => x.trim())
+      .filter((bit) => bit && !looksLikeMealFragment(bit));
+    if (!bits.length) {
+      bump('ออกกำลัง', day.mus);
+      return;
+    }
+    const share = day.mus / bits.length;
+    bits.forEach((bit) => {
+      const parsed = parseQuickExercise(bit);
+      bump(parsed?.label || bit, parsed?.burn || share);
+    });
+  });
+  // Fallback: frequent exercise chips when the window has no labeled poses.
+  if (!poseMap.size) {
+    (sheet.freqMus || []).forEach((item) => {
+      const parsed = parseQuickExercise(item.text || item.label || '');
+      const label = parsed?.label || String(item.label || item.text || '').trim();
+      const count = Math.max(1, Number(item.count) || 1);
+      const burnEach = parsed?.burn || 0;
+      for (let i = 0; i < count; i += 1) bump(label, burnEach);
+    });
+  }
+  const poses = [...poseMap.values()]
+    .sort((a, b) => b.count - a.count || b.burn - a.burn)
+    .slice(0, 8)
+    .map((p) => ({
+      label: p.label,
+      count: p.count,
+      burn: round(p.burn, 0),
+    }));
+  const musSum = trend.mus.reduce((s, v) => s + (Number.isFinite(v) ? v : 0), 0);
+  return {
+    poses,
+    mus: trend.mus,
+    labels: trend.labels,
+    musSum: round(musSum, 0),
+    dayCount: trend.dayCount,
+    startLabel: trend.startLabel,
+    endLabel: trend.endLabel,
+  };
+}
+
+/** Line / area SVG for a numeric series (nulls = gaps). */
+export function renderSeriesChartSvg(
+  values,
+  {
+    width = 300,
+    height = 64,
+    signed = false,
+    className = 'chs-chart-svg',
+  } = {},
+) {
+  const pts = [];
+  values.forEach((v, i) => {
+    if (v != null && Number.isFinite(v)) pts.push({ i, v });
+  });
+  const w = width;
+  const h = height;
+  if (pts.length < 1) {
+    return `<svg class="${esc(className)}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" aria-hidden="true"></svg>`;
+  }
+  let min = Math.min(...pts.map((p) => p.v));
+  let max = Math.max(...pts.map((p) => p.v));
+  if (signed) {
+    min = Math.min(min, 0);
+    max = Math.max(max, 0);
+  }
+  if (min === max) {
+    min -= 1;
+    max += 1;
+  }
+  const span = max - min || 1;
+  const n = Math.max(values.length, 2);
+  const padX = 4;
+  const padY = 6;
+  const xAt = (i) => padX + (i / (n - 1)) * (w - padX * 2);
+  const yAt = (v) => h - padY - ((v - min) / span) * (h - padY * 2);
+  const coords = pts.map((p) => `${xAt(p.i).toFixed(1)},${yAt(p.v).toFixed(1)}`);
+  const last = pts[pts.length - 1];
+  let zeroLine = '';
+  if (signed && min < 0 && max > 0) {
+    const y0 = yAt(0);
+    zeroLine = `<line class="chs-chart-zero" x1="${padX}" x2="${w - padX}" y1="${y0.toFixed(1)}" y2="${y0.toFixed(1)}" />`;
+  }
+  let area = '';
+  if (pts.length >= 2) {
+    const baseY = signed && min < 0 && max > 0 ? yAt(0) : h - padY;
+    area = `<polygon class="chs-chart-area" points="${xAt(pts[0].i).toFixed(1)},${baseY.toFixed(1)} ${coords.join(' ')} ${xAt(last.i).toFixed(1)},${baseY.toFixed(1)}" />`;
+  }
+  const line =
+    pts.length >= 2
+      ? `<polyline class="chs-chart-line" fill="none" points="${coords.join(' ')}" />`
+      : '';
+  const dot = `<circle class="chs-chart-dot" cx="${xAt(last.i).toFixed(1)}" cy="${yAt(last.v).toFixed(1)}" r="2.4" />`;
+  return `<svg class="${esc(className)}${signed ? ' is-signed' : ''}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" aria-hidden="true">${area}${zeroLine}${line}${dot}</svg>`;
+}
+
+/** Horizontal bar list for exercise poses. */
+export function renderPoseBarsHtml(poses) {
+  if (!poses?.length) {
+    return `<p class="chs-chart-empty">ยังไม่มีประวัติท่าออกกำลัง — เพิ่มจากปุ่ม ออกกำลัง</p>`;
+  }
+  const max = Math.max(1, ...poses.map((p) => p.count || 0));
+  const rows = poses
+    .map((p) => {
+      const pct = Math.max(6, Math.round(((p.count || 0) / max) * 100));
+      const burn = p.burn ? ` · ${p.burn} kcal` : '';
+      return `<div class="chs-pose-row" title="${esc(p.label)} ×${p.count}${burn}">
+        <span class="chs-pose-label">${esc(p.label)}</span>
+        <span class="chs-pose-track"><i style="width:${pct}%"></i></span>
+        <span class="chs-pose-count">${esc(p.count)}</span>
+      </div>`;
+    })
+    .join('');
+  return `<div class="chs-pose-bars">${rows}</div>`;
+}
+
+function chartCardHtml(title, values, { signed = false, unit = '', digits = 0 } = {}) {
+  const pts = values.filter((v) => v != null && Number.isFinite(v));
+  const last = pts.length ? pts[pts.length - 1] : null;
+  const lastLabel =
+    last == null
+      ? '—'
+      : signed
+        ? formatSigned(last, digits)
+        : String(round(last, digits));
+  const tone =
+    !signed || last == null || last === 0 ? '' : last > 0 ? 'is-pos' : 'is-neg';
+  const svg = renderSeriesChartSvg(values, { signed });
+  return `<article class="chs-chart-card ${tone}">
+    <div class="chs-chart-top">
+      <h3>${esc(title)}</h3>
+      <p class="chs-chart-last">${esc(lastLabel)}${unit ? `<span class="chs-chart-unit">${esc(unit)}</span>` : ''}</p>
+    </div>
+    ${svg}
+  </article>`;
+}
+
 /**
  * Health snapshot for a separate sheet (not on the logging home).
- * WHtR, waist zone, ideal kg, week kg from balance.
+ * WHtR, waist zone, ideal kg, week kg from balance + trend/exercise charts.
  */
 export function computeHealthSnapshot(calorie, endKey = toDateKey()) {
   const sheet = normalizeCalorie(calorie);
   const week = computeWeekSummary(sheet, endKey);
+  const trends = computeTrendSeries(sheet, 14, endKey);
+  const exercise = computeExerciseStats(sheet, 14, endKey);
   const known = lastKnownBody(sheet);
   const weight = known.weight;
   const waist = known.waist;
@@ -848,6 +1073,8 @@ export function computeHealthSnapshot(calorie, endKey = toDateKey()) {
     week,
     weekKg,
     proteinFactor: sheet.proteinFactor,
+    trends,
+    exercise,
   };
 }
 
@@ -883,6 +1110,54 @@ export function renderHealthSheetHtml(snap) {
         : 'is-neg';
   const levelClass = (lv) =>
     lv === 'ok' ? 'is-ok' : lv === 'watch' ? 'is-watch' : lv === 'high' ? 'is-high' : '';
+
+  const t = snap.trends;
+  const ex = snap.exercise;
+  const rangeLabel = t
+    ? `${t.startLabel}–${t.endLabel} · ${t.logged || 0} วันที่มีบันทึก`
+    : '';
+  const trendBlock = t
+    ? `<section class="chs-section">
+      <header class="chs-section-head">
+        <h3 class="chs-section-title">แนวโน้ม</h3>
+        <p class="chs-section-sub">${esc(rangeLabel)}</p>
+      </header>
+      <div class="chs-chart-grid">
+        ${chartCardHtml('เอว', t.waist, { unit: 'ซม.', digits: 1 })}
+        ${chartCardHtml('น้ำหนัก', t.weight, { unit: 'กก.', digits: 1 })}
+        ${chartCardHtml('แคล', t.cal, { unit: 'kcal', digits: 0 })}
+        ${chartCardHtml('โปรตีน', t.prot, { unit: 'ก.', digits: 1 })}
+        ${chartCardHtml('Balance แคล', t.balance, { signed: true, unit: 'kcal', digits: 0 })}
+        ${chartCardHtml('น้ำหนักบวกลบ', t.blKg, { signed: true, unit: 'กก.', digits: 2 })}
+      </div>
+    </section>`
+    : '';
+  const musPts = (ex?.mus || []).filter((v) => v != null && Number.isFinite(v));
+  const musLast = musPts.length ? musPts[musPts.length - 1] : null;
+  const musTone =
+    musLast == null || musLast === 0 ? '' : musLast > 0 ? 'is-pos' : '';
+  const exerciseBlock = ex
+    ? `<section class="chs-section">
+      <header class="chs-section-head">
+        <h3 class="chs-section-title">กลุ่มออกกำลังกาย</h3>
+        <p class="chs-section-sub">เบิร์นรวม ${esc(ex.musSum || 0)} kcal · ${esc(ex.startLabel)}–${esc(ex.endLabel)}</p>
+      </header>
+      <article class="chs-chart-card chs-chart-card-wide">
+        <div class="chs-chart-top">
+          <h3>ท่าที่เล่น</h3>
+          <p class="chs-chart-last">${esc(ex.poses?.length || 0)}<span class="chs-chart-unit">ท่า</span></p>
+        </div>
+        ${renderPoseBarsHtml(ex.poses)}
+      </article>
+      <article class="chs-chart-card chs-chart-card-wide ${musTone}">
+        <div class="chs-chart-top">
+          <h3>แคลอรีเบิร์น</h3>
+          <p class="chs-chart-last">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></p>
+        </div>
+        ${renderSeriesChartSvg(ex.mus || [], { className: 'chs-chart-svg is-burn' })}
+      </article>
+    </section>`
+    : '';
 
   return `
     <header class="chs-head">
@@ -921,7 +1196,9 @@ export function renderHealthSheetHtml(snap) {
         <p class="chs-hint">จาก bal รวม ÷ 7700 · คร่าวๆ เท่านั้น</p>
       </article>
     </div>
-    <p class="chs-foot">โปรตีนเป้า ≈ น้ำหนัก × ${esc(snap.proteinFactor)} ก./กก. · ดูรายละเอียดบนแดชบอร์ดหน้าแรก</p>`;
+    ${trendBlock}
+    ${exerciseBlock}
+    <p class="chs-foot">โปรตีนเป้า ≈ น้ำหนัก × ${esc(snap.proteinFactor)} ก./กก. · กราฟย้อนหลัง 14 วัน</p>`;
 }
 
 export function computeTotals(calorie) {
