@@ -1024,12 +1024,15 @@ function applyBoxColors() {
 }
 
 function applyCalorieTones() {
-  const tones = normalizeCalorieTones(state.settings.calorieTones);
-  state.settings.calorieTones = tones;
-  const root = document.documentElement;
-  root.style.setProperty('--cal-tone-eat', tones.eat);
-  root.style.setProperty('--cal-tone-burn', tones.burn);
-  root.style.setProperty('--cal-tone-empty', tones.empty);
+  const tones = normalizeCalorieTones(state.settings?.calorieTones);
+  if (state.settings) state.settings.calorieTones = tones;
+  // Must set on <body> too — body rules used to pin defaults and blocked :root updates.
+  const targets = [document.documentElement, document.body].filter(Boolean);
+  targets.forEach((el) => {
+    el.style.setProperty('--cal-tone-eat', tones.eat);
+    el.style.setProperty('--cal-tone-burn', tones.burn);
+    el.style.setProperty('--cal-tone-empty', tones.empty);
+  });
   if (els.calorieToneEat && document.activeElement !== els.calorieToneEat) {
     els.calorieToneEat.value = tones.eat;
   }
@@ -1051,6 +1054,8 @@ function persistCalorieTonesFromUi({ reset = false } = {}) {
     });
   state.settings.calorieTones = next;
   saveSettings(state.settings);
+  // Re-read from disk to prove persistence round-trip.
+  state.settings.calorieTones = normalizeCalorieTones(loadSettings().calorieTones);
   applyCalorieTones();
 }
 
@@ -7611,9 +7616,10 @@ async function init({ fromBoot = false } = {}) {
     el?.addEventListener('blur', onCalorieProfileChange);
   });
   const onCalorieToneChange = () => persistCalorieTonesFromUi();
-  els.calorieToneEat?.addEventListener('input', onCalorieToneChange);
-  els.calorieToneBurn?.addEventListener('input', onCalorieToneChange);
-  els.calorieToneEmpty?.addEventListener('input', onCalorieToneChange);
+  [els.calorieToneEat, els.calorieToneBurn, els.calorieToneEmpty].forEach((el) => {
+    el?.addEventListener('input', onCalorieToneChange);
+    el?.addEventListener('change', onCalorieToneChange);
+  });
   els.calorieToneReset?.addEventListener('click', () => {
     persistCalorieTonesFromUi({ reset: true });
   });

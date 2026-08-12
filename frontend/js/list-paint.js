@@ -8,7 +8,7 @@ import {
   normalizeCalorieTones,
   dockScaleToCss,
   dockOffsetYToLiftPx,
-} from './settings.js?v=189';
+} from './settings.js?v=190';
 
 function applyCalorieChrome() {
   document.body.classList.add('light', 'calorie-mode', 'calorie-only');
@@ -24,10 +24,12 @@ function applyCalorieChrome() {
 
   try {
     const tones = normalizeCalorieTones(loadSettings().calorieTones);
-    const root = document.documentElement;
-    root.style.setProperty('--cal-tone-eat', tones.eat);
-    root.style.setProperty('--cal-tone-burn', tones.burn);
-    root.style.setProperty('--cal-tone-empty', tones.empty);
+    [document.documentElement, document.body].forEach((el) => {
+      if (!el) return;
+      el.style.setProperty('--cal-tone-eat', tones.eat);
+      el.style.setProperty('--cal-tone-burn', tones.burn);
+      el.style.setProperty('--cal-tone-empty', tones.empty);
+    });
   } catch { /* ignore */ }
 
   const build =

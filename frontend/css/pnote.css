@@ -6726,15 +6726,11 @@ body.calorie-health-pane #dock-calorie-health-btn {
   }
 }
 
-/* Calorie tones — soft washes (not boxed cells); overridden from Settings */
-body.calorie-mode {
+/* Calorie tones — defaults on :root so Settings can override on body/html */
+:root {
   --cal-tone-eat: #ea580c;
   --cal-tone-burn: #16a34a;
   --cal-tone-empty: #ffffff;
-  --cal-tone-eat-wash: color-mix(in srgb, var(--cal-tone-eat) 22%, transparent);
-  --cal-tone-burn-wash: color-mix(in srgb, var(--cal-tone-burn) 18%, transparent);
-  --cal-tone-eat-head: color-mix(in srgb, var(--cal-tone-eat) 18%, #fff);
-  --cal-tone-burn-head: color-mix(in srgb, var(--cal-tone-burn) 16%, #fff);
 }
 
 /* Today card — compact logging strip above the spreadsheet */
@@ -6797,13 +6793,11 @@ body.calorie-mode {
 }
 
 .ctc-field-burn input {
-  border-color: color-mix(in srgb, var(--cal-tone-burn) 35%, var(--border));
-  background: color-mix(in srgb, var(--cal-tone-burn) 8%, #fff);
+  border-color: color-mix(in srgb, var(--cal-tone-burn) 28%, var(--border));
 }
 
 .ctc-meals .ctc-meal input {
-  border-color: color-mix(in srgb, var(--cal-tone-eat) 30%, var(--border));
-  background: color-mix(in srgb, var(--cal-tone-eat) 7%, #fff);
+  border-color: color-mix(in srgb, var(--cal-tone-eat) 22%, var(--border));
 }
 
 .ctc-field {
@@ -6988,31 +6982,27 @@ body.calorie-mode {
 .calorie-table thead tr.cal-head-b th {
   top: 1.1rem;
   z-index: 3;
-  background: var(--cal-tone-eat-head);
-  color: color-mix(in srgb, var(--cal-tone-eat) 72%, #000);
+  background: color-mix(in srgb, var(--cal-tone-eat) 14%, #fff);
+  color: color-mix(in srgb, var(--cal-tone-eat) 65%, #444);
   font-size: 0.48rem;
   height: 1.05rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--cal-tone-eat) 40%, var(--border));
+  border-bottom: 1px solid color-mix(in srgb, var(--cal-tone-eat) 28%, var(--border));
 }
 
 .calorie-table thead tr.cal-head-b th.cal-col-meals {
-  background: var(--cal-tone-eat-head);
-  color: color-mix(in srgb, var(--cal-tone-eat) 75%, #000);
+  background: color-mix(in srgb, var(--cal-tone-eat) 12%, #fff);
+  color: color-mix(in srgb, var(--cal-tone-eat) 70%, #333);
 }
 
-.calorie-table thead tr.cal-head-b th.cal-col-burn {
-  background: var(--cal-tone-burn-head);
-  color: color-mix(in srgb, var(--cal-tone-burn) 75%, #000);
-}
-
+.calorie-table thead tr.cal-head-b th.cal-col-burn,
 .calorie-table thead tr.cal-head-b th.cal-col-note {
-  background: var(--cal-tone-burn-head);
-  color: color-mix(in srgb, var(--cal-tone-burn) 70%, #000);
+  background: color-mix(in srgb, var(--cal-tone-burn) 12%, #fff);
+  color: color-mix(in srgb, var(--cal-tone-burn) 70%, #333);
 }
 
 .calorie-table thead tr.cal-head-b th.cal-col-sum,
 .calorie-table thead th.cal-col-sum {
-  background: var(--cal-tone-eat-head);
+  background: color-mix(in srgb, var(--cal-tone-eat) 12%, #fff);
 }
 
 .calorie-table thead th.cal-col-add {
@@ -7049,7 +7039,7 @@ body.calorie-mode {
 }
 
 .calorie-table .cal-col-meals {
-  background: var(--cal-tone-eat-wash);
+  background: color-mix(in srgb, var(--cal-tone-eat) 10%, transparent);
   white-space: normal;
   overflow: visible;
   padding: 1px 2px;
@@ -7203,25 +7193,21 @@ body.calorie-mode {
   border-bottom-color: color-mix(in srgb, var(--border) 35%, transparent);
 }
 
+/* Row B = original flat wash (one band), not per-cell color blocks */
 .calorie-table tr.cal-day-b td {
   height: auto;
   min-height: 1.25rem;
-  /* soft burn wash across the activity row — not solid boxes */
-  background: color-mix(in srgb, var(--cal-tone-burn-wash) 55%, var(--cal-tone-empty));
-  border-bottom: 2px solid color-mix(in srgb, var(--cal-tone-eat) 45%, var(--border));
+  background: color-mix(in srgb, var(--cal-tone-burn) 12%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--cal-tone-eat) 35%, var(--border));
 }
 
 .calorie-table tr.cal-day-b td.cal-col-meals {
-  background: color-mix(in srgb, var(--cal-tone-eat-wash) 70%, var(--cal-tone-empty));
-}
-
-.calorie-table tr.cal-day-b td.cal-col-burn {
-  background: color-mix(in srgb, var(--cal-tone-burn-wash) 80%, var(--cal-tone-empty));
+  background: color-mix(in srgb, var(--cal-tone-eat) 14%, transparent);
 }
 
 .calorie-table tr.cal-day-b td.cal-col-note {
   text-align: left;
-  background: color-mix(in srgb, var(--cal-tone-burn-wash) 35%, var(--cal-tone-empty));
+  background: color-mix(in srgb, var(--cal-tone-burn) 8%, transparent);
 }
 
 .calorie-table tr.cal-row-today td {
@@ -7229,11 +7215,7 @@ body.calorie-mode {
 }
 
 .calorie-table tr.cal-row-today.cal-day-b td {
-  background: color-mix(in srgb, var(--accent) 10%, color-mix(in srgb, var(--cal-tone-burn-wash) 50%, var(--cal-tone-empty)));
-}
-
-.calorie-table tr.cal-row-today.cal-day-b td.cal-col-meals {
-  background: color-mix(in srgb, var(--accent) 8%, color-mix(in srgb, var(--cal-tone-eat-wash) 65%, var(--cal-tone-empty)));
+  background: color-mix(in srgb, var(--accent) 10%, color-mix(in srgb, var(--cal-tone-burn) 10%, transparent));
 }
 
 .calorie-table tr.cal-month-sep td {
@@ -7245,9 +7227,9 @@ body.calorie-mode {
   text-align: left;
   font-size: 0.58rem;
   font-weight: 800;
-  color: color-mix(in srgb, var(--cal-tone-eat) 70%, #000);
-  background: var(--cal-tone-eat-head);
-  border-bottom: 1px solid color-mix(in srgb, var(--cal-tone-eat) 40%, var(--border));
+  color: color-mix(in srgb, var(--cal-tone-eat) 65%, #333);
+  background: color-mix(in srgb, var(--cal-tone-eat) 14%, #fff);
+  border-bottom: 1px solid color-mix(in srgb, var(--cal-tone-eat) 30%, var(--border));
 }
 
 .cal-tone-grid {
