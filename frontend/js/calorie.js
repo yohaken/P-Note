@@ -564,6 +564,158 @@ export function computeDayMetrics(day, sheet = {}) {
   };
 }
 
+/**
+ * Rolling 7-day summary ending on endKey (inclusive).
+ * Simple numbers + spark series for a lightweight dashboard.
+ */
+export function computeWeekSummary(calorie, endKey = toDateKey()) {
+  const sheet = normalizeCalorie(calorie);
+  const end = parseDateKey(endKey) || new Date();
+  const keys = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(end.getFullYear(), end.getMonth(), end.getDate() - i);
+    keys.push(toDateKey(d));
+  }
+  const byDate = new Map(sheet.days.map((d) => [d.date, d]));
+  const series = keys.map((date) => {
+    const day = byDate.get(date) || null;
+    const metrics = day ? computeDayMetrics(day, sheet) : null;
+    return { date, day, metrics, dayName: thaiDayName(date) };
+  });
+  const logged = series.filter((x) => x.day);
+  let addCalSum = 0;
+  let balSum = 0;
+  let musSum = 0;
+  const weights = [];
+  const balBars = [];
+  logged.forEach((x) => {
+    const m = x.metrics;
+    addCalSum += m.addCal || 0;
+    balSum += m.balance || 0;
+    musSum += m.mus || 0;
+    if (Number.isFinite(x.day.weight)) weights.push(x.day.weight);
+    balBars.push({
+      date: x.date,
+      dayName: x.dayName,
+      bal: m.balance || 0,
+    });
+  });
+  // Fill bal bars for all 7 calendar days (0 if no log) for a stable strip.
+  const balSpark = series.map((x) => ({
+    date: x.date,
+    dayName: x.dayName,
+    bal: x.metrics ? x.metrics.balance || 0 : null,
+    hasDay: Boolean(x.day),
+  }));
+  const weightSpark = series.map((x) =>
+    x.day && Number.isFinite(x.day.weight) ? x.day.weight : null,
+  );
+  const n = logged.length;
+  const weightDelta =
+    weights.length >= 2 ? round(weights[weights.length - 1] - weights[0], 1) : null;
+  const startLabel = formatDateDisplay(keys[0]);
+  const endLabel = formatDateDisplay(keys[6]);
+  return {
+    startKey: keys[0],
+    endKey: keys[6],
+    label: `${startLabel}–${endLabel}`,
+    daysLogged: n,
+    avgCal: n ? Math.round(addCalSum / n) : null,
+    balSum: n ? round(balSum, 0) : null,
+    musSum: n ? round(musSum, 0) : null,
+    weightDelta,
+    weightLast: weights.length ? weights[weights.length - 1] : null,
+    weightSpark,
+    balSpark,
+    balBars,
+  };
+}
+
+/** Tiny SVG sparkline for weight (nulls skipped / gaps). */
+export function renderWeightSparkSvg(values, { width = 120, height = 28 } = {}) {
+  const pts = [];
+  values.forEach((v, i) => {
+    if (v != null && Number.isFinite(v)) pts.push({ i, v });
+  });
+  if (pts.length < 2) {
+    return `<svg class="cd-spark" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true"></svg>`;
+  }
+  const min = Math.min(...pts.map((p) => p.v));
+  const max = Math.max(...pts.map((p) => p.v));
+  const span = max - min || 1;
+  const n = values.length;
+  const pad = 2;
+  const coords = pts.map((p) => {
+    const x = pad + (p.i / Math.max(1, n - 1)) * (width - pad * 2);
+    const y = height - pad - ((p.v - min) / span) * (height - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  return `<svg class="cd-spark" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true">
+    <polyline fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" points="${coords.join(' ')}"/>
+  </svg>`;
+}
+
+/** Compact HTML for the week dashboard strip. */
+export function renderWeekDashHtml(summary) {
+  if (!summary) return '';
+  const avg = summary.avgCal == null ? '—' : summary.avgCal;
+  const bal =
+    summary.balSum == null ? '—' : formatSigned(summary.balSum, 0);
+  const mus = summary.musSum == null ? '—' : summary.musSum;
+  const balTone =
+    summary.balSum == null || summary.balSum === 0
+      ? ''
+      : summary.balSum > 0
+        ? 'is-pos'
+        : 'is-neg';
+  const wDelta =
+    summary.weightDelta == null
+      ? '—'
+      : `${summary.weightDelta > 0 ? '+' : ''}${summary.weightDelta}`;
+  const wTone =
+    summary.weightDelta == null || summary.weightDelta === 0
+      ? ''
+      : summary.weightDelta > 0
+        ? 'is-pos'
+        : 'is-neg';
+  const spark = renderWeightSparkSvg(summary.weightSpark || []);
+  const maxAbs = Math.max(
+    1,
+    ...(summary.balSpark || []).map((b) => (b.bal == null ? 0 : Math.abs(b.bal))),
+  );
+  const bars = (summary.balSpark || [])
+    .map((b) => {
+      if (!b.hasDay || b.bal == null) {
+        return `<span class="cd-bar is-empty" title="${esc(b.dayName)}"><i style="height:2px"></i><em>${esc(b.dayName)}</em></span>`;
+      }
+      const h = Math.max(4, Math.round((Math.abs(b.bal) / maxAbs) * 22));
+      const cls = b.bal > 0 ? 'is-pos' : b.bal < 0 ? 'is-neg' : 'is-zero';
+      return `<span class="cd-bar ${cls}" title="${esc(b.dayName)} ${formatSigned(b.bal, 0)}"><i style="height:${h}px"></i><em>${esc(b.dayName)}</em></span>`;
+    })
+    .join('');
+
+  return `
+    <div class="cd-head">
+      <span class="cd-title">7 วันล่าสุด</span>
+      <span class="cd-sub">${esc(summary.label)} · ${summary.daysLogged} วัน</span>
+    </div>
+    <div class="cd-metrics">
+      <span class="cd-metric">cal เฉลี่ย <strong>${esc(avg)}</strong></span>
+      <span class="cd-metric ${balTone}">bal รวม <strong>${esc(bal)}</strong></span>
+      <span class="cd-metric">mus <strong>${esc(mus)}</strong></span>
+      <span class="cd-metric ${wTone}">กก <strong>${esc(wDelta)}</strong></span>
+    </div>
+    <div class="cd-spark-row">
+      <span class="cd-spark-label">กก</span>
+      ${spark}
+      <span class="cd-spark-delta ${wTone}">${esc(wDelta)}</span>
+    </div>
+    <div class="cd-spark-row cd-spark-row-bars">
+      <span class="cd-spark-label">bal</span>
+      <div class="cd-bars">${bars}</div>
+    </div>`;
+}
+
 export function computeTotals(calorie) {
   const sheet = normalizeCalorie(calorie);
   const all = emptyTotals();

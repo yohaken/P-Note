@@ -6012,6 +6012,153 @@ body.calorie-only .dock-action-primary {
   font-size: 0.65rem !important;
 }
 
+/* Week dashboard — lightweight summary above today card */
+.calorie-dash {
+  margin: 0 0.3rem;
+  padding: 0.4rem 0.5rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--success, #4a7c59) 8%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+}
+
+.calorie-dash[hidden] {
+  display: none !important;
+}
+
+.cd-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.cd-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.cd-sub {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.cd-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cd-metric strong {
+  color: var(--text);
+}
+
+.cd-metric.is-neg strong,
+.cd-spark-delta.is-neg {
+  color: #c2410c;
+}
+
+.cd-metric.is-pos strong,
+.cd-spark-delta.is-pos {
+  color: #15803d;
+}
+
+.cd-spark-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.6rem;
+}
+
+.cd-spark-row-bars {
+  align-items: flex-end;
+  min-height: 2.2rem;
+}
+
+.cd-spark-label {
+  flex: 0 0 1.4rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.cd-spark {
+  flex: 1 1 auto;
+  color: var(--accent);
+  overflow: visible;
+}
+
+.cd-spark-delta {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.2rem;
+  text-align: right;
+}
+
+.cd-bars {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.15rem;
+  height: 2rem;
+  min-width: 0;
+}
+
+.cd-bar {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.1rem;
+  min-width: 0;
+  height: 100%;
+}
+
+.cd-bar i {
+  display: block;
+  width: 55%;
+  max-width: 0.55rem;
+  border-radius: 2px 2px 0 0;
+  background: var(--text-muted);
+  opacity: 0.55;
+}
+
+.cd-bar.is-pos i {
+  background: #15803d;
+  opacity: 0.85;
+}
+
+.cd-bar.is-neg i {
+  background: #c2410c;
+  opacity: 0.85;
+}
+
+.cd-bar.is-empty i {
+  opacity: 0.22;
+}
+
+.cd-bar em {
+  font-style: normal;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
 /* Today card — vertical logging above the spreadsheet */
 .calorie-today-card {
   margin: 0 0.3rem;

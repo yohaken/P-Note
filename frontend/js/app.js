@@ -72,6 +72,7 @@ import {
   appendQuickMeal,
   clearDayValues,
   computeTotals,
+  computeWeekSummary,
   expandMealsForEdit,
   formatDateDisplay,
   formatSigned,
@@ -84,11 +85,12 @@ import {
   renderCalorieMealHeaderHtml,
   renderCalorieRowsHtml,
   renderCalorieTotalsHtml,
+  renderWeekDashHtml,
   thaiDayName,
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=170';
+} from './calorie.js?v=171';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -537,6 +539,7 @@ const els = {
   calorieSex: document.getElementById('calorie-sex'),
   calorieThead: document.getElementById('calorie-thead'),
   calorieQuickFreq: document.getElementById('calorie-quick-freq'),
+  calorieDash: document.getElementById('calorie-dash'),
   calorieTodayCard: document.getElementById('calorie-today-card'),
   calorieTodayTitle: document.getElementById('calorie-today-title'),
   calorieTodaySub: document.getElementById('calorie-today-sub'),
@@ -1331,6 +1334,19 @@ function syncCalorieProfileInputs(sheet) {
   }
 }
 
+function paintCalorieDash(sheet) {
+  const el = els.calorieDash;
+  if (!el) return;
+  const summary = computeWeekSummary(sheet);
+  if (!summary.daysLogged) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = renderWeekDashHtml(summary);
+}
+
 function paintCalorieTodayCard(rows, sheet) {
   const card = els.calorieTodayCard;
   if (!card) return;
@@ -1399,6 +1415,7 @@ function refreshCalorieDerived() {
   const { sheet, rows } = computeTotals(ensureCaloriePayload());
   paintCalorieMonthTotals(state.calorieActiveMonth);
   syncCalorieProfileInputs(sheet);
+  paintCalorieDash(sheet);
   paintCalorieTodayCard(rows, sheet);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
   rows.forEach((row) => {
@@ -1462,6 +1479,7 @@ function renderCalorieSheet() {
   const mealCols = mealColumnCount(sheet);
   if (els.calorieThead) els.calorieThead.innerHTML = renderCalorieMealHeaderHtml(mealCols);
   els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows, toDateKey(), mealCols);
+  paintCalorieDash(sheet);
   paintCalorieTodayCard(rows, sheet);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
   requestAnimationFrame(() => {
