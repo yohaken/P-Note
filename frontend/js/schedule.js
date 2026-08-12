@@ -732,7 +732,9 @@ export function monthNameOnly(year, month, { short = false } = {}) {
   }).format(new Date(year, month, 1));
 }
 
-/** Buddhist-era year label for headers, e.g. "2569". */
+/** Buddhist-era year digits for headers (Apple-style), e.g. "2569". */
 export function yearLabel(year) {
-  return new Intl.DateTimeFormat('th-TH', { year: 'numeric' }).format(new Date(year, 0, 1));
+  const y = Number(year);
+  if (!Number.isFinite(y)) return '';
+  return String(y + 543);
 }

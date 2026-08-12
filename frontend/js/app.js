@@ -748,7 +748,8 @@ function canUndo() {
 function updateUndoFab() {
   const btn = els.undoFabBtn;
   if (!btn) return;
-  const show = state.view === 'list' || state.view === 'calendar';
+  // Calendar has its own bottom toolbar (Today / zoom); keep undo off that sheet
+  const show = state.view === 'list';
   btn.hidden = !show;
   btn.disabled = !canUndo();
   btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');

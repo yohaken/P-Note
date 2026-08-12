@@ -5716,14 +5716,22 @@ body:not(.calendar-mode) #calendar-view {
   margin-bottom: 0;
 }
 
-/* Bottom toolbar: Today + zoom −/+ (above mode dock) */
+/* Bottom toolbar: Today + zoom −/+ (clear of mode dock) */
 .cal-toolbar {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.35rem 0.25rem calc(4.6rem + var(--safe-bottom));
+  padding: 0.45rem 0.35rem;
+  margin: 0 0 calc(var(--filters-dock-h, 3.4rem) + 0.85rem + var(--safe-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  z-index: 5;
+}
+
+body.calendar-mode .undo-fab {
+  display: none !important;
 }
 
 .cal-toolbar-btn {
