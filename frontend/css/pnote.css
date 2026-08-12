@@ -6874,15 +6874,73 @@ body.calorie-health-pane #dock-calorie-health-btn {
   background: #fff;
 }
 
+.ctc-prot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.45rem;
+  padding: 0.22rem 0.3rem;
+  margin: 0.02rem 0 0.06rem;
+  background: color-mix(in srgb, var(--border) 28%, #fff);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.ctc-prot-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.ctc-prot-value {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.ctc-prot-meta {
+  font-size: 0.58rem;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.ctc-prot.is-pos .ctc-prot-value {
+  color: var(--cal-tone-pos-ink, #166534);
+}
+
+.ctc-prot.is-neg .ctc-prot-value {
+  color: var(--cal-tone-neg-ink, #c2410c);
+}
+
+.ctc-prot.is-zero .ctc-prot-value {
+  color: var(--text);
+}
+
+.ctc-prot.is-empty .ctc-prot-value {
+  color: var(--text-muted);
+}
+
 .ctc-meals {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(2.35rem, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 0.15rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  padding-bottom: 0.05rem;
+}
+
+.ctc-meals.is-scrollable {
+  mask-image: linear-gradient(90deg, #000 86%, transparent);
 }
 
 .ctc-meal {
   display: block;
-  min-width: 0;
+  flex: 0 0 auto;
+  width: 2.55rem;
+  min-width: 2.55rem;
   position: relative;
 }
 
@@ -7046,17 +7104,33 @@ body.calorie-health-pane #dock-calorie-health-btn {
 .calorie-table .cal-col-meals {
   background: transparent;
   white-space: normal;
-  overflow: visible;
+  overflow: hidden;
   padding: 1px 2px;
   height: auto;
 }
 
+/* Fixed-width meal chips + horizontal swipe when many meals (no tiny squash) */
 .calorie-table .cal-meals-fit {
-  display: grid;
-  grid-template-columns: repeat(var(--cal-meal-n, 7), minmax(0, 1fr));
-  gap: 1px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.calorie-table .cal-meals-fit.is-scrollable {
+  mask-image: linear-gradient(90deg, #000 88%, transparent);
+}
+
+.calorie-table .cal-meals-fit .cal-input-wrap-meal {
+  flex: 0 0 auto;
+  width: 2.55rem;
+  min-width: 2.55rem;
 }
 
 .calorie-table .cal-col-note {

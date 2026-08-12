@@ -2,7 +2,7 @@ import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
 import { CONFIG } from './config.js?v=154';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=193';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=194';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -72,6 +72,7 @@ import {
   appendQuickMeal,
   clearDayValues,
   formatMealCell,
+  MEAL_PATTERN_HINT,
   parseQuickExercise,
   parseQuickMeal,
   computeTotals,
@@ -97,7 +98,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=193';
+} from './calorie.js?v=194';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -148,7 +149,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=193';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=194';
 import {
   allIcons,
   bestIconForLabel,
@@ -560,6 +561,9 @@ const els = {
   calorieTodaySub: document.getElementById('calorie-today-sub'),
   calorieTodayBase: document.getElementById('calorie-today-base'),
   calorieTodayBmi: document.getElementById('calorie-today-bmi'),
+  calorieTodayProt: document.getElementById('calorie-today-prot'),
+  calorieTodayProtValue: document.getElementById('calorie-today-prot-value'),
+  calorieTodayProtMeta: document.getElementById('calorie-today-prot-meta'),
   calorieTodayWeight: document.getElementById('calorie-today-weight'),
   calorieTodayWaist: document.getElementById('calorie-today-waist'),
   calorieTodayMus: document.getElementById('calorie-today-mus'),
@@ -701,7 +705,7 @@ function syncStateFromMessage(message) {
   const t = String(message || '');
   if (!t) return null;
   // Keep real errors as toasts (return null → setStatus shows action-toast).
-  if (/ไม่สำเร็จ|บันทึกไม่ได้|เพิ่มไม่ได้|โหลดไม่สำเร็จ|นำเข้าไม่สำเร็จ|ไม่พบวัน|พิมพ์.+ก่อน|ใส่แคล|ตรวจ JSON/i.test(t)) {
+  if (/ไม่สำเร็จ|บันทึกไม่ได้|เพิ่มไม่ได้|โหลดไม่สำเร็จ|นำเข้าไม่สำเร็จ|ไม่พบวัน|พิมพ์.+ก่อน|ใส่แคล|รูปแบบไม่ถูก|ตรวจ JSON/i.test(t)) {
     return null;
   }
   if (/กำลัง(พิมพ์|บันทึก|ซิงค์|เชื่อม|โหลด)|connecting|syncing|saving/i.test(t)) return 'busy';
@@ -1545,6 +1549,29 @@ function paintCalorieTodayCard(rows, sheet) {
   if (els.calorieTodayBmi) {
     els.calorieTodayBmi.textContent = m.bmi != null ? `BMI ${m.bmi}` : 'BMI —';
   }
+  if (els.calorieTodayProt && els.calorieTodayProtValue) {
+    const pRm = m.pRm;
+    const prot = m.prot;
+    const target = m.protTarget;
+    els.calorieTodayProt.classList.remove('is-pos', 'is-neg', 'is-zero', 'is-empty');
+    if (pRm == null || !Number.isFinite(pRm)) {
+      els.calorieTodayProt.classList.add('is-empty');
+      els.calorieTodayProtValue.textContent = '—';
+      if (els.calorieTodayProtMeta) {
+        els.calorieTodayProtMeta.textContent = target != null
+          ? `กิน ${prot ?? 0} · เป้า ${target}`
+          : 'ใส่กก. เพื่อคำนวณเป้า';
+      }
+    } else {
+      const cls = pRm > 0 ? 'is-pos' : pRm < 0 ? 'is-neg' : 'is-zero';
+      els.calorieTodayProt.classList.add(cls);
+      els.calorieTodayProtValue.textContent = formatSigned(pRm, 1);
+      if (els.calorieTodayProtMeta) {
+        const word = pRm > 0 ? 'เกินเป้า' : pRm < 0 ? 'ขาดเป้า' : 'ถึงเป้า';
+        els.calorieTodayProtMeta.textContent = `${word} · กิน ${prot ?? 0} / เป้า ${target ?? '—'}`;
+      }
+    }
+  }
   const fillIfIdle = (input, value) => {
     if (!input || document.activeElement === input) return;
     input.value = value == null || value === '' ? '' : String(value);
@@ -1564,16 +1591,18 @@ function paintCalorieTodayCard(rows, sheet) {
   if (els.calorieTodayMeals && document.activeElement?.closest?.('#calorie-today-meals') == null) {
     const meals = expandMealsForEdit(row.meals);
     const cols = Math.max(meals.length, MIN_MEAL_SLOTS);
+    els.calorieTodayMeals.classList.toggle('is-scrollable', cols > 7);
     els.calorieTodayMeals.innerHTML = Array.from({ length: cols }, (_, i) => {
       const v = meals[i] || '';
       const has = v ? ' has-value' : '';
-      return `<label class="ctc-meal cal-input-wrap${has}" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></label>`;
+      return `<label class="ctc-meal cal-input-wrap${has}" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></label>`;
     }).join('');
   }
   if (els.calorieTodaySummary) {
     const items = [
       ['cal', m.addCal, null],
       ['P', m.prot, null],
+      ['p±', m.pRm == null ? null : formatSigned(m.pRm, 1), m.pRm],
       ['bal', m.balance == null ? null : formatSigned(m.balance, 0), m.balance],
       ['Σ', m.bsum, null],
       ['mus', m.mus, null],
@@ -1748,11 +1777,11 @@ function openCalorieQuick(mode) {
   if (els.calorieQuickHint) {
     els.calorieQuickHint.textContent = calorieQuickMode === 'mus'
       ? 'แตะใช้บ่อยเพื่อเติมช่อง แล้วกดเพิ่ม · หรือพิมพ์เอง'
-      : 'แตะใช้บ่อยเพื่อเติมช่อง แล้วกดเพิ่ม · หรือพิมพ์เอง';
+      : 'ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27 — ไม่ถูกจะไม่บันทึก';
   }
   if (els.calorieQuickInput) {
     els.calorieQuickInput.value = '';
-    els.calorieQuickInput.placeholder = calorieQuickMode === 'mus' ? 'ท่า + แคลที่เผา' : 'แคล,โปรตีน';
+    els.calorieQuickInput.placeholder = calorieQuickMode === 'mus' ? 'ท่า + แคลที่เผา' : '130,27';
   }
   syncCalorieQuickChrome();
   paintCalorieQuickFreq();
@@ -1800,10 +1829,10 @@ function openCalorieCellEditor(opts) {
       els.calorieQuickTitle.textContent = value ? `แก้มื้อ ${mealIndex + 1}` : `มื้อ ${mealIndex + 1}`;
     }
     if (els.calorieQuickHint) {
-      els.calorieQuickHint.textContent = 'แก้ตัวเลขแคล · กดเคลียร์แล้วบันทึกเพื่อลบ · หรือพิมพ์ใหม่แล้วบันทึก';
+      els.calorieQuickHint.textContent = 'ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27 · เคลียร์แล้วบันทึกเพื่อลบ';
     }
     if (els.calorieQuickInput) {
-      els.calorieQuickInput.placeholder = 'แคล,โปรตีน';
+      els.calorieQuickInput.placeholder = '130,27';
       els.calorieQuickInput.value = value;
     }
   } else {
@@ -1890,7 +1919,10 @@ function submitCalorieQuick() {
           meals[idx] = '';
         } else {
           const parsed = parseQuickMeal(text);
-          if (!parsed) throw new Error('ใส่แคลอรี่ เช่น 130,27');
+          if (!parsed) {
+            setStatus(MEAL_PATTERN_HINT, { forceToast: true, ms: 4200 });
+            return;
+          }
           meals[idx] = formatMealCell(parsed.cal, parsed.prot);
         }
         persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
@@ -1900,13 +1932,16 @@ function submitCalorieQuick() {
       }
       closeCalorieQuick();
     } catch (err) {
-      setStatus(err?.message || 'บันทึกไม่ได้');
+      setStatus(err?.message || 'บันทึกไม่ได้', { forceToast: true });
     }
     return;
   }
 
   if (!text) {
-    setStatus(calorieQuickMode === 'mus' ? 'พิมพ์ท่า + แคลก่อน' : 'พิมพ์แคล/โปรตีนก่อน');
+    setStatus(
+      calorieQuickMode === 'mus' ? 'พิมพ์ท่า + แคลก่อน' : MEAL_PATTERN_HINT,
+      { forceToast: true },
+    );
     return;
   }
   try {
@@ -1918,10 +1953,15 @@ function submitCalorieQuick() {
         fullRender: true,
       });
     } else {
-      const { sheet, slot, parsed } = appendQuickMeal(ensureCaloriePayload(), text);
+      const parsed = parseQuickMeal(text);
+      if (!parsed) {
+        setStatus(MEAL_PATTERN_HINT, { forceToast: true, ms: 4200 });
+        return;
+      }
+      const { sheet, slot } = appendQuickMeal(ensureCaloriePayload(), text);
       state.calorieActiveMonth = monthKeyFromDate(toDateKey());
       persistCalorie(sheet, {
-        status: `มื้อ ${slot}: ${parsed.cal}${parsed.prot ? `,${parsed.prot}` : ''}`,
+        status: `มื้อ ${slot}: ${parsed.cal},${parsed.prot}`,
         fullRender: true,
       });
     }
@@ -1931,7 +1971,7 @@ function submitCalorieQuick() {
       syncCalorieMonthFromScroll();
     });
   } catch (err) {
-    setStatus(err?.message || 'เพิ่มไม่ได้');
+    setStatus(err?.message || 'เพิ่มไม่ได้', { forceToast: true, ms: 4200 });
   }
 }
 

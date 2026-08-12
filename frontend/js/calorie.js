@@ -62,29 +62,31 @@ export function parseMealCell(raw) {
 export function formatMealCell(cal, prot) {
   if (!Number.isFinite(cal) && !Number.isFinite(prot)) return '';
   const c = Number.isFinite(cal) ? Math.round(cal) : 0;
-  const p = Number.isFinite(prot) ? round(prot, 1) : 0;
+  const p = Number.isFinite(prot) ? Math.round(prot) : 0;
   if (!c && !p) return '';
-  return p ? `${c},${p}` : String(c);
+  // Always store "cal,prot" so the comma pattern stays consistent.
+  return `${c},${p}`;
 }
+
+/** Thai copy when meal text fails the required "int,int" pattern. */
+export const MEAL_PATTERN_HINT = 'รูปแบบไม่ถูก — ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27';
 
 /**
  * Quick-add meal text → { cal, prot, label }.
- * Accepts "130,27", "350", "ข้าวต้ม 180,12", "นม 120".
+ * Required pattern: integers with a comma — "130,27" or "ข้าวต้ม 180,12".
+ * Rejects decimals, spaces/semicolons as separators, and cal-only ("350").
  */
 export function parseQuickMeal(text) {
   const s = String(text || '').trim();
   if (!s) return null;
-  const m = s.match(/(\d+(?:\.\d+)?)(?:\s*[,;]\s*(\d+(?:\.\d+)?))?/);
+  // Optional label before the pair; pair must be digits,digits at end.
+  const m = s.match(/^(?:(.+?)\s+)?(\d+),(\d+)$/);
   if (!m) return null;
-  const cal = Number(m[1]);
-  const prot = m[2] != null ? Number(m[2]) : 0;
-  if (!Number.isFinite(cal) || cal <= 0) return null;
-  const label = s.replace(m[0], ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
-  return {
-    cal: Math.round(cal),
-    prot: Number.isFinite(prot) ? round(prot, 1) : 0,
-    label,
-  };
+  const cal = Number(m[2]);
+  const prot = Number(m[3]);
+  if (!Number.isInteger(cal) || !Number.isInteger(prot) || cal <= 0 || prot < 0) return null;
+  const label = String(m[1] || '').trim().slice(0, 80);
+  return { cal, prot, label };
 }
 
 /**
@@ -117,7 +119,7 @@ export function ensureDay(calorie, dateKey = toDateKey(new Date())) {
 export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date())) {
   const parsed = parseQuickMeal(text);
   if (!parsed) {
-    const err = new Error('ใส่แคลอรี่ เช่น 130,27 หรือ ข้าว 180,12');
+    const err = new Error(MEAL_PATTERN_HINT);
     err.code = 'bad_meal';
     throw err;
   }
@@ -244,11 +246,12 @@ export function recordFrequent(calorie, kind, text, parsed) {
       ? `${String(parsed.label).slice(0, 16)} ${parsed.burn}`
       : String(parsed?.burn ?? t);
   } else {
-    const cal = parsed?.cal ?? '';
-    const prot = parsed?.prot ? `,${parsed.prot}` : '';
+    const cal = Number.isFinite(parsed?.cal) ? Math.round(parsed.cal) : '';
+    const prot = Number.isFinite(parsed?.prot) ? Math.round(parsed.prot) : 0;
+    const pair = cal === '' ? t : `${cal},${prot}`;
     label = parsed?.label
-      ? `${String(parsed.label).slice(0, 14)} ${cal}${prot}`
-      : `${cal}${prot}`;
+      ? `${String(parsed.label).slice(0, 14)} ${pair}`
+      : pair;
   }
   label = String(label).trim().slice(0, 28);
   const list = [...(sheet[key] || [])];
@@ -1642,7 +1645,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
             <tr class="cal-head-b">
               <th class="cal-col-burn" scope="col">mus</th>
               <th class="cal-col-burn" scope="col" title="base · Σ · %">เบิร์น</th>
-              <th class="cal-col-meals" colspan="6" scope="col">มื้อ 1–${n}</th>
+              <th class="cal-col-meals" colspan="6" scope="col" title="${n > 7 ? 'ปัดซ้ายในแถบมื้อเพื่อดูมื้อที่ซ่อน' : ''}">มื้อ 1–${n}${n > 7 ? ' · ปัด→' : ''}</th>
               <th class="cal-col-note" colspan="2" scope="col">หลัก</th>
             </tr>`;
 }
@@ -1662,7 +1665,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         const cell = rawMeals[i] || '';
         const has = cell ? ' has-value' : '';
         mealInputs.push(
-          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></span>`,
+          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></span>`,
         );
       }
       let sep = '';
@@ -1698,7 +1701,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
             <span class="cal-derived ${toneClass(m.pctBl)}" data-cal-derived="pctBl">${m.pctBl == null ? '' : `${m.pctBl}%`}</span>
           </span>
         </td>
-        <td class="cal-col-meals" colspan="6"><div class="cal-meals-fit" style="--cal-meal-n:${cols}">${mealInputs.join('')}</div></td>
+        <td class="cal-col-meals" colspan="6"><div class="cal-meals-fit${cols > 7 ? ' is-scrollable' : ''}" style="--cal-meal-n:${cols}" title="${cols > 7 ? 'ปัดซ้ายเพื่อดูมื้อเพิ่ม' : ''}">${mealInputs.join('')}</div></td>
         <td class="cal-col-note" colspan="2"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>
       </tr>`;
     })
