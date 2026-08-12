@@ -167,7 +167,7 @@ export function buildUserContext(notesData) {
 
 function renderContextMarkdown({ updatedAt, tagProfiles, recent, noteCount, tagCount }) {
   const lines = [
-    '# P-Note · ความจำผู้ใช้',
+    '# แคลโน้ต · ความจำผู้ใช้',
     '',
     `อัปเดต: ${updatedAt}`,
     `โน้ตใช้งาน: ${noteCount} · แท็ก: ${tagCount}`,

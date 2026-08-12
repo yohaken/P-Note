@@ -8,7 +8,7 @@ import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=148
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
-  label: 'P-Note',
+  label: 'แคลโน้ต',
   sound: true,
   vibrate: true,
   preview: 'full', // full | title | hidden
@@ -345,7 +345,7 @@ export function normalizeNotifyPrefs(raw, legacyEnabled) {
       : Boolean(legacyEnabled);
   return {
     enabled,
-    label: String(src.label || DEFAULT_NOTIFY_PREFS.label).trim().slice(0, 24) || 'P-Note',
+    label: String(src.label || DEFAULT_NOTIFY_PREFS.label).trim().slice(0, 24) || 'แคลโน้ต',
     sound: src.sound !== false,
     vibrate: src.vibrate !== false,
     preview: PREVIEW_MODES.includes(src.preview) ? src.preview : 'full',

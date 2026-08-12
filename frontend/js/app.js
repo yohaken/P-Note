@@ -92,7 +92,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=177';
+} from './calorie.js?v=178';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -1081,7 +1081,7 @@ function applyNotifySettingsUi() {
   if (els.notifyOptions) els.notifyOptions.hidden = !on;
 
   if (els.notifyLabel && document.activeElement !== els.notifyLabel) {
-    els.notifyLabel.value = prefs.label || 'P-Note';
+    els.notifyLabel.value = prefs.label || 'แคลโน้ต';
   }
   if (els.notifyEarly) els.notifyEarly.value = String(prefs.earlyMinutes || 0);
   if (els.notifyMinPriority) els.notifyMinPriority.value = prefs.minPriority || 'normal';
@@ -1121,7 +1121,7 @@ function applyNotifySettingsUi() {
     els.notifyHint.textContent = 'รออนุญาตการแจ้งเตือนจากเครื่อง…';
   } else {
     els.notifyHint.textContent =
-      'โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · แนะนำติดตั้ง P-Note บนหน้าจอโฮม';
+      'โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · แนะนำติดตั้ง แคลโน้ต บนหน้าจอโฮม';
   }
 }
 
@@ -2080,13 +2080,13 @@ function calendarZoomIn() {
 
 function renderModeSwitcher() {
   if (els.modeSwitchName) {
-    if (isCalorieMode()) els.modeSwitchName.textContent = 'แคลอรี่';
+    if (isCalorieMode()) els.modeSwitchName.textContent = 'แคลโน้ต';
     else if (isCalendarMode()) els.modeSwitchName.textContent = 'ปฏิทิน';
     else els.modeSwitchName.textContent = isNoteMode() ? 'Note' : 'งานหลัก';
   }
   if (els.modeSwitchBtn) {
     let ariaLabel = 'โหมดงานหลัก';
-    if (isCalorieMode()) ariaLabel = 'โหมดแคลอรี่';
+    if (isCalorieMode()) ariaLabel = 'แคลโน้ต';
     else if (isCalendarMode()) ariaLabel = 'โหมดปฏิทิน';
     else if (isNoteMode()) ariaLabel = 'โหมด Note';
     els.modeSwitchBtn.setAttribute('aria-label', ariaLabel);
@@ -2625,7 +2625,7 @@ function renderGroupNav() {
         ? 'ถังขยะ'
         : 'งานหลัก';
   const name = isCalorieMode()
-    ? 'แคลอรี่'
+    ? 'แคลโน้ต'
     : isNoteMode()
       ? 'Note'
       : groupTitle === 'งานหลัก'
@@ -6600,7 +6600,7 @@ function updateAppVersionLabel() {
     els.appBuilt.textContent = builtLabel ? `อัปเดต ${builtLabel}` : '';
   }
   if (els.appTitle && !els.appTitle.querySelector('.title-version')) {
-    els.appTitle.innerHTML = `P-Note <span class="title-version">${escapeHtml(verLabel)}</span>`;
+    els.appTitle.innerHTML = `แคลโน้ต <span class="title-version">${escapeHtml(verLabel)}</span>`;
   } else if (els.appTitle) {
     const ver = els.appTitle.querySelector('.title-version');
     if (ver) ver.textContent = verLabel;
@@ -7525,7 +7525,7 @@ async function init({ fromBoot = false } = {}) {
   els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
   els.notifyOnBtn?.addEventListener('click', () => setNotificationsEnabled(true));
   els.notifyLabel?.addEventListener('change', () => {
-    persistNotifyPrefs({ label: els.notifyLabel.value.trim() || 'P-Note' });
+    persistNotifyPrefs({ label: els.notifyLabel.value.trim() || 'แคลโน้ต' });
   });
   els.notifyEarly?.addEventListener('change', () => {
     persistNotifyPrefs({ earlyMinutes: Number(els.notifyEarly.value) || 0 });

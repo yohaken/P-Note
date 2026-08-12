@@ -1,5 +1,5 @@
 export const CONFIG = {
-  APP_FOLDER_NAME: 'P-Note',
+  APP_FOLDER_NAME: 'แคลโน้ต',
   NOTES_FILE_NAME: 'my_notes.json',
   /** Near-immediate cloud write after edits (localStorage is still sync). */
   AUTOSAVE_DELAY_MS: 280,
