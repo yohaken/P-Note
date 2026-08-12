@@ -374,7 +374,7 @@ export function loadSettings() {
         cameraQuality: 'max',
         notifyMonthPresets: [3, 5, 6],
         lastWorkspaceId: null,
-        appMode: 'work',
+        appMode: 'calorie',
         lastNotepadId: null,
         recentNotepadIds: [],
       });

@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="175">
+  <meta name="pnote-build" content="176">
   <meta name="pnote-built" content="2026-08-12T05:20:00+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=175"></script>
+  <script src="js/cache-bootstrap.js?v=176"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=175">
+  <link rel="stylesheet" href="css/pnote.css?v=176">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -24,12 +24,43 @@
       vertical-align: baseline;
     }
     .app-built { display: none !important; }
+    /* Retired work/note/calendar chrome — hide before modules load */
+    #list-view,
+    #editor-view,
+    #calendar-view,
+    #group-drawer,
+    #drawer-backdrop,
+    #modeMenuOverlay,
+    #float-tag-rail,
+    #filter-dock-filters,
+    #notepad-quick-bar,
+    #search-toggle-btn,
+    #note-search-row,
+    #mode-switch-btn,
+    .dock-mode-switch,
+    #group-nav-btn,
+    #filter-due-menu,
+    #filter-sort-menu,
+    #filter-priority-menu,
+    #filter-recurrence-menu,
+    #filter-dd-backdrop,
+    #icon-picker-overlay,
+    #ai-note-modal,
+    #selection-dock,
+    #undo-fab-btn {
+      display: none !important;
+    }
+    #calorie-app-title {
+      display: inline-flex !important;
+      align-items: baseline;
+      gap: 0.25rem;
+    }
   </style>
 </head>
-<body class="light">
+<body class="light calorie-mode calorie-only">
   <div id="app">
-    <!-- Shared chrome for work/note list + calendar (not part of any one sheet) -->
-    <header id="board-topbar" class="topbar topbar-thin" hidden>
+    <!-- Calorie chrome (work/note/calendar surfaces retired) -->
+    <header id="board-topbar" class="topbar topbar-thin">
       <div class="topbar-title">
         <button type="button" class="mode-switch-btn" id="mode-switch-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="modeMenuOverlay" title="แคลอรี่" hidden>
           <span class="mode-switch-name" id="mode-switch-name">แคลอรี่</span>
@@ -163,15 +194,15 @@
       </footer>
     </section>
 
-    <div id="drawer-backdrop" class="drawer-backdrop"></div>
-    <aside id="group-drawer" class="drawer" aria-label="กลุ่มงาน">
+    <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+    <aside id="group-drawer" class="drawer" hidden aria-hidden="true" aria-label="กลุ่มงาน">
       <h2>กลุ่มงาน</h2>
       <button id="group-active-btn" class="drawer-item active" type="button">งาน</button>
       <button id="group-done-btn" class="drawer-item" type="button">ทำแล้ว</button>
       <button id="group-trash-btn" class="drawer-item" type="button">ถังขยะ</button>
     </aside>
 
-    <section id="calorie-view" class="view calorie-view" hidden aria-label="แผ่นงานแคลอรี่">
+    <section id="calorie-view" class="view calorie-view" aria-label="แผ่นงานแคลอรี่">
       <div class="calorie-toolbar">
         <div class="calorie-totals" id="calorie-totals" aria-live="polite"></div>
         <div class="calorie-toolbar-actions">
@@ -845,7 +876,7 @@
             <span>ออกกำลัง</span>
           </button>
         </div>
-        <div class="filter-dock-filters" id="filter-dock-filters">
+        <div class="filter-dock-filters" id="filter-dock-filters" hidden aria-hidden="true">
           <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรอง">
             <div class="filter-dd" data-filter="due">
               <button type="button" class="filter-dd-btn" id="filter-due-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-due-menu">กำหนด</button>
@@ -938,7 +969,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=175"></script>
-  <script src="js/update-watch.js?v=175"></script>
+  <script type="module" src="js/boot.js?v=176"></script>
+  <script src="js/update-watch.js?v=176"></script>
 </body>
 </html>

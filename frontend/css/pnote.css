@@ -5826,11 +5826,13 @@ body.calorie-only #list-view,
 body.calorie-only #editor-view,
 body.calorie-only #calendar-view,
 body.calorie-only #group-drawer,
+body.calorie-only #drawer-backdrop,
 body.calorie-only #modeMenuOverlay,
 body.calorie-only #float-tag-rail,
 body.calorie-only #filter-dock-filters,
 body.calorie-only #notepad-quick-bar,
 body.calorie-only #ai-note-overlay,
+body.calorie-only #ai-note-modal,
 body.calorie-only .work-only-settings,
 body.calorie-only #search-toggle-btn,
 body.calorie-only #note-search-row,
@@ -5842,7 +5844,13 @@ body.calorie-only #dock-mode-work,
 body.calorie-only #dock-mode-note,
 body.calorie-only #dock-mode-calendar,
 body.calorie-only #dock-mode-calorie,
-body.calorie-only #backup-settings-row {
+body.calorie-only #backup-settings-row,
+body.calorie-only #filter-due-menu,
+body.calorie-only #filter-sort-menu,
+body.calorie-only #filter-priority-menu,
+body.calorie-only #filter-recurrence-menu,
+body.calorie-only #filter-dd-backdrop,
+body.calorie-only #icon-picker-overlay {
   display: none !important;
 }
 
