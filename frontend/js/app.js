@@ -149,7 +149,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=197';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=198';
 import {
   allIcons,
   bestIconForLabel,
@@ -538,7 +538,7 @@ const els = {
   calorieTbody: document.getElementById('calorie-tbody'),
   calorieEmpty: document.getElementById('calorie-empty'),
   calorieScroll: document.getElementById('calorie-scroll'),
-  calorieAddDayBtn: document.getElementById('calorie-add-day-btn'),
+  calorieAddDayBtn: null,
   calorieProteinFactor: document.getElementById('calorie-protein-factor'),
   calorieHeight: document.getElementById('calorie-height'),
   calorieBirthdate: document.getElementById('calorie-birthdate'),
@@ -2979,7 +2979,11 @@ function renderGroupNav() {
   els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
-  if (isNoteMode() || isCalorieMode()) {
+  if (isCalorieMode()) {
+    // Table days are created automatically — no manual +วัน control.
+    if (els.addNoteBtn) els.addNoteBtn.hidden = true;
+    if (els.addBlankBtn) els.addBlankBtn.hidden = true;
+  } else if (isNoteMode()) {
     if (els.addNoteBtn) els.addNoteBtn.hidden = false;
     if (els.addBlankBtn) els.addBlankBtn.hidden = true;
   } else {
@@ -2989,9 +2993,9 @@ function renderGroupNav() {
   if (els.addNoteBtn) {
     els.addNoteBtn.setAttribute(
       'aria-label',
-      isCalorieMode() ? 'เพิ่มวัน' : isNoteMode() ? 'เพิ่ม Note' : 'เพิ่มงาน',
+      isNoteMode() ? 'เพิ่ม Note' : 'เพิ่มงาน',
     );
-    els.addNoteBtn.title = isCalorieMode() ? 'เพิ่มวัน' : isNoteMode() ? 'เพิ่ม Note' : 'เพิ่มงาน';
+    els.addNoteBtn.title = isNoteMode() ? 'เพิ่ม Note' : 'เพิ่มงาน';
   }
   updateFilterDockVisibility();
   renderModeSwitcher();
@@ -7476,8 +7480,8 @@ async function init({ fromBoot = false } = {}) {
   // Camera / attach viewer / AI-heavy wiring: after list is usable
 
   els.addNoteBtn?.addEventListener('click', () => {
-    if (isCalorieMode()) addCalorieDay();
-    else if (isNoteMode()) promptNewNotepad();
+    if (isCalorieMode()) return; // days auto-create
+    if (isNoteMode()) promptNewNotepad();
     else openAddNoteModal();
   });
   els.emptyAddAiBtn?.addEventListener('click', openAddNoteModal);
@@ -7682,7 +7686,6 @@ async function init({ fromBoot = false } = {}) {
       collapseCalendarNotes();
     }
   });
-  els.calorieAddDayBtn?.addEventListener('click', () => addCalorieDay());
   els.calorieFabMeal?.addEventListener('click', () => openCalorieQuick('meal'));
   els.calorieFabMus?.addEventListener('click', () => openCalorieQuick('mus'));
   els.calorieQuickCancel?.addEventListener('click', closeCalorieQuick);
