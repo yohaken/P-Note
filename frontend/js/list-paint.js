@@ -5,10 +5,10 @@
 import {
   FIXED_UI,
   loadSettings,
-  normalizeCalorieTones,
+  calorieToneCssVars,
   dockScaleToCss,
   dockOffsetYToLiftPx,
-} from './settings.js?v=191';
+} from './settings.js?v=192';
 
 function applyCalorieChrome() {
   document.body.classList.add('light', 'calorie-mode', 'calorie-only');
@@ -23,12 +23,16 @@ function applyCalorieChrome() {
   }
 
   try {
-    const tones = normalizeCalorieTones(loadSettings().calorieTones);
-    [document.documentElement, document.body].forEach((el) => {
-      if (!el) return;
-      el.style.setProperty('--cal-tone-eat', tones.eat);
-      el.style.setProperty('--cal-tone-burn', tones.burn);
-      el.style.setProperty('--cal-tone-empty', tones.empty);
+    const vars = calorieToneCssVars(loadSettings().calorieTones);
+    [
+      document.documentElement,
+      document.body,
+      document.getElementById('calorie-view'),
+      document.querySelector('.calorie-table'),
+    ].filter(Boolean).forEach((el) => {
+      Object.entries(vars).forEach(([key, value]) => {
+        el.style.setProperty(key, value);
+      });
     });
   } catch { /* ignore */ }
 

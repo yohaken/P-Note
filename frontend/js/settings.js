@@ -169,6 +169,57 @@ export function safeHexColor(value, fallback) {
   return fallback;
 }
 
+function hexToRgb(hex) {
+  const h = safeHexColor(hex, '#000000').slice(1);
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+function rgbToHex(r, g, b) {
+  const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${[clamp(r), clamp(g), clamp(b)]
+    .map((n) => n.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+/** Mix `fg` over `bg` by amount (0–1 of fg). */
+export function mixHex(fg, bg, amount) {
+  const a = Math.max(0, Math.min(1, Number(amount) || 0));
+  const [fr, fgG, fb] = hexToRgb(fg);
+  const [br, bgG, bb] = hexToRgb(bg);
+  return rgbToHex(
+    fr * a + br * (1 - a),
+    fgG * a + bgG * (1 - a),
+    fb * a + bb * (1 - a),
+  );
+}
+
+/**
+ * Concrete hex washes for the calorie table — set as inline CSS vars so
+ * Settings color changes always win (no fragile color-mix + transparent).
+ */
+export function calorieToneCssVars(raw) {
+  const t = normalizeCalorieTones(raw);
+  const ink = '#333333';
+  return {
+    '--cal-tone-eat': t.eat,
+    '--cal-tone-burn': t.burn,
+    '--cal-tone-empty': t.empty,
+    '--cal-tone-eat-wash': mixHex(t.eat, t.empty, 0.1),
+    '--cal-tone-burn-wash': mixHex(t.burn, t.empty, 0.12),
+    '--cal-tone-eat-head': mixHex(t.eat, t.empty, 0.16),
+    '--cal-tone-burn-head': mixHex(t.burn, t.empty, 0.14),
+    '--cal-tone-eat-ink': mixHex(t.eat, ink, 0.62),
+    '--cal-tone-burn-ink': mixHex(t.burn, ink, 0.55),
+    '--cal-tone-pos-ink': mixHex(t.burn, ink, 0.7),
+    '--cal-tone-neg-ink': mixHex(t.eat, ink, 0.75),
+    '--cal-tone-row-line': mixHex(t.eat, '#c4c4c4', 0.35),
+  };
+}
+
 export function normalizePriorityColors(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
   return {

@@ -1,5 +1,5 @@
 import { normalizeNotesData } from './notes.js?v=148';
-import { mergeCalorieByUpdatedAt } from './calorie.js?v=191';
+import { mergeCalorieByUpdatedAt } from './calorie.js?v=192';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
