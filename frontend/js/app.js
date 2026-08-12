@@ -1,8 +1,8 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=148';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=199';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
 import { CONFIG } from './config.js?v=154';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=194';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=199';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -98,7 +98,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=194';
+} from './calorie.js?v=199';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -149,7 +149,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=198';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=199';
 import {
   allIcons,
   bestIconForLabel,
@@ -221,7 +221,7 @@ import {
   SHARED_SPACE_ID,
 } from './remote.js?v=154';
 import { normalizeNotesData } from './notes.js?v=148';
-import { SaveManager } from './sync.js?v=154';
+import { SaveManager } from './sync.js?v=199';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
 
 const state = {
@@ -549,6 +549,7 @@ const els = {
   calorieToneEat: document.getElementById('calorie-tone-eat'),
   calorieToneBurn: document.getElementById('calorie-tone-burn'),
   calorieToneEmpty: document.getElementById('calorie-tone-empty'),
+  calorieToneLine: document.getElementById('calorie-tone-line'),
   calorieToneReset: document.getElementById('calorie-tone-reset'),
   calorieThead: document.getElementById('calorie-thead'),
   calorieQuickFreq: document.getElementById('calorie-quick-freq'),
@@ -1061,6 +1062,9 @@ function applyCalorieTones() {
   if (els.calorieToneEmpty && document.activeElement !== els.calorieToneEmpty) {
     els.calorieToneEmpty.value = tones.empty;
   }
+  if (els.calorieToneLine && document.activeElement !== els.calorieToneLine) {
+    els.calorieToneLine.value = tones.line;
+  }
   // Live swatches in Settings so the user sees the change immediately.
   document.querySelectorAll('[data-tone-swatch]').forEach((node) => {
     const key = node.getAttribute('data-tone-swatch');
@@ -1075,6 +1079,7 @@ function persistCalorieTonesFromUi({ reset = false } = {}) {
       eat: els.calorieToneEat?.value,
       burn: els.calorieToneBurn?.value,
       empty: els.calorieToneEmpty?.value,
+      line: els.calorieToneLine?.value,
     });
   state.settings.calorieTones = next;
   saveSettings(state.settings);
@@ -1340,6 +1345,7 @@ function ensureCaloriePayload() {
 }
 
 function persistCalorie(nextCalorie, { status = '', fullRender = false, immediate = true } = {}) {
+  const prevCols = mealColumnCount(state.notesData?.calorie);
   const now = new Date().toISOString();
   // Always stamp calorie.updatedAt so cloud merge keeps profile/goals (height etc.)
   // instead of letting a newer remote sheet meta overwrite local choices.
@@ -1348,10 +1354,14 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
     calorie: normalizeCalorie({ ...nextCalorie, updatedAt: now }),
     updatedAt: now,
   };
-  // Standard: write local + cloud immediately (no debounce race with sync).
+  // Local-first: disk sync from memory immediately, then paint from memory.
+  try {
+    saveNotes(state.notesData);
+  } catch { /* ignore quota */ }
+  // Cloud queue resolves getNotesData() at write time (never a stale snap).
   if (immediate) {
     void saveManager.saveNow(() => state.notesData).catch(() => {
-      /* local already written inside SaveManager; cloud may retry */
+      /* local already written; cloud may retry */
     });
   } else {
     saveManager.scheduleSave(() => state.notesData);
@@ -1362,7 +1372,9 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
     paintCalorieHealthSheet(ensureCaloriePayload());
     return;
   }
-  if (fullRender) renderCalorieSheet();
+  const nextCols = mealColumnCount(state.notesData.calorie);
+  const needFull = fullRender || nextCols !== prevCols;
+  if (needFull) renderCalorieSheet({ preserveScroll: true });
   else refreshCalorieDerived();
 }
 
@@ -1711,8 +1723,9 @@ function refreshCalorieDerived() {
   });
 }
 
-function renderCalorieSheet() {
+function renderCalorieSheet({ preserveScroll = false } = {}) {
   if (!els.calorieTbody) return;
+  const prevScroll = els.calorieScroll?.scrollTop ?? 0;
   // Keep a today row ready so the vertical card is always loggable.
   {
     const { sheet: withToday, created } = addDayFromLast(ensureCaloriePayload(), toDateKey());
@@ -1749,7 +1762,9 @@ function renderCalorieSheet() {
   if (els.calorieScroll) els.calorieScroll.hidden = state.caloriePane === 'health';
   if (els.calorieTodayCard && state.caloriePane === 'health') els.calorieTodayCard.hidden = true;
   requestAnimationFrame(() => {
-    if (els.calorieScroll && state.caloriePane !== 'health') els.calorieScroll.scrollTop = 0;
+    if (els.calorieScroll && state.caloriePane !== 'health') {
+      els.calorieScroll.scrollTop = preserveScroll ? prevScroll : 0;
+    }
     syncCalorieMonthFromScroll();
   });
 }
@@ -5800,34 +5815,43 @@ async function safePushRemote(data) {
     throw err;
   }
   const remote = normalizeNotesData(remoteRaw);
-  const local = normalizeNotesData(data);
+  // Live memory wins over any queued snapshot (local-first).
+  const live = normalizeNotesData(state.notesData || data);
   const remoteHas = hasCloudContent(remote);
-  const localHas = hasCloudContent(local);
+  const liveHas = hasCloudContent(live);
 
   // Sparse/empty local must never overwrite a filled Firestore space.
-  if (!localHas && remoteHas) {
+  if (!liveHas && remoteHas) {
     state.syncBaseUpdatedAt = remote.updatedAt || state.syncBaseUpdatedAt;
     return remote;
   }
 
   if (remoteHas) {
-    const merged = mergeNotesByUpdatedAt(local, remote);
-    const saved = await pushRemoteNotes(spaceId, merged);
-    // Keep in-memory/local union so the next paint matches Firestore.
-    state.notesData = merged;
-    saveNotes(merged);
-    state.syncBaseUpdatedAt = saved?.updatedAt || merged.updatedAt;
+    const merged = mergeNotesByUpdatedAt(live, remote);
+    // Fold any edits that landed while we were fetching.
+    const freshest = mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), merged);
+    const saved = await pushRemoteNotes(spaceId, freshest);
+    const memAt = new Date(state.notesData?.updatedAt || 0).getTime();
+    const outAt = new Date(freshest.updatedAt || 0).getTime();
+    // Never clobber newer in-memory edits with an older merge result.
+    if (outAt >= memAt) {
+      state.notesData = freshest;
+      saveNotes(freshest);
+    } else {
+      saveManager.scheduleSave(() => state.notesData);
+    }
+    state.syncBaseUpdatedAt = saved?.updatedAt || freshest.updatedAt;
     return saved;
   }
 
-  if (!localHas) {
+  if (!liveHas) {
     // Both empty — skip noisy overwrite.
-    state.syncBaseUpdatedAt = local.updatedAt || state.syncBaseUpdatedAt;
-    return local;
+    state.syncBaseUpdatedAt = live.updatedAt || state.syncBaseUpdatedAt;
+    return live;
   }
 
-  const saved = await pushRemoteNotes(spaceId, local);
-  state.syncBaseUpdatedAt = saved?.updatedAt || local.updatedAt || new Date().toISOString();
+  const saved = await pushRemoteNotes(spaceId, live);
+  state.syncBaseUpdatedAt = saved?.updatedAt || live.updatedAt || new Date().toISOString();
   return saved;
 }
 
@@ -7718,7 +7742,7 @@ async function init({ fromBoot = false } = {}) {
     el?.addEventListener('blur', onCalorieProfileChange);
   });
   const onCalorieToneChange = () => persistCalorieTonesFromUi();
-  [els.calorieToneEat, els.calorieToneBurn, els.calorieToneEmpty].forEach((el) => {
+  [els.calorieToneEat, els.calorieToneBurn, els.calorieToneEmpty, els.calorieToneLine].forEach((el) => {
     if (!el) return;
     el.addEventListener('input', onCalorieToneChange);
     el.addEventListener('change', onCalorieToneChange);
@@ -7771,10 +7795,8 @@ async function init({ fromBoot = false } = {}) {
     if (field === 'mus' && (parsed == null || parsed === 0)) {
       next = pruneFrequentMus(patchDay(next, dayId, { mus: null, note: '' }));
     }
-    persistCalorie(next, {
-      status: '',
-      fullRender: field === 'weight' || field === 'mus',
-    });
+    // Derived refresh is enough for body/burn — avoid full table rebuild flicker.
+    persistCalorie(next, { status: '', fullRender: false });
   };
   const onTodayCardChange = (e) => {
     const input = e.target?.closest?.('input');
@@ -7917,10 +7939,7 @@ async function init({ fromBoot = false } = {}) {
     if (field === 'mus' && (parsed == null || parsed === 0)) {
       next = pruneFrequentMus(patchDay(next, dayId, { mus: null, note: '' }));
     }
-    persistCalorie(next, {
-      status: '',
-      fullRender: field === 'weight' || field === 'mus',
-    });
+    persistCalorie(next, { status: '', fullRender: false });
   };
   const markClearWrap = (input) => {
     const wrap = input?.closest?.('.cal-input-wrap, .ctc-field-wrap');

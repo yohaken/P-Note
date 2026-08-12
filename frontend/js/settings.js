@@ -145,11 +145,12 @@ export const DEFAULT_DUE_COLORS = {
   overdue: '#e23b2e',
 };
 
-/** Calorie table / today-card tones (eat = caution, burn = green, empty = white). */
+/** Calorie table / today-card tones (eat = caution, burn = green, empty = white, line = day guide). */
 export const DEFAULT_CALORIE_TONES = {
   eat: '#ea580c',
   burn: '#16a34a',
   empty: '#ffffff',
+  line: '#d9d2c5',
 };
 
 export function normalizeCalorieTones(raw) {
@@ -158,6 +159,7 @@ export function normalizeCalorieTones(raw) {
     eat: safeHexColor(src.eat, DEFAULT_CALORIE_TONES.eat),
     burn: safeHexColor(src.burn, DEFAULT_CALORIE_TONES.burn),
     empty: safeHexColor(src.empty, DEFAULT_CALORIE_TONES.empty),
+    line: safeHexColor(src.line, DEFAULT_CALORIE_TONES.line),
   };
 }
 
@@ -228,7 +230,7 @@ export function calorieToneCssVars(raw) {
     '--cal-tone-burn-ink': mixHex(t.burn, ink, 0.55),
     '--cal-tone-pos-ink': mixHex(t.burn, ink, 0.7),
     '--cal-tone-neg-ink': mixHex(t.eat, ink, 0.75),
-    '--cal-tone-row-line': mixHex(t.eat, '#ebebeb', 0.18),
+    '--cal-tone-row-line': t.line,
   };
 }
 

@@ -1530,11 +1530,12 @@ export function mergeCalorieByUpdatedAt(localRaw, remoteRaw) {
   const takeBetter = (a, b) => {
     const sa = dayContentScore(a);
     const sb = dayContentScore(b);
-    // Never let a blank auto-today beat a filled cloud day.
-    if (sa === 0 && sb > 0) return b;
-    if (sb === 0 && sa > 0) return a;
     const at = new Date(a?.updatedAt || 0).getTime();
     const bt = new Date(b?.updatedAt || 0).getTime();
+    // Never let a blank auto-today beat a filled cloud day — unless the
+    // empty side is intentionally newer (user cleared the day).
+    if (sa === 0 && sb > 0) return at > bt ? a : b;
+    if (sb === 0 && sa > 0) return bt > at ? b : a;
     if (bt > at) return b;
     if (at > bt) return a;
     // Same time — prefer the richer row.
