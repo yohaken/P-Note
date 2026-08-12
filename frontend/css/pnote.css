@@ -6538,8 +6538,29 @@ body.calorie-health-pane #dock-calorie-health-btn {
   font-size: 0.52rem;
   font-weight: 700;
   letter-spacing: 0;
-  height: 1.2rem;
+  height: 1.15rem;
   padding: 0 0.08rem;
+}
+
+.calorie-table thead tr.cal-head-b th {
+  top: 1.15rem;
+  z-index: 3;
+  background: #ffedd5;
+  color: #9a3412;
+  font-size: 0.48rem;
+  height: 1.05rem;
+  border-bottom: 1px solid #fdba74;
+}
+
+.calorie-table thead tr.cal-head-b th.cal-col-meal,
+.calorie-table thead tr.cal-head-b th.cal-col-note {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.calorie-table thead tr.cal-head-b th.cal-col-burn,
+.calorie-table thead tr.cal-head-b th.cal-col-sum {
+  background: #ffedd5;
 }
 
 .calorie-table thead th.cal-col-meal {
@@ -6549,6 +6570,11 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .calorie-table thead th.cal-col-sum {
   background: #ffedd5;
+}
+
+.calorie-table thead th.cal-head-spacer {
+  background: #fff7ed;
+  border-right-color: transparent;
 }
 
 .calorie-table .cal-col-sticky {
@@ -6561,6 +6587,11 @@ body.calorie-health-pane #dock-calorie-health-btn {
 .calorie-table thead th.cal-col-sticky {
   z-index: 4;
   background: #fff7ed;
+}
+
+.calorie-table thead tr.cal-head-b th.cal-col-sticky {
+  z-index: 5;
+  background: #ffedd5;
 }
 
 .calorie-table .cal-col-n {
@@ -6737,13 +6768,49 @@ body.calorie-health-pane #dock-calorie-health-btn {
   color: var(--text-muted);
 }
 
+.calorie-table tr.cal-day-a td {
+  border-bottom-color: color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.calorie-table tr.cal-day-b td {
+  height: 1.2rem;
+  background: color-mix(in srgb, #ffedd5 28%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, #fdba74 70%, var(--border));
+}
+
+.calorie-table tr.cal-day-b td.cal-day-b-spacer {
+  background: transparent;
+  border-right-color: transparent;
+}
+
+.calorie-table tr.cal-day-b td.cal-day-mark {
+  background: color-mix(in srgb, #ffedd5 28%, transparent);
+}
+
+.calorie-table tr.cal-day-b td.cal-col-sticky {
+  background: color-mix(in srgb, #ffedd5 45%, var(--bg, #faf8f5));
+}
+
+.calorie-table tr.cal-row-today.cal-day-b td.cal-col-sticky {
+  background: color-mix(in srgb, var(--accent) 12%, #ffedd5);
+}
+
+.calorie-table tr.cal-day-b td.cal-col-note {
+  text-align: left;
+  background: color-mix(in srgb, #dcfce7 22%, transparent);
+}
+
 .calorie-table tr.cal-row-today td {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
+.calorie-table tr.cal-row-today.cal-day-b td {
+  background: color-mix(in srgb, var(--accent) 12%, #ffedd5);
+}
+
 .calorie-table tr.cal-month-sep td {
   position: sticky;
-  top: 1.2rem;
+  top: 2.2rem;
   z-index: 2;
   height: 1.15rem;
   padding: 0 0.25rem;

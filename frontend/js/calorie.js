@@ -1135,9 +1135,9 @@ export function renderCalorieTotalsHtml(totals, { monthLabel = '' } = {}) {
   return `${month}${body}`;
 }
 
-/** Fixed cols besides meals: # date day waist kg cal P p± bal kg | mus base Σ % note × */
+/** Row A cols: # date day waist kg + meals + cal P p± bal kg */
 function colCountForMeals(mealCols) {
-  return 16 + mealCols;
+  return 10 + mealCols;
 }
 
 export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
@@ -1146,24 +1146,28 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
   for (let i = 1; i <= n; i += 1) {
     meals += `<th class="cal-col-meal" scope="col">${i}</th>`;
   }
-  return `<tr>
+  return `<tr class="cal-head-a">
               <th class="cal-col-sticky cal-col-n" scope="col">#</th>
               <th class="cal-col-sticky cal-col-date" scope="col">ว/ด/ป</th>
               <th class="cal-col-day" scope="col">ว</th>
               <th class="cal-col-body" scope="col">เอว</th>
               <th class="cal-col-body" scope="col">กก</th>
+              ${meals}
               <th class="cal-col-sum cal-col-add" scope="col">cal</th>
               <th class="cal-col-sum" scope="col">P</th>
               <th class="cal-col-sum" scope="col">p±</th>
               <th class="cal-col-sum" scope="col">bal</th>
               <th class="cal-col-sum" scope="col">kg</th>
-              ${meals}
-              <th class="cal-col-burn" scope="col">mus</th>
+            </tr>
+            <tr class="cal-head-b">
+              <th class="cal-col-sticky cal-col-n" scope="col"></th>
+              <th class="cal-col-sticky cal-col-date cal-col-burn" scope="col">mus</th>
               <th class="cal-col-burn" scope="col" title="BMR อัตโนมัติ">base</th>
               <th class="cal-col-sum" scope="col">Σ</th>
               <th class="cal-col-sum" scope="col">%</th>
-              <th class="cal-col-note" scope="col">หลัก</th>
-              <th class="cal-col-del" scope="col"><span class="sr-only">เคลียร์</span></th>
+              <th class="cal-col-note" colspan="${n}" scope="col">หลัก</th>
+              <th class="cal-col-sum cal-head-spacer" colspan="4" scope="col"></th>
+              <th class="cal-col-del" scope="col"><span class="sr-only">เคลียร์</span>×</th>
             </tr>`;
 }
 
@@ -1191,27 +1195,33 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
           <td colspan="${span}"><span>${esc(row.monthLabel)}</span></td>
         </tr>`;
       }
-      return `${sep}<tr class="cal-row${today}" data-day-id="${esc(row.id)}" data-month="${esc(row.monthKey || '')}">
+      const id = esc(row.id);
+      const month = esc(row.monthKey || '');
+      return `${sep}<tr class="cal-row cal-day-a${today}" data-day-id="${id}" data-month="${month}">
         <td class="cal-col-sticky cal-col-n">${row.count}</td>
         <td class="cal-col-sticky cal-col-date">
-          <button type="button" class="cal-date-btn" data-cal-date-open="${esc(row.id)}" aria-label="วันที่ ${esc(row.dateDisplay)}">${esc(row.dateDisplay)}</button>
-          <input class="cal-date-picker" type="date" data-cal-field="date" data-day-id="${esc(row.id)}" value="${esc(row.date)}" tabindex="-1" aria-hidden="true">
+          <button type="button" class="cal-date-btn" data-cal-date-open="${id}" aria-label="วันที่ ${esc(row.dateDisplay)}">${esc(row.dateDisplay)}</button>
+          <input class="cal-date-picker" type="date" data-cal-field="date" data-day-id="${id}" value="${esc(row.date)}" tabindex="-1" aria-hidden="true">
         </td>
         <td class="cal-col-day">${esc(row.dayName)}</td>
-        <td class="cal-col-body"><input class="cal-cell" data-cal-field="waist" data-day-id="${esc(row.id)}" value="${row.waist ?? ''}" inputmode="decimal" aria-label="รอบเอว"></td>
-        <td class="cal-col-body"><input class="cal-cell" data-cal-field="weight" data-day-id="${esc(row.id)}" value="${row.weight ?? ''}" inputmode="decimal" aria-label="น้ำหนัก"></td>
-        <td class="cal-col-sum cal-col-add cal-derived">${m.addCal ?? ''}</td>
-        <td class="cal-col-sum cal-derived">${m.prot ?? ''}</td>
-        <td class="cal-col-sum cal-derived ${toneClass(m.pRm)}">${m.pRm == null ? '' : formatSigned(m.pRm, 1)}</td>
-        <td class="cal-col-sum cal-derived ${toneClass(m.balance)}">${m.balance == null ? '' : formatSigned(m.balance, 0)}</td>
-        <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
+        <td class="cal-col-body"><input class="cal-cell" data-cal-field="waist" data-day-id="${id}" value="${row.waist ?? ''}" inputmode="decimal" aria-label="รอบเอว"></td>
+        <td class="cal-col-body"><input class="cal-cell" data-cal-field="weight" data-day-id="${id}" value="${row.weight ?? ''}" inputmode="decimal" aria-label="น้ำหนัก"></td>
         ${meals.join('')}
-        <td class="cal-col-burn"><input class="cal-cell" data-cal-field="mus" data-day-id="${esc(row.id)}" value="${row.mus ?? ''}" inputmode="numeric" aria-label="ออกกำลัง"></td>
-        <td class="cal-col-burn cal-derived cal-base-auto" title="BMR จากน้ำหนัก × ส่วนสูง × อายุ">${m.base ?? ''}</td>
-        <td class="cal-col-sum cal-derived">${m.bsum ?? ''}</td>
-        <td class="cal-col-sum cal-derived ${toneClass(m.pctBl)}">${m.pctBl == null ? '' : `${m.pctBl}%`}</td>
-        <td class="cal-col-note"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${esc(row.id)}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>
-        <td class="cal-col-del"><button type="button" class="cal-del-btn" data-cal-clear="${esc(row.id)}" aria-label="เคลียร์ค่าวันนี้" title="เคลียร์ค่า">×</button></td>
+        <td class="cal-col-sum cal-col-add cal-derived" data-cal-derived="addCal">${m.addCal ?? ''}</td>
+        <td class="cal-col-sum cal-derived" data-cal-derived="prot">${m.prot ?? ''}</td>
+        <td class="cal-col-sum cal-derived ${toneClass(m.pRm)}" data-cal-derived="pRm">${m.pRm == null ? '' : formatSigned(m.pRm, 1)}</td>
+        <td class="cal-col-sum cal-derived ${toneClass(m.balance)}" data-cal-derived="balance">${m.balance == null ? '' : formatSigned(m.balance, 0)}</td>
+        <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}" data-cal-derived="blKg">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
+      </tr>
+      <tr class="cal-row cal-day-b${today}" data-day-id="${id}" data-month="${month}">
+        <td class="cal-col-sticky cal-col-n cal-day-mark" aria-hidden="true"></td>
+        <td class="cal-col-sticky cal-col-date cal-col-burn"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" aria-label="ออกกำลัง"></td>
+        <td class="cal-col-burn cal-derived cal-base-auto" data-cal-derived="base" title="BMR จากน้ำหนัก × ส่วนสูง × อายุ">${m.base ?? ''}</td>
+        <td class="cal-col-sum cal-derived" data-cal-derived="bsum">${m.bsum ?? ''}</td>
+        <td class="cal-col-sum cal-derived ${toneClass(m.pctBl)}" data-cal-derived="pctBl">${m.pctBl == null ? '' : `${m.pctBl}%`}</td>
+        <td class="cal-col-note" colspan="${cols}"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>
+        <td class="cal-col-sum cal-day-b-spacer" colspan="4"></td>
+        <td class="cal-col-del"><button type="button" class="cal-del-btn" data-cal-clear="${id}" aria-label="เคลียร์ค่าวันนี้" title="เคลียร์ค่า">×</button></td>
       </tr>`;
     })
     .join('');

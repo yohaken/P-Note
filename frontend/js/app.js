@@ -92,7 +92,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=172';
+} from './calorie.js?v=173';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -1306,7 +1306,7 @@ function syncCalorieMonthFromScroll() {
   const scrollTop = els.calorieScroll.scrollTop;
   const headerH = els.calorieScroll.querySelector('thead')?.getBoundingClientRect?.().height || 20;
   const probe = scrollTop + headerH + 8;
-  const rows = els.calorieTbody.querySelectorAll('tr.cal-row[data-month]');
+  const rows = els.calorieTbody.querySelectorAll('tr.cal-day-a[data-month]');
   if (!rows.length) {
     paintCalorieMonthTotals(monthKeyFromDate(toDateKey()));
     return;
@@ -1461,36 +1461,36 @@ function refreshCalorieDerived() {
   paintCalorieTodayCard(rows, sheet);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
   rows.forEach((row) => {
-    const tr = els.calorieTbody.querySelector(`tr[data-day-id="${CSS.escape(row.id)}"]`);
-    if (!tr) return;
+    const trA = els.calorieTbody.querySelector(`tr.cal-day-a[data-day-id="${CSS.escape(row.id)}"]`);
+    const trB = els.calorieTbody.querySelector(`tr.cal-day-b[data-day-id="${CSS.escape(row.id)}"]`);
+    if (!trA) return;
     const m = row.metrics;
-    const dayCell = tr.querySelector('.cal-col-day');
+    const dayCell = trA.querySelector('.cal-col-day');
     if (dayCell) dayCell.textContent = row.dayName || '';
-    const dateBtn = tr.querySelector('.cal-date-btn');
+    const dateBtn = trA.querySelector('.cal-date-btn');
     if (dateBtn) dateBtn.textContent = row.dateDisplay || formatDateDisplay(row.date);
-    const derived = tr.querySelectorAll('td.cal-derived');
-    // Order: addCal, prot, pRm, balance, blKg, base, bsum, pctBl
-    setDerivedCell(derived[0], m.addCal ?? '', null);
-    setDerivedCell(derived[1], m.prot ?? '', null);
+    const cell = (tr, key) => tr?.querySelector(`td[data-cal-derived="${key}"]`);
+    setDerivedCell(cell(trA, 'addCal'), m.addCal ?? '', null);
+    setDerivedCell(cell(trA, 'prot'), m.prot ?? '', null);
     setDerivedCell(
-      derived[2],
-      m.pRm == null ? '' : (m.pRm > 0 ? `+${m.pRm}` : String(m.pRm)),
+      cell(trA, 'pRm'),
+      m.pRm == null ? '' : formatSigned(m.pRm, 1),
       m.pRm,
     );
     setDerivedCell(
-      derived[3],
-      m.balance == null ? '' : (m.balance > 0 ? `+${m.balance}` : String(m.balance)),
+      cell(trA, 'balance'),
+      m.balance == null ? '' : formatSigned(m.balance, 0),
       m.balance,
     );
     setDerivedCell(
-      derived[4],
-      m.blKg == null ? '' : (m.blKg > 0 ? `+${m.blKg}` : String(m.blKg)),
+      cell(trA, 'blKg'),
+      m.blKg == null ? '' : formatSigned(m.blKg, 2),
       m.blKg,
     );
-    setDerivedCell(derived[5], m.base ?? '', null);
-    setDerivedCell(derived[6], m.bsum ?? '', null);
+    setDerivedCell(cell(trB, 'base'), m.base ?? '', null);
+    setDerivedCell(cell(trB, 'bsum'), m.bsum ?? '', null);
     setDerivedCell(
-      derived[7],
+      cell(trB, 'pctBl'),
       m.pctBl == null ? '' : `${m.pctBl}%`,
       m.pctBl,
     );
