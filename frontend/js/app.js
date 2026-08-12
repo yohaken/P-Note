@@ -149,7 +149,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=196';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=197';
 import {
   allIcons,
   bestIconForLabel,
@@ -571,6 +571,8 @@ const els = {
   calorieTodayWeight: document.getElementById('calorie-today-weight'),
   calorieTodayWaist: document.getElementById('calorie-today-waist'),
   calorieTodayMus: document.getElementById('calorie-today-mus'),
+  calorieTodayBurn: document.getElementById('calorie-today-burn'),
+  calorieTodayPose: document.getElementById('calorie-today-pose'),
   calorieTodayMeals: document.getElementById('calorie-today-meals'),
   calorieTodaySummary: document.getElementById('calorie-today-summary'),
   calorieFabs: document.getElementById('dock-context-calorie'),
@@ -1624,7 +1626,19 @@ function paintCalorieTodayCard(rows, sheet) {
   };
   fillIfIdle(els.calorieTodayWeight, row.weight);
   fillIfIdle(els.calorieTodayWaist, row.waist);
-  fillIfIdle(els.calorieTodayMus, row.mus);
+  if (els.calorieTodayMus && document.activeElement !== els.calorieTodayMus) {
+    const musVal = row.mus == null || row.mus === '' ? '' : String(row.mus);
+    els.calorieTodayMus.value = musVal;
+    els.calorieTodayMus.placeholder = '—';
+  }
+  if (els.calorieTodayPose) {
+    const pose = String(row.note || '').trim();
+    els.calorieTodayPose.textContent = pose || 'ยังไม่มีท่า · แตะเพื่อเพิ่ม';
+    els.calorieTodayPose.title = pose || 'แตะเพื่อแก้เบิร์น / ท่า';
+  }
+  if (els.calorieTodayBurn) {
+    els.calorieTodayBurn.classList.toggle('has-value', row.mus != null && row.mus !== '');
+  }
   const syncClearWrap = (input) => {
     const wrap = input?.closest?.('.cal-input-wrap, .ctc-field-wrap');
     if (!wrap) return;
@@ -7794,12 +7808,16 @@ async function init({ fromBoot = false } = {}) {
       });
       return;
     }
-    const musInput = e.target?.closest?.('#calorie-today-mus');
-    if (musInput && els.calorieTodayCard.contains(musInput)) {
+    const burnBox = e.target?.closest?.('#calorie-today-burn, #calorie-today-mus, #calorie-today-pose');
+    if (burnBox && els.calorieTodayCard.contains(burnBox)) {
       e.preventDefault();
       const dayId = els.calorieTodayCard.dataset.dayId;
       if (!dayId) return;
-      openCalorieCellEditor({ mode: 'mus', dayId, value: musInput.value });
+      openCalorieCellEditor({
+        mode: 'mus',
+        dayId,
+        value: els.calorieTodayMus?.value || '',
+      });
     }
   });
   els.calorieTodayCard?.addEventListener('focusin', (e) => {
