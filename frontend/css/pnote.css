@@ -6952,7 +6952,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 0 0 calc(0.55rem + var(--filters-dock-h, 5.5rem));
-  border-top: 1px solid var(--border);
+  border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
 }
 
 .calorie-table {
