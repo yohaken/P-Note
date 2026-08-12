@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="169">
-  <meta name="pnote-built" content="2026-08-12T03:50:00+00:00">
+  <meta name="pnote-build" content="170">
+  <meta name="pnote-built" content="2026-08-12T04:30:00+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="P-Note">
   <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=169"></script>
+  <script src="js/cache-bootstrap.js?v=170"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=169">
+  <link rel="stylesheet" href="css/pnote.css?v=170">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -202,36 +202,10 @@
 
       <div class="calorie-scroll" id="calorie-scroll">
         <table class="calorie-table" id="calorie-table" aria-label="ตารางแคลอรี่รายวัน">
-          <thead>
-            <tr>
-              <th class="cal-col-sticky cal-col-n" scope="col">#</th>
-              <th class="cal-col-sticky cal-col-date" scope="col">ว/ด/ป</th>
-              <th class="cal-col-day" scope="col">ว</th>
-              <th class="cal-col-body" scope="col">เอว</th>
-              <th class="cal-col-body" scope="col">กก</th>
-              <th class="cal-col-sum cal-col-add" scope="col">cal</th>
-              <th class="cal-col-sum" scope="col">P</th>
-              <th class="cal-col-sum" scope="col">p±</th>
-              <th class="cal-col-sum" scope="col">bal</th>
-              <th class="cal-col-sum" scope="col">kg</th>
-              <th class="cal-col-meal" scope="col">1</th>
-              <th class="cal-col-meal" scope="col">2</th>
-              <th class="cal-col-meal" scope="col">3</th>
-              <th class="cal-col-meal" scope="col">4</th>
-              <th class="cal-col-meal" scope="col">5</th>
-              <th class="cal-col-meal" scope="col">6</th>
-              <th class="cal-col-meal" scope="col">7</th>
-              <th class="cal-col-burn" scope="col">mus</th>
-              <th class="cal-col-burn" scope="col" title="BMR อัตโนมัติ">base</th>
-              <th class="cal-col-sum" scope="col">Σ</th>
-              <th class="cal-col-sum" scope="col">%</th>
-              <th class="cal-col-note" scope="col">หลัก</th>
-              <th class="cal-col-del" scope="col"><span class="sr-only">ลบ</span></th>
-            </tr>
-          </thead>
+          <thead id="calorie-thead"></thead>
           <tbody id="calorie-tbody"></tbody>
         </table>
-        <p class="calorie-empty" id="calorie-empty" hidden>ยังไม่มีวัน — กด +วัน หรือกรอกในการ์ดด้านบน</p>
+        <p class="calorie-empty" id="calorie-empty" hidden>ยังไม่มีวัน — ระบบสร้างวันนี้ให้อัตโนมัติ</p>
       </div>
     </section>
 
@@ -239,6 +213,7 @@
       <div class="calorie-quick-backdrop" id="calorie-quick-backdrop"></div>
       <div class="calorie-quick-sheet" role="dialog" aria-modal="true" aria-labelledby="calorie-quick-title">
         <h3 id="calorie-quick-title" class="calorie-quick-title">เพิ่มมื้อ</h3>
+        <div id="calorie-quick-freq" class="calorie-quick-freq" hidden aria-label="ใช้บ่อย"></div>
         <p id="calorie-quick-hint" class="calorie-quick-hint">เช่น 130,27 หรือ ข้าวต้ม 180,12</p>
         <input id="calorie-quick-input" class="calorie-quick-input" type="text" autocomplete="off" enterkeyhint="done" />
         <div class="calorie-quick-actions">
@@ -423,10 +398,11 @@
                 <span>ส่วนสูง (ซม.)</span>
                 <input id="calorie-height" class="notify-select" type="number" min="100" max="250" step="1" inputmode="numeric" aria-label="ส่วนสูงเซนติเมตร">
               </label>
-              <label class="notify-field" for="calorie-age" style="margin-top:0.45rem">
-                <span>อายุ (ปี)</span>
-                <input id="calorie-age" class="notify-select" type="number" min="10" max="100" step="1" inputmode="numeric" aria-label="อายุปี">
+              <label class="notify-field" for="calorie-birthdate" style="margin-top:0.45rem">
+                <span>วันเกิด</span>
+                <input id="calorie-birthdate" class="notify-select" type="date" aria-label="วันเกิด">
               </label>
+              <p class="settings-hint" id="calorie-age-display" style="margin-top:0.25rem">อายุ — ปี</p>
               <label class="notify-field" for="calorie-sex" style="margin-top:0.45rem">
                 <span>เพศ</span>
                 <select id="calorie-sex" class="notify-select" aria-label="เพศ">
@@ -438,7 +414,7 @@
                 <span>เป้าโปรตีน × ต่อ กก.</span>
                 <input id="calorie-protein-factor" class="notify-select" type="number" min="0.5" max="4" step="0.05" inputmode="decimal" aria-label="ตัวคูณโปรตีนต่อกก.">
               </label>
-              <p class="settings-hint">สูตร base: Mifflin–St Jeor จากน้ำหนักวันนั้น + ส่วนสูง/อายุ/เพศ</p>
+              <p class="settings-hint">สูตร base: Mifflin–St Jeor จากน้ำหนักวันนั้น + ส่วนสูง/วันเกิด/เพศ</p>
             </div>
           </div>
         </details>
@@ -722,28 +698,17 @@
           </div>
         </details>
 
-        <details class="settings-group" id="backup-settings-row" open>
+        <details class="settings-group" id="backup-settings-row" hidden>
           <summary class="settings-group-summary">สำรองแคลอรี่</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-row-last">
-              <p class="settings-hint" style="margin-top:0">
-                ดาวน์โหลด JSON สำรองแผ่นแคล/ข้อมูลแอป · นำเข้าแล้วบันทึกขึ้นคลาวด์ (ต้องล็อกอิน)
-              </p>
-              <button id="export-notes-btn" class="btn btn-primary" type="button">ดาวน์โหลดสำรอง</button>
-              <button id="import-notes-btn" class="btn btn-secondary" type="button" style="margin-top:0.45rem">เลือกไฟล์นำเข้า…</button>
+              <p class="settings-hint" style="margin-top:0">ปิดการสำรอง/ส่งออกแล้ว · ข้อมูลซิงค์ผ่านบัญชีคลาวด์</p>
+              <button id="export-notes-btn" class="btn btn-primary" type="button" hidden>ดาวน์โหลดสำรอง</button>
+              <button id="import-notes-btn" class="btn btn-secondary" type="button" hidden>เลือกไฟล์นำเข้า…</button>
               <input id="import-notes-file" type="file" accept="application/json,.json" hidden>
-              <label class="notify-field" for="import-notes-text" style="margin-top:0.75rem">
-                <span>หรือวาง JSON</span>
-                <textarea id="import-notes-text" rows="3" placeholder='{"version":5,"notes":[],"tags":[]}' spellcheck="false"></textarea>
-              </label>
-              <div class="notify-toggle-row" style="margin-top:0.45rem">
-                <span>รวมกับของเดิม</span>
-                <div class="segmented segmented-sm" id="import-merge-seg">
-                  <button type="button" data-import-merge="0">แทนที่</button>
-                  <button type="button" data-import-merge="1" class="active">รวม</button>
-                </div>
-              </div>
-              <button id="import-notes-paste-btn" class="btn btn-secondary" type="button" style="margin-top:0.55rem">นำเข้าจากข้อความ</button>
+              <textarea id="import-notes-text" hidden></textarea>
+              <div id="import-merge-seg" hidden></div>
+              <button id="import-notes-paste-btn" type="button" hidden>นำเข้าจากข้อความ</button>
             </div>
           </div>
         </details>
@@ -970,7 +935,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=169"></script>
-  <script src="js/update-watch.js?v=169"></script>
+  <script type="module" src="js/boot.js?v=170"></script>
+  <script src="js/update-watch.js?v=170"></script>
 </body>
 </html>

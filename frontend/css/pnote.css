@@ -5841,7 +5841,8 @@ body.calorie-only #group-nav-btn,
 body.calorie-only #dock-mode-work,
 body.calorie-only #dock-mode-note,
 body.calorie-only #dock-mode-calendar,
-body.calorie-only #dock-mode-calorie {
+body.calorie-only #dock-mode-calorie,
+body.calorie-only #backup-settings-row {
   display: none !important;
 }
 
@@ -6500,6 +6501,42 @@ body.calorie-only .dock-action-primary {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--text);
+}
+
+.calorie-quick-freq {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  margin: 0;
+}
+
+.calorie-quick-freq[hidden] {
+  display: none !important;
+}
+
+.cq-freq-chip {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface-2, #f3f7f4);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.28rem 0.45rem;
+  border-radius: 999px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.cq-freq-chip:active {
+  transform: scale(0.97);
+  background: color-mix(in srgb, var(--accent) 16%, #fff);
 }
 
 .calorie-quick-hint {

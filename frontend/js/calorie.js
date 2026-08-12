@@ -6,12 +6,20 @@
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
 export const DEFAULT_KCAL_PER_KG = 7700;
-/** Fallback base when profile (สูง/อายุ) or weight is incomplete. */
+/** Fallback base when profile (สูง/วันเกิด) or weight is incomplete. */
 export const DEFAULT_BASE_KCAL = 1784;
 export const DEFAULT_HEIGHT_CM = 170;
 export const DEFAULT_AGE = 30;
 export const DEFAULT_SEX = 'male';
-export const MEAL_SLOTS = 7;
+/** Default birthday ≈ age 30 on Jan 1 (only used when migrating old `age`). */
+export const DEFAULT_BIRTH_DATE = `${new Date().getFullYear() - DEFAULT_AGE}-01-01`;
+/** Visible meal columns start at 7; grow when full up to max. */
+export const MIN_MEAL_SLOTS = 7;
+export const MAX_MEAL_SLOTS = 14;
+/** @deprecated use MIN_MEAL_SLOTS — kept for older imports */
+export const MEAL_SLOTS = MIN_MEAL_SLOTS;
+/** Compact frequent-use lists (meal / exercise). */
+export const FREQ_TOP = 5;
 
 const THAI_DAYS_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 const THAI_MONTHS_SHORT = [
@@ -105,7 +113,7 @@ export function ensureDay(calorie, dateKey = toDateKey(new Date())) {
   return { sheet, day, created };
 }
 
-/** Put meal into the first empty slot (1–7) for that day; append label to note. */
+/** Put meal into the first empty slot; grow slots up to MAX_MEAL_SLOTS. */
 export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date())) {
   const parsed = parseQuickMeal(text);
   if (!parsed) {
@@ -114,13 +122,16 @@ export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date())) 
     throw err;
   }
   const { sheet, day } = ensureDay(calorie, dateKey);
-  const meals = [...(day.meals || [])];
-  while (meals.length < MEAL_SLOTS) meals.push('');
-  const slot = meals.findIndex((c) => parseMealCell(c).empty);
+  const meals = expandMealsForEdit(day.meals);
+  let slot = meals.findIndex((c) => parseMealCell(c).empty);
   if (slot < 0) {
-    const err = new Error('มื้อครบ 7 ช่องแล้ว — แก้ในตารางหรือลบมื้อก่อน');
-    err.code = 'meals_full';
-    throw err;
+    if (meals.length >= MAX_MEAL_SLOTS) {
+      const err = new Error(`มื้อครบ ${MAX_MEAL_SLOTS} ช่องแล้ว`);
+      err.code = 'meals_full';
+      throw err;
+    }
+    meals.push('');
+    slot = meals.length - 1;
   }
   meals[slot] = formatMealCell(parsed.cal, parsed.prot);
   let note = String(day.note || '');
@@ -128,8 +139,11 @@ export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date())) 
     note = note ? `${note} · ${parsed.label}` : parsed.label;
     note = note.slice(0, 200);
   }
+  const textKey = String(text || '').trim().slice(0, 48);
+  let next = patchDay(sheet, day.id, { meals: normalizeMeals(meals), note });
+  next = recordFrequent(next, 'meal', textKey, parsed);
   return {
-    sheet: patchDay(sheet, day.id, { meals, note }),
+    sheet: next,
     slot: slot + 1,
     parsed,
     dayId: day.id,
@@ -150,8 +164,11 @@ export function appendQuickExercise(calorie, text, dateKey = toDateKey(new Date(
   const bit = parsed.label;
   note = note ? `${note} · ${bit}` : bit;
   note = note.slice(0, 200);
+  const textKey = String(text || '').trim().slice(0, 48);
+  let next = patchDay(sheet, day.id, { mus, note });
+  next = recordFrequent(next, 'mus', textKey, parsed);
   return {
-    sheet: patchDay(sheet, day.id, { mus, note }),
+    sheet: next,
     parsed,
     dayId: day.id,
   };
@@ -172,6 +189,94 @@ export function parseDateKey(key) {
   if (!m) return null;
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Age in full years on a given date (Date or YYYY-MM-DD). */
+export function ageFromBirthDate(birthDate, onDate = new Date()) {
+  const b = typeof birthDate === 'string' ? parseDateKey(birthDate) : birthDate;
+  if (!b) return null;
+  let on = onDate instanceof Date ? onDate : parseDateKey(onDate);
+  if (!on) on = new Date();
+  let age = on.getFullYear() - b.getFullYear();
+  const m = on.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && on.getDate() < b.getDate())) age -= 1;
+  if (age < 0 || age > 120) return null;
+  return age;
+}
+
+/** Prefer birthDate; migrate legacy `age` → approx Jan 1. */
+export function resolveBirthDate(src = {}) {
+  if (src.birthDate && parseDateKey(src.birthDate)) {
+    return toDateKey(parseDateKey(src.birthDate));
+  }
+  const age = clampNum(src.age, 10, 100, DEFAULT_AGE);
+  const y = new Date().getFullYear() - Math.round(age);
+  return `${y}-01-01`;
+}
+
+function normalizeFreqList(raw) {
+  const src = Array.isArray(raw) ? raw : [];
+  const out = [];
+  const seen = new Set();
+  for (const item of src) {
+    if (!item || typeof item !== 'object') continue;
+    const text = String(item.text || '').trim().slice(0, 48);
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    const label = String(item.label || text).trim().slice(0, 28);
+    const count = Math.max(1, Math.round(Number(item.count) || 1));
+    const lastAt = String(item.lastAt || nowIso()).slice(0, 40);
+    out.push({ text, label, count, lastAt });
+    if (out.length >= FREQ_TOP) break;
+  }
+  return out;
+}
+
+/** Record a successful quick-add; keep only top FREQ_TOP by count then recency. */
+export function recordFrequent(calorie, kind, text, parsed) {
+  const sheet = normalizeCalorie(calorie);
+  const key = kind === 'mus' ? 'freqMus' : 'freqMeals';
+  const t = String(text || '').trim().slice(0, 48);
+  if (!t) return sheet;
+  let label = '';
+  if (kind === 'mus') {
+    label = parsed?.label
+      ? `${String(parsed.label).slice(0, 16)} ${parsed.burn}`
+      : String(parsed?.burn ?? t);
+  } else {
+    const cal = parsed?.cal ?? '';
+    const prot = parsed?.prot ? `,${parsed.prot}` : '';
+    label = parsed?.label
+      ? `${String(parsed.label).slice(0, 14)} ${cal}${prot}`
+      : `${cal}${prot}`;
+  }
+  label = String(label).trim().slice(0, 28);
+  const list = [...(sheet[key] || [])];
+  const idx = list.findIndex((x) => x.text === t);
+  if (idx >= 0) {
+    list[idx] = {
+      ...list[idx],
+      label: label || list[idx].label,
+      count: (list[idx].count || 0) + 1,
+      lastAt: nowIso(),
+    };
+  } else {
+    list.push({ text: t, label: label || t, count: 1, lastAt: nowIso() });
+  }
+  list.sort((a, b) => {
+    if ((b.count || 0) !== (a.count || 0)) return (b.count || 0) - (a.count || 0);
+    return String(b.lastAt || '').localeCompare(String(a.lastAt || ''));
+  });
+  return {
+    ...sheet,
+    [key]: list.slice(0, FREQ_TOP),
+    updatedAt: nowIso(),
+  };
+}
+
+export function topFrequent(calorie, kind) {
+  const sheet = normalizeCalorie(calorie);
+  return kind === 'mus' ? sheet.freqMus : sheet.freqMeals;
 }
 
 /** Compact date: D/M/YY (no leading zeros). */
@@ -275,10 +380,13 @@ export function resolveDayWeight(day, sheet) {
 /** Auto base (BMR) for a day from that day's weight + body profile. */
 export function resolveDayBase(day, sheet) {
   const weight = resolveDayWeight(day, sheet);
+  const ageYears =
+    ageFromBirthDate(sheet?.birthDate, day?.date || toDateKey())
+    ?? (Number.isFinite(sheet?.age) ? sheet.age : null);
   const bmr = computeBmr({
     weightKg: weight,
     heightCm: sheet?.heightCm,
-    ageYears: sheet?.age,
+    ageYears,
     sex: sheet?.sex,
   });
   if (bmr != null) return bmr;
@@ -308,20 +416,49 @@ export function createEmptyCalorie(overrides = {}) {
     kcalPerKg: DEFAULT_KCAL_PER_KG,
     defaultBase: DEFAULT_BASE_KCAL,
     heightCm: DEFAULT_HEIGHT_CM,
-    age: DEFAULT_AGE,
+    birthDate: DEFAULT_BIRTH_DATE,
     sex: DEFAULT_SEX,
     days: [],
+    freqMeals: [],
+    freqMus: [],
     ...overrides,
   });
 }
 
-function normalizeMeals(raw) {
+/** Compact store: keep used meals + pad to MIN; drop trailing empties beyond MIN. */
+export function normalizeMeals(raw) {
   const src = Array.isArray(raw) ? raw : [];
+  const cells = src
+    .slice(0, MAX_MEAL_SLOTS)
+    .map((s) => String(s ?? '').trim().slice(0, 32));
+  let lastUsed = -1;
+  cells.forEach((c, i) => {
+    if (!parseMealCell(c).empty) lastUsed = i;
+  });
+  const need = Math.min(MAX_MEAL_SLOTS, Math.max(MIN_MEAL_SLOTS, lastUsed + 2));
   const out = [];
-  for (let i = 0; i < MEAL_SLOTS; i += 1) {
-    out.push(String(src[i] ?? '').trim().slice(0, 32));
-  }
+  for (let i = 0; i < need; i += 1) out.push(cells[i] || '');
   return out;
+}
+
+/** Ensure editable length with one empty slot when possible. */
+export function expandMealsForEdit(raw) {
+  const meals = normalizeMeals(raw);
+  const full = meals.every((c) => !parseMealCell(c).empty);
+  if (full && meals.length < MAX_MEAL_SLOTS) meals.push('');
+  return meals;
+}
+
+/** Shared column count for table header across all days. */
+export function mealColumnCount(calorie) {
+  const sheet = normalizeCalorie(calorie);
+  let maxUsed = 0;
+  for (const d of sheet.days) {
+    (d.meals || []).forEach((c, i) => {
+      if (!parseMealCell(c).empty) maxUsed = Math.max(maxUsed, i + 1);
+    });
+  }
+  return Math.min(MAX_MEAL_SLOTS, Math.max(MIN_MEAL_SLOTS, maxUsed + 1));
 }
 
 export function createDayRow(partial = {}) {
@@ -357,7 +494,10 @@ export function normalizeCalorie(raw) {
   const kcalPerKg = clampNum(src.kcalPerKg, 1000, 20000, DEFAULT_KCAL_PER_KG);
   const defaultBase = clampNum(src.defaultBase, 800, 5000, DEFAULT_BASE_KCAL);
   const heightCm = clampNum(src.heightCm, 100, 250, DEFAULT_HEIGHT_CM);
-  const age = clampNum(src.age, 10, 100, DEFAULT_AGE);
+  const birthDate = resolveBirthDate(src);
+  const age =
+    ageFromBirthDate(birthDate, new Date())
+    ?? clampNum(src.age, 10, 100, DEFAULT_AGE);
   const sex = src.sex === 'female' ? 'female' : 'male';
   const days = (Array.isArray(src.days) ? src.days : [])
     .filter((d) => d && typeof d === 'object')
@@ -372,8 +512,11 @@ export function normalizeCalorie(raw) {
     kcalPerKg: Math.round(kcalPerKg),
     defaultBase: Math.round(defaultBase),
     heightCm: Math.round(heightCm),
+    birthDate,
     age: Math.round(age),
     sex,
+    freqMeals: normalizeFreqList(src.freqMeals),
+    freqMus: normalizeFreqList(src.freqMus),
     days,
   };
 }
@@ -516,6 +659,7 @@ export function patchDay(calorie, dayId, patch) {
   return { ...sheet, days, updatedAt: nowIso() };
 }
 
+/** @deprecated Days are not deleted — use clearDayValues. Kept for rare data repair. */
 export function deleteDay(calorie, dayId) {
   const sheet = normalizeCalorie(calorie);
   return {
@@ -523,6 +667,21 @@ export function deleteDay(calorie, dayId) {
     days: sheet.days.filter((d) => d.id !== dayId),
     updatedAt: nowIso(),
   };
+}
+
+/** Clear meal/mus/note on a day (keep date row + optional body fields). */
+export function clearDayValues(calorie, dayId, { clearBody = false } = {}) {
+  const sheet = normalizeCalorie(calorie);
+  const patch = {
+    meals: Array.from({ length: MIN_MEAL_SLOTS }, () => ''),
+    mus: null,
+    note: '',
+  };
+  if (clearBody) {
+    patch.waist = null;
+    patch.weight = null;
+  }
+  return patchDay(sheet, dayId, patch);
 }
 
 /** Add today (or date) cloning last known waist/weight. Base is auto from BMR. */
@@ -616,26 +775,60 @@ export function renderCalorieTotalsHtml(totals, { monthLabel = '' } = {}) {
   return `${month}${body}`;
 }
 
-const COL_COUNT = 23;
+/** Fixed cols besides meals: # date day waist kg cal P p± bal kg | mus base Σ % note × */
+function colCountForMeals(mealCols) {
+  return 16 + mealCols;
+}
 
-export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date())) {
+export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
+  const n = clampNum(mealCols, MIN_MEAL_SLOTS, MAX_MEAL_SLOTS, MIN_MEAL_SLOTS);
+  let meals = '';
+  for (let i = 1; i <= n; i += 1) {
+    meals += `<th class="cal-col-meal" scope="col">${i}</th>`;
+  }
+  return `<tr>
+              <th class="cal-col-sticky cal-col-n" scope="col">#</th>
+              <th class="cal-col-sticky cal-col-date" scope="col">ว/ด/ป</th>
+              <th class="cal-col-day" scope="col">ว</th>
+              <th class="cal-col-body" scope="col">เอว</th>
+              <th class="cal-col-body" scope="col">กก</th>
+              <th class="cal-col-sum cal-col-add" scope="col">cal</th>
+              <th class="cal-col-sum" scope="col">P</th>
+              <th class="cal-col-sum" scope="col">p±</th>
+              <th class="cal-col-sum" scope="col">bal</th>
+              <th class="cal-col-sum" scope="col">kg</th>
+              ${meals}
+              <th class="cal-col-burn" scope="col">mus</th>
+              <th class="cal-col-burn" scope="col" title="BMR อัตโนมัติ">base</th>
+              <th class="cal-col-sum" scope="col">Σ</th>
+              <th class="cal-col-sum" scope="col">%</th>
+              <th class="cal-col-note" scope="col">หลัก</th>
+              <th class="cal-col-del" scope="col"><span class="sr-only">เคลียร์</span></th>
+            </tr>`;
+}
+
+export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), mealCols = MIN_MEAL_SLOTS) {
   if (!rows.length) return '';
+  const cols = clampNum(mealCols, MIN_MEAL_SLOTS, MAX_MEAL_SLOTS, MIN_MEAL_SLOTS);
+  const span = colCountForMeals(cols);
   let lastMonth = '';
   return rows
     .map((row) => {
       const m = row.metrics;
       const today = row.date === todayKey ? ' cal-row-today' : '';
-      const meals = (row.meals || [])
-        .map(
-          (cell, i) =>
-            `<td class="cal-col-meal"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}"></td>`,
-        )
-        .join('');
+      const rawMeals = expandMealsForEdit(row.meals);
+      const meals = [];
+      for (let i = 0; i < cols; i += 1) {
+        const cell = rawMeals[i] || '';
+        meals.push(
+          `<td class="cal-col-meal"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}"></td>`,
+        );
+      }
       let sep = '';
       if (row.monthKey && row.monthKey !== lastMonth) {
         lastMonth = row.monthKey;
         sep = `<tr class="cal-month-sep" data-month="${esc(row.monthKey)}" aria-label="${esc(row.monthLabel)}">
-          <td colspan="${COL_COUNT}"><span>${esc(row.monthLabel)}</span></td>
+          <td colspan="${span}"><span>${esc(row.monthLabel)}</span></td>
         </tr>`;
       }
       return `${sep}<tr class="cal-row${today}" data-day-id="${esc(row.id)}" data-month="${esc(row.monthKey || '')}">
@@ -652,13 +845,13 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date())) {
         <td class="cal-col-sum cal-derived ${toneClass(m.pRm)}">${m.pRm == null ? '' : formatSigned(m.pRm, 1)}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.balance)}">${m.balance == null ? '' : formatSigned(m.balance, 0)}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
-        ${meals}
+        ${meals.join('')}
         <td class="cal-col-burn"><input class="cal-cell" data-cal-field="mus" data-day-id="${esc(row.id)}" value="${row.mus ?? ''}" inputmode="numeric" aria-label="ออกกำลัง"></td>
         <td class="cal-col-burn cal-derived cal-base-auto" title="BMR จากน้ำหนัก × ส่วนสูง × อายุ">${m.base ?? ''}</td>
         <td class="cal-col-sum cal-derived">${m.bsum ?? ''}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.pctBl)}">${m.pctBl == null ? '' : `${m.pctBl}%`}</td>
         <td class="cal-col-note"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${esc(row.id)}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>
-        <td class="cal-col-del"><button type="button" class="cal-del-btn" data-cal-delete="${esc(row.id)}" aria-label="ลบวัน">×</button></td>
+        <td class="cal-col-del"><button type="button" class="cal-del-btn" data-cal-clear="${esc(row.id)}" aria-label="เคลียร์ค่าวันนี้" title="เคลียร์ค่า">×</button></td>
       </tr>`;
     })
     .join('');

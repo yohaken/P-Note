@@ -36,7 +36,7 @@ import {
   dockScaleToCss,
   dockOffsetYToLiftPx,
   densityToCssUnit,
-} from './settings.js?v=169';
+} from './settings.js?v=170';
 import {
   bestIconForLabel,
   DEFAULT_PRIORITY_ICONS,

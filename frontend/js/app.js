@@ -67,21 +67,28 @@ import {
 } from './sheet.js?v=148';
 import {
   addDayFromLast,
+  ageFromBirthDate,
   appendQuickExercise,
   appendQuickMeal,
+  clearDayValues,
   computeTotals,
-  deleteDay,
+  expandMealsForEdit,
   formatDateDisplay,
   formatSigned,
+  mealColumnCount,
+  MIN_MEAL_SLOTS,
   monthKeyFromDate,
   normalizeCalorie,
+  normalizeMeals,
   patchDay,
+  renderCalorieMealHeaderHtml,
   renderCalorieRowsHtml,
   renderCalorieTotalsHtml,
   thaiDayName,
   toDateKey,
+  topFrequent,
   totalsForMonth,
-} from './calorie.js?v=168';
+} from './calorie.js?v=170';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -525,8 +532,11 @@ const els = {
   calorieAddDayBtn: document.getElementById('calorie-add-day-btn'),
   calorieProteinFactor: document.getElementById('calorie-protein-factor'),
   calorieHeight: document.getElementById('calorie-height'),
-  calorieAge: document.getElementById('calorie-age'),
+  calorieBirthdate: document.getElementById('calorie-birthdate'),
+  calorieAgeDisplay: document.getElementById('calorie-age-display'),
   calorieSex: document.getElementById('calorie-sex'),
+  calorieThead: document.getElementById('calorie-thead'),
+  calorieQuickFreq: document.getElementById('calorie-quick-freq'),
   calorieTodayCard: document.getElementById('calorie-today-card'),
   calorieTodayTitle: document.getElementById('calorie-today-title'),
   calorieTodaySub: document.getElementById('calorie-today-sub'),
@@ -1308,8 +1318,13 @@ function syncCalorieProfileInputs(sheet) {
   if (els.calorieHeight && document.activeElement !== els.calorieHeight) {
     els.calorieHeight.value = String(sheet.heightCm ?? '');
   }
-  if (els.calorieAge && document.activeElement !== els.calorieAge) {
-    els.calorieAge.value = String(sheet.age ?? '');
+  if (els.calorieBirthdate && document.activeElement !== els.calorieBirthdate) {
+    els.calorieBirthdate.value = sheet.birthDate || '';
+  }
+  if (els.calorieAgeDisplay) {
+    const age = ageFromBirthDate(sheet.birthDate, new Date());
+    els.calorieAgeDisplay.textContent =
+      age != null ? `อายุ ${age} ปี (จากวันเกิด)` : 'อายุ — ปี';
   }
   if (els.calorieSex && document.activeElement !== els.calorieSex) {
     els.calorieSex.value = sheet.sex === 'female' ? 'female' : 'male';
@@ -1349,8 +1364,9 @@ function paintCalorieTodayCard(rows, sheet) {
   fillIfIdle(els.calorieTodayWaist, row.waist);
   fillIfIdle(els.calorieTodayMus, row.mus);
   if (els.calorieTodayMeals && document.activeElement?.closest?.('#calorie-today-meals') == null) {
-    const meals = row.meals || [];
-    els.calorieTodayMeals.innerHTML = Array.from({ length: 7 }, (_, i) => {
+    const meals = expandMealsForEdit(row.meals);
+    const cols = Math.max(meals.length, MIN_MEAL_SLOTS);
+    els.calorieTodayMeals.innerHTML = Array.from({ length: cols }, (_, i) => {
       const v = meals[i] || '';
       return `<label class="ctc-meal"><span class="ctc-meal-label">${i + 1}</span><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}"></label>`;
     }).join('');
@@ -1443,7 +1459,9 @@ function renderCalorieSheet() {
   }
   paintCalorieMonthTotals(state.calorieActiveMonth);
   syncCalorieProfileInputs(sheet);
-  els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows);
+  const mealCols = mealColumnCount(sheet);
+  if (els.calorieThead) els.calorieThead.innerHTML = renderCalorieMealHeaderHtml(mealCols);
+  els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows, toDateKey(), mealCols);
   paintCalorieTodayCard(rows, sheet);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
   requestAnimationFrame(() => {
@@ -1480,6 +1498,25 @@ function syncDockContextRail() {
 
 let calorieQuickMode = null; // 'meal' | 'mus'
 
+function paintCalorieQuickFreq() {
+  const wrap = els.calorieQuickFreq;
+  if (!wrap) return;
+  const list = topFrequent(ensureCaloriePayload(), calorieQuickMode === 'mus' ? 'mus' : 'meal');
+  if (!list.length) {
+    wrap.hidden = true;
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.hidden = false;
+  wrap.innerHTML = list
+    .slice(0, 5)
+    .map(
+      (item) =>
+        `<button type="button" class="cq-freq-chip" data-freq-text="${String(item.text).replace(/"/g, '&quot;')}" title="${String(item.text).replace(/"/g, '&quot;')}">${String(item.label || item.text).slice(0, 22)}</button>`,
+    )
+    .join('');
+}
+
 function openCalorieQuick(mode) {
   calorieQuickMode = mode === 'mus' ? 'mus' : 'meal';
   if (!els.calorieQuickOverlay) return;
@@ -1488,13 +1525,14 @@ function openCalorieQuick(mode) {
   }
   if (els.calorieQuickHint) {
     els.calorieQuickHint.textContent = calorieQuickMode === 'mus'
-      ? 'เช่น ไหล่ 30kg 150 หรือ คาร์ดิโอ 200'
-      : 'เช่น 130,27 หรือ ข้าวต้ม 180,12';
+      ? 'แตะใช้บ่อยเพื่อเติมช่อง แล้วกดเพิ่ม · หรือพิมพ์เอง'
+      : 'แตะใช้บ่อยเพื่อเติมช่อง แล้วกดเพิ่ม · หรือพิมพ์เอง';
   }
   if (els.calorieQuickInput) {
     els.calorieQuickInput.value = '';
     els.calorieQuickInput.placeholder = calorieQuickMode === 'mus' ? 'ท่า + แคลที่เผา' : 'แคล,โปรตีน';
   }
+  paintCalorieQuickFreq();
   els.calorieQuickOverlay.hidden = false;
   requestAnimationFrame(() => {
     try { els.calorieQuickInput?.focus({ preventScroll: false }); } catch { /* ignore */ }
@@ -1530,7 +1568,7 @@ function submitCalorieQuick() {
     }
     closeCalorieQuick();
     requestAnimationFrame(() => {
-      if (els.calorieScroll) els.calorieScroll.scrollTop = els.calorieScroll.scrollHeight;
+      if (els.calorieScroll) els.calorieScroll.scrollTop = 0;
       syncCalorieMonthFromScroll();
     });
   } catch (err) {
@@ -7189,20 +7227,29 @@ async function init({ fromBoot = false } = {}) {
     const sheet = ensureCaloriePayload();
     const pf = Number(els.calorieProteinFactor?.value);
     const height = Number(els.calorieHeight?.value);
-    const age = Number(els.calorieAge?.value);
+    const birthDate = String(els.calorieBirthdate?.value || '').trim();
     const sex = els.calorieSex?.value === 'female' ? 'female' : 'male';
     persistCalorie({
       ...sheet,
       proteinFactor: Number.isFinite(pf) ? pf : sheet.proteinFactor,
       heightCm: Number.isFinite(height) ? height : sheet.heightCm,
-      age: Number.isFinite(age) ? age : sheet.age,
+      birthDate: /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? birthDate : sheet.birthDate,
       sex,
     }, { status: 'อัปเดตโปรไฟล์ · คำนวณ base ใหม่', fullRender: true });
   };
   els.calorieProteinFactor?.addEventListener('change', onCalorieProfileChange);
   els.calorieHeight?.addEventListener('change', onCalorieProfileChange);
-  els.calorieAge?.addEventListener('change', onCalorieProfileChange);
+  els.calorieBirthdate?.addEventListener('change', onCalorieProfileChange);
   els.calorieSex?.addEventListener('change', onCalorieProfileChange);
+  els.calorieQuickFreq?.addEventListener('click', (e) => {
+    const chip = e.target?.closest?.('[data-freq-text]');
+    if (!chip || !els.calorieQuickFreq.contains(chip)) return;
+    e.preventDefault();
+    if (els.calorieQuickInput) {
+      els.calorieQuickInput.value = chip.dataset.freqText || '';
+      try { els.calorieQuickInput.focus(); } catch { /* ignore */ }
+    }
+  });
 
   const applyTodayCardField = (input) => {
     const dayId = els.calorieTodayCard?.dataset?.dayId;
@@ -7212,10 +7259,13 @@ async function init({ fromBoot = false } = {}) {
       const idx = Number(input.getAttribute('data-ctc-meal'));
       const day = sheet.days.find((d) => d.id === dayId);
       if (!day || !Number.isFinite(idx)) return;
-      const meals = [...(day.meals || [])];
-      while (meals.length < 7) meals.push('');
+      const meals = expandMealsForEdit(day.meals);
+      while (meals.length <= idx) meals.push('');
       meals[idx] = String(input.value || '').trim().slice(0, 32);
-      persistCalorie(patchDay(sheet, dayId, { meals }), { status: '' });
+      persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
+        status: '',
+        fullRender: true,
+      });
       return;
     }
     const field =
@@ -7266,10 +7316,13 @@ async function init({ fromBoot = false } = {}) {
       const idx = Number(input.dataset.mealIndex);
       const day = sheet.days.find((d) => d.id === dayId);
       if (!day || !Number.isFinite(idx)) return;
-      const meals = [...(day.meals || [])];
-      while (meals.length < 7) meals.push('');
+      const meals = expandMealsForEdit(day.meals);
+      while (meals.length <= idx) meals.push('');
       meals[idx] = String(input.value || '').trim().slice(0, 32);
-      persistCalorie(patchDay(sheet, dayId, { meals }), { status: '' });
+      persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
+        status: '',
+        fullRender: true,
+      });
       return;
     }
     if (field === 'note') {
@@ -7325,13 +7378,16 @@ async function init({ fromBoot = false } = {}) {
       }
       return;
     }
-    const del = e.target?.closest?.('[data-cal-delete]');
-    if (!del || !els.calorieTbody.contains(del)) return;
+    const clearBtn = e.target?.closest?.('[data-cal-clear]');
+    if (!clearBtn || !els.calorieTbody.contains(clearBtn)) return;
     e.preventDefault();
-    const id = del.dataset.calDelete;
+    const id = clearBtn.dataset.calClear;
     if (!id) return;
-    if (!confirm('ลบวันนี้จากแผ่นแคลอรี่?')) return;
-    persistCalorie(deleteDay(ensureCaloriePayload(), id), { status: 'ลบวันแล้ว', fullRender: true });
+    if (!confirm('เคลียร์ค่าวันนี้?\nมื้อ · ออกกำลัง · โน้ต จะว่าง (วันที่/เอว/กก คงไว้)')) return;
+    persistCalorie(clearDayValues(ensureCaloriePayload(), id), {
+      status: 'เคลียร์ค่าวันแล้ว',
+      fullRender: true,
+    });
   });
 
   els.notepadQuickScroll?.addEventListener('click', (e) => {
