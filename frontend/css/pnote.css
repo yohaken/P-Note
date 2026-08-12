@@ -3816,7 +3816,8 @@ body.light .priority-badge.priority-urgent {
   color: var(--text-muted);
 }
 
-.notify-field input[type='text'] {
+.notify-field input[type='text'],
+.notify-field input[type='number'] {
   width: 100%;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
@@ -3825,6 +3826,11 @@ body.light .priority-badge.priority-urgent {
   padding: 0.45rem 0.55rem;
   font: inherit;
   font-size: 0.88rem;
+  box-sizing: border-box;
+}
+body.light .notify-field input[type='text'],
+body.light .notify-field input[type='number'] {
+  background: var(--surface-2, #fff);
 }
 
 .notify-toggle-row {
