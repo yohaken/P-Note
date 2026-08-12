@@ -97,7 +97,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=185';
+} from './calorie.js?v=187';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -692,13 +692,18 @@ function hideActionToast() {
   if (els.actionToastUndo) els.actionToastUndo.hidden = true;
 }
 
-/** Map sync/DB chatter → small top-right status dot (no toast popup). */
+/** Map sync/DB / save chatter → small top-right status dot (no bottom toast). */
 function syncStateFromMessage(message) {
   const t = String(message || '');
   if (!t) return null;
+  // Keep real errors as toasts (return null → setStatus shows action-toast).
+  if (/ไม่สำเร็จ|บันทึกไม่ได้|เพิ่มไม่ได้|โหลดไม่สำเร็จ|นำเข้าไม่สำเร็จ|ไม่พบวัน|พิมพ์.+ก่อน|ใส่แคล|ตรวจ JSON/i.test(t)) {
+    return null;
+  }
   if (/กำลัง(พิมพ์|บันทึก|ซิงค์|เชื่อม|โหลด)|connecting|syncing|saving/i.test(t)) return 'busy';
-  if (/ออฟไลน์|เชื่อมต่อไม่ได้|โหลดไม่สำเร็จ|บันทึกไม่สำเร็จ|offline/i.test(t)) return 'offline';
-  if (/ฐานข้อมูล|ซิงค์|เชื่อมฐาน|บันทึกในเครื่อง|บันทึกแล้ว|ย้ายโน้ตเข้า/i.test(t)) return 'ok';
+  if (/ออฟไลน์|เชื่อมต่อไม่ได้|offline/i.test(t)) return 'offline';
+  // Routine save / sync confirmations — never pop the bottom toast.
+  if (/บันทึก|อัปเดต|เคลียร์|ซิงค์|เชื่อม|ย้ายโน้ตเข้า|ฐานข้อมูล/i.test(t)) return 'ok';
   return null;
 }
 
@@ -1269,7 +1274,7 @@ function ensureCaloriePayload() {
   return cal;
 }
 
-function persistCalorie(nextCalorie, { status = 'บันทึกแผ่นแคลอรี่แล้ว', fullRender = false, immediate = true } = {}) {
+function persistCalorie(nextCalorie, { status = '', fullRender = false, immediate = true } = {}) {
   const now = new Date().toISOString();
   // Always stamp calorie.updatedAt so cloud merge keeps profile/goals (height etc.)
   // instead of letting a newer remote sheet meta overwrite local choices.
@@ -1330,7 +1335,7 @@ function calorieProfileChanged(before, after) {
 }
 
 /** Immediate local + cloud save for Settings profile/goals. */
-function flushCalorieProfileFromUi({ status = 'บันทึกโปรไฟล์แล้ว', force = false } = {}) {
+function flushCalorieProfileFromUi({ status = '', force = false } = {}) {
   const sheet = ensureCaloriePayload();
   const next = readCalorieProfileFromUi(sheet);
   if (!force && !calorieProfileChanged(sheet, next)) return false;
@@ -5110,7 +5115,7 @@ function closeSettings() {
   persistAiProfileFromUi();
   persistCameraSettingsFromUi();
   // Number inputs may not have fired `change` yet — flush profile before hide.
-  flushCalorieProfileFromUi({ status: 'บันทึกโปรไฟล์แล้ว' });
+  flushCalorieProfileFromUi({ status: '' });
   els.settingsOverlay.hidden = true;
 }
 
@@ -7553,7 +7558,7 @@ async function init({ fromBoot = false } = {}) {
     }
   });
   const onCalorieProfileChange = () => {
-    flushCalorieProfileFromUi({ status: 'บันทึกโปรไฟล์แล้ว · คลาวด์' });
+    flushCalorieProfileFromUi({ status: '' });
   };
   const profileInputs = [
     els.calorieProteinFactor,
