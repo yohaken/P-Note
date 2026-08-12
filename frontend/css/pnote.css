@@ -5371,9 +5371,18 @@ body:not(.notepad-editing) .note-text-bar {
 }
 
 /* ── Calendar View — Apple-style vertical months + year zoom ── */
+/* Lock viewport so month list scrolls inside .cal-scroll, not the page */
+body.calendar-mode,
+body.calendar-mode #app {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
 #calendar-view.calendar-view {
   flex: 1 1 auto;
   min-height: 0;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   padding: 0.35rem 0.5rem 0;

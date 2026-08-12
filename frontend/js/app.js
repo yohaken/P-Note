@@ -1626,6 +1626,8 @@ function renderCalendarMonthScroll({ scrollToCurrent = false } = {}) {
   if (!els.calScroll) return;
   const notes = state.notesData.notes || [];
   const range = ensureCalendarScrollRange();
+  const targetYear = state.calendarYear;
+  const targetMonth = state.calendarMonth;
   els.calScroll.innerHTML = '';
 
   let cursor = { ...range.start };
@@ -1637,12 +1639,19 @@ function renderCalendarMonthScroll({ scrollToCurrent = false } = {}) {
     cursor = shiftMonth(cursor.year, cursor.month, 1);
   }
   els.calScroll.dataset.ready = '1';
+  // Keep chrome on the intended month until scroll settles (observer can fire early)
+  state.calendarYear = targetYear;
+  state.calendarMonth = targetMonth;
   updateCalendarChrome();
-  bindCalendarScrollObserver();
 
   if (scrollToCurrent) {
-    requestAnimationFrame(() => scrollCalendarToMonth(state.calendarYear, state.calendarMonth, 'auto'));
+    scrollCalendarToMonth(targetYear, targetMonth, 'auto');
+    requestAnimationFrame(() => {
+      bindCalendarScrollObserver();
+      highlightCalendarSelection();
+    });
   } else {
+    bindCalendarScrollObserver();
     highlightCalendarSelection();
   }
 }
