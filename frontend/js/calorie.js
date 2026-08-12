@@ -1634,7 +1634,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         const cell = rawMeals[i] || '';
         const has = cell ? ' has-value' : '';
         mealInputs.push(
-          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"><button type="button" class="cal-field-clear" data-cal-clear-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" aria-label="เคลียร์มื้อ ${i + 1}" title="เคลียร์">×</button></span>`,
+          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="decimal" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}"><button type="button" class="cal-field-clear" data-cal-clear-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" aria-label="เคลียร์มื้อ ${i + 1}" title="เคลียร์">×</button></span>`,
         );
       }
       let sep = '';
@@ -1662,7 +1662,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}" data-cal-derived="blKg">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
       </tr>
       <tr class="cal-row cal-day-b${today}" data-day-id="${id}" data-month="${month}">
-        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" aria-label="ออกกำลัง"><button type="button" class="cal-field-clear" data-cal-clear-field="mus" data-day-id="${id}" aria-label="เคลียร์ออกกำลัง" title="เคลียร์">×</button></span></td>
+        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง"><button type="button" class="cal-field-clear" data-cal-clear-field="mus" data-day-id="${id}" aria-label="เคลียร์ออกกำลัง" title="เคลียร์">×</button></span></td>
         <td class="cal-col-burn cal-burn-stack" title="BMR · รวมเบิร์น · %bal">
           <span class="cal-derived cal-base-auto" data-cal-derived="base">${m.base ?? ''}</span>
           <span class="cal-burn-stack-sub">

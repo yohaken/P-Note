@@ -7376,6 +7376,20 @@ body.calorie-health-pane #dock-calorie-health-btn {
   display: flex;
   gap: 0.45rem;
   justify-content: flex-end;
+  flex-wrap: wrap;
   margin-top: 0.15rem;
+}
+
+.calorie-quick-actions #calorie-quick-clear {
+  margin-right: auto;
+  color: #b91c1c;
+  border-color: color-mix(in srgb, #b91c1c 35%, var(--border));
+}
+
+.calorie-table input.cal-cell-meal,
+.calorie-table input[data-cal-field="mus"],
+.ctc-meal input,
+#calorie-today-mus {
+  cursor: pointer;
 }
 

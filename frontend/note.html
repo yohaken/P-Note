@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="183">
-  <meta name="pnote-built" content="2026-08-12T06:15:59+00:00">
+  <meta name="pnote-build" content="184">
+  <meta name="pnote-built" content="2026-08-12T06:24:43+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=183"></script>
+  <script src="js/cache-bootstrap.js?v=184"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=183">
+  <link rel="stylesheet" href="css/pnote.css?v=184">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -74,7 +74,7 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/icon-192.png?v=183" width="22" height="22" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/icon-192.png?v=184" width="22" height="22" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
           <span class="mode-switch-ver" id="calorie-app-ver" aria-hidden="true"></span>
         </div>
@@ -231,7 +231,7 @@
         <div class="ctc-fields">
           <label class="ctc-field"><span>กก</span><span class="ctc-field-wrap cal-input-wrap"><input id="calorie-today-weight" type="number" inputmode="decimal" step="0.1" min="20" max="300" autocomplete="off"><button type="button" class="cal-field-clear" data-ctc-clear-field="weight" aria-label="เคลียร์น้ำหนัก" title="เคลียร์">×</button></span></label>
           <label class="ctc-field"><span>เอว</span><span class="ctc-field-wrap cal-input-wrap"><input id="calorie-today-waist" type="number" inputmode="decimal" step="0.1" min="40" max="200" autocomplete="off"><button type="button" class="cal-field-clear" data-ctc-clear-field="waist" aria-label="เคลียร์เอว" title="เคลียร์">×</button></span></label>
-          <label class="ctc-field"><span>mus</span><span class="ctc-field-wrap cal-input-wrap"><input id="calorie-today-mus" type="number" inputmode="numeric" step="1" min="0" max="5000" autocomplete="off" title="ออกกำลัง (ใส่เอง)"><button type="button" class="cal-field-clear" data-ctc-clear-field="mus" aria-label="เคลียร์ออกกำลัง" title="เคลียร์">×</button></span></label>
+          <label class="ctc-field"><span>mus</span><span class="ctc-field-wrap cal-input-wrap"><input id="calorie-today-mus" type="number" inputmode="numeric" step="1" min="0" max="5000" autocomplete="off" readonly title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"><button type="button" class="cal-field-clear" data-ctc-clear-field="mus" aria-label="เคลียร์ออกกำลัง" title="เคลียร์">×</button></span></label>
         </div>
         <div class="ctc-meals" id="calorie-today-meals" aria-label="มื้อวันนี้"></div>
         <div class="ctc-summary" id="calorie-today-summary"></div>
@@ -257,6 +257,7 @@
         <p id="calorie-quick-hint" class="calorie-quick-hint">เช่น 130,27 หรือ ข้าวต้ม 180,12</p>
         <input id="calorie-quick-input" class="calorie-quick-input" type="text" autocomplete="off" enterkeyhint="done" />
         <div class="calorie-quick-actions">
+          <button type="button" class="btn btn-secondary" id="calorie-quick-clear" hidden>เคลียร์</button>
           <button type="button" class="btn btn-secondary" id="calorie-quick-cancel">ยกเลิก</button>
           <button type="button" class="btn btn-primary" id="calorie-quick-ok">เพิ่ม</button>
         </div>
@@ -801,7 +802,7 @@
 
     <div id="auth-overlay" class="auth-overlay" hidden>
       <div class="auth-panel" role="dialog" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=183" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=184" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">เข้าสู่ระบบ</h2>
         <p class="auth-copy">ใช้ Google บัญชี <strong>yohaken@gmail.com</strong> เท่านั้น · ข้อมูลบันทึกขึ้น Firestore ทันที</p>
         <button id="google-login-btn" class="btn btn-primary auth-login-btn" type="button">Sign in with Google</button>
@@ -996,7 +997,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=183"></script>
-  <script src="js/update-watch.js?v=183"></script>
+  <script type="module" src="js/boot.js?v=184"></script>
+  <script src="js/update-watch.js?v=184"></script>
 </body>
 </html>
