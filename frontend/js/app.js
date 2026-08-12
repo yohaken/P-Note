@@ -553,18 +553,13 @@ const els = {
 };
 
 function boardHomeView() {
-  if (isCalendarMode()) return 'calendar';
-  if (isCalorieMode()) return 'calorie';
-  return 'list';
+  return 'calorie';
 }
 
 function showView(view) {
-  // Normalize: calendar/calorie modes never share the work/note list sheet
-  let next = view;
-  if (next === 'list' && isCalendarMode()) next = 'calendar';
-  if (next === 'list' && isCalorieMode()) next = 'calorie';
-  if (next === 'calendar' && !isCalendarMode()) next = isCalorieMode() ? 'calorie' : 'list';
-  if (next === 'calorie' && !isCalorieMode()) next = isCalendarMode() ? 'calendar' : 'list';
+  // Calorie-only app — never land on retired work/note/calendar sheets.
+  let next = view === 'editor' ? 'calorie' : 'calorie';
+  if (view === 'editor') next = 'calorie';
   state.view = next;
 
   const onList = next === 'list';
@@ -1544,39 +1539,24 @@ function submitCalorieQuick() {
   }
 }
 
-function setAppMode(mode, { persist = true } = {}) {
-  let next;
-  if (mode === 'note') next = 'note';
-  else if (mode === 'calendar') next = 'calendar';
-  else if (mode === 'calorie') next = 'calorie';
-  else next = 'work';
+function setAppMode(_mode, { persist = true } = {}) {
+  // Product is calorie-only — ignore requests for retired work/note/calendar modes.
+  const next = 'calorie';
   if (state.activeNotepadId && state.view === 'editor') {
     flushNotepadToState();
     saveManager.saveNow(() => state.notesData);
   }
   state.appMode = next;
-  document.body.classList.toggle('note-mode', next === 'note');
-  document.body.classList.toggle('calendar-mode', next === 'calendar');
-  document.body.classList.toggle('calorie-mode', next === 'calorie');
-  document.body.classList.remove('notepad-editing');
+  document.body.classList.remove('note-mode', 'calendar-mode', 'notepad-editing');
+  document.body.classList.add('calorie-mode', 'calorie-only');
   if (persist) {
     state.settings.appMode = next;
     saveSettings(state.settings);
   }
-  if (next === 'work') {
-    state.activeNotepadId = null;
-    clearNotepadSheetUi();
-  }
-  if (next !== 'calorie') closeCalorieQuick();
+  closeCalorieQuick();
   closeModeMenu();
   renderModeSwitcher();
-  // Always land on the mode's own sheet (never overlay calendar on list)
-  showView(boardHomeView());
-  if (next === 'calendar' || next === 'calorie') {
-    /* painted by showView */
-  } else {
-    renderNotesList();
-  }
+  showView('calorie');
   updateFilterDockVisibility();
   updateUndoFab();
   syncCalorieFabs();
@@ -4662,6 +4642,12 @@ function closeTagManager() {
 function openSettings() {
   els.settingsOverlay.hidden = false;
   applyDockScale();
+  // Body profile (rare-change) — keep in sync when opening settings.
+  try {
+    syncCalorieProfileInputs(ensureCaloriePayload());
+  } catch {
+    /* calorie payload may be empty before hydrate */
+  }
   if (els.geminiApiKey) els.geminiApiKey.value = state.settings.geminiApiKey || '';
   fillGeminiModelSelect(state.settings.geminiModel);
   if (els.aiProfile) els.aiProfile.value = state.settings.aiProfile || '';
@@ -6520,6 +6506,8 @@ function updateAppVersionLabel() {
   }
   const barVer = document.getElementById('mode-switch-ver');
   if (barVer) barVer.textContent = formatAppBuildLabel(build);
+  const calVer = document.getElementById('calorie-app-ver');
+  if (calVer) calVer.textContent = formatAppBuildLabel(build);
   const shellVer = document.getElementById('shellNoteVersion');
   if (shellVer) shellVer.textContent = verLabel;
 }
@@ -6678,11 +6666,10 @@ function notesContentKey(data) {
 function paintNotesFromLocal(data) {
   state.notesData = normalizeNotesData(data);
   state.syncBaseUpdatedAt = state.notesData?.updatedAt || null;
-  const m = state.settings.appMode;
-  state.appMode = (m === 'note' || m === 'calendar' || m === 'calorie') ? m : 'work';
-  document.body.classList.toggle('note-mode', isNoteMode());
-  document.body.classList.toggle('calendar-mode', isCalendarMode());
-  document.body.classList.toggle('calorie-mode', isCalorieMode());
+  state.appMode = 'calorie';
+  state.settings.appMode = 'calorie';
+  document.body.classList.remove('note-mode', 'calendar-mode', 'notepad-editing');
+  document.body.classList.add('calorie-mode', 'calorie-only');
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
@@ -6693,8 +6680,7 @@ function paintNotesFromLocal(data) {
   reapplyBarLayout();
   applyBarThickness();
   renderModeSwitcher();
-  showView(boardHomeView());
-  if (!isCalendarMode() && !isCalorieMode()) renderNotesList();
+  showView('calorie');
   updateAppVersionLabel();
   syncCalorieFabs();
 }
@@ -7140,6 +7126,7 @@ async function init({ fromBoot = false } = {}) {
   els.iconPickerAll?.addEventListener('click', onIconPickClick);
 
   els.settingsBtn.addEventListener('click', openSettings);
+  document.getElementById('dock-open-settings-btn')?.addEventListener('click', openSettings);
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
 

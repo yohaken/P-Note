@@ -100,8 +100,8 @@ const DEFAULTS = {
   cardDisplay: { ...DEFAULT_CARD_DISPLAY, priorityIconColors: { ...DEFAULT_CARD_DISPLAY.priorityIconColors } },
   /** Last opened workspace id (legacy device key) */
   lastWorkspaceId: null,
-  /** 'work' = งานหลัก · 'note' = Note (plain notepad pages) */
-  appMode: 'work',
+  /** App is calorie-only; other modes are retired from the UI. */
+  appMode: 'calorie',
   /** Last opened notepad id in Note mode */
   lastNotepadId: null,
   /** Recent notepad ids for bottom quick-title bar (most recent first) */
@@ -423,16 +423,16 @@ export function loadSettings() {
       cameraQuality: 'max',
       notifyMonthPresets: [3, 5, 6],
       lastWorkspaceId: null,
-      appMode: 'work',
+      appMode: 'calorie',
       lastNotepadId: null,
       recentNotepadIds: [],
     });
   }
 }
 
-export function normalizeAppMode(mode) {
-  if (mode === 'note' || mode === 'calendar' || mode === 'calorie') return mode;
-  return 'work';
+/** Calorie-only product — always normalize to calorie. */
+export function normalizeAppMode(_mode) {
+  return 'calorie';
 }
 
 export function saveSettings(settings) {

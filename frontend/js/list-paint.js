@@ -36,7 +36,7 @@ import {
   dockScaleToCss,
   dockOffsetYToLiftPx,
   densityToCssUnit,
-} from './settings.js?v=153';
+} from './settings.js?v=169';
 import {
   bestIconForLabel,
   DEFAULT_PRIORITY_ICONS,
@@ -183,57 +183,39 @@ function leadIconHtml(note, tags, settings, display) {
   return `<span class="card-lead-icon is-prio" style="--lead:${color}" title="${escapeHtml(priorityLabel(prio))}">${iconSvg(iconId, { size: 16, className: 'card-lead-svg' })}</span>`;
 }
 
-function applyListChrome(settings) {
-  document.body.classList.add('light');
-  document.body.classList.toggle('note-mode', settings.appMode === 'note');
+function applyListChrome(_settings) {
+  document.body.classList.add('light', 'calorie-mode', 'calorie-only');
+  document.body.classList.remove('note-mode', 'calendar-mode');
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', '#e8f0ea');
 
-  const listView = document.getElementById('list-view');
-  if (listView) {
-    listView.style.setProperty('--card-density', String(densityToCssUnit(FIXED_UI.cardDensity)));
-  }
   const dock = document.getElementById('filter-dock');
   if (dock) {
     dock.style.setProperty('--dock-scale', String(dockScaleToCss(FIXED_UI.dockScale)));
     dock.style.setProperty('--dock-lift', `${dockOffsetYToLiftPx(FIXED_UI.dockOffsetY)}px`);
   }
-  const prio = normalizePriorityColors(settings.priorityColors || DEFAULT_PRIORITY_COLORS);
-  const root = document.documentElement;
-  root.style.setProperty('--prio-normal', prio.normal);
-  root.style.setProperty('--prio-important', prio.important);
-  root.style.setProperty('--prio-urgent', prio.urgent);
-  root.style.setProperty('--prio-critical', prio.critical);
 
-  const modeName = document.getElementById('mode-switch-name');
-  if (modeName) {
-    if (settings.appMode === 'calendar') modeName.textContent = 'ปฏิทิน';
-    else modeName.textContent = settings.appMode === 'note' ? 'Note' : 'งานหลัก';
-  }
+  const build =
+    document.querySelector('meta[name="pnote-build"]')?.content || '';
+  const n = String(build).replace(/^v/i, '');
+  const ver = n ? `v${n}` : '';
+  const calVer = document.getElementById('calorie-app-ver');
+  if (calVer) calVer.textContent = ver;
   const barVer = document.getElementById('mode-switch-ver');
-  if (barVer) {
-    const build =
-      document.querySelector('meta[name="pnote-build"]')?.content || '';
-    const n = String(build).replace(/^v/i, '');
-    barVer.textContent = n ? `v${n}` : '';
-  }
+  if (barVer) barVer.textContent = ver;
 }
 
 /**
- * Paint work list from localStorage as fast as possible.
+ * Fast first paint — calorie shell only (work list retired).
  * @returns {{ settings: object, notesData: object }}
  */
 export function paintListFromLocal() {
   const settings = loadSettings();
-  // Work-list first: force work mode for the critical paint if last mode was note —
-  // note mode can hydrate fully when app.js loads. Prefer showing work board shell.
   const bootSettings = {
     ...settings,
-    appMode: 'work',
+    appMode: 'calorie',
     searchQuery: '',
   };
-  // loadNotes() returns { data } — never pass the wrapper into normalize/save
-  // or first paint will wipe pnote_local_data.
   const { data: loaded } = loadNotes();
   const notesData = normalizeNotesData(loaded);
 
@@ -243,53 +225,15 @@ export function paintListFromLocal() {
   const listView = document.getElementById('list-view');
   const editorView = document.getElementById('editor-view');
   const calendarView = document.getElementById('calendar-view');
+  const calorieView = document.getElementById('calorie-view');
   const loading = document.getElementById('loading-overlay');
   if (editorView) editorView.hidden = true;
   if (calendarView) calendarView.hidden = true;
+  if (listView) listView.hidden = true;
+  if (calorieView) calorieView.hidden = false;
   if (boardTopbar) boardTopbar.hidden = false;
-  if (listView) listView.hidden = false;
   if (loading) loading.hidden = true;
 
-  const notesList = document.getElementById('notes-list');
-  const emptyState = document.getElementById('empty-state');
-  const emptyText = document.getElementById('empty-state-text');
-  if (!notesList) {
-    return { settings, notesData };
-  }
-
-  const display = normalizeCardDisplay(bootSettings.cardDisplay);
-  const prioColors = normalizePriorityColors(bootSettings.priorityColors);
-  const notes = sortedWorkNotes(notesData, bootSettings);
-  notesList.innerHTML = '';
-  notesList.classList.toggle('notes-list--compact', true);
-
-  notes.forEach((note) => {
-    const item = document.createElement('div');
-    item.className = 'note-card note-card-split note-card-compact';
-    item.dataset.noteId = note.id;
-    item.setAttribute('role', 'button');
-    item.tabIndex = 0;
-    const priority = notePriority(note);
-    const prioColor = prioColors[priority] || prioColors.normal;
-    const tags = getTagsForNote(note, notesData.tags || []);
-    const titleText = stripLeadingEmoji(note.title || '') || 'ไม่มีหัวข้อ';
-    const metaHtml = cardMetaHtml(note, tags, bootSettings, display);
-    const leadHtml = leadIconHtml(note, tags, bootSettings, display);
-    item.innerHTML = `
-      <div class="card-compact-body" style="--prio:${escapeHtml(prioColor)}">
-        <div class="card-compact-row">
-          ${leadHtml}
-          <h3 class="card-title">${escapeHtml(titleText)}</h3>
-          ${metaHtml}
-        </div>
-      </div>
-    `;
-    notesList.appendChild(item);
-  });
-
-  if (emptyState) emptyState.hidden = notes.length > 0;
-  if (emptyText && !notes.length) emptyText.textContent = 'ยังไม่มีงาน';
-
   document.documentElement.dataset.pnoteBoot = '1';
-  return { settings, notesData };
+  return { settings: bootSettings, notesData };
 }
