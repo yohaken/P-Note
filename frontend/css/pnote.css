@@ -7196,7 +7196,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
   border-bottom-color: color-mix(in srgb, var(--border) 35%, transparent);
 }
 
-/* One flat wash across the whole B row — not per-column boxes */
+/* One flat wash across the whole B row — no per-column color boxes */
 .calorie-table tr.cal-day-b td {
   height: auto;
   min-height: 1.25rem;
@@ -7205,7 +7205,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
 }
 
 .calorie-table tr.cal-day-b td.cal-col-meals {
-  background: var(--cal-tone-eat-wash);
+  background: var(--cal-tone-burn-wash);
 }
 
 .calorie-table tr.cal-day-b td.cal-col-note {
