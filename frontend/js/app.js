@@ -71,6 +71,7 @@ import {
   appendQuickExercise,
   appendQuickMeal,
   clearDayValues,
+  ensureDay,
   formatMealCell,
   MEAL_PATTERN_HINT,
   parseQuickExercise,
@@ -601,6 +602,7 @@ const els = {
   calorieFabs: document.getElementById('dock-context-calorie'),
   calorieFabMeal: document.getElementById('calorie-fab-meal'),
   calorieFabMus: document.getElementById('calorie-fab-mus'),
+  calorieFabBody: document.getElementById('calorie-fab-body'),
   dockContextRail: document.getElementById('dock-context-rail'),
   calorieQuickOverlay: document.getElementById('calorie-quick-overlay'),
   calorieQuickBackdrop: document.getElementById('calorie-quick-backdrop'),
@@ -610,6 +612,12 @@ const els = {
   calorieQuickClear: document.getElementById('calorie-quick-clear'),
   calorieQuickCancel: document.getElementById('calorie-quick-cancel'),
   calorieQuickOk: document.getElementById('calorie-quick-ok'),
+  calorieBodyOverlay: document.getElementById('calorie-body-overlay'),
+  calorieBodyBackdrop: document.getElementById('calorie-body-backdrop'),
+  calorieBodyWeight: document.getElementById('calorie-body-weight'),
+  calorieBodyWaist: document.getElementById('calorie-body-waist'),
+  calorieBodyCancel: document.getElementById('calorie-body-cancel'),
+  calorieBodyOk: document.getElementById('calorie-body-ok'),
   dockModeCalorie: document.getElementById('dock-mode-calorie'),
   modeMenuCalorie: document.getElementById('mode-menu-calorie'),
 };
@@ -2238,6 +2246,7 @@ function syncCalorieQuickChrome() {
 
 function openCalorieQuick(mode) {
   if (!requireSyncReady()) return;
+  closeCalorieBodyQuick();
   calorieQuickMode = mode === 'mus' ? 'mus' : 'meal';
   calorieQuickEdit = null;
   if (!els.calorieQuickOverlay) return;
@@ -2267,6 +2276,7 @@ function openCalorieQuick(mode) {
  */
 function openCalorieCellEditor(opts) {
   if (!requireSyncReady()) return;
+  closeCalorieBodyQuick();
   const mode = opts?.mode === 'mus' ? 'mus' : 'meal';
   const dayId = String(opts?.dayId || '');
   if (!dayId || !els.calorieQuickOverlay) return;
@@ -2341,6 +2351,88 @@ function closeCalorieQuick() {
   calorieQuickEdit = null;
   if (els.calorieQuickOverlay) els.calorieQuickOverlay.hidden = true;
   syncCalorieQuickChrome();
+}
+
+function closeCalorieBodyQuick() {
+  if (els.calorieBodyOverlay) els.calorieBodyOverlay.hidden = true;
+}
+
+function parseBodyMeasure(raw, { min, max, label }) {
+  const text = String(raw ?? '').trim();
+  if (text === '') return { ok: true, value: null };
+  const num = Number(text);
+  if (!Number.isFinite(num)) return { ok: false, error: `${label}ต้องเป็นตัวเลข` };
+  if (num < min || num > max) return { ok: false, error: `${label}อยู่นอกช่วง` };
+  return { ok: true, value: Math.round(num * 10) / 10 };
+}
+
+/** Rare-use FAB: log today's weight + waist (not settings goals). */
+function openCalorieBodyQuick() {
+  if (!requireSyncReady()) return;
+  closeCalorieQuick();
+  if (!els.calorieBodyOverlay) return;
+  const { day } = ensureDay(ensureCaloriePayload(), toDateKey());
+  if (els.calorieBodyWeight) {
+    els.calorieBodyWeight.value = day?.weight == null ? '' : String(day.weight);
+  }
+  if (els.calorieBodyWaist) {
+    els.calorieBodyWaist.value = day?.waist == null ? '' : String(day.waist);
+  }
+  els.calorieBodyOverlay.hidden = false;
+  requestAnimationFrame(() => {
+    try {
+      els.calorieBodyWeight?.focus({ preventScroll: false });
+      els.calorieBodyWeight?.select?.();
+    } catch { /* ignore */ }
+  });
+}
+
+function submitCalorieBodyQuick() {
+  if (!requireSyncReady()) return;
+  const weightParsed = parseBodyMeasure(els.calorieBodyWeight?.value, {
+    min: 20,
+    max: 300,
+    label: 'น้ำหนัก',
+  });
+  if (!weightParsed.ok) {
+    setStatus(weightParsed.error, { forceToast: true });
+    return;
+  }
+  const waistParsed = parseBodyMeasure(els.calorieBodyWaist?.value, {
+    min: 40,
+    max: 200,
+    label: 'รอบเอว',
+  });
+  if (!waistParsed.ok) {
+    setStatus(waistParsed.error, { forceToast: true });
+    return;
+  }
+  if (weightParsed.value == null && waistParsed.value == null) {
+    setStatus('ใส่น้ำหนักหรือรอบเอวก่อน', { forceToast: true });
+    return;
+  }
+  try {
+    const { sheet, day } = ensureDay(ensureCaloriePayload(), toDateKey());
+    if (!day?.id) {
+      setStatus('สร้างวันวันนี้ไม่ได้', { forceToast: true });
+      return;
+    }
+    const next = patchDay(sheet, day.id, {
+      weight: weightParsed.value,
+      waist: waistParsed.value,
+    });
+    state.calorieActiveMonth = monthKeyFromDate(toDateKey());
+    const bits = [];
+    if (weightParsed.value != null) bits.push(`${weightParsed.value} กก`);
+    if (waistParsed.value != null) bits.push(`เอว ${waistParsed.value}`);
+    persistCalorie(next, {
+      status: `อัปเดตร่างกายวันนี้ · ${bits.join(' · ')}`,
+      fullRender: true,
+    });
+    closeCalorieBodyQuick();
+  } catch (err) {
+    setStatus(err?.message || 'บันทึกไม่ได้', { forceToast: true });
+  }
 }
 
 function clearCalorieQuickInput() {
@@ -2462,6 +2554,7 @@ function setAppMode(_mode, { persist = true } = {}) {
     saveSettings(state.settings);
   }
   closeCalorieQuick();
+  closeCalorieBodyQuick();
   closeModeMenu();
   renderModeSwitcher();
   showView('calorie');
@@ -8153,6 +8246,7 @@ async function init({ fromBoot = false } = {}) {
   });
   els.calorieFabMeal?.addEventListener('click', () => openCalorieQuick('meal'));
   els.calorieFabMus?.addEventListener('click', () => openCalorieQuick('mus'));
+  els.calorieFabBody?.addEventListener('click', () => openCalorieBodyQuick());
   els.calorieQuickCancel?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickBackdrop?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickClear?.addEventListener('click', clearCalorieQuickInput);
@@ -8166,6 +8260,24 @@ async function init({ fromBoot = false } = {}) {
       closeCalorieQuick();
     }
   });
+  els.calorieBodyCancel?.addEventListener('click', closeCalorieBodyQuick);
+  els.calorieBodyBackdrop?.addEventListener('click', closeCalorieBodyQuick);
+  els.calorieBodyOk?.addEventListener('click', submitCalorieBodyQuick);
+  const onBodyFieldKey = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.target === els.calorieBodyWeight && els.calorieBodyWaist) {
+        try { els.calorieBodyWaist.focus(); els.calorieBodyWaist.select?.(); } catch { /* ignore */ }
+        return;
+      }
+      submitCalorieBodyQuick();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCalorieBodyQuick();
+    }
+  };
+  els.calorieBodyWeight?.addEventListener('keydown', onBodyFieldKey);
+  els.calorieBodyWaist?.addEventListener('keydown', onBodyFieldKey);
   const onCalorieProfileChange = () => {
     flushCalorieProfileFromUi({ status: '' });
   };
