@@ -221,7 +221,7 @@ import {
   SHARED_SPACE_ID,
 } from './remote.js?v=154';
 import { normalizeNotesData } from './notes.js?v=148';
-import { SaveManager } from './sync.js?v=199';
+import { SaveManager } from './sync.js?v=200';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
 
 const state = {
@@ -233,6 +233,8 @@ const state = {
   }(),
   /** True after first successful Firestore pull this session — gates cloud writes. */
   cloudHydrated: false,
+  /** True only when signed in + cloud hydrated + online — user may enter data. */
+  syncReady: false,
   /** Calendar view state (Apple-style: vertical months + year zoom) */
   calendarMonth: new Date().getMonth(),
   calendarYear: new Date().getFullYear(),
@@ -520,6 +522,11 @@ const els = {
   authOverlay: document.getElementById('auth-overlay'),
   googleLoginBtn: document.getElementById('google-login-btn'),
   authError: document.getElementById('auth-error'),
+  syncGateOverlay: document.getElementById('sync-gate-overlay'),
+  syncGateTitle: document.getElementById('sync-gate-title'),
+  syncGateSub: document.getElementById('sync-gate-sub'),
+  syncSavedOverlay: document.getElementById('sync-saved-overlay'),
+  syncSavedMsg: document.getElementById('sync-saved-msg'),
   /* Calendar view */
   calendarView: document.getElementById('calendar-view'),
   calYearBack: document.getElementById('cal-year-back'),
@@ -628,6 +635,152 @@ function setAuthOverlayVisible(visible) {
   if (!els.authOverlay) return;
   els.authOverlay.hidden = !visible;
   document.body.classList.toggle('auth-required', Boolean(visible));
+  if (visible) hideSyncGate();
+  else refreshSyncGateUi();
+}
+
+let syncRetryTimer = null;
+let syncSavedTimer = null;
+
+function isSyncReady() {
+  return Boolean(state.syncReady && state.authUser && state.cloudHydrated && state.online);
+}
+
+function hideSyncGate() {
+  if (els.syncGateOverlay) els.syncGateOverlay.hidden = true;
+  document.body.classList.remove('sync-gated');
+}
+
+function showSyncGate(title = 'กำลังซิงค์…', sub = 'รอข้อมูลพร้อมก่อนใส่') {
+  if (els.authOverlay && !els.authOverlay.hidden) {
+    hideSyncGate();
+    return;
+  }
+  if (els.syncGateTitle) els.syncGateTitle.textContent = title;
+  if (els.syncGateSub) els.syncGateSub.textContent = sub;
+  if (els.syncGateOverlay) els.syncGateOverlay.hidden = false;
+  document.body.classList.add('sync-gated');
+}
+
+function refreshSyncGateUi() {
+  if (els.authOverlay && !els.authOverlay.hidden) {
+    hideSyncGate();
+    return;
+  }
+  if (isSyncReady()) {
+    hideSyncGate();
+    return;
+  }
+  if (!state.authUser) {
+    hideSyncGate();
+    return;
+  }
+  if (spaceSyncInFlight || !navigator.onLine) {
+    showSyncGate(
+      navigator.onLine ? 'กำลังซิงค์…' : 'รอซิงค์…',
+      navigator.onLine ? 'รอข้อมูลพร้อมก่อนใส่' : 'ไม่มีเน็ต · รอเชื่อมใหม่',
+    );
+    return;
+  }
+  showSyncGate('รอซิงค์…', 'ยังไม่พร้อม · กำลังลองใหม่');
+}
+
+function setSyncReady(ready) {
+  state.syncReady = Boolean(ready);
+  if (state.syncReady) {
+    clearSyncRetryLoop();
+    hideSyncGate();
+    setSyncStatus('ok', 'พร้อมใส่ข้อมูล');
+  } else {
+    refreshSyncGateUi();
+    startSyncRetryLoop();
+  }
+}
+
+function clearSyncRetryLoop() {
+  if (syncRetryTimer) {
+    clearInterval(syncRetryTimer);
+    syncRetryTimer = null;
+  }
+}
+
+function startSyncRetryLoop() {
+  if (syncRetryTimer) return;
+  syncRetryTimer = setInterval(() => {
+    if (isSyncReady() || !state.authUser) {
+      clearSyncRetryLoop();
+      return;
+    }
+    if (spaceSyncInFlight) return;
+    if (!navigator.onLine) {
+      refreshSyncGateUi();
+      return;
+    }
+    showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
+    void ensureCloudReady({ force: true, announce: true });
+  }, 4000);
+}
+
+function showSyncSavedPopup(message = 'อัปเดตแล้ว') {
+  if (!els.syncSavedOverlay || !els.syncSavedMsg) return;
+  els.syncSavedMsg.textContent = message;
+  els.syncSavedOverlay.hidden = false;
+  if (syncSavedTimer) clearTimeout(syncSavedTimer);
+  syncSavedTimer = setTimeout(() => {
+    els.syncSavedOverlay.hidden = true;
+    syncSavedTimer = null;
+  }, 1100);
+}
+
+/** Block user edits until cloud sync is ready; show waiting popup. */
+function requireSyncReady() {
+  if (isSyncReady()) return true;
+  refreshSyncGateUi();
+  if (state.authUser && !spaceSyncInFlight && navigator.onLine) {
+    void ensureCloudReady({ force: true, announce: true });
+  }
+  return false;
+}
+
+let ensureCloudReadyInFlight = null;
+
+/**
+ * Pull/merge cloud until ready. Resolves true when user may enter data.
+ */
+async function ensureCloudReady({ force = true, announce = true } = {}) {
+  if (ensureCloudReadyInFlight) return ensureCloudReadyInFlight;
+  ensureCloudReadyInFlight = (async () => {
+    if (!state.authUser) {
+      setSyncReady(false);
+      return false;
+    }
+    if (!navigator.onLine) {
+      state.online = false;
+      setSyncReady(false);
+      setSyncStatus('offline', 'รอซิงค์…');
+      showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
+      return false;
+    }
+    showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
+    setSyncStatus('busy', 'กำลังซิงค์…');
+    try {
+      await syncSpaceInBackground({ force, announce });
+    } catch (err) {
+      console.warn('ensureCloudReady failed', err);
+    }
+    const ready = Boolean(state.authUser && state.cloudHydrated && state.online && navigator.onLine);
+    setSyncReady(ready);
+    if (!ready) {
+      setSyncStatus('offline', 'รอซิงค์…');
+      showSyncGate('รอซิงค์…', 'ยังไม่พร้อม · กำลังลองใหม่');
+    }
+    return ready;
+  })();
+  try {
+    return await ensureCloudReadyInFlight;
+  } finally {
+    ensureCloudReadyInFlight = null;
+  }
 }
 
 function setAuthError(message = '') {
@@ -681,8 +834,7 @@ async function handleGoogleLoginClick() {
       return;
     }
     onSignedIn(user);
-    setSyncStatus('busy', 'กำลังเชื่อมคลาวด์…');
-    void syncSpaceInBackground({ force: true, announce: true });
+    void ensureCloudReady({ force: true, announce: true });
   } catch (err) {
     setAuthError(err?.message || 'ล็อกอินไม่สำเร็จ');
   } finally {
@@ -730,10 +882,10 @@ function setSyncStatus(state, message = '') {
   const next = state || 'idle';
   btn.dataset.state = next;
   const label = String(message || '').trim() || (
-    next === 'ok' ? 'เชื่อมฐานข้อมูลแล้ว'
+    next === 'ok' ? 'พร้อมใส่ข้อมูล'
       : next === 'busy' ? 'กำลังซิงค์…'
-        : next === 'offline' ? 'ออฟไลน์ · เก็บในเครื่อง'
-          : 'สถานะฐานข้อมูล'
+        : next === 'offline' ? 'รอซิงค์…'
+          : 'สถานะซิงค์'
   );
   btn.title = label;
   btn.setAttribute('aria-label', label);
@@ -822,6 +974,7 @@ function runUndo() {
 }
 
 function autosave() {
+  if (!requireSyncReady()) return;
   saveManager.scheduleSave(() => state.notesData);
   refreshNoteNotifications();
   scheduleUserContextRefresh();
@@ -1345,6 +1498,7 @@ function ensureCaloriePayload() {
 }
 
 function persistCalorie(nextCalorie, { status = '', fullRender = false, immediate = true } = {}) {
+  if (!requireSyncReady()) return;
   const prevCols = mealColumnCount(state.notesData?.calorie);
   const now = new Date().toISOString();
   // Always stamp calorie.updatedAt so cloud merge keeps profile/goals (height etc.)
@@ -1361,11 +1515,12 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
   // Cloud queue resolves getNotesData() at write time (never a stale snap).
   if (immediate) {
     void saveManager.saveNow(() => state.notesData).catch(() => {
-      /* local already written; cloud may retry */
+      /* cloud failure handled via onCloudFailed → sync gate */
     });
   } else {
     saveManager.scheduleSave(() => state.notesData);
   }
+  // Quiet status → sync dot only; cloud confirm shows "อัปเดตแล้ว" popup.
   if (status) setStatus(status);
   if (!isCalorieMode()) return;
   if (state.caloriePane === 'health') {
@@ -1735,10 +1890,10 @@ function renderCalorieSheet({ preserveScroll = false } = {}) {
         calorie: normalizeCalorie(withToday),
         updatedAt: new Date().toISOString(),
       };
-      // Local only until Firestore has been pulled — never let a blank today
+      // Local only until sync is ready — never let a blank today
       // race ahead and setDoc-wipe the shared cloud space.
       saveNotes(state.notesData);
-      if (state.cloudHydrated && state.authUser) {
+      if (isSyncReady()) {
         saveManager.scheduleSave(() => state.notesData);
       }
     }
@@ -1770,6 +1925,7 @@ function renderCalorieSheet({ preserveScroll = false } = {}) {
 }
 
 function addCalorieDay() {
+  if (!requireSyncReady()) return;
   const { sheet, created } = addDayFromLast(ensureCaloriePayload(), toDateKey(new Date()));
   state.calorieActiveMonth = monthKeyFromDate(toDateKey());
   persistCalorie(sheet, {
@@ -1827,6 +1983,7 @@ function syncCalorieQuickChrome() {
 }
 
 function openCalorieQuick(mode) {
+  if (!requireSyncReady()) return;
   calorieQuickMode = mode === 'mus' ? 'mus' : 'meal';
   calorieQuickEdit = null;
   if (!els.calorieQuickOverlay) return;
@@ -1855,6 +2012,7 @@ function openCalorieQuick(mode) {
  * @param {{ mode: 'meal'|'mus', dayId: string, mealIndex?: number, value?: string }} opts
  */
 function openCalorieCellEditor(opts) {
+  if (!requireSyncReady()) return;
   const mode = opts?.mode === 'mus' ? 'mus' : 'meal';
   const dayId = String(opts?.dayId || '');
   if (!dayId || !els.calorieQuickOverlay) return;
@@ -1940,6 +2098,7 @@ function clearCalorieQuickInput() {
 }
 
 function submitCalorieQuick() {
+  if (!requireSyncReady()) return;
   const text = String(els.calorieQuickInput?.value || '').trim();
   const editing = Boolean(calorieQuickEdit);
 
@@ -5762,6 +5921,7 @@ function exportNotesBackup() {
 }
 
 async function applyImportedNotes(text, { merge } = {}) {
+  if (!requireSyncReady()) return false;
   const useMerge = merge ?? importMergePreferred;
   let next;
   try {
@@ -7269,13 +7429,13 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   if (didScheduleSnap && hadScheduled) {
     setStatus('ปรับเวลาแจ้งเตือนเป็น 09:00 แล้ว');
   } else if (result.migrated) {
-    setStatus('ย้ายโน้ตเข้าคลาวด์แล้ว');
+    setDbStatusMessage('ย้ายเข้าคลาวด์แล้ว');
   } else if (!result.online) {
-    setStatus(result.autoSource ? 'โหมดออฟไลน์ (กู้คืนข้อมูลเดิม)' : 'โหมดออฟไลน์ (เก็บในเครื่อง)');
+    setDbStatusMessage('รอซิงค์…');
   } else if (contentChanged) {
-    setStatus('ซิงค์คลาวด์ล่าสุดแล้ว');
+    setDbStatusMessage('ซิงค์ล่าสุดแล้ว');
   } else {
-    setStatus('เชื่อมคลาวด์แล้ว');
+    setDbStatusMessage('พร้อมใส่ข้อมูล');
   }
   return contentChanged;
 }
@@ -7299,12 +7459,15 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
 
   spaceSyncInFlight = (async () => {
     try {
-      if (announce) setSyncStatus('busy', 'กำลังซิงค์…');
+      if (announce) {
+        setSyncStatus('busy', 'กำลังซิงค์…');
+        if (!state.syncReady) showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
+      }
       const prevMerge = await mergePreviousDeviceSpace(state.notesData);
       if (prevMerge.fromPrev) {
         state.notesData = normalizeNotesData(prevMerge.data);
         saveNotes(state.notesData);
-        if (announce) setSyncStatus('busy', 'กำลังรวมพื้นที่เก่า…');
+        if (announce) setSyncStatus('busy', 'กำลังรวมข้อมูล…');
       }
       const result = await loadSpaceData(state.spaceId || SHARED_SPACE_ID, state.notesData);
       const changed = await applySpaceSyncResult(result, { localVerBefore, announce });
@@ -7316,7 +7479,7 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
     } catch (err) {
       console.warn('background sync failed', err);
       state.online = false;
-      if (announce) setDbStatusMessage('โหมดออฟไลน์ (เก็บในเครื่อง)');
+      if (announce) setDbStatusMessage('รอซิงค์…');
       return false;
     } finally {
       spaceSyncInFlight = null;
@@ -7346,6 +7509,9 @@ async function bootstrapData() {
         if (!state.authUser) {
           throw new Error('Not signed in');
         }
+        if (!state.syncReady && !state.cloudHydrated) {
+          throw new Error('Sync not ready');
+        }
         // Wait for first cloud pull so we merge instead of wiping Firestore.
         if (!state.cloudHydrated && spaceSyncInFlight) {
           try {
@@ -7354,11 +7520,23 @@ async function bootstrapData() {
         }
         return safePushRemote(data);
       },
+      onCloudSaved: () => {
+        if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว');
+        setDbStatusMessage('พร้อมใส่ข้อมูล');
+      },
+      onCloudFailed: () => {
+        // Don't recurse into ensureCloudReady here — retry loop will pull again.
+        state.online = false;
+        setSyncReady(false);
+        setSyncStatus('offline', 'รอซิงค์…');
+        showSyncGate('รอซิงค์…', 'ส่งไม่สำเร็จ · กำลังลองใหม่');
+      },
     });
 
     paintNotesFromLocal(localData);
     setLoading(false);
     refreshAuthAccountHint();
+    setSyncReady(false);
 
     const user = await requireCloudAuth();
     watchAuth((nextUser) => {
@@ -7367,26 +7545,25 @@ async function bootstrapData() {
         state.authUser = null;
         state.online = false;
         state.cloudHydrated = false;
+        setSyncReady(false);
         refreshAuthAccountHint();
         setAuthOverlayVisible(true);
-        if (wasSignedIn) setSyncStatus('offline', 'ออกจากระบบแล้ว · ข้อมูลในเครื่องยังอยู่');
+        if (wasSignedIn) setSyncStatus('offline', 'ออกจากระบบแล้ว');
         return;
       }
       const first = !state.authUser;
       onSignedIn(nextUser);
       if (first) {
-        setSyncStatus('busy', 'กำลังเชื่อมคลาวด์…');
-        void syncSpaceInBackground({ localVerBefore, force: true, announce: true });
+        void ensureCloudReady({ force: true, announce: true });
       }
     });
 
     if (!user) {
-      setSyncStatus('offline', 'รอเข้าสู่ระบบเพื่อซิงค์คลาวด์');
+      setSyncStatus('offline', 'รอเข้าสู่ระบบ');
       return;
     }
 
-    setSyncStatus('busy', 'กำลังเชื่อมคลาวด์…');
-    void syncSpaceInBackground({ localVerBefore, force: true, announce: true });
+    await ensureCloudReady({ force: true, announce: true });
   } catch (err) {
     console.warn('bootstrap failed', err);
     try {
@@ -7395,10 +7572,13 @@ async function bootstrapData() {
       applyTheme();
       showView(boardHomeView());
       if (!isCalendarMode()) renderNotesList();
-      setDbStatusMessage('โหลดไม่สำเร็จ — ใช้ข้อมูลในเครื่อง');
+      setSyncReady(false);
+      setDbStatusMessage('รอซิงค์…');
+      showSyncGate('รอซิงค์…', 'โหลดไม่สำเร็จ · กำลังลองใหม่');
+      startSyncRetryLoop();
     } catch (fallbackErr) {
       console.warn('bootstrap fallback failed', fallbackErr);
-      setDbStatusMessage('โหลดไม่สำเร็จ');
+      setDbStatusMessage('รอซิงค์…');
     }
   } finally {
     setLoading(false);
@@ -8165,6 +8345,7 @@ async function init({ fromBoot = false } = {}) {
     state.authUser = null;
     state.online = false;
     state.cloudHydrated = false;
+    setSyncReady(false);
     refreshAuthAccountHint();
     setAuthOverlayVisible(true);
     setSyncStatus('offline', 'ออกจากระบบแล้ว');
@@ -8357,20 +8538,28 @@ async function init({ fromBoot = false } = {}) {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     refreshNoteNotifications();
-    // Soft re-warm when returning to the app (throttled; toast only if data changed).
+    if (!state.authUser) return;
+    if (!isSyncReady()) {
+      void ensureCloudReady({ force: true, announce: true });
+      return;
+    }
+    // Soft re-warm when returning (keep ready; refresh remote quietly).
     void syncSpaceInBackground({ force: false, announce: false }).then((changed) => {
-      if (changed) setDbStatusMessage('ซิงค์ข้อมูลล่าสุดแล้ว');
+      if (changed) setDbStatusMessage('ซิงค์ล่าสุดแล้ว');
     });
   });
   window.addEventListener('pageshow', () => refreshNoteNotifications());
   window.addEventListener('focus', () => refreshNoteNotifications());
   window.addEventListener('online', () => {
     refreshNoteNotifications();
-    setSyncStatus('busy', 'กำลังซิงค์…');
-    void syncSpaceInBackground({ force: true, announce: true });
+    if (!state.authUser) return;
+    void ensureCloudReady({ force: true, announce: true });
   });
   window.addEventListener('offline', () => {
-    setSyncStatus('offline', 'ออฟไลน์ · เก็บในเครื่อง');
+    state.online = false;
+    setSyncReady(false);
+    setSyncStatus('offline', 'รอซิงค์…');
+    showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
   });
 
   // Block iOS pinch/gesture zoom so the fixed layout never overflows its edges.

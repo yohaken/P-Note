@@ -4276,6 +4276,99 @@ body.light .notify-field input[type='number'] {
   display: none !important;
 }
 
+/* Sync readiness gate — block all input until cloud is ready */
+.sync-gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(1rem, env(safe-area-inset-top, 0px))
+    max(1rem, env(safe-area-inset-right, 0px))
+    max(1rem, env(safe-area-inset-bottom, 0px))
+    max(1rem, env(safe-area-inset-left, 0px));
+  background: rgba(20, 32, 24, 0.42);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.sync-gate-overlay[hidden] {
+  display: none !important;
+}
+
+.sync-gate-pop {
+  width: min(16.5rem, 88vw);
+  text-align: center;
+  padding: 1.15rem 1rem 1rem;
+  border-radius: var(--radius-sm, 10px);
+  background: var(--surface-2, #f3f7f4);
+  border: 1px solid var(--border-strong, #c5d4c9);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
+.sync-gate-spinner {
+  margin: 0 auto;
+}
+
+.sync-gate-title {
+  margin: 0.75rem 0 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sync-gate-sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.sync-saved-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 255;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(20, 32, 24, 0.28);
+  pointer-events: none;
+}
+
+.sync-saved-overlay[hidden] {
+  display: none !important;
+}
+
+.sync-saved-pop {
+  min-width: 8.5rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: var(--radius-sm, 10px);
+  background: var(--surface-2, #f3f7f4);
+  border: 1px solid var(--border-strong, #c5d4c9);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  animation: sync-saved-pop-in 0.18s ease-out;
+}
+
+.sync-saved-msg {
+  margin: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+@keyframes sync-saved-pop-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+body.sync-gated #app {
+  pointer-events: none;
+  user-select: none;
+}
+
 .auth-panel {
   width: min(22rem, 100%);
   text-align: center;
