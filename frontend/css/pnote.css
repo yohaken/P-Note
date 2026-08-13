@@ -6289,7 +6289,12 @@ body.reordering-active {
 
 .cd-pin-card .chs-chart-svg {
   width: 100%;
-  min-height: 3.2rem;
+  min-height: 5.4rem;
+  height: 5.6rem;
+}
+
+.cd-pin-card .chs-chart-scale {
+  font-size: 0.5rem;
 }
 
 .cd-pin-card .chs-goal-set {
@@ -6869,7 +6874,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
 .chs-chart-svg {
   display: block;
   width: 100%;
-  height: 56px;
+  height: 96px;
   color: #0f766e;
 }
 
@@ -6895,6 +6900,47 @@ body.calorie-health-pane #dock-calorie-health-btn {
   stroke-dasharray: 3 2;
 }
 
+.chs-chart-svg .chs-chart-axis {
+  stroke: color-mix(in srgb, var(--border-strong, #c5d4c9) 70%, #78716c);
+  stroke-width: 1;
+}
+
+.chs-chart-svg .chs-chart-grid {
+  stroke: color-mix(in srgb, var(--border) 55%, transparent);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 2;
+}
+
+.chs-chart-svg .chs-chart-tick {
+  fill: var(--text-muted, #6b7280);
+  font-size: 8px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.chs-chart-svg .chs-chart-axis-label {
+  fill: var(--text-muted, #6b7280);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.chs-chart-svg .chs-chart-empty-text {
+  fill: var(--text-muted, #6b7280);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.chs-chart-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin: 0.08rem 0 0;
+  font-size: 0.52rem;
+  font-weight: 650;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
 .chs-chart-svg.is-signed {
   color: #c2410c;
 }
@@ -6909,7 +6955,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .chs-chart-svg.is-burn {
   color: #15803d;
-  height: 60px;
+  height: 96px;
 }
 
 .chs-chart-empty {
