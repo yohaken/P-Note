@@ -195,6 +195,7 @@ const HOME_PIN_ID_OPTIONS = [
   'ex-mus',
 ];
 
+/** Legacy device-only pin list (migrated into calorie.homePins for cloud sync). */
 export function normalizeCalorieHomePins(raw) {
   const allowed = new Set(HOME_PIN_ID_OPTIONS);
   const seen = new Set();
@@ -205,7 +206,6 @@ export function normalizeCalorieHomePins(raw) {
     if (!allowed.has(id) || seen.has(id)) continue;
     seen.add(id);
     out.push(id);
-    if (out.length >= 4) break;
   }
   return out;
 }
