@@ -2,7 +2,7 @@ import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
 import { CONFIG } from './config.js?v=154';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=199';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=203';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -100,7 +100,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=202';
+} from './calorie.js?v=203';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -151,7 +151,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=202';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=203';
 import {
   allIcons,
   bestIconForLabel,
@@ -1663,9 +1663,11 @@ function getHomePins(sheet = ensureCaloriePayload()) {
 function persistHomePins(pins) {
   const next = normalizeHomePins(pins);
   const sheet = ensureCaloriePayload();
+  const now = new Date().toISOString();
   // Cloud-synced field on calorie payload (Firestore), not device-only settings.
+  // homePinsAt must bump on every pin change so merge keeps this side's layout.
   persistCalorie(
-    { ...sheet, homePins: next },
+    { ...sheet, homePins: next, homePinsAt: now },
     { status: '', fullRender: false, immediate: true },
   );
   // Clear legacy local-only copy so devices don't re-migrate stale pins.

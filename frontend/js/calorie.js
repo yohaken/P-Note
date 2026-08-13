@@ -555,6 +555,17 @@ export function normalizeCalorie(raw) {
     freqMus: normalizeFreqList(src.freqMus),
     /** Pinned health widgets on home dash — synced via Firestore with calorie payload */
     homePins: normalizeHomePins(src.homePins),
+    /**
+     * Bumped only when homePins change. Do NOT fall back to sheet updatedAt —
+     * a later meal edit must not look like a newer pin layout.
+     * Legacy: if pins exist without a stamp, borrow updatedAt once so they still merge.
+     */
+    homePinsAt: (() => {
+      const pins = normalizeHomePins(src.homePins);
+      const stamped = String(src.homePinsAt || '').trim();
+      if (stamped) return stamped;
+      return pins.length ? String(src.updatedAt || '') : '';
+    })(),
     days,
   };
 }
@@ -1756,6 +1767,29 @@ function dayContentScore(day) {
   return score;
 }
 
+/**
+ * Home pins use their own stamp (homePinsAt) so logging a meal later cannot
+ * wipe pins from the other device — and an intentional clear still wins.
+ */
+function pinStampMs(raw) {
+  const t = new Date(raw || 0).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function mergeHomePinsField(local, remote) {
+  const lp = normalizeHomePins(local?.homePins);
+  const rp = normalizeHomePins(remote?.homePins);
+  const lAt = pinStampMs(local?.homePinsAt);
+  const rAt = pinStampMs(remote?.homePinsAt);
+  if (lAt > rAt) return { homePins: lp, homePinsAt: local.homePinsAt || '' };
+  if (rAt > lAt) return { homePins: rp, homePinsAt: remote.homePinsAt || '' };
+  // Same stamp / both missing: prefer non-empty, else local.
+  if (!lp.length && rp.length) {
+    return { homePins: rp, homePinsAt: remote.homePinsAt || local.homePinsAt || '' };
+  }
+  return { homePins: lp, homePinsAt: local.homePinsAt || remote.homePinsAt || '' };
+}
+
 export function mergeCalorieByUpdatedAt(localRaw, remoteRaw) {
   const local = normalizeCalorie(localRaw);
   const remote = normalizeCalorie(remoteRaw);
@@ -1793,8 +1827,11 @@ export function mergeCalorieByUpdatedAt(localRaw, remoteRaw) {
   let metaSrc = localAt > remoteAt ? local : remoteAt > localAt ? remote : local;
   if (localDays === 0 && remoteDays > 0 && localAt <= remoteAt) metaSrc = remote;
   else if (remoteDays === 0 && localDays > 0 && remoteAt <= localAt) metaSrc = local;
+  const pinField = mergeHomePinsField(local, remote);
   return normalizeCalorie({
     ...metaSrc,
+    homePins: pinField.homePins,
+    homePinsAt: pinField.homePinsAt,
     days: [...byDate.values()],
     // Keep the winning meta's updatedAt when it is newer so a just-saved profile
     // is not diluted to "now" in a way that loses the causality on the next merge.
