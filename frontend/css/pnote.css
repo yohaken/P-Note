@@ -6133,16 +6133,16 @@ body.calorie-only .dock-action-primary {
   font-size: 0.65rem !important;
 }
 
-/* Week dashboard — lightweight summary above today card */
+/* Home dash — pinned health charts (2 per row, max 4) */
 .calorie-dash {
   margin: 0 0.3rem;
-  padding: 0.4rem 0.5rem 0.35rem;
+  padding: 0.45rem 0.5rem 0.45rem;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: color-mix(in srgb, var(--surface) 92%, var(--success, #4a7c59) 8%);
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
   flex: 0 0 auto;
 }
 
@@ -6152,13 +6152,13 @@ body.calorie-only .dock-action-primary {
 
 .cd-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
 }
 
 .cd-title {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 800;
   color: var(--text);
 }
@@ -6168,6 +6168,98 @@ body.calorie-only .dock-action-primary {
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+.cd-range-sub {
+  margin: -0.1rem 0 0;
+  white-space: normal;
+}
+
+.cd-range-toggle {
+  border: 1px solid var(--border);
+  background: var(--surface-2, var(--surface));
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.22rem 0.45rem;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cd-range-toggle:active {
+  opacity: 0.85;
+}
+
+.cd-range-panel {
+  margin: 0;
+}
+
+.cd-range-panel[hidden] {
+  display: none !important;
+}
+
+.cd-range {
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.cd-pin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.cd-pin-card {
+  margin: 0;
+  min-width: 0;
+  padding: 0.4rem 0.4rem 0.35rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cd-pin-card .chs-big {
+  font-size: 1.15rem;
+}
+
+.cd-pin-card .chs-big-sm {
+  font-size: 0.95rem;
+}
+
+.cd-pin-card .chs-pose-bars {
+  max-height: 4.5rem;
+  overflow: hidden;
+}
+
+.cd-pin-card .chs-goal-set {
+  display: none;
+}
+
+.cd-pin-empty {
+  margin: 0.15rem 0 0.1rem;
+  padding: 0.55rem 0.4rem;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-muted);
+  border: 1px dashed color-mix(in srgb, var(--border) 80%, var(--text-muted) 20%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+.chs-card.is-pinnable,
+.chs-chart-card.is-pinnable,
+.chs-goal-card.is-pinnable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chs-card.is-pinnable:active,
+.chs-chart-card.is-pinnable:active,
+.chs-goal-card.is-pinnable:active {
+  transform: scale(0.985);
 }
 
 .cd-metrics {

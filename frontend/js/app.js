@@ -77,7 +77,6 @@ import {
   parseQuickMeal,
   computeTotals,
   computeHealthSnapshot,
-  computeWeekSummary,
   expandMealsForEdit,
   formatDateDisplay,
   formatSigned,
@@ -93,12 +92,15 @@ import {
   renderCalorieRowsHtml,
   renderCalorieTotalsHtml,
   renderHealthSheetHtml,
-  renderWeekDashHtml,
+  renderHomeDashHtml,
+  homePinLabel,
+  HOME_PIN_MAX,
+  normalizeHomePins,
   thaiDayName,
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=199';
+} from './calorie.js?v=201';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -149,7 +151,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=199';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=201';
 import {
   allIcons,
   bestIconForLabel,
@@ -244,8 +246,10 @@ const state = {
   calendarScrollRange: null,
   /** Calorie sub-pane: 'log' (home) | 'health' (summary sheet) */
   caloriePane: 'log',
-  /** Health trend chart window (days) — restored from settings (e.g. 90 = 3 เดือน) */
+  /** Health trend chart window (days) — restored from settings (e.g. 90 = 3 เดือน); shared with home dash */
   calorieTrendDays: normalizeCalorieTrendDays(loadSettings().calorieTrendDays, 7),
+  /** Home-dash range chip panel open */
+  homeDashRangeOpen: false,
   /** Active month key (YYYY-MM) for calorie summary strip */
   calorieActiveMonth: null,
   activeNotepadId: null,
@@ -1647,6 +1651,19 @@ function syncCalorieProfileInputs(sheet) {
   }
 }
 
+function getHomePins() {
+  if (!state.settings) state.settings = loadSettings();
+  return normalizeHomePins(state.settings.calorieHomePins);
+}
+
+function persistHomePins(pins) {
+  const next = normalizeHomePins(pins);
+  if (!state.settings) state.settings = loadSettings();
+  state.settings.calorieHomePins = next;
+  saveSettings(state.settings);
+  return next;
+}
+
 function paintCalorieDash(sheet) {
   const el = els.calorieDash;
   if (!el) return;
@@ -1654,14 +1671,17 @@ function paintCalorieDash(sheet) {
     el.hidden = true;
     return;
   }
-  const summary = computeWeekSummary(sheet);
-  if (!summary.daysLogged) {
-    el.hidden = true;
-    el.innerHTML = '';
-    return;
-  }
+  const days = normalizeCalorieTrendDays(
+    state.calorieTrendDays ?? state.settings?.calorieTrendDays,
+    7,
+  );
+  state.calorieTrendDays = days;
+  const snap = computeHealthSnapshot(sheet, toDateKey(), days);
   el.hidden = false;
-  el.innerHTML = renderWeekDashHtml(summary);
+  el.setAttribute('aria-label', 'แนวโน้มหน้าแรก');
+  el.innerHTML = renderHomeDashHtml(snap, getHomePins(), {
+    rangeOpen: state.homeDashRangeOpen,
+  });
 }
 
 function persistCalorieTrendDays(days) {
@@ -1672,6 +1692,88 @@ function persistCalorieTrendDays(days) {
   state.settings.calorieTrendDays = next;
   saveSettings(state.settings);
   return next;
+}
+
+function showPinActionMenu(items) {
+  if (!els.noteContextMenu || !els.noteContextOverlay) return;
+  closeContextMenu();
+  closeConfirm();
+  state.contextNoteId = null;
+  els.noteContextMenu.innerHTML = '';
+  items.forEach((item) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `context-menu-item${item.danger ? ' danger' : ''}`;
+    btn.textContent = item.label;
+    btn.addEventListener('click', () => {
+      closeContextMenu();
+      item.action();
+    });
+    els.noteContextMenu.appendChild(btn);
+  });
+  els.noteContextOverlay.hidden = false;
+  positionContextMenu(els.noteContextMenu);
+  clearUiTextSelection();
+}
+
+function pinWidgetToHome(pinId) {
+  const id = String(pinId || '').trim();
+  if (!id) return;
+  const pins = getHomePins();
+  if (pins.includes(id)) {
+    setStatus('มีในหน้าแรกแล้ว', { forceToast: true, ms: 1600 });
+    return;
+  }
+  if (pins.length >= HOME_PIN_MAX) {
+    setStatus(`เต็ม ${HOME_PIN_MAX} กล่อง · เอาออกก่อน`, { forceToast: true, ms: 2000 });
+    return;
+  }
+  persistHomePins([...pins, id]);
+  setStatus(`ส่ง ${homePinLabel(id)} แล้ว`, { forceToast: true, ms: 1600 });
+  if (state.caloriePane === 'log') paintCalorieDash(ensureCaloriePayload());
+}
+
+function unpinWidgetFromHome(pinId) {
+  const id = String(pinId || '').trim();
+  if (!id) return;
+  const next = getHomePins().filter((p) => p !== id);
+  persistHomePins(next);
+  setStatus(`นำออกแล้ว`, { forceToast: true, ms: 1400 });
+  paintCalorieDash(ensureCaloriePayload());
+}
+
+function openHealthPinMenu(pinId) {
+  const id = String(pinId || '').trim();
+  if (!id) return;
+  const label = homePinLabel(id) || 'กล่องนี้';
+  const pinned = getHomePins().includes(id);
+  showPinActionMenu([
+    {
+      id: 'pin',
+      label: pinned ? 'มีในหน้าแรกแล้ว' : 'ส่งไปหน้าแรก',
+      action: () => {
+        if (pinned) {
+          setStatus('มีในหน้าแรกแล้ว', { forceToast: true, ms: 1400 });
+          return;
+        }
+        pinWidgetToHome(id);
+      },
+    },
+  ]);
+}
+
+function openHomePinMenu(pinId) {
+  const id = String(pinId || '').trim();
+  if (!id) return;
+  const label = homePinLabel(id) || 'กล่องนี้';
+  showPinActionMenu([
+    {
+      id: 'unpin',
+      label: `นำออก · ${label}`,
+      danger: true,
+      action: () => unpinWidgetFromHome(id),
+    },
+  ]);
 }
 
 function paintCalorieHealthSheet(sheet) {
@@ -8066,12 +8168,49 @@ async function init({ fromBoot = false } = {}) {
       return;
     }
     const btn = e.target?.closest?.('[data-chs-range]');
-    if (!btn || !els.calorieHealthSheet.contains(btn)) return;
-    e.preventDefault();
-    const days = normalizeTrendDays(btn.dataset.chsRange, state.calorieTrendDays);
-    if (days === state.calorieTrendDays) return;
-    persistCalorieTrendDays(days);
-    paintCalorieHealthSheet(ensureCaloriePayload());
+    if (btn && els.calorieHealthSheet.contains(btn)) {
+      e.preventDefault();
+      const days = normalizeTrendDays(btn.dataset.chsRange, state.calorieTrendDays);
+      if (days === state.calorieTrendDays) return;
+      persistCalorieTrendDays(days);
+      paintCalorieHealthSheet(ensureCaloriePayload());
+      return;
+    }
+    const pinCard = e.target?.closest?.('[data-pin-id]');
+    if (pinCard && els.calorieHealthSheet.contains(pinCard)) {
+      e.preventDefault();
+      openHealthPinMenu(pinCard.dataset.pinId);
+    }
+  });
+  els.calorieDash?.addEventListener('click', (e) => {
+    if (!els.calorieDash || els.calorieDash.hidden) return;
+    const openGoals = e.target?.closest?.('[data-calorie-action="open-settings"]');
+    if (openGoals && els.calorieDash.contains(openGoals)) {
+      e.preventDefault();
+      openSettings();
+      return;
+    }
+    const toggle = e.target?.closest?.('[data-cd-range-toggle]');
+    if (toggle && els.calorieDash.contains(toggle)) {
+      e.preventDefault();
+      state.homeDashRangeOpen = !state.homeDashRangeOpen;
+      paintCalorieDash(ensureCaloriePayload());
+      return;
+    }
+    const rangeBtn = e.target?.closest?.('[data-cd-range]');
+    if (rangeBtn && els.calorieDash.contains(rangeBtn)) {
+      e.preventDefault();
+      const days = normalizeTrendDays(rangeBtn.dataset.cdRange, state.calorieTrendDays);
+      persistCalorieTrendDays(days);
+      state.homeDashRangeOpen = false;
+      paintCalorieDash(ensureCaloriePayload());
+      return;
+    }
+    const pinCard = e.target?.closest?.('[data-pin-id]');
+    if (pinCard && els.calorieDash.contains(pinCard)) {
+      e.preventDefault();
+      openHomePinMenu(pinCard.dataset.pinId);
+    }
   });
   let calorieScrollTick = 0;
   els.calorieScroll?.addEventListener('scroll', () => {
