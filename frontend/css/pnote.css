@@ -4335,10 +4335,14 @@ body.light .notify-field input[type='number'] {
   padding: 1rem;
   background: rgba(20, 32, 24, 0.28);
   pointer-events: none;
+  transition: opacity 0.15s ease;
 }
 
 .sync-saved-overlay[hidden] {
   display: none !important;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none !important;
 }
 
 .sync-saved-pop {
