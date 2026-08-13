@@ -1,5 +1,5 @@
-import { normalizeNotesData } from './notes.js?v=203';
-import { mergeCalorieByUpdatedAt } from './calorie.js?v=203';
+import { normalizeNotesData } from './notes.js?v=204';
+import { mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=204';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -38,6 +38,7 @@ export function hasCloudContent(data) {
     || (Array.isArray(data?.notepads) && data.notepads.length > 0)
     || (Array.isArray(data?.tags) && data.tags.length > 0)
     || (Array.isArray(data?.calorie?.days) && data.calorie.days.length > 0)
+    || (Array.isArray(data?.homePins) && data.homePins.length > 0)
     || (Array.isArray(data?.calorie?.homePins) && data.calorie.homePins.length > 0);
 }
 
@@ -101,11 +102,38 @@ export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
   const remoteAt = new Date(remote.updatedAt || 0).getTime();
   const calorie = mergeCalorieByUpdatedAt(local.calorie, remote.calorie);
 
+  // Root homePins merge by homePinsAt (independent of meal/day edits).
+  const lp = normalizeHomePins(local.homePins?.length ? local.homePins : local.calorie?.homePins);
+  const rp = normalizeHomePins(remote.homePins?.length ? remote.homePins : remote.calorie?.homePins);
+  const lPinAt = new Date(local.homePinsAt || local.calorie?.homePinsAt || 0).getTime() || 0;
+  const rPinAt = new Date(remote.homePinsAt || remote.calorie?.homePinsAt || 0).getTime() || 0;
+  let homePins;
+  let homePinsAt;
+  if (lPinAt > rPinAt) {
+    homePins = lp;
+    homePinsAt = local.homePinsAt || local.calorie?.homePinsAt || '';
+  } else if (rPinAt > lPinAt) {
+    homePins = rp;
+    homePinsAt = remote.homePinsAt || remote.calorie?.homePinsAt || '';
+  } else if (!lp.length && rp.length) {
+    homePins = rp;
+    homePinsAt = remote.homePinsAt || remote.calorie?.homePinsAt || '';
+  } else {
+    homePins = lp;
+    homePinsAt = local.homePinsAt || local.calorie?.homePinsAt || remote.homePinsAt || '';
+  }
+
   return normalizeNotesData({
     version: Math.max(Number(local.version) || 8, Number(remote.version) || 8, 8),
     workspaces: [...workspaces.values()],
     notepads: [...notepads.values()],
-    calorie,
+    calorie: {
+      ...calorie,
+      homePins,
+      homePinsAt,
+    },
+    homePins,
+    homePinsAt,
     tags: [...tags.values()],
     notes: [...notes.values()],
     updatedAt: new Date(Math.max(localAt, remoteAt, Date.now())).toISOString(),
@@ -138,12 +166,13 @@ export function localNeedsRemotePush(localRaw, remoteRaw) {
   const localCalAt = new Date(local.calorie?.updatedAt || 0).getTime();
   const remoteCalAt = new Date(remote.calorie?.updatedAt || 0).getTime();
   if (localCalAt > remoteCalAt) return true;
-  const localPinsAt = new Date(local.calorie?.homePinsAt || 0).getTime();
-  const remotePinsAt = new Date(remote.calorie?.homePinsAt || 0).getTime();
+  const localPinsAt = new Date(local.homePinsAt || local.calorie?.homePinsAt || 0).getTime() || 0;
+  const remotePinsAt = new Date(remote.homePinsAt || remote.calorie?.homePinsAt || 0).getTime() || 0;
   if (localPinsAt > remotePinsAt) return true;
-  const localPins = JSON.stringify(local.calorie?.homePins || []);
-  const remotePins = JSON.stringify(remote.calorie?.homePins || []);
-  if (localPins !== remotePins && (local.calorie?.homePins || []).length > 0 && !(remote.calorie?.homePins || []).length) {
+  const localPins = JSON.stringify(local.homePins || local.calorie?.homePins || []);
+  const remotePins = JSON.stringify(remote.homePins || remote.calorie?.homePins || []);
+  if (localPins !== remotePins && (local.homePins || local.calorie?.homePins || []).length > 0
+    && !(remote.homePins || remote.calorie?.homePins || []).length) {
     return true;
   }
   return false;
