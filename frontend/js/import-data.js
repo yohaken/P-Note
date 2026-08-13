@@ -1,5 +1,5 @@
-import { normalizeNotesData } from './notes.js?v=148';
-import { mergeCalorieByUpdatedAt } from './calorie.js?v=199';
+import { normalizeNotesData } from './notes.js?v=203';
+import { mergeCalorieByUpdatedAt } from './calorie.js?v=203';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -32,12 +32,13 @@ export function hasAnyNotes(data) {
   return Array.isArray(data?.notes) && data.notes.length > 0;
 }
 
-/** True when payload has anything worth keeping on cloud (incl. calorie days). */
+/** True when payload has anything worth keeping on cloud (incl. calorie days / pins). */
 export function hasCloudContent(data) {
   return hasAnyNotes(data)
     || (Array.isArray(data?.notepads) && data.notepads.length > 0)
     || (Array.isArray(data?.tags) && data.tags.length > 0)
-    || (Array.isArray(data?.calorie?.days) && data.calorie.days.length > 0);
+    || (Array.isArray(data?.calorie?.days) && data.calorie.days.length > 0)
+    || (Array.isArray(data?.calorie?.homePins) && data.calorie.homePins.length > 0);
 }
 
 export function mergeNotesData(target, incoming) {
@@ -137,6 +138,14 @@ export function localNeedsRemotePush(localRaw, remoteRaw) {
   const localCalAt = new Date(local.calorie?.updatedAt || 0).getTime();
   const remoteCalAt = new Date(remote.calorie?.updatedAt || 0).getTime();
   if (localCalAt > remoteCalAt) return true;
+  const localPinsAt = new Date(local.calorie?.homePinsAt || 0).getTime();
+  const remotePinsAt = new Date(remote.calorie?.homePinsAt || 0).getTime();
+  if (localPinsAt > remotePinsAt) return true;
+  const localPins = JSON.stringify(local.calorie?.homePins || []);
+  const remotePins = JSON.stringify(remote.calorie?.homePins || []);
+  if (localPins !== remotePins && (local.calorie?.homePins || []).length > 0 && !(remote.calorie?.homePins || []).length) {
+    return true;
+  }
   return false;
 }
 
