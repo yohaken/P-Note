@@ -1,8 +1,15 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=148';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=199';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
-import { CONFIG } from './config.js?v=149';
-import { hasAnyNotes, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=148';
+import { CONFIG } from './config.js?v=154';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=199';
+import {
+  getAllowedUser,
+  handleAuthRedirect,
+  startLogin,
+  signOut,
+  watchAuth,
+} from './auth.js?v=155';
 import {
   addTag,
   addNotepad,
@@ -59,6 +66,40 @@ import {
   sheetFingerprint,
 } from './sheet.js?v=148';
 import {
+  addDayFromLast,
+  ageFromBirthDate,
+  appendQuickExercise,
+  appendQuickMeal,
+  clearDayValues,
+  formatMealCell,
+  MEAL_PATTERN_HINT,
+  parseQuickExercise,
+  parseQuickMeal,
+  computeTotals,
+  computeHealthSnapshot,
+  computeWeekSummary,
+  expandMealsForEdit,
+  formatDateDisplay,
+  formatSigned,
+  mealColumnCount,
+  MIN_MEAL_SLOTS,
+  monthKeyFromDate,
+  normalizeCalorie,
+  normalizeMeals,
+  normalizeTrendDays,
+  patchDay,
+  pruneFrequentMus,
+  renderCalorieMealHeaderHtml,
+  renderCalorieRowsHtml,
+  renderCalorieTotalsHtml,
+  renderHealthSheetHtml,
+  renderWeekDashHtml,
+  thaiDayName,
+  toDateKey,
+  topFrequent,
+  totalsForMonth,
+} from './calorie.js?v=199';
+import {
   applyTextPrefsToTextarea,
   clampFontSize,
   DEFAULT_TEXT_PREFS,
@@ -101,8 +142,14 @@ import {
   filterNotesByDueScope,
   normalizeDueScope,
   DUE_SCOPE_OPTIONS,
+  buildMonthGrid,
+  monthLabel,
+  monthNameOnly,
+  yearLabel,
+  notesOnDate,
+  dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=153';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=199';
 import {
   allIcons,
   bestIconForLabel,
@@ -172,21 +219,35 @@ import {
   clearPreviousSpaceId,
   pushRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=133';
+} from './remote.js?v=154';
 import { normalizeNotesData } from './notes.js?v=148';
-import { SaveManager } from './sync.js?v=122';
+import { SaveManager } from './sync.js?v=200';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
 
-function hasCloudContent(data) {
-  return hasAnyNotes(data)
-    || (Array.isArray(data?.notepads) && data.notepads.length > 0)
-    || (Array.isArray(data?.tags) && data.tags.length > 0);
-}
-
 const state = {
-  notesData: { version: 7, updatedAt: '', tags: [], notes: [], workspaces: [], notepads: [] },
+  notesData: { version: 8, updatedAt: '', tags: [], notes: [], workspaces: [], notepads: [], calorie: null },
   settings: loadSettings(),
-  appMode: loadSettings().appMode === 'note' ? 'note' : 'work',
+  appMode: function() {
+    const m = loadSettings().appMode;
+    return (m === 'note' || m === 'calendar' || m === 'calorie') ? m : 'work';
+  }(),
+  /** True after first successful Firestore pull this session — gates cloud writes. */
+  cloudHydrated: false,
+  /** True only when signed in + cloud hydrated + online — user may enter data. */
+  syncReady: false,
+  /** Calendar view state (Apple-style: vertical months + year zoom) */
+  calendarMonth: new Date().getMonth(),
+  calendarYear: new Date().getFullYear(),
+  calendarSelectedDate: null,
+  /** 'month' | 'year' */
+  calendarZoom: 'month',
+  calendarScrollRange: null,
+  /** Calorie sub-pane: 'log' (home) | 'health' (summary sheet) */
+  caloriePane: 'log',
+  /** Health trend chart window (days) — restored from settings (e.g. 90 = 3 เดือน) */
+  calorieTrendDays: normalizeCalorieTrendDays(loadSettings().calorieTrendDays, 7),
+  /** Active month key (YYYY-MM) for calorie summary strip */
+  calorieActiveMonth: null,
   activeNotepadId: null,
   /** Draft sheet blocks while editing a notepad (insertable Excel-like modules). */
   editorSheets: [],
@@ -204,6 +265,7 @@ const state = {
   view: 'list',
   spaceId: null,
   online: false,
+  authUser: null,
   syncBaseUpdatedAt: null,
   contextNoteId: null,
   draftNoteId: null,
@@ -216,6 +278,7 @@ const saveManager = new SaveManager();
 let statusTimer = null;
 
 const els = {
+  boardTopbar: document.getElementById('board-topbar'),
   listView: document.getElementById('list-view'),
   editorView: document.getElementById('editor-view'),
   notesList: document.getElementById('notes-list'),
@@ -321,6 +384,7 @@ const els = {
   filterDockFiltersWrap: document.getElementById('filter-dock-filters'),
   dockModeWork: document.getElementById('dock-mode-work'),
   dockModeNote: document.getElementById('dock-mode-note'),
+  dockModeCalendar: document.getElementById('dock-mode-calendar'),
   notepadQuickBar: document.getElementById('notepad-quick-bar'),
   notepadQuickScroll: document.getElementById('notepad-quick-scroll'),
   floatTagRail: document.getElementById('float-tag-rail'),
@@ -391,6 +455,7 @@ const els = {
   modeMenuOverlay: document.getElementById('modeMenuOverlay'),
   modeMenuWork: document.getElementById('mode-menu-work'),
   modeMenuNote: document.getElementById('mode-menu-note'),
+  modeMenuCalendar: document.getElementById('mode-menu-calendar'),
   notepadMenuSection: document.getElementById('notepad-menu-section'),
   notepadMenuList: document.getElementById('notepad-menu-list'),
   notepadAddBtn: document.getElementById('notepad-add-btn'),
@@ -436,6 +501,8 @@ const els = {
   thicknessPriority: document.getElementById('thickness-priority'),
   thicknessRecurrence: document.getElementById('thickness-recurrence'),
   dbSyncHint: document.getElementById('db-sync-hint'),
+  authAccountHint: document.getElementById('auth-account-hint'),
+  signOutBtn: document.getElementById('sign-out-btn'),
   exportNotesBtn: document.getElementById('export-notes-btn'),
   importNotesBtn: document.getElementById('import-notes-btn'),
   importNotesFile: document.getElementById('import-notes-file'),
@@ -452,20 +519,327 @@ const els = {
   noteConfirmCancel: document.getElementById('note-confirm-cancel'),
   noteConfirmOk: document.getElementById('note-confirm-ok'),
   loadingOverlay: document.getElementById('loading-overlay'),
+  authOverlay: document.getElementById('auth-overlay'),
+  googleLoginBtn: document.getElementById('google-login-btn'),
+  authError: document.getElementById('auth-error'),
+  syncGateOverlay: document.getElementById('sync-gate-overlay'),
+  syncGateTitle: document.getElementById('sync-gate-title'),
+  syncGateSub: document.getElementById('sync-gate-sub'),
+  syncSavedOverlay: document.getElementById('sync-saved-overlay'),
+  syncSavedMsg: document.getElementById('sync-saved-msg'),
+  /* Calendar view */
+  calendarView: document.getElementById('calendar-view'),
+  calYearBack: document.getElementById('cal-year-back'),
+  calYearLabel: document.getElementById('cal-year-label'),
+  calMonthTitle: document.getElementById('cal-month-title'),
+  calWeekdays: document.getElementById('cal-weekdays'),
+  calScroll: document.getElementById('cal-scroll'),
+  calYearView: document.getElementById('cal-year-view'),
+  calNotes: document.getElementById('cal-notes'),
+  calTodayBtn: document.getElementById('cal-today-btn'),
+  calZoomOut: document.getElementById('cal-zoom-out'),
+  calZoomIn: document.getElementById('cal-zoom-in'),
+  /* Calorie spreadsheet */
+  calorieView: document.getElementById('calorie-view'),
+  calorieTotals: document.getElementById('calorie-totals'),
+  calorieTbody: document.getElementById('calorie-tbody'),
+  calorieEmpty: document.getElementById('calorie-empty'),
+  calorieScroll: document.getElementById('calorie-scroll'),
+  calorieAddDayBtn: null,
+  calorieProteinFactor: document.getElementById('calorie-protein-factor'),
+  calorieHeight: document.getElementById('calorie-height'),
+  calorieBirthdate: document.getElementById('calorie-birthdate'),
+  calorieAgeDisplay: document.getElementById('calorie-age-display'),
+  calorieSex: document.getElementById('calorie-sex'),
+  calorieGoalWaist: document.getElementById('calorie-goal-waist'),
+  calorieGoalWeight: document.getElementById('calorie-goal-weight'),
+  calorieToneEat: document.getElementById('calorie-tone-eat'),
+  calorieToneBurn: document.getElementById('calorie-tone-burn'),
+  calorieToneEmpty: document.getElementById('calorie-tone-empty'),
+  calorieToneLine: document.getElementById('calorie-tone-line'),
+  calorieToneReset: document.getElementById('calorie-tone-reset'),
+  calorieThead: document.getElementById('calorie-thead'),
+  calorieQuickFreq: document.getElementById('calorie-quick-freq'),
+  calorieDash: document.getElementById('calorie-dash'),
+  calorieHealthSheet: document.getElementById('calorie-health-sheet'),
+  dockCalorieLogBtn: document.getElementById('dock-calorie-log-btn'),
+  dockCalorieHealthBtn: document.getElementById('dock-calorie-health-btn'),
+  calorieTodayCard: document.getElementById('calorie-today-card'),
+  calorieTodayTitle: document.getElementById('calorie-today-title'),
+  calorieTodaySub: document.getElementById('calorie-today-sub'),
+  calorieTodayBase: document.getElementById('calorie-today-base'),
+  calorieTodayBmi: document.getElementById('calorie-today-bmi'),
+  calorieTodayBal: document.getElementById('calorie-today-bal'),
+  calorieTodayBalValue: document.getElementById('calorie-today-bal-value'),
+  calorieTodayBalMeta: document.getElementById('calorie-today-bal-meta'),
+  calorieTodayKgValue: document.getElementById('calorie-today-kg-value'),
+  calorieTodayProt: document.getElementById('calorie-today-prot'),
+  calorieTodayProtValue: document.getElementById('calorie-today-prot-value'),
+  calorieTodayProtMeta: document.getElementById('calorie-today-prot-meta'),
+  calorieTodayWeight: document.getElementById('calorie-today-weight'),
+  calorieTodayWaist: document.getElementById('calorie-today-waist'),
+  calorieTodayMus: document.getElementById('calorie-today-mus'),
+  calorieTodayBurn: document.getElementById('calorie-today-burn'),
+  calorieTodayPose: document.getElementById('calorie-today-pose'),
+  calorieTodayMeals: document.getElementById('calorie-today-meals'),
+  calorieTodaySummary: document.getElementById('calorie-today-summary'),
+  calorieFabs: document.getElementById('dock-context-calorie'),
+  calorieFabMeal: document.getElementById('calorie-fab-meal'),
+  calorieFabMus: document.getElementById('calorie-fab-mus'),
+  dockContextRail: document.getElementById('dock-context-rail'),
+  calorieQuickOverlay: document.getElementById('calorie-quick-overlay'),
+  calorieQuickBackdrop: document.getElementById('calorie-quick-backdrop'),
+  calorieQuickTitle: document.getElementById('calorie-quick-title'),
+  calorieQuickHint: document.getElementById('calorie-quick-hint'),
+  calorieQuickInput: document.getElementById('calorie-quick-input'),
+  calorieQuickClear: document.getElementById('calorie-quick-clear'),
+  calorieQuickCancel: document.getElementById('calorie-quick-cancel'),
+  calorieQuickOk: document.getElementById('calorie-quick-ok'),
+  dockModeCalorie: document.getElementById('dock-mode-calorie'),
+  modeMenuCalorie: document.getElementById('mode-menu-calorie'),
 };
 
-function showView(view) {
-  state.view = view;
-  els.listView.hidden = view !== 'list';
-  els.editorView.hidden = view !== 'editor';
+function boardHomeView() {
+  return 'calorie';
+}
+
+function showView(_view) {
+  // Calorie-only app — always the calorie sheet.
+  const next = 'calorie';
+  state.view = next;
+
+  const onList = next === 'list';
+  const onCal = next === 'calendar';
+  const onCalorie = next === 'calorie';
+  const onEditor = next === 'editor';
+
+  if (els.boardTopbar) els.boardTopbar.hidden = !(onList || onCal || onCalorie);
+  els.listView.hidden = !onList;
+  els.editorView.hidden = !onEditor;
+  if (els.calendarView) els.calendarView.hidden = !onCal;
+  if (els.calorieView) els.calorieView.hidden = !onCalorie;
+  if (els.notesList) els.notesList.hidden = false;
+  if (onCal) renderCalendar();
+  if (onCalorie) renderCalorieSheet();
   updateFilterDockVisibility();
   updateUndoFab();
-  if (view !== 'editor') hideEditorSaveDot();
+  if (next !== 'editor') hideEditorSaveDot();
 }
 
 function setLoading(visible, message = 'กำลังโหลด...') {
   els.loadingOverlay.hidden = !visible;
   els.loadingOverlay.querySelector('p').textContent = message;
+}
+
+function setAuthOverlayVisible(visible) {
+  if (!els.authOverlay) return;
+  els.authOverlay.hidden = !visible;
+  document.body.classList.toggle('auth-required', Boolean(visible));
+  if (visible) hideSyncGate();
+  else refreshSyncGateUi();
+}
+
+let syncRetryTimer = null;
+let syncSavedTimer = null;
+
+function isSyncReady() {
+  return Boolean(state.syncReady && state.authUser && state.cloudHydrated && state.online);
+}
+
+function hideSyncGate() {
+  if (els.syncGateOverlay) els.syncGateOverlay.hidden = true;
+  document.body.classList.remove('sync-gated');
+}
+
+function showSyncGate(title = 'กำลังซิงค์…', sub = 'รอข้อมูลพร้อมก่อนใส่') {
+  if (els.authOverlay && !els.authOverlay.hidden) {
+    hideSyncGate();
+    return;
+  }
+  if (els.syncGateTitle) els.syncGateTitle.textContent = title;
+  if (els.syncGateSub) els.syncGateSub.textContent = sub;
+  if (els.syncGateOverlay) els.syncGateOverlay.hidden = false;
+  document.body.classList.add('sync-gated');
+}
+
+function refreshSyncGateUi() {
+  if (els.authOverlay && !els.authOverlay.hidden) {
+    hideSyncGate();
+    return;
+  }
+  if (isSyncReady()) {
+    hideSyncGate();
+    return;
+  }
+  if (!state.authUser) {
+    hideSyncGate();
+    return;
+  }
+  if (spaceSyncInFlight || !navigator.onLine) {
+    showSyncGate(
+      navigator.onLine ? 'กำลังซิงค์…' : 'รอซิงค์…',
+      navigator.onLine ? 'รอข้อมูลพร้อมก่อนใส่' : 'ไม่มีเน็ต · รอเชื่อมใหม่',
+    );
+    return;
+  }
+  showSyncGate('รอซิงค์…', 'ยังไม่พร้อม · กำลังลองใหม่');
+}
+
+function setSyncReady(ready) {
+  state.syncReady = Boolean(ready);
+  if (state.syncReady) {
+    clearSyncRetryLoop();
+    hideSyncGate();
+    setSyncStatus('ok', 'พร้อมใส่ข้อมูล');
+  } else {
+    refreshSyncGateUi();
+    startSyncRetryLoop();
+  }
+}
+
+function clearSyncRetryLoop() {
+  if (syncRetryTimer) {
+    clearInterval(syncRetryTimer);
+    syncRetryTimer = null;
+  }
+}
+
+function startSyncRetryLoop() {
+  if (syncRetryTimer) return;
+  syncRetryTimer = setInterval(() => {
+    if (isSyncReady() || !state.authUser) {
+      clearSyncRetryLoop();
+      return;
+    }
+    if (spaceSyncInFlight) return;
+    if (!navigator.onLine) {
+      refreshSyncGateUi();
+      return;
+    }
+    showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
+    void ensureCloudReady({ force: true, announce: true });
+  }, 4000);
+}
+
+function showSyncSavedPopup(message = 'อัปเดตแล้ว') {
+  if (!els.syncSavedOverlay || !els.syncSavedMsg) return;
+  els.syncSavedMsg.textContent = message;
+  els.syncSavedOverlay.hidden = false;
+  if (syncSavedTimer) clearTimeout(syncSavedTimer);
+  syncSavedTimer = setTimeout(() => {
+    els.syncSavedOverlay.hidden = true;
+    syncSavedTimer = null;
+  }, 1100);
+}
+
+/** Block user edits until cloud sync is ready; show waiting popup. */
+function requireSyncReady() {
+  if (isSyncReady()) return true;
+  refreshSyncGateUi();
+  if (state.authUser && !spaceSyncInFlight && navigator.onLine) {
+    void ensureCloudReady({ force: true, announce: true });
+  }
+  return false;
+}
+
+let ensureCloudReadyInFlight = null;
+
+/**
+ * Pull/merge cloud until ready. Resolves true when user may enter data.
+ */
+async function ensureCloudReady({ force = true, announce = true } = {}) {
+  if (ensureCloudReadyInFlight) return ensureCloudReadyInFlight;
+  ensureCloudReadyInFlight = (async () => {
+    if (!state.authUser) {
+      setSyncReady(false);
+      return false;
+    }
+    if (!navigator.onLine) {
+      state.online = false;
+      setSyncReady(false);
+      setSyncStatus('offline', 'รอซิงค์…');
+      showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
+      return false;
+    }
+    showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
+    setSyncStatus('busy', 'กำลังซิงค์…');
+    try {
+      await syncSpaceInBackground({ force, announce });
+    } catch (err) {
+      console.warn('ensureCloudReady failed', err);
+    }
+    const ready = Boolean(state.authUser && state.cloudHydrated && state.online && navigator.onLine);
+    setSyncReady(ready);
+    if (!ready) {
+      setSyncStatus('offline', 'รอซิงค์…');
+      showSyncGate('รอซิงค์…', 'ยังไม่พร้อม · กำลังลองใหม่');
+    }
+    return ready;
+  })();
+  try {
+    return await ensureCloudReadyInFlight;
+  } finally {
+    ensureCloudReadyInFlight = null;
+  }
+}
+
+function setAuthError(message = '') {
+  if (!els.authError) return;
+  els.authError.textContent = message || '';
+  els.authError.hidden = !message;
+}
+
+function refreshAuthAccountHint() {
+  if (!els.authAccountHint) return;
+  if (state.authUser?.email) {
+    els.authAccountHint.textContent = `เข้าสู่ระบบ: ${state.authUser.email}`;
+  } else {
+    els.authAccountHint.textContent = 'ยังไม่ได้เข้าสู่ระบบ — คลาวด์จะบันทึกหลังล็อกอิน';
+  }
+  if (els.signOutBtn) els.signOutBtn.hidden = !state.authUser;
+}
+
+function onSignedIn(user) {
+  state.authUser = user;
+  setAuthOverlayVisible(false);
+  setAuthError('');
+  refreshAuthAccountHint();
+}
+
+async function requireCloudAuth() {
+  try {
+    await handleAuthRedirect();
+  } catch (err) {
+    setAuthError(err?.message || 'ล็อกอินไม่สำเร็จ');
+  }
+  const user = await getAllowedUser();
+  if (user) {
+    onSignedIn(user);
+    return user;
+  }
+  state.authUser = null;
+  refreshAuthAccountHint();
+  setAuthOverlayVisible(true);
+  return null;
+}
+
+async function handleGoogleLoginClick() {
+  setAuthError('');
+  if (els.googleLoginBtn) els.googleLoginBtn.disabled = true;
+  try {
+    const user = await startLogin();
+    if (!user) {
+      // Redirect flow — page will reload after Google.
+      setAuthError('กำลังพาไปหน้า Google…');
+      return;
+    }
+    onSignedIn(user);
+    void ensureCloudReady({ force: true, announce: true });
+  } catch (err) {
+    setAuthError(err?.message || 'ล็อกอินไม่สำเร็จ');
+  } finally {
+    if (els.googleLoginBtn) els.googleLoginBtn.disabled = false;
+  }
 }
 
 let undoHandler = null;
@@ -485,13 +859,18 @@ function hideActionToast() {
   if (els.actionToastUndo) els.actionToastUndo.hidden = true;
 }
 
-/** Map sync/DB chatter → small top-right status dot (no toast popup). */
+/** Map sync/DB / save chatter → small top-right status dot (no bottom toast). */
 function syncStateFromMessage(message) {
   const t = String(message || '');
   if (!t) return null;
+  // Keep real errors as toasts (return null → setStatus shows action-toast).
+  if (/ไม่สำเร็จ|บันทึกไม่ได้|เพิ่มไม่ได้|โหลดไม่สำเร็จ|นำเข้าไม่สำเร็จ|ไม่พบวัน|พิมพ์.+ก่อน|ใส่แคล|รูปแบบไม่ถูก|ตรวจ JSON/i.test(t)) {
+    return null;
+  }
   if (/กำลัง(พิมพ์|บันทึก|ซิงค์|เชื่อม|โหลด)|connecting|syncing|saving/i.test(t)) return 'busy';
-  if (/ออฟไลน์|เชื่อมต่อไม่ได้|โหลดไม่สำเร็จ|บันทึกไม่สำเร็จ|offline/i.test(t)) return 'offline';
-  if (/ฐานข้อมูล|ซิงค์|เชื่อมฐาน|บันทึกในเครื่อง|บันทึกแล้ว|ย้ายโน้ตเข้า/i.test(t)) return 'ok';
+  if (/ออฟไลน์|เชื่อมต่อไม่ได้|offline/i.test(t)) return 'offline';
+  // Routine save / sync confirmations — never pop the bottom toast.
+  if (/บันทึก|อัปเดต|เคลียร์|ซิงค์|เชื่อม|ย้ายโน้ตเข้า|ฐานข้อมูล/i.test(t)) return 'ok';
   return null;
 }
 
@@ -503,10 +882,10 @@ function setSyncStatus(state, message = '') {
   const next = state || 'idle';
   btn.dataset.state = next;
   const label = String(message || '').trim() || (
-    next === 'ok' ? 'เชื่อมฐานข้อมูลแล้ว'
+    next === 'ok' ? 'พร้อมใส่ข้อมูล'
       : next === 'busy' ? 'กำลังซิงค์…'
-        : next === 'offline' ? 'ออฟไลน์ · เก็บในเครื่อง'
-          : 'สถานะฐานข้อมูล'
+        : next === 'offline' ? 'รอซิงค์…'
+          : 'สถานะซิงค์'
   );
   btn.title = label;
   btn.setAttribute('aria-label', label);
@@ -574,6 +953,7 @@ function canUndo() {
 function updateUndoFab() {
   const btn = els.undoFabBtn;
   if (!btn) return;
+  // Calendar has its own bottom toolbar (Today / zoom); keep undo off that sheet
   const show = state.view === 'list';
   btn.hidden = !show;
   btn.disabled = !canUndo();
@@ -594,6 +974,7 @@ function runUndo() {
 }
 
 function autosave() {
+  if (!requireSyncReady()) return;
   saveManager.scheduleSave(() => state.notesData);
   refreshNoteNotifications();
   scheduleUserContextRefresh();
@@ -786,6 +1167,7 @@ function applyTheme() {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', '#e8f0ea');
   applyBoxColors();
+  applyCalorieTones();
 }
 
 function applyBoxColors() {
@@ -803,6 +1185,60 @@ function applyBoxColors() {
   root.style.setProperty('--due-near', due.near);
   root.style.setProperty('--due-today', due.today);
   root.style.setProperty('--due-overdue', due.overdue);
+}
+
+function calorieToneTargets() {
+  return [
+    document.documentElement,
+    document.body,
+    document.getElementById('calorie-view'),
+    document.querySelector('.calorie-table'),
+    document.getElementById('tone-settings-row'),
+  ].filter(Boolean);
+}
+
+function applyCalorieTones() {
+  const tones = normalizeCalorieTones(state.settings?.calorieTones);
+  if (state.settings) state.settings.calorieTones = tones;
+  const vars = calorieToneCssVars(tones);
+  calorieToneTargets().forEach((el) => {
+    Object.entries(vars).forEach(([key, value]) => {
+      el.style.setProperty(key, value);
+    });
+  });
+  if (els.calorieToneEat && document.activeElement !== els.calorieToneEat) {
+    els.calorieToneEat.value = tones.eat;
+  }
+  if (els.calorieToneBurn && document.activeElement !== els.calorieToneBurn) {
+    els.calorieToneBurn.value = tones.burn;
+  }
+  if (els.calorieToneEmpty && document.activeElement !== els.calorieToneEmpty) {
+    els.calorieToneEmpty.value = tones.empty;
+  }
+  if (els.calorieToneLine && document.activeElement !== els.calorieToneLine) {
+    els.calorieToneLine.value = tones.line;
+  }
+  // Live swatches in Settings so the user sees the change immediately.
+  document.querySelectorAll('[data-tone-swatch]').forEach((node) => {
+    const key = node.getAttribute('data-tone-swatch');
+    if (key && tones[key]) node.style.background = tones[key];
+  });
+}
+
+function persistCalorieTonesFromUi({ reset = false } = {}) {
+  const next = reset
+    ? { ...DEFAULT_CALORIE_TONES }
+    : normalizeCalorieTones({
+      eat: els.calorieToneEat?.value,
+      burn: els.calorieToneBurn?.value,
+      empty: els.calorieToneEmpty?.value,
+      line: els.calorieToneLine?.value,
+    });
+  state.settings.calorieTones = next;
+  saveSettings(state.settings);
+  // Re-read from disk to prove persistence round-trip.
+  state.settings.calorieTones = normalizeCalorieTones(loadSettings().calorieTones);
+  applyCalorieTones();
 }
 
 function applyFilterOrder() {
@@ -878,7 +1314,7 @@ function applyNotifySettingsUi() {
   if (els.notifyOptions) els.notifyOptions.hidden = !on;
 
   if (els.notifyLabel && document.activeElement !== els.notifyLabel) {
-    els.notifyLabel.value = prefs.label || 'P-Note';
+    els.notifyLabel.value = prefs.label || 'แคลโน้ต';
   }
   if (els.notifyEarly) els.notifyEarly.value = String(prefs.earlyMinutes || 0);
   if (els.notifyMinPriority) els.notifyMinPriority.value = prefs.minPriority || 'normal';
@@ -918,7 +1354,7 @@ function applyNotifySettingsUi() {
     els.notifyHint.textContent = 'รออนุญาตการแจ้งเตือนจากเครื่อง…';
   } else {
     els.notifyHint.textContent =
-      'โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · แนะนำติดตั้ง P-Note บนหน้าจอโฮม';
+      'โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · แนะนำติดตั้ง แคลโน้ต บนหน้าจอโฮม';
   }
 }
 
@@ -1040,64 +1476,1198 @@ function isNoteMode() {
   return state.appMode === 'note';
 }
 
+function isCalendarMode() {
+  return state.appMode === 'calendar';
+}
+
+function isCalorieMode() {
+  return state.appMode === 'calorie';
+}
+
 function notesForCurrentGroup() {
   // งานหลัก: all task notes (workspaces no longer split the work board)
   return filterNotesByStatus(state.notesData.notes, state.listGroup);
 }
 
-function setAppMode(mode, { persist = true } = {}) {
-  const next = mode === 'note' ? 'note' : 'work';
+function ensureCaloriePayload() {
+  const cal = normalizeCalorie(state.notesData.calorie);
+  if (state.notesData.calorie !== cal) {
+    state.notesData = { ...state.notesData, calorie: cal };
+  }
+  return cal;
+}
+
+function persistCalorie(nextCalorie, { status = '', fullRender = false, immediate = true } = {}) {
+  if (!requireSyncReady()) return;
+  const prevCols = mealColumnCount(state.notesData?.calorie);
+  const now = new Date().toISOString();
+  // Always stamp calorie.updatedAt so cloud merge keeps profile/goals (height etc.)
+  // instead of letting a newer remote sheet meta overwrite local choices.
+  state.notesData = {
+    ...state.notesData,
+    calorie: normalizeCalorie({ ...nextCalorie, updatedAt: now }),
+    updatedAt: now,
+  };
+  // Local-first: disk sync from memory immediately, then paint from memory.
+  try {
+    saveNotes(state.notesData);
+  } catch { /* ignore quota */ }
+  // Cloud queue resolves getNotesData() at write time (never a stale snap).
+  if (immediate) {
+    void saveManager.saveNow(() => state.notesData).catch(() => {
+      /* cloud failure handled via onCloudFailed → sync gate */
+    });
+  } else {
+    saveManager.scheduleSave(() => state.notesData);
+  }
+  // Quiet status → sync dot only; cloud confirm shows "อัปเดตแล้ว" popup.
+  if (status) setStatus(status);
+  if (!isCalorieMode()) return;
+  if (state.caloriePane === 'health') {
+    paintCalorieHealthSheet(ensureCaloriePayload());
+    return;
+  }
+  const nextCols = mealColumnCount(state.notesData.calorie);
+  const needFull = fullRender || nextCols !== prevCols;
+  if (needFull) renderCalorieSheet({ preserveScroll: true });
+  else refreshCalorieDerived();
+}
+
+/** Read body-profile / goals from Settings inputs (null = unchanged / invalid skip). */
+function readCalorieProfileFromUi(sheet) {
+  const pf = Number(els.calorieProteinFactor?.value);
+  const height = Number(els.calorieHeight?.value);
+  const birthDate = String(els.calorieBirthdate?.value || '').trim();
+  const sex = els.calorieSex?.value === 'female' ? 'female' : 'male';
+  const goalWaistRaw = String(els.calorieGoalWaist?.value || '').trim();
+  const goalWeightRaw = String(els.calorieGoalWeight?.value || '').trim();
+  const goalWaistCm = goalWaistRaw === '' ? null : Number(goalWaistRaw);
+  const goalWeightKg = goalWeightRaw === '' ? null : Number(goalWeightRaw);
+  return {
+    ...sheet,
+    proteinFactor: Number.isFinite(pf) ? pf : sheet.proteinFactor,
+    heightCm: Number.isFinite(height) ? height : sheet.heightCm,
+    birthDate: /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? birthDate : sheet.birthDate,
+    sex,
+    goalWaistCm: goalWaistRaw === '' || !Number.isFinite(goalWaistCm) ? null : goalWaistCm,
+    goalWeightKg: goalWeightRaw === '' || !Number.isFinite(goalWeightKg) ? null : goalWeightKg,
+  };
+}
+
+function calorieProfileChanged(before, after) {
+  if (!before || !after) return true;
+  return (
+    before.heightCm !== after.heightCm
+    || before.proteinFactor !== after.proteinFactor
+    || before.birthDate !== after.birthDate
+    || before.sex !== after.sex
+    || before.goalWaistCm !== after.goalWaistCm
+    || before.goalWeightKg !== after.goalWeightKg
+  );
+}
+
+/** Immediate local + cloud save for Settings profile/goals. */
+function flushCalorieProfileFromUi({ status = '', force = false } = {}) {
+  const sheet = ensureCaloriePayload();
+  const next = readCalorieProfileFromUi(sheet);
+  if (!force && !calorieProfileChanged(sheet, next)) return false;
+  persistCalorie(next, { status, fullRender: true, immediate: true });
+  return true;
+}
+
+function calorieToneClass(n) {
+  if (n == null || !Number.isFinite(n) || n === 0) return 'is-zero';
+  return n > 0 ? 'is-pos' : 'is-neg';
+}
+
+function setDerivedCell(td, text, valueForTone = null) {
+  if (!td) return;
+  td.textContent = text == null ? '' : String(text);
+  td.classList.remove('is-pos', 'is-neg', 'is-zero');
+  if (valueForTone != null) td.classList.add(calorieToneClass(valueForTone));
+}
+
+function paintCalorieMonthTotals(monthKey) {
+  const info = totalsForMonth(ensureCaloriePayload(), monthKey);
+  state.calorieActiveMonth = info.monthKey;
+  if (els.calorieTotals) {
+    els.calorieTotals.innerHTML = renderCalorieTotalsHtml(info.totals, {
+      monthLabel: info.label,
+    });
+  }
+  return info;
+}
+
+/** Pick month from the top-most visible day row while scrolling. */
+function syncCalorieMonthFromScroll() {
+  if (!els.calorieScroll || !els.calorieTbody) return;
+  const scrollTop = els.calorieScroll.scrollTop;
+  const headerH = els.calorieScroll.querySelector('thead')?.getBoundingClientRect?.().height || 20;
+  const probe = scrollTop + headerH + 8;
+  const rows = els.calorieTbody.querySelectorAll('tr.cal-day-a[data-month]');
+  if (!rows.length) {
+    paintCalorieMonthTotals(monthKeyFromDate(toDateKey()));
+    return;
+  }
+  let active = rows[0].dataset.month;
+  for (const tr of rows) {
+    if (tr.offsetTop <= probe) active = tr.dataset.month || active;
+    else break;
+  }
+  if (active && active !== state.calorieActiveMonth) {
+    paintCalorieMonthTotals(active);
+  }
+}
+
+function syncCalorieProfileInputs(sheet) {
+  if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
+    els.calorieProteinFactor.value = String(sheet.proteinFactor);
+  }
+  if (els.calorieHeight && document.activeElement !== els.calorieHeight) {
+    els.calorieHeight.value = String(sheet.heightCm ?? '');
+  }
+  if (els.calorieBirthdate && document.activeElement !== els.calorieBirthdate) {
+    els.calorieBirthdate.value = sheet.birthDate || '';
+  }
+  if (els.calorieAgeDisplay) {
+    const age = ageFromBirthDate(sheet.birthDate, new Date());
+    els.calorieAgeDisplay.textContent =
+      age != null ? `อายุ ${age} ปี (จากวันเกิด)` : 'อายุ — ปี';
+  }
+  if (els.calorieSex && document.activeElement !== els.calorieSex) {
+    els.calorieSex.value = sheet.sex === 'female' ? 'female' : 'male';
+  }
+  if (els.calorieGoalWaist && document.activeElement !== els.calorieGoalWaist) {
+    els.calorieGoalWaist.value =
+      sheet.goalWaistCm == null ? '' : String(sheet.goalWaistCm);
+  }
+  if (els.calorieGoalWeight && document.activeElement !== els.calorieGoalWeight) {
+    els.calorieGoalWeight.value =
+      sheet.goalWeightKg == null ? '' : String(sheet.goalWeightKg);
+  }
+}
+
+function paintCalorieDash(sheet) {
+  const el = els.calorieDash;
+  if (!el) return;
+  if (state.caloriePane === 'health') {
+    el.hidden = true;
+    return;
+  }
+  const summary = computeWeekSummary(sheet);
+  if (!summary.daysLogged) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = renderWeekDashHtml(summary);
+}
+
+function persistCalorieTrendDays(days) {
+  const next = normalizeCalorieTrendDays(days, state.calorieTrendDays);
+  state.calorieTrendDays = next;
+  if (!state.settings) state.settings = loadSettings();
+  if (state.settings.calorieTrendDays === next) return next;
+  state.settings.calorieTrendDays = next;
+  saveSettings(state.settings);
+  return next;
+}
+
+function paintCalorieHealthSheet(sheet) {
+  const el = els.calorieHealthSheet;
+  if (!el) return;
+  if (state.caloriePane !== 'health') {
+    el.hidden = true;
+    return;
+  }
+  const days = normalizeCalorieTrendDays(
+    state.calorieTrendDays ?? state.settings?.calorieTrendDays,
+    7,
+  );
+  state.calorieTrendDays = days;
+  const snap = computeHealthSnapshot(sheet, toDateKey(), days);
+  el.hidden = false;
+  el.innerHTML = renderHealthSheetHtml(snap);
+}
+
+function setCaloriePane(pane) {
+  state.caloriePane = pane === 'health' ? 'health' : 'log';
+  document.body.classList.toggle('calorie-health-pane', state.caloriePane === 'health');
+  if (els.dockCalorieLogBtn) els.dockCalorieLogBtn.hidden = state.caloriePane !== 'health';
+  if (els.dockCalorieHealthBtn) els.dockCalorieHealthBtn.hidden = state.caloriePane === 'health';
+  if (state.caloriePane === 'health') {
+    if (els.calorieTodayCard) els.calorieTodayCard.hidden = true;
+    if (els.calorieDash) els.calorieDash.hidden = true;
+    if (els.calorieScroll) els.calorieScroll.hidden = true;
+    paintCalorieHealthSheet(ensureCaloriePayload());
+    syncCalorieFabs();
+  } else {
+    if (els.calorieScroll) els.calorieScroll.hidden = false;
+    if (els.calorieHealthSheet) els.calorieHealthSheet.hidden = true;
+    renderCalorieSheet();
+  }
+  applyDockOffset();
+}
+
+function paintCalorieTodayCard(rows, sheet) {
+  const card = els.calorieTodayCard;
+  if (!card) return;
+  const todayKey = toDateKey();
+  let row = rows.find((r) => r.date === todayKey);
+  if (!row && rows.length) row = rows[0]; // newest day if today missing
+  if (!row) {
+    card.hidden = true;
+    card.dataset.dayId = '';
+    return;
+  }
+  card.hidden = false;
+  card.dataset.dayId = row.id;
+  const isToday = row.date === todayKey;
+  if (els.calorieTodayTitle) {
+    els.calorieTodayTitle.textContent = isToday ? 'วันนี้' : 'วันล่าสุด';
+  }
+  if (els.calorieTodaySub) {
+    els.calorieTodaySub.textContent = `${row.dateDisplay || formatDateDisplay(row.date)} · ${row.dayName || thaiDayName(row.date)}`;
+  }
+  const m = row.metrics || {};
+  if (els.calorieTodayBase) els.calorieTodayBase.textContent = `base ${m.base ?? '—'}`;
+  if (els.calorieTodayBmi) {
+    els.calorieTodayBmi.textContent = m.bmi != null ? `BMI ${m.bmi}` : 'BMI —';
+  }
+  if (els.calorieTodayBal && els.calorieTodayBalValue) {
+    const bal = m.balance;
+    const addCal = m.addCal;
+    const burn = m.bsum;
+    const blKg = m.blKg;
+    els.calorieTodayBal.classList.remove('is-pos', 'is-neg', 'is-zero', 'is-empty');
+    if (bal == null || !Number.isFinite(bal)) {
+      els.calorieTodayBal.classList.add('is-empty');
+      els.calorieTodayBalValue.textContent = '—';
+      if (els.calorieTodayKgValue) els.calorieTodayKgValue.textContent = '';
+      if (els.calorieTodayBalMeta) {
+        els.calorieTodayBalMeta.textContent = burn != null
+          ? `กิน ${addCal ?? 0} · เผา ${burn}`
+          : 'ใส่มื้อ / เบิร์นเพื่อดูดุล';
+      }
+    } else {
+      const cls = bal > 0 ? 'is-pos' : bal < 0 ? 'is-neg' : 'is-zero';
+      els.calorieTodayBal.classList.add(cls);
+      els.calorieTodayBalValue.textContent = formatSigned(bal, 0);
+      if (els.calorieTodayKgValue) {
+        els.calorieTodayKgValue.textContent =
+          blKg == null || !Number.isFinite(blKg) ? '' : `${formatSigned(blKg, 2)} กก`;
+      }
+      if (els.calorieTodayBalMeta) {
+        const word = bal > 0 ? 'เกินเผา' : bal < 0 ? 'ขาดเผา' : 'ดุล';
+        els.calorieTodayBalMeta.textContent = `${word} · กิน ${addCal ?? 0} / เผา ${burn ?? '—'}`;
+      }
+    }
+  }
+  if (els.calorieTodayProt && els.calorieTodayProtValue) {
+    const pRm = m.pRm;
+    const prot = m.prot;
+    const target = m.protTarget;
+    els.calorieTodayProt.classList.remove('is-pos', 'is-neg', 'is-zero', 'is-empty');
+    if (pRm == null || !Number.isFinite(pRm)) {
+      els.calorieTodayProt.classList.add('is-empty');
+      els.calorieTodayProtValue.textContent = '—';
+      if (els.calorieTodayProtMeta) {
+        els.calorieTodayProtMeta.textContent = target != null
+          ? `กิน ${prot ?? 0} · เป้า ${target}`
+          : 'ใส่กก. เพื่อคำนวณเป้า';
+      }
+    } else {
+      const cls = pRm > 0 ? 'is-pos' : pRm < 0 ? 'is-neg' : 'is-zero';
+      els.calorieTodayProt.classList.add(cls);
+      els.calorieTodayProtValue.textContent = formatSigned(pRm, 1);
+      if (els.calorieTodayProtMeta) {
+        const word = pRm > 0 ? 'เกินเป้า' : pRm < 0 ? 'ขาดเป้า' : 'ถึงเป้า';
+        els.calorieTodayProtMeta.textContent = `${word} · กิน ${prot ?? 0} / เป้า ${target ?? '—'}`;
+      }
+    }
+  }
+  const fillIfIdle = (input, value) => {
+    if (!input || document.activeElement === input) return;
+    input.value = value == null || value === '' ? '' : String(value);
+  };
+  fillIfIdle(els.calorieTodayWeight, row.weight);
+  fillIfIdle(els.calorieTodayWaist, row.waist);
+  if (els.calorieTodayMus && document.activeElement !== els.calorieTodayMus) {
+    const musVal = row.mus == null || row.mus === '' ? '' : String(row.mus);
+    els.calorieTodayMus.value = musVal;
+    els.calorieTodayMus.placeholder = '—';
+  }
+  if (els.calorieTodayPose) {
+    const pose = String(row.note || '').trim();
+    els.calorieTodayPose.textContent = pose || 'ยังไม่มีท่า · แตะเพื่อเพิ่ม';
+    els.calorieTodayPose.title = pose || 'แตะเพื่อแก้เบิร์น / ท่า';
+  }
+  if (els.calorieTodayBurn) {
+    els.calorieTodayBurn.classList.toggle('has-value', row.mus != null && row.mus !== '');
+  }
+  const syncClearWrap = (input) => {
+    const wrap = input?.closest?.('.cal-input-wrap, .ctc-field-wrap');
+    if (!wrap) return;
+    const has = String(input.value || '').trim() !== '';
+    wrap.classList.toggle('has-value', has);
+  };
+  syncClearWrap(els.calorieTodayWeight);
+  syncClearWrap(els.calorieTodayWaist);
+  syncClearWrap(els.calorieTodayMus);
+  if (els.calorieTodayMeals && document.activeElement?.closest?.('#calorie-today-meals') == null) {
+    const meals = expandMealsForEdit(row.meals);
+    const cols = Math.max(meals.length, MIN_MEAL_SLOTS);
+    els.calorieTodayMeals.classList.toggle('is-scrollable', cols > 7);
+    els.calorieTodayMeals.innerHTML = Array.from({ length: cols }, (_, i) => {
+      const v = meals[i] || '';
+      const has = v ? ' has-value' : '';
+      return `<label class="ctc-meal cal-input-wrap${has}" data-n="${i + 1}"><input data-ctc-meal="${i}" value="${String(v).replace(/"/g, '&quot;')}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></label>`;
+    }).join('');
+  }
+  if (els.calorieTodaySummary) {
+    // Big ± cards already show cal / bal / kg / P / p± — keep summary empty.
+    els.calorieTodaySummary.innerHTML = '';
+    els.calorieTodaySummary.hidden = true;
+  }
+}
+
+/** Update monthly totals + derived columns without destroying inputs. */
+function refreshCalorieDerived() {
+  if (!els.calorieTbody) return;
+  const { sheet, rows } = computeTotals(ensureCaloriePayload());
+  paintCalorieMonthTotals(state.calorieActiveMonth);
+  syncCalorieProfileInputs(sheet);
+  paintCalorieDash(sheet);
+  paintCalorieTodayCard(rows, sheet);
+  if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
+  rows.forEach((row) => {
+    const trA = els.calorieTbody.querySelector(`tr.cal-day-a[data-day-id="${CSS.escape(row.id)}"]`);
+    const trB = els.calorieTbody.querySelector(`tr.cal-day-b[data-day-id="${CSS.escape(row.id)}"]`);
+    if (!trA) return;
+    const m = row.metrics;
+    const dayCell = trA.querySelector('.cal-col-day');
+    if (dayCell) dayCell.textContent = row.dayName || '';
+    const dateBtn = trA.querySelector('.cal-date-btn');
+    if (dateBtn) dateBtn.textContent = row.dateDisplay || formatDateDisplay(row.date);
+    const cell = (tr, key) => tr?.querySelector(`[data-cal-derived="${key}"]`);
+    setDerivedCell(cell(trA, 'addCal'), m.addCal ?? '', null);
+    setDerivedCell(cell(trA, 'prot'), m.prot ?? '', null);
+    setDerivedCell(
+      cell(trA, 'pRm'),
+      m.pRm == null ? '' : formatSigned(m.pRm, 1),
+      m.pRm,
+    );
+    setDerivedCell(
+      cell(trA, 'balance'),
+      m.balance == null ? '' : formatSigned(m.balance, 0),
+      m.balance,
+    );
+    setDerivedCell(
+      cell(trA, 'blKg'),
+      m.blKg == null ? '' : formatSigned(m.blKg, 2),
+      m.blKg,
+    );
+    setDerivedCell(cell(trB, 'base'), m.base ?? '', null);
+    setDerivedCell(cell(trB, 'bsum'), m.bsum ?? '', null);
+    setDerivedCell(
+      cell(trB, 'pctBl'),
+      m.pctBl == null ? '' : `${m.pctBl}%`,
+      m.pctBl,
+    );
+  });
+}
+
+function renderCalorieSheet({ preserveScroll = false } = {}) {
+  if (!els.calorieTbody) return;
+  const prevScroll = els.calorieScroll?.scrollTop ?? 0;
+  // Keep a today row ready so the vertical card is always loggable.
+  {
+    const { sheet: withToday, created } = addDayFromLast(ensureCaloriePayload(), toDateKey());
+    if (created) {
+      state.notesData = {
+        ...state.notesData,
+        calorie: normalizeCalorie(withToday),
+        updatedAt: new Date().toISOString(),
+      };
+      // Local only until sync is ready — never let a blank today
+      // race ahead and setDoc-wipe the shared cloud space.
+      saveNotes(state.notesData);
+      if (isSyncReady()) {
+        saveManager.scheduleSave(() => state.notesData);
+      }
+    }
+  }
+  const { sheet, rows, months } = computeTotals(ensureCaloriePayload());
+  const fallbackMonth = months[months.length - 1]?.key || monthKeyFromDate(toDateKey());
+  if (!state.calorieActiveMonth || !months.some((m) => m.key === state.calorieActiveMonth)) {
+    state.calorieActiveMonth = fallbackMonth;
+  }
+  paintCalorieMonthTotals(state.calorieActiveMonth);
+  syncCalorieProfileInputs(sheet);
+  const mealCols = mealColumnCount(sheet);
+  if (els.calorieThead) els.calorieThead.innerHTML = renderCalorieMealHeaderHtml(mealCols);
+  els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows, toDateKey(), mealCols);
+  paintCalorieDash(sheet);
+  paintCalorieTodayCard(rows, sheet);
+  paintCalorieHealthSheet(sheet);
+  applyCalorieTones();
+  if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
+  document.body.classList.toggle('calorie-health-pane', state.caloriePane === 'health');
+  if (els.calorieScroll) els.calorieScroll.hidden = state.caloriePane === 'health';
+  if (els.calorieTodayCard && state.caloriePane === 'health') els.calorieTodayCard.hidden = true;
+  requestAnimationFrame(() => {
+    if (els.calorieScroll && state.caloriePane !== 'health') {
+      els.calorieScroll.scrollTop = preserveScroll ? prevScroll : 0;
+    }
+    syncCalorieMonthFromScroll();
+  });
+}
+
+function addCalorieDay() {
+  if (!requireSyncReady()) return;
+  const { sheet, created } = addDayFromLast(ensureCaloriePayload(), toDateKey(new Date()));
+  state.calorieActiveMonth = monthKeyFromDate(toDateKey());
+  persistCalorie(sheet, {
+    status: created ? 'เพิ่มวันนี้แล้ว' : 'มีวันนี้แล้ว',
+    fullRender: true,
+  });
+  requestAnimationFrame(() => {
+    if (els.calorieScroll) els.calorieScroll.scrollTop = 0;
+    syncCalorieMonthFromScroll();
+  });
+}
+
+function syncCalorieFabs() {
+  const show = isCalorieMode() && els.filterDock && !els.filterDock.hidden;
+  if (els.calorieFabs) els.calorieFabs.hidden = !show;
+  syncDockContextRail();
+}
+
+function syncDockContextRail() {
+  const rail = els.dockContextRail;
+  if (!rail) return;
+  const active = Array.from(rail.children).some((el) => !el.hidden);
+  rail.classList.toggle('is-active', active);
+}
+
+let calorieQuickMode = null; // 'meal' | 'mus'
+/** Edit existing cell: { dayId, mealIndex? } — null = append (FAB). */
+let calorieQuickEdit = null;
+
+function paintCalorieQuickFreq() {
+  const wrap = els.calorieQuickFreq;
+  if (!wrap) return;
+  const list = topFrequent(ensureCaloriePayload(), calorieQuickMode === 'mus' ? 'mus' : 'meal');
+  if (!list.length) {
+    wrap.hidden = true;
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.hidden = false;
+  wrap.innerHTML = list
+    .slice(0, 5)
+    .map(
+      (item) =>
+        `<button type="button" class="cq-freq-chip" data-freq-text="${String(item.text).replace(/"/g, '&quot;')}" title="${String(item.text).replace(/"/g, '&quot;')}">${String(item.label || item.text).slice(0, 22)}</button>`,
+    )
+    .join('');
+}
+
+function syncCalorieQuickChrome() {
+  const editing = Boolean(calorieQuickEdit);
+  if (els.calorieQuickClear) els.calorieQuickClear.hidden = !editing;
+  if (els.calorieQuickOk) {
+    els.calorieQuickOk.textContent = editing ? 'บันทึก' : 'เพิ่ม';
+  }
+}
+
+function openCalorieQuick(mode) {
+  if (!requireSyncReady()) return;
+  calorieQuickMode = mode === 'mus' ? 'mus' : 'meal';
+  calorieQuickEdit = null;
+  if (!els.calorieQuickOverlay) return;
+  if (els.calorieQuickTitle) {
+    els.calorieQuickTitle.textContent = calorieQuickMode === 'mus' ? 'เพิ่มออกกำลัง' : 'เพิ่มมื้อ';
+  }
+  if (els.calorieQuickHint) {
+    els.calorieQuickHint.textContent = calorieQuickMode === 'mus'
+      ? 'แตะใช้บ่อยเพื่อเติมช่อง แล้วกดเพิ่ม · หรือพิมพ์เอง'
+      : 'ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27 — ไม่ถูกจะไม่บันทึก';
+  }
+  if (els.calorieQuickInput) {
+    els.calorieQuickInput.value = '';
+    els.calorieQuickInput.placeholder = calorieQuickMode === 'mus' ? 'ท่า + แคลที่เผา' : '130,27';
+  }
+  syncCalorieQuickChrome();
+  paintCalorieQuickFreq();
+  els.calorieQuickOverlay.hidden = false;
+  requestAnimationFrame(() => {
+    try { els.calorieQuickInput?.focus({ preventScroll: false }); } catch { /* ignore */ }
+  });
+}
+
+/**
+ * Tap a calorie number cell → edit sheet: เคลียร์ → บันทึก → data updates.
+ * @param {{ mode: 'meal'|'mus', dayId: string, mealIndex?: number, value?: string }} opts
+ */
+function openCalorieCellEditor(opts) {
+  if (!requireSyncReady()) return;
+  const mode = opts?.mode === 'mus' ? 'mus' : 'meal';
+  const dayId = String(opts?.dayId || '');
+  if (!dayId || !els.calorieQuickOverlay) return;
+  // Avoid double-open from focusin + click on the same cell.
+  if (
+    !els.calorieQuickOverlay.hidden &&
+    calorieQuickEdit?.dayId === dayId &&
+    calorieQuickMode === mode &&
+    (mode === 'mus' || calorieQuickEdit?.mealIndex === Number(opts?.mealIndex))
+  ) {
+    return;
+  }
+  const sheet = ensureCaloriePayload();
+  const day = sheet.days.find((d) => d.id === dayId);
+  if (!day) return;
+
+  calorieQuickMode = mode;
+  let value = String(opts?.value ?? '').trim();
+  let mealIndex = Number.isFinite(opts?.mealIndex) ? Number(opts.mealIndex) : null;
+
+  if (mode === 'meal') {
+    const meals = expandMealsForEdit(day.meals);
+    if (mealIndex == null || mealIndex < 0) {
+      mealIndex = meals.findIndex((c) => !String(c || '').trim());
+      if (mealIndex < 0) mealIndex = meals.length;
+    }
+    while (meals.length <= mealIndex) meals.push('');
+    if (!value) value = String(meals[mealIndex] || '').trim();
+    calorieQuickEdit = { dayId, mealIndex };
+    if (els.calorieQuickTitle) {
+      els.calorieQuickTitle.textContent = value ? `แก้มื้อ ${mealIndex + 1}` : `มื้อ ${mealIndex + 1}`;
+    }
+    if (els.calorieQuickHint) {
+      els.calorieQuickHint.textContent = 'ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27 · เคลียร์แล้วบันทึกเพื่อลบ';
+    }
+    if (els.calorieQuickInput) {
+      els.calorieQuickInput.placeholder = '130,27';
+      els.calorieQuickInput.value = value;
+    }
+  } else {
+    if (!value) {
+      const mus = day.mus;
+      const note = String(day.note || '').trim();
+      value = mus == null || mus === '' ? '' : (note ? `${note} ${mus}` : String(mus));
+    }
+    calorieQuickEdit = { dayId, mealIndex: null };
+    if (els.calorieQuickTitle) {
+      els.calorieQuickTitle.textContent = value ? 'แก้ mus' : 'mus';
+    }
+    if (els.calorieQuickHint) {
+      els.calorieQuickHint.textContent = 'แก้แคลเบิร์น · กดเคลียร์แล้วบันทึกเพื่อลบ · หรือพิมพ์ใหม่แล้วบันทึก';
+    }
+    if (els.calorieQuickInput) {
+      els.calorieQuickInput.placeholder = 'ท่า + แคลที่เผา';
+      els.calorieQuickInput.value = value;
+    }
+  }
+
+  syncCalorieQuickChrome();
+  paintCalorieQuickFreq();
+  els.calorieQuickOverlay.hidden = false;
+  requestAnimationFrame(() => {
+    try {
+      els.calorieQuickInput?.focus({ preventScroll: false });
+      els.calorieQuickInput?.select?.();
+    } catch { /* ignore */ }
+  });
+}
+
+function closeCalorieQuick() {
+  calorieQuickMode = null;
+  calorieQuickEdit = null;
+  if (els.calorieQuickOverlay) els.calorieQuickOverlay.hidden = true;
+  syncCalorieQuickChrome();
+}
+
+function clearCalorieQuickInput() {
+  if (!els.calorieQuickInput) return;
+  els.calorieQuickInput.value = '';
+  try {
+    els.calorieQuickInput.focus({ preventScroll: false });
+  } catch { /* ignore */ }
+}
+
+function submitCalorieQuick() {
+  if (!requireSyncReady()) return;
+  const text = String(els.calorieQuickInput?.value || '').trim();
+  const editing = Boolean(calorieQuickEdit);
+
+  // Edit path: เคลียร์แล้วกดบันทึก = ลบค่าในช่องนั้น · พิมพ์ใหม่แล้วบันทึก = อัปเดต
+  if (editing) {
+    const { dayId, mealIndex } = calorieQuickEdit;
+    const sheet = ensureCaloriePayload();
+    const day = sheet.days.find((d) => d.id === dayId);
+    if (!day) {
+      setStatus('ไม่พบวัน');
+      return;
+    }
+    try {
+      if (calorieQuickMode === 'mus') {
+        if (!text) {
+          persistCalorie(pruneFrequentMus(patchDay(sheet, dayId, { mus: null, note: '' })), {
+            status: 'เคลียร์ mus แล้ว · อัปเดตแล้ว',
+            fullRender: true,
+          });
+        } else {
+          const parsed = parseQuickExercise(text);
+          if (!parsed) throw new Error('ใส่ออกกำลัง + แคล เช่น ไหล่ 150');
+          persistCalorie(
+            patchDay(sheet, dayId, { mus: parsed.burn, note: parsed.label || '' }),
+            {
+              status: `บันทึก mus ${parsed.burn}${parsed.label ? ` · ${parsed.label}` : ''} แล้ว`,
+              fullRender: true,
+            },
+          );
+        }
+      } else {
+        const meals = expandMealsForEdit(day.meals);
+        const idx = Number.isFinite(mealIndex) ? mealIndex : 0;
+        while (meals.length <= idx) meals.push('');
+        if (!text) {
+          meals[idx] = '';
+        } else {
+          const parsed = parseQuickMeal(text);
+          if (!parsed) {
+            setStatus(MEAL_PATTERN_HINT, { forceToast: true, ms: 4200 });
+            return;
+          }
+          meals[idx] = formatMealCell(parsed.cal, parsed.prot);
+        }
+        persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
+          status: text ? `บันทึกมื้อ ${idx + 1} แล้ว` : `เคลียร์มื้อ ${idx + 1} แล้ว · อัปเดตแล้ว`,
+          fullRender: true,
+        });
+      }
+      closeCalorieQuick();
+    } catch (err) {
+      setStatus(err?.message || 'บันทึกไม่ได้', { forceToast: true });
+    }
+    return;
+  }
+
+  if (!text) {
+    setStatus(
+      calorieQuickMode === 'mus' ? 'พิมพ์ท่า + แคลก่อน' : MEAL_PATTERN_HINT,
+      { forceToast: true },
+    );
+    return;
+  }
+  try {
+    if (calorieQuickMode === 'mus') {
+      const { sheet, parsed } = appendQuickExercise(ensureCaloriePayload(), text);
+      state.calorieActiveMonth = monthKeyFromDate(toDateKey());
+      persistCalorie(sheet, {
+        status: `+mus ${parsed.burn}${parsed.label ? ` · ${parsed.label}` : ''}`,
+        fullRender: true,
+      });
+    } else {
+      const parsed = parseQuickMeal(text);
+      if (!parsed) {
+        setStatus(MEAL_PATTERN_HINT, { forceToast: true, ms: 4200 });
+        return;
+      }
+      const { sheet, slot } = appendQuickMeal(ensureCaloriePayload(), text);
+      state.calorieActiveMonth = monthKeyFromDate(toDateKey());
+      persistCalorie(sheet, {
+        status: `มื้อ ${slot}: ${parsed.cal},${parsed.prot}`,
+        fullRender: true,
+      });
+    }
+    closeCalorieQuick();
+    requestAnimationFrame(() => {
+      if (els.calorieScroll) els.calorieScroll.scrollTop = 0;
+      syncCalorieMonthFromScroll();
+    });
+  } catch (err) {
+    setStatus(err?.message || 'เพิ่มไม่ได้', { forceToast: true, ms: 4200 });
+  }
+}
+
+function setAppMode(_mode, { persist = true } = {}) {
+  // Product is calorie-only — ignore requests for retired work/note/calendar modes.
+  const next = 'calorie';
   if (state.activeNotepadId && state.view === 'editor') {
     flushNotepadToState();
     saveManager.saveNow(() => state.notesData);
   }
   state.appMode = next;
-  document.body.classList.toggle('note-mode', next === 'note');
-  document.body.classList.remove('notepad-editing');
+  document.body.classList.remove('note-mode', 'calendar-mode', 'notepad-editing');
+  document.body.classList.add('calorie-mode', 'calorie-only');
   if (persist) {
     state.settings.appMode = next;
     saveSettings(state.settings);
   }
-  if (next === 'work') {
-    state.activeNotepadId = null;
-    clearNotepadSheetUi();
-  }
+  closeCalorieQuick();
   closeModeMenu();
   renderModeSwitcher();
-  if (state.view === 'editor') {
-    // leave editor when switching modes
-    showView('list');
-  }
-  renderNotesList();
+  showView('calorie');
   updateFilterDockVisibility();
   updateUndoFab();
+  syncCalorieFabs();
+}
+
+function monthKey(year, month) {
+  return `${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+function parseMonthKey(key) {
+  const [y, m] = String(key || '').split('-').map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return null;
+  return { year: y, month: m - 1 };
+}
+
+function shiftMonth(year, month, delta) {
+  const d = new Date(year, month + delta, 1);
+  return { year: d.getFullYear(), month: d.getMonth() };
+}
+
+function ensureCalendarScrollRange() {
+  if (state.calendarScrollRange) return state.calendarScrollRange;
+  const center = { year: state.calendarYear, month: state.calendarMonth };
+  const start = shiftMonth(center.year, center.month, -12);
+  const end = shiftMonth(center.year, center.month, 12);
+  state.calendarScrollRange = { start, end };
+  return state.calendarScrollRange;
+}
+
+function setCalendarZoom(zoom) {
+  state.calendarZoom = zoom === 'year' ? 'year' : 'month';
+  if (els.calendarView) els.calendarView.dataset.calZoom = state.calendarZoom;
+  const yearMode = state.calendarZoom === 'year';
+  if (els.calWeekdays) els.calWeekdays.hidden = yearMode;
+  if (els.calScroll) els.calScroll.hidden = yearMode;
+  if (els.calYearView) els.calYearView.hidden = !yearMode;
+  if (els.calZoomOut) els.calZoomOut.disabled = yearMode;
+  if (els.calZoomIn) els.calZoomIn.disabled = !yearMode;
+  // Day sheet only on month zoom
+  if (yearMode) collapseCalendarNotes();
+  updateCalendarChrome();
+}
+
+function updateCalendarChrome() {
+  const y = state.calendarYear;
+  const m = state.calendarMonth;
+  if (els.calYearLabel) els.calYearLabel.textContent = yearLabel(y);
+  if (els.calMonthTitle) {
+    if (state.calendarZoom === 'year') {
+      els.calMonthTitle.textContent = yearLabel(y);
+    } else {
+      els.calMonthTitle.textContent = monthNameOnly(y, m);
+    }
+  }
+  if (els.calYearBack) {
+    els.calYearBack.setAttribute(
+      'aria-label',
+      state.calendarZoom === 'year' ? 'ปีก่อนหน้าในมุมมองปี' : `มุมมองรายปี ${yearLabel(y)}`,
+    );
+  }
+}
+
+function renderCalendar() {
+  if (!els.calScroll && !els.calYearView) return;
+  setCalendarZoom(state.calendarZoom || 'month');
+  if (state.calendarZoom === 'year') {
+    renderCalendarYearView();
+  } else {
+    renderCalendarMonthScroll({ scrollToCurrent: !els.calScroll?.dataset.ready });
+  }
+  if (state.calendarSelectedDate && state.calendarZoom === 'month') {
+    renderCalendarNotes(state.calendarSelectedDate);
+  }
+}
+
+function buildCalCellEl(cell, year, month, { mini = false } = {}) {
+  const div = document.createElement('div');
+  div.className = mini ? 'cal-cell cal-cell-mini' : 'cal-cell';
+  if (cell.empty) {
+    div.classList.add('empty');
+    return div;
+  }
+  if (cell.isToday) div.classList.add('today');
+  if (state.calendarSelectedDate && cell.dateKey === state.calendarSelectedDate) {
+    div.classList.add('selected');
+  }
+  div.setAttribute('role', 'button');
+  div.setAttribute('tabindex', mini ? '-1' : '0');
+  div.setAttribute(
+    'aria-label',
+    `${cell.day} ${monthNameOnly(year, month)}`,
+  );
+  div.dataset.dateKey = cell.dateKey;
+  div.innerHTML = `<span class="cal-cell-day">${cell.day}</span>`;
+
+  if (!mini && cell.count > 0) {
+    const dateNotes = notesOnDate(state.notesData.notes, cell.dateKey);
+    const hasHot = dateNotes.some((n) => {
+      const prox = scheduleProximity(n.scheduledAt);
+      return prox.level === 'overdue' || prox.level === 'today';
+    });
+    const dots = document.createElement('div');
+    dots.className = 'cal-cell-dots';
+    if (hasHot) div.classList.add('overdue');
+    const dotCount = Math.min(cell.count, 3);
+    for (let i = 0; i < dotCount; i += 1) {
+      const dot = document.createElement('span');
+      dot.className = 'cal-cell-dot';
+      dots.appendChild(dot);
+    }
+    div.appendChild(dots);
+  } else if (mini && cell.count > 0) {
+    div.classList.add('has-notes');
+  }
+  return div;
+}
+
+function renderMonthBlock(year, month, notes) {
+  const section = document.createElement('section');
+  section.className = 'cal-month-block';
+  section.dataset.monthKey = monthKey(year, month);
+  section.dataset.year = String(year);
+  section.dataset.month = String(month);
+
+  const title = document.createElement('h3');
+  title.className = 'cal-month-block-title';
+  title.textContent = monthLabel(year, month);
+  section.appendChild(title);
+
+  const grid = document.createElement('div');
+  grid.className = 'cal-grid';
+  const built = buildMonthGrid(year, month, notes);
+  built.cells.forEach((cell) => {
+    const el = buildCalCellEl(cell, year, month);
+    if (!cell.empty) {
+      el.addEventListener('click', () => selectCalendarDate(cell.dateKey));
+    }
+    grid.appendChild(el);
+  });
+  section.appendChild(grid);
+  return section;
+}
+
+function renderCalendarMonthScroll({ scrollToCurrent = false } = {}) {
+  if (!els.calScroll) return;
+  const notes = state.notesData.notes || [];
+  const range = ensureCalendarScrollRange();
+  const targetYear = state.calendarYear;
+  const targetMonth = state.calendarMonth;
+  els.calScroll.innerHTML = '';
+
+  let cursor = { ...range.start };
+  const endKey = monthKey(range.end.year, range.end.month);
+  while (true) {
+    const key = monthKey(cursor.year, cursor.month);
+    els.calScroll.appendChild(renderMonthBlock(cursor.year, cursor.month, notes));
+    if (key === endKey) break;
+    cursor = shiftMonth(cursor.year, cursor.month, 1);
+  }
+  els.calScroll.dataset.ready = '1';
+  // Keep chrome on the intended month until scroll settles (observer can fire early)
+  state.calendarYear = targetYear;
+  state.calendarMonth = targetMonth;
+  updateCalendarChrome();
+
+  if (scrollToCurrent) {
+    scrollCalendarToMonth(targetYear, targetMonth, 'auto');
+    requestAnimationFrame(() => {
+      bindCalendarScrollObserver();
+      highlightCalendarSelection();
+    });
+  } else {
+    bindCalendarScrollObserver();
+    highlightCalendarSelection();
+  }
+}
+
+let calScrollObserver = null;
+
+function bindCalendarScrollObserver() {
+  if (!els.calScroll || typeof IntersectionObserver === 'undefined') return;
+  if (calScrollObserver) {
+    calScrollObserver.disconnect();
+    calScrollObserver = null;
+  }
+  calScrollObserver = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((e) => e.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+      const top = visible[0]?.target;
+      if (!top) return;
+      const y = Number(top.dataset.year);
+      const m = Number(top.dataset.month);
+      if (!Number.isFinite(y) || !Number.isFinite(m)) return;
+      if (y === state.calendarYear && m === state.calendarMonth) return;
+      state.calendarYear = y;
+      state.calendarMonth = m;
+      updateCalendarChrome();
+    },
+    { root: els.calScroll, threshold: [0.35, 0.55, 0.75] },
+  );
+  els.calScroll.querySelectorAll('.cal-month-block').forEach((block) => {
+    calScrollObserver.observe(block);
+  });
+}
+
+function scrollCalendarToMonth(year, month, behavior = 'smooth') {
+  if (!els.calScroll) return;
+  const key = monthKey(year, month);
+  const block = els.calScroll.querySelector(`.cal-month-block[data-month-key="${key}"]`);
+  if (!block) return;
+  state.calendarYear = year;
+  state.calendarMonth = month;
+  updateCalendarChrome();
+  const top = block.offsetTop;
+  if (behavior === 'smooth' && typeof els.calScroll.scrollTo === 'function') {
+    els.calScroll.scrollTo({ top, behavior: 'smooth' });
+  } else {
+    els.calScroll.scrollTop = top;
+  }
+  highlightCalendarSelection();
+}
+
+function renderCalendarYearView() {
+  if (!els.calYearView) return;
+  const notes = state.notesData.notes || [];
+  const year = state.calendarYear;
+  els.calYearView.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'cal-year-nav';
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.className = 'cal-nav-btn';
+  prev.setAttribute('aria-label', 'ปีก่อน');
+  prev.textContent = '‹';
+  prev.addEventListener('click', () => {
+    state.calendarYear -= 1;
+    renderCalendarYearView();
+    updateCalendarChrome();
+  });
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'cal-nav-btn';
+  next.setAttribute('aria-label', 'ปีถัดไป');
+  next.textContent = '›';
+  next.addEventListener('click', () => {
+    state.calendarYear += 1;
+    renderCalendarYearView();
+    updateCalendarChrome();
+  });
+  const label = document.createElement('h3');
+  label.className = 'cal-year-nav-title';
+  label.textContent = yearLabel(year);
+  head.append(prev, label, next);
+  els.calYearView.appendChild(head);
+
+  const grid = document.createElement('div');
+  grid.className = 'cal-year-grid';
+  for (let month = 0; month < 12; month += 1) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'cal-year-month';
+    card.dataset.month = String(month);
+    if (year === new Date().getFullYear() && month === new Date().getMonth()) {
+      card.classList.add('is-current');
+    }
+    const name = document.createElement('span');
+    name.className = 'cal-year-month-name';
+    name.textContent = monthNameOnly(year, month, { short: true });
+    card.appendChild(name);
+
+    const mini = document.createElement('div');
+    mini.className = 'cal-grid cal-grid-mini';
+    const built = buildMonthGrid(year, month, notes);
+    built.cells.forEach((cell) => {
+      mini.appendChild(buildCalCellEl(cell, year, month, { mini: true }));
+    });
+    card.appendChild(mini);
+    card.addEventListener('click', () => {
+      state.calendarMonth = month;
+      state.calendarYear = year;
+      state.calendarScrollRange = null;
+      setCalendarZoom('month');
+      renderCalendarMonthScroll({ scrollToCurrent: true });
+    });
+    grid.appendChild(card);
+  }
+  els.calYearView.appendChild(grid);
+  updateCalendarChrome();
+}
+
+function highlightCalendarSelection() {
+  if (!els.calScroll) return;
+  els.calScroll.querySelectorAll('.cal-cell.selected').forEach((c) => c.classList.remove('selected'));
+  if (!state.calendarSelectedDate) return;
+  els.calScroll
+    .querySelectorAll(`.cal-cell[data-date-key="${state.calendarSelectedDate}"]`)
+    .forEach((c) => c.classList.add('selected'));
+}
+
+function collapseCalendarNotes() {
+  if (!els.calNotes) return;
+  els.calNotes.hidden = true;
+  els.calendarView?.classList.remove('cal-notes-open');
+}
+
+function selectCalendarDate(dateKey) {
+  // Tap same day again → collapse sheet
+  if (state.calendarSelectedDate === dateKey && els.calNotes && !els.calNotes.hidden) {
+    state.calendarSelectedDate = null;
+    highlightCalendarSelection();
+    collapseCalendarNotes();
+    return;
+  }
+  state.calendarSelectedDate = dateKey;
+  const parsed = parseMonthKey(dateKey.slice(0, 7));
+  if (parsed) {
+    state.calendarYear = parsed.year;
+    state.calendarMonth = parsed.month;
+    updateCalendarChrome();
+  }
+  highlightCalendarSelection();
+  renderCalendarNotes(dateKey);
+}
+
+function renderCalendarNotes(dateKey) {
+  if (!els.calNotes) return;
+
+  const notes = state.notesData.notes;
+  const dateNotes = notesOnDate(notes, dateKey);
+
+  const d = new Date(`${dateKey}T00:00:00`);
+  const dateLabel = d.toLocaleDateString('th-TH', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  els.calNotes.hidden = false;
+  els.calendarView?.classList.add('cal-notes-open');
+
+  if (dateNotes.length === 0) {
+    els.calNotes.innerHTML = `
+      <div class="cal-notes-handle" aria-hidden="true"></div>
+      <p class="cal-notes-empty">${dateLabel} — ไม่มีงาน</p>`;
+    return;
+  }
+
+  const sorted = [...dateNotes].sort((a, b) => {
+    const aHasTime = !!a.scheduledAt;
+    const bHasTime = !!b.scheduledAt;
+    if (aHasTime && !bHasTime) return -1;
+    if (!aHasTime && bHasTime) return 1;
+    if (aHasTime && bHasTime) return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
+  let html = `
+    <div class="cal-notes-handle" aria-hidden="true"></div>
+    <p class="cal-notes-title">${dateLabel}</p>`;
+
+  sorted.forEach((note) => {
+    const priority = notePriority(note);
+    const prioColors = loadSettings().priorityColors || DEFAULT_PRIORITY_COLORS;
+    const prioColor = prioColors[priority] || prioColors.normal;
+    const tags = getTagsForNote(note, state.notesData.tags || []);
+    const titleText = stripLeadingEmoji(note.title || '') || 'ไม่มีหัวข้อ';
+    const metaHtml = cardMetaInlineHtml(note, tags);
+    const leadHtml = cardLeadingIconHtml(note, tags);
+
+    html += `<div class="note-card note-card-split note-card-compact" data-note-id="${escapeHtml(note.id)}" role="button" tabindex="0">
+      <div class="card-compact-body" style="--prio:${escapeHtml(prioColor)}">
+        <div class="card-compact-row">
+          ${leadHtml}
+          <h3 class="card-title">${escapeHtml(titleText)}</h3>
+          ${metaHtml}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  els.calNotes.innerHTML = html;
+
+  els.calNotes.querySelectorAll('.note-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const noteId = card.dataset.noteId;
+      if (noteId) openEditor(noteId);
+    });
+  });
+}
+
+function goCalendarToday() {
+  const now = new Date();
+  state.calendarYear = now.getFullYear();
+  state.calendarMonth = now.getMonth();
+  state.calendarSelectedDate = dateKeyFromDate(now);
+  state.calendarScrollRange = null;
+  if (state.calendarZoom === 'year') {
+    setCalendarZoom('month');
+  }
+  renderCalendarMonthScroll({ scrollToCurrent: true });
+  renderCalendarNotes(state.calendarSelectedDate);
+}
+
+function calendarZoomOut() {
+  if (state.calendarZoom === 'year') return;
+  setCalendarZoom('year');
+  renderCalendarYearView();
+}
+
+function calendarZoomIn() {
+  if (state.calendarZoom !== 'year') return;
+  state.calendarScrollRange = null;
+  setCalendarZoom('month');
+  renderCalendarMonthScroll({ scrollToCurrent: true });
 }
 
 function renderModeSwitcher() {
   if (els.modeSwitchName) {
-    els.modeSwitchName.textContent = isNoteMode() ? 'Note' : 'งานหลัก';
+    if (isCalorieMode()) els.modeSwitchName.textContent = 'แคลโน้ต';
+    else if (isCalendarMode()) els.modeSwitchName.textContent = 'ปฏิทิน';
+    else els.modeSwitchName.textContent = isNoteMode() ? 'Note' : 'งานหลัก';
   }
   if (els.modeSwitchBtn) {
-    els.modeSwitchBtn.setAttribute(
-      'aria-label',
-      isNoteMode() ? 'โหมด Note' : 'โหมดงานหลัก',
-    );
+    let ariaLabel = 'โหมดงานหลัก';
+    if (isCalorieMode()) ariaLabel = 'แคลโน้ต';
+    else if (isCalendarMode()) ariaLabel = 'โหมดปฏิทิน';
+    else if (isNoteMode()) ariaLabel = 'โหมด Note';
+    els.modeSwitchBtn.setAttribute('aria-label', ariaLabel);
   }
-  els.modeMenuWork?.setAttribute('aria-current', isNoteMode() ? 'false' : 'page');
-  els.modeMenuNote?.setAttribute('aria-current', isNoteMode() ? 'page' : 'false');
+  const onWork = !isNoteMode() && !isCalendarMode() && !isCalorieMode();
   if (els.modeMenuWork) {
-    if (isNoteMode()) els.modeMenuWork.removeAttribute('aria-current');
-    else els.modeMenuWork.setAttribute('aria-current', 'page');
+    els.modeMenuWork.setAttribute('aria-current', onWork ? 'page' : 'false');
   }
   if (els.modeMenuNote) {
-    if (isNoteMode()) els.modeMenuNote.setAttribute('aria-current', 'page');
-    else els.modeMenuNote.removeAttribute('aria-current');
+    els.modeMenuNote.setAttribute('aria-current', isNoteMode() ? 'page' : 'false');
+  }
+  if (els.modeMenuCalendar) {
+    els.modeMenuCalendar.setAttribute('aria-current', isCalendarMode() ? 'page' : 'false');
+  }
+  if (els.modeMenuCalorie) {
+    els.modeMenuCalorie.setAttribute('aria-current', isCalorieMode() ? 'page' : 'false');
   }
   if (els.dockModeWork) {
-    els.dockModeWork.setAttribute('aria-pressed', isNoteMode() ? 'false' : 'true');
+    els.dockModeWork.setAttribute('aria-pressed', onWork ? 'true' : 'false');
   }
   if (els.dockModeNote) {
     els.dockModeNote.setAttribute('aria-pressed', isNoteMode() ? 'true' : 'false');
+  }
+  if (els.dockModeCalendar) {
+    els.dockModeCalendar.setAttribute('aria-pressed', isCalendarMode() ? 'true' : 'false');
+  }
+  if (els.dockModeCalorie) {
+    els.dockModeCalorie.setAttribute('aria-pressed', isCalorieMode() ? 'true' : 'false');
   }
   if (els.notepadMenuSection) {
     els.notepadMenuSection.hidden = !isNoteMode();
@@ -1583,12 +3153,23 @@ function renderGroupNav() {
   els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
-  if (isNoteMode()) {
+  if (isCalorieMode()) {
+    // Table days are created automatically — no manual +วัน control.
+    if (els.addNoteBtn) els.addNoteBtn.hidden = true;
+    if (els.addBlankBtn) els.addBlankBtn.hidden = true;
+  } else if (isNoteMode()) {
     if (els.addNoteBtn) els.addNoteBtn.hidden = false;
     if (els.addBlankBtn) els.addBlankBtn.hidden = true;
   } else {
     if (els.addNoteBtn) els.addNoteBtn.hidden = !isActiveGroup;
     if (els.addBlankBtn) els.addBlankBtn.hidden = !isActiveGroup;
+  }
+  if (els.addNoteBtn) {
+    els.addNoteBtn.setAttribute(
+      'aria-label',
+      isNoteMode() ? 'เพิ่ม Note' : 'เพิ่มงาน',
+    );
+    els.addNoteBtn.title = isNoteMode() ? 'เพิ่ม Note' : 'เพิ่มงาน';
   }
   updateFilterDockVisibility();
   renderModeSwitcher();
@@ -1600,11 +3181,13 @@ function renderGroupNav() {
       : state.listGroup === NOTE_STATUS.TRASH
         ? 'ถังขยะ'
         : 'งานหลัก';
-  const name = isNoteMode()
-    ? 'Note'
-    : groupTitle === 'งานหลัก'
-      ? 'งานหลัก'
-      : `งานหลัก · ${groupTitle}`;
+  const name = isCalorieMode()
+    ? 'แคลโน้ต'
+    : isNoteMode()
+      ? 'Note'
+      : groupTitle === 'งานหลัก'
+        ? 'งานหลัก'
+        : `งานหลัก · ${groupTitle}`;
   if (els.appTitle) {
     els.appTitle.textContent = `${name} · ${NOTE_APP_VERSION} · b${build}`;
   }
@@ -1617,23 +3200,30 @@ const SORT_FILTER_OPTIONS = [
 ];
 
 function updateFilterDockVisibility() {
-  const list = state.view === 'list';
-  const selecting = list && state.selectionMode && !isNoteMode();
+  const onBoard = state.view === 'list' || state.view === 'calendar' || state.view === 'calorie';
+  const onList = state.view === 'list';
+  const selecting = onList && state.selectionMode && !isNoteMode() && !isCalorieMode();
   const notepadEditing = isNoteMode() && state.view === 'editor' && Boolean(state.activeNotepadId);
+  const calMode = isCalendarMode();
+  const calorieMode = isCalorieMode();
   if (els.filterDock) {
-    const showDock = (list && !state.selectionMode) || notepadEditing;
+    const showDock = (onBoard && !state.selectionMode) || notepadEditing;
     els.filterDock.hidden = !showDock;
-    const showFilters = showDock && list && !isNoteMode() && state.listGroup === NOTE_STATUS.ACTIVE;
+    // Filters are work-list only — not on calendar/calorie sheets
+    const showFilters = showDock && onList && !isNoteMode() && !calMode && !calorieMode && state.listGroup === NOTE_STATUS.ACTIVE;
     if (els.filterDockFiltersWrap) els.filterDockFiltersWrap.hidden = !showFilters;
-    // In Note mode: hide group drawer, keep left slot so mode switch stays centered
+    // In Note/Calendar/Calorie mode: hide group drawer, keep left slot so mode switch stays centered
     if (els.groupNavBtn) {
+      const hideGroup = isNoteMode() || calMode || calorieMode;
       els.groupNavBtn.hidden = false;
-      els.groupNavBtn.classList.toggle('is-slot-empty', isNoteMode());
-      els.groupNavBtn.tabIndex = isNoteMode() ? -1 : 0;
-      els.groupNavBtn.setAttribute('aria-hidden', isNoteMode() ? 'true' : 'false');
+      els.groupNavBtn.classList.toggle('is-slot-empty', hideGroup);
+      els.groupNavBtn.tabIndex = hideGroup ? -1 : 0;
+      els.groupNavBtn.setAttribute('aria-hidden', hideGroup ? 'true' : 'false');
     }
     if (!showFilters) closeFilterMenus();
     renderNotepadQuickBar();
+    syncCalorieFabs();
+    syncDockContextRail();
   }
   document.body.classList.toggle('notepad-dock', Boolean(notepadEditing));
   if (els.selectionDock) {
@@ -3535,6 +5125,10 @@ function renderNotepadList() {
 }
 
 function renderNotesList() {
+  if (isCalendarMode()) {
+    if (state.view === 'calendar') renderCalendar();
+    return;
+  }
   if (isNoteMode()) {
     renderNotepadList();
     return;
@@ -3706,6 +5300,13 @@ function closeTagManager() {
 function openSettings() {
   els.settingsOverlay.hidden = false;
   applyDockScale();
+  // Body profile (rare-change) — keep in sync when opening settings.
+  try {
+    syncCalorieProfileInputs(ensureCaloriePayload());
+  } catch {
+    /* calorie payload may be empty before hydrate */
+  }
+  applyCalorieTones();
   if (els.geminiApiKey) els.geminiApiKey.value = state.settings.geminiApiKey || '';
   fillGeminiModelSelect(state.settings.geminiModel);
   if (els.aiProfile) els.aiProfile.value = state.settings.aiProfile || '';
@@ -3832,6 +5433,8 @@ function closeSettings() {
   persistGeminiSettingsFromUi();
   persistAiProfileFromUi();
   persistCameraSettingsFromUi();
+  // Number inputs may not have fired `change` yet — flush profile before hide.
+  flushCalorieProfileFromUi({ status: '' });
   els.settingsOverlay.hidden = true;
 }
 
@@ -4318,6 +5921,7 @@ function exportNotesBackup() {
 }
 
 async function applyImportedNotes(text, { merge } = {}) {
+  if (!requireSyncReady()) return false;
   const useMerge = merge ?? importMergePreferred;
   let next;
   try {
@@ -4327,14 +5931,15 @@ async function applyImportedNotes(text, { merge } = {}) {
     setStatus('นำเข้าไม่สำเร็จ · ตรวจ JSON');
     return false;
   }
-  if (!hasAnyNotes(next) && !(Array.isArray(next.tags) && next.tags.length)) {
-    setStatus('ไฟล์ว่างหรือไม่ใช่ข้อมูลโน้ต');
+  if (!hasCloudContent(next)) {
+    setStatus('ไฟล์ว่างหรือไม่ใช่ข้อมูลแคลโน้ต');
     return false;
   }
+  const calDays = Array.isArray(next.calorie?.days) ? next.calorie.days.length : 0;
   const ok = await showConfirm(
     useMerge
-      ? `รวมข้อมูลเข้าของเดิม? โน้ต ${next.notes.length} · แท็ก ${next.tags.length}`
-      : `แทนที่ข้อมูลทั้งหมดด้วยสำรองนี้? โน้ต ${next.notes.length} · แท็ก ${next.tags.length}`,
+      ? `รวมข้อมูลเข้าของเดิม? วันแคล ${calDays} · โน้ต ${next.notes.length}`
+      : `แทนที่ข้อมูลทั้งหมดด้วยสำรองนี้? วันแคล ${calDays} · โน้ต ${next.notes.length}`,
     { okLabel: useMerge ? 'รวม' : 'แทนที่', danger: !useMerge },
   );
   if (!ok) return false;
@@ -4349,30 +5954,64 @@ async function applyImportedNotes(text, { merge } = {}) {
   renderTagManager();
   refreshNoteNotifications();
   scheduleUserContextRefresh();
-  setStatus(useMerge ? 'รวมสำรองแล้ว' : 'นำเข้าแทนที่แล้ว');
+  if (!state.authUser) {
+    setStatus(useMerge ? 'รวมแล้วในเครื่อง · ล็อกอินเพื่อบันทึกคลาวด์' : 'นำเข้าแล้วในเครื่อง · ล็อกอินเพื่อบันทึกคลาวด์');
+    setAuthOverlayVisible(true);
+  } else if (state.online !== false) {
+    setStatus(useMerge ? 'รวมสำรองแล้ว · บันทึกคลาวด์แล้ว' : 'นำเข้าแทนที่แล้ว · บันทึกคลาวด์แล้ว');
+  } else {
+    setStatus(useMerge ? 'รวมสำรองแล้ว' : 'นำเข้าแทนที่แล้ว');
+  }
   return true;
 }
 
 async function safePushRemote(data) {
-  if (!state.spaceId) return pushRemoteNotes(getSpaceId(), data);
+  const spaceId = state.spaceId || getSpaceId();
+  let remoteRaw;
   try {
-    const remoteRaw = await fetchRemoteNotes(state.spaceId);
-    const remote = normalizeNotesData(remoteRaw);
-    const remoteAt = new Date(remote.updatedAt || 0).getTime();
-    const baseAt = new Date(state.syncBaseUpdatedAt || 0).getTime();
-    if (hasAnyNotes(remote) && remoteAt > baseAt + 400) {
-      const merged = mergeNotesByUpdatedAt(data, remote);
-      const saved = await pushRemoteNotes(state.spaceId, merged);
-      state.notesData = merged;
-      state.syncBaseUpdatedAt = saved?.updatedAt || merged.updatedAt;
-      renderNotesList();
-      return saved;
-    }
-  } catch {
-    /* offline or race — fall through to direct push */
+    remoteRaw = await fetchRemoteNotes(spaceId);
+  } catch (err) {
+    // Never setDoc-blind when we cannot read cloud — keep local until retry.
+    throw err;
   }
-  const saved = await pushRemoteNotes(state.spaceId, data);
-  state.syncBaseUpdatedAt = saved?.updatedAt || data?.updatedAt || new Date().toISOString();
+  const remote = normalizeNotesData(remoteRaw);
+  // Live memory wins over any queued snapshot (local-first).
+  const live = normalizeNotesData(state.notesData || data);
+  const remoteHas = hasCloudContent(remote);
+  const liveHas = hasCloudContent(live);
+
+  // Sparse/empty local must never overwrite a filled Firestore space.
+  if (!liveHas && remoteHas) {
+    state.syncBaseUpdatedAt = remote.updatedAt || state.syncBaseUpdatedAt;
+    return remote;
+  }
+
+  if (remoteHas) {
+    const merged = mergeNotesByUpdatedAt(live, remote);
+    // Fold any edits that landed while we were fetching.
+    const freshest = mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), merged);
+    const saved = await pushRemoteNotes(spaceId, freshest);
+    const memAt = new Date(state.notesData?.updatedAt || 0).getTime();
+    const outAt = new Date(freshest.updatedAt || 0).getTime();
+    // Never clobber newer in-memory edits with an older merge result.
+    if (outAt >= memAt) {
+      state.notesData = freshest;
+      saveNotes(freshest);
+    } else {
+      saveManager.scheduleSave(() => state.notesData);
+    }
+    state.syncBaseUpdatedAt = saved?.updatedAt || freshest.updatedAt;
+    return saved;
+  }
+
+  if (!liveHas) {
+    // Both empty — skip noisy overwrite.
+    state.syncBaseUpdatedAt = live.updatedAt || state.syncBaseUpdatedAt;
+    return live;
+  }
+
+  const saved = await pushRemoteNotes(spaceId, live);
+  state.syncBaseUpdatedAt = saved?.updatedAt || live.updatedAt || new Date().toISOString();
   return saved;
 }
 
@@ -5514,7 +7153,7 @@ function backToList() {
     document.body.classList.remove('notepad-editing');
     clearNotepadSheetUi();
     renderNotesList();
-    showView('list');
+    showView(boardHomeView());
     return;
   }
   persistLocalChanges();
@@ -5526,8 +7165,12 @@ function backToList() {
   }
   state.activeNoteId = null;
   document.body.classList.remove('notepad-editing');
-  renderNotesList();
-  showView('list');
+  if (isCalendarMode()) {
+    showView('calendar');
+  } else {
+    renderNotesList();
+    showView('list');
+  }
 }
 
 function escapeHtml(value) {
@@ -5546,13 +7189,15 @@ function updateAppVersionLabel() {
     els.appBuilt.textContent = builtLabel ? `อัปเดต ${builtLabel}` : '';
   }
   if (els.appTitle && !els.appTitle.querySelector('.title-version')) {
-    els.appTitle.innerHTML = `P-Note <span class="title-version">${escapeHtml(verLabel)}</span>`;
+    els.appTitle.innerHTML = `แคลโน้ต <span class="title-version">${escapeHtml(verLabel)}</span>`;
   } else if (els.appTitle) {
     const ver = els.appTitle.querySelector('.title-version');
     if (ver) ver.textContent = verLabel;
   }
   const barVer = document.getElementById('mode-switch-ver');
   if (barVer) barVer.textContent = formatAppBuildLabel(build);
+  const calVer = document.getElementById('calorie-app-ver');
+  if (calVer) calVer.textContent = formatAppBuildLabel(build);
   const shellVer = document.getElementById('shellNoteVersion');
   if (shellVer) shellVer.textContent = verLabel;
 }
@@ -5700,14 +7345,21 @@ function notesContentKey(data) {
     )
     .sort()
     .join(',');
-  return `${notePart}|${tagPart}|${padPart}`;
+  const calDays = Array.isArray(data?.calorie?.days) ? data.calorie.days : [];
+  const calPart = `${data?.calorie?.updatedAt || ''}:${calDays
+    .map((d) => `${d.id}:${d.updatedAt || ''}`)
+    .sort()
+    .join(',')}`;
+  return `${notePart}|${tagPart}|${padPart}|${calPart}`;
 }
 
 function paintNotesFromLocal(data) {
   state.notesData = normalizeNotesData(data);
   state.syncBaseUpdatedAt = state.notesData?.updatedAt || null;
-  state.appMode = state.settings.appMode === 'note' ? 'note' : 'work';
-  document.body.classList.toggle('note-mode', isNoteMode());
+  state.appMode = 'calorie';
+  state.settings.appMode = 'calorie';
+  document.body.classList.remove('note-mode', 'calendar-mode', 'notepad-editing');
+  document.body.classList.add('calorie-mode', 'calorie-only');
   state.sortMode = state.settings.sortMode || 'updated';
   applySavedFilters();
   saveNotes(state.notesData);
@@ -5718,9 +7370,9 @@ function paintNotesFromLocal(data) {
   reapplyBarLayout();
   applyBarThickness();
   renderModeSwitcher();
-  renderNotesList();
-  showView('list');
+  showView('calorie');
   updateAppVersionLabel();
+  syncCalorieFabs();
 }
 
 /**
@@ -5734,6 +7386,7 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   const merged = mergeNotesByUpdatedAt(state.notesData, result.data);
   state.notesData = merged;
   state.online = result.online;
+  if (result.online) state.cloudHydrated = true;
   state.syncBaseUpdatedAt = merged?.updatedAt || result.data?.updatedAt || null;
   saveNotes(state.notesData);
 
@@ -5758,9 +7411,11 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   }
 
   const contentChanged = notesContentKey(state.notesData) !== beforeKey;
-  if (contentChanged && state.view === 'list') {
+  if (contentChanged && (state.view === 'list' || state.view === 'calendar' || state.view === 'calorie')) {
     renderModeSwitcher();
-    renderNotesList();
+    if (state.view === 'calendar') renderCalendar();
+    else if (state.view === 'calorie') renderCalorieSheet();
+    else renderNotesList();
   } else if (contentChanged && state.activeNotepadId) {
     const pad = getNotepad(state.notesData, state.activeNotepadId);
     if (pad) {
@@ -5774,13 +7429,13 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   if (didScheduleSnap && hadScheduled) {
     setStatus('ปรับเวลาแจ้งเตือนเป็น 09:00 แล้ว');
   } else if (result.migrated) {
-    setStatus('ย้ายโน้ตเข้าฐานข้อมูลแล้ว');
+    setDbStatusMessage('ย้ายเข้าคลาวด์แล้ว');
   } else if (!result.online) {
-    setStatus(result.autoSource ? 'โหมดออฟไลน์ (กู้คืนข้อมูลเดิม)' : 'โหมดออฟไลน์ (เก็บในเครื่อง)');
+    setDbStatusMessage('รอซิงค์…');
   } else if (contentChanged) {
-    setStatus('ซิงค์ข้อมูลล่าสุดแล้ว');
+    setDbStatusMessage('ซิงค์ล่าสุดแล้ว');
   } else {
-    setStatus('เชื่อมฐานข้อมูลแล้ว');
+    setDbStatusMessage('พร้อมใส่ข้อมูล');
   }
   return contentChanged;
 }
@@ -5804,12 +7459,15 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
 
   spaceSyncInFlight = (async () => {
     try {
-      if (announce) setSyncStatus('busy', 'กำลังซิงค์…');
+      if (announce) {
+        setSyncStatus('busy', 'กำลังซิงค์…');
+        if (!state.syncReady) showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
+      }
       const prevMerge = await mergePreviousDeviceSpace(state.notesData);
       if (prevMerge.fromPrev) {
         state.notesData = normalizeNotesData(prevMerge.data);
         saveNotes(state.notesData);
-        if (announce) setSyncStatus('busy', 'กำลังรวมพื้นที่เก่า…');
+        if (announce) setSyncStatus('busy', 'กำลังรวมข้อมูล…');
       }
       const result = await loadSpaceData(state.spaceId || SHARED_SPACE_ID, state.notesData);
       const changed = await applySpaceSyncResult(result, { localVerBefore, announce });
@@ -5821,7 +7479,7 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
     } catch (err) {
       console.warn('background sync failed', err);
       state.online = false;
-      if (announce) setDbStatusMessage('โหมดออฟไลน์ (เก็บในเครื่อง)');
+      if (announce) setDbStatusMessage('รอซิงค์…');
       return false;
     } finally {
       spaceSyncInFlight = null;
@@ -5831,7 +7489,7 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
 }
 
 async function bootstrapData() {
-  // Local-first: paint from device cache immediately, then warm remote.
+  // Local-first: paint from device cache immediately, then auth + Firestore.
   try {
     state.spaceId = getSpaceId();
     state.settings = loadSettings();
@@ -5840,33 +7498,87 @@ async function bootstrapData() {
     const localVerBefore = peekLocalNotesVersion();
     let localData = loadNotes().data;
     // Only when cache is empty — recover legacy/bundled before first paint.
-    if (!hasAnyNotes(localData)) {
+    if (!hasCloudContent(localData)) {
       const auto = await tryAutoImport(localData);
       localData = auto.data;
     }
 
     saveManager.configure({
       onStatus: (message) => setStatus(message),
-      remotePush: (data) => safePushRemote(data),
+      remotePush: async (data) => {
+        if (!state.authUser) {
+          throw new Error('Not signed in');
+        }
+        if (!state.syncReady && !state.cloudHydrated) {
+          throw new Error('Sync not ready');
+        }
+        // Wait for first cloud pull so we merge instead of wiping Firestore.
+        if (!state.cloudHydrated && spaceSyncInFlight) {
+          try {
+            await spaceSyncInFlight;
+          } catch { /* continue — safePushRemote still merges */ }
+        }
+        return safePushRemote(data);
+      },
+      onCloudSaved: () => {
+        if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว');
+        setDbStatusMessage('พร้อมใส่ข้อมูล');
+      },
+      onCloudFailed: () => {
+        // Don't recurse into ensureCloudReady here — retry loop will pull again.
+        state.online = false;
+        setSyncReady(false);
+        setSyncStatus('offline', 'รอซิงค์…');
+        showSyncGate('รอซิงค์…', 'ส่งไม่สำเร็จ · กำลังลองใหม่');
+      },
     });
 
     paintNotesFromLocal(localData);
     setLoading(false);
-    setSyncStatus('busy', 'กำลังเชื่อมฐานข้อมูล…');
+    refreshAuthAccountHint();
+    setSyncReady(false);
 
-    void syncSpaceInBackground({ localVerBefore, force: true, announce: true });
+    const user = await requireCloudAuth();
+    watchAuth((nextUser) => {
+      if (!nextUser) {
+        const wasSignedIn = Boolean(state.authUser);
+        state.authUser = null;
+        state.online = false;
+        state.cloudHydrated = false;
+        setSyncReady(false);
+        refreshAuthAccountHint();
+        setAuthOverlayVisible(true);
+        if (wasSignedIn) setSyncStatus('offline', 'ออกจากระบบแล้ว');
+        return;
+      }
+      const first = !state.authUser;
+      onSignedIn(nextUser);
+      if (first) {
+        void ensureCloudReady({ force: true, announce: true });
+      }
+    });
+
+    if (!user) {
+      setSyncStatus('offline', 'รอเข้าสู่ระบบ');
+      return;
+    }
+
+    await ensureCloudReady({ force: true, announce: true });
   } catch (err) {
     console.warn('bootstrap failed', err);
     try {
       state.notesData = loadNotes().data;
       state.settings = state.settings || loadSettings();
       applyTheme();
-      renderNotesList();
-      showView('list');
-      setDbStatusMessage('โหลดไม่สำเร็จ — ใช้ข้อมูลในเครื่อง');
+      showView(boardHomeView());
+      if (!isCalendarMode()) renderNotesList();
+      setSyncReady(false);
+      setDbStatusMessage('รอซิงค์…');
+      showSyncGate('รอซิงค์…', 'โหลดไม่สำเร็จ · กำลังลองใหม่');
+      startSyncRetryLoop();
     } catch (fallbackErr) {
       console.warn('bootstrap fallback failed', fallbackErr);
-      setDbStatusMessage('โหลดไม่สำเร็จ');
+      setDbStatusMessage('รอซิงค์…');
     }
   } finally {
     setLoading(false);
@@ -5972,6 +7684,7 @@ async function init({ fromBoot = false } = {}) {
   // Camera / attach viewer / AI-heavy wiring: after list is usable
 
   els.addNoteBtn?.addEventListener('click', () => {
+    if (isCalorieMode()) return; // days auto-create
     if (isNoteMode()) promptNewNotepad();
     else openAddNoteModal();
   });
@@ -6131,6 +7844,8 @@ async function init({ fromBoot = false } = {}) {
   els.iconPickerAll?.addEventListener('click', onIconPickClick);
 
   els.settingsBtn.addEventListener('click', openSettings);
+  els.dockCalorieHealthBtn?.addEventListener('click', () => setCaloriePane('health'));
+  els.dockCalorieLogBtn?.addEventListener('click', () => setCaloriePane('log'));
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
 
@@ -6152,6 +7867,346 @@ async function init({ fromBoot = false } = {}) {
   };
   els.dockModeWork?.addEventListener('click', onDockModeClick);
   els.dockModeNote?.addEventListener('click', onDockModeClick);
+  els.dockModeCalendar?.addEventListener('click', onDockModeClick);
+  els.dockModeCalorie?.addEventListener('click', onDockModeClick);
+  /* Calendar — Apple-style year back / today / zoom */
+  els.calYearBack?.addEventListener('click', () => {
+    if (state.calendarZoom === 'year') {
+      state.calendarYear -= 1;
+      renderCalendarYearView();
+      updateCalendarChrome();
+    } else {
+      calendarZoomOut();
+    }
+  });
+  els.calTodayBtn?.addEventListener('click', () => goCalendarToday());
+  els.calZoomOut?.addEventListener('click', () => calendarZoomOut());
+  els.calZoomIn?.addEventListener('click', () => calendarZoomIn());
+  // Swipe-down on day sheet handle collapses it
+  els.calNotes?.addEventListener('click', (e) => {
+    if (e.target.closest?.('.cal-notes-handle')) {
+      state.calendarSelectedDate = null;
+      highlightCalendarSelection();
+      collapseCalendarNotes();
+    }
+  });
+  els.calorieFabMeal?.addEventListener('click', () => openCalorieQuick('meal'));
+  els.calorieFabMus?.addEventListener('click', () => openCalorieQuick('mus'));
+  els.calorieQuickCancel?.addEventListener('click', closeCalorieQuick);
+  els.calorieQuickBackdrop?.addEventListener('click', closeCalorieQuick);
+  els.calorieQuickClear?.addEventListener('click', clearCalorieQuickInput);
+  els.calorieQuickOk?.addEventListener('click', submitCalorieQuick);
+  els.calorieQuickInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitCalorieQuick();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCalorieQuick();
+    }
+  });
+  const onCalorieProfileChange = () => {
+    flushCalorieProfileFromUi({ status: '' });
+  };
+  const profileInputs = [
+    els.calorieProteinFactor,
+    els.calorieHeight,
+    els.calorieBirthdate,
+    els.calorieSex,
+    els.calorieGoalWaist,
+    els.calorieGoalWeight,
+  ];
+  profileInputs.forEach((el) => {
+    el?.addEventListener('change', onCalorieProfileChange);
+    // Mobile: value often commits on blur without a reliable change in some WebViews.
+    el?.addEventListener('blur', onCalorieProfileChange);
+  });
+  const onCalorieToneChange = () => persistCalorieTonesFromUi();
+  [els.calorieToneEat, els.calorieToneBurn, els.calorieToneEmpty, els.calorieToneLine].forEach((el) => {
+    if (!el) return;
+    el.addEventListener('input', onCalorieToneChange);
+    el.addEventListener('change', onCalorieToneChange);
+    // Some mobile WebViews only commit the native color picker on blur.
+    el.addEventListener('blur', onCalorieToneChange);
+  });
+  els.calorieToneReset?.addEventListener('click', () => {
+    persistCalorieTonesFromUi({ reset: true });
+  });
+  els.calorieQuickFreq?.addEventListener('click', (e) => {
+    const chip = e.target?.closest?.('[data-freq-text]');
+    if (!chip || !els.calorieQuickFreq.contains(chip)) return;
+    e.preventDefault();
+    if (els.calorieQuickInput) {
+      els.calorieQuickInput.value = chip.dataset.freqText || '';
+      try { els.calorieQuickInput.focus(); } catch { /* ignore */ }
+    }
+  });
+
+  const applyTodayCardField = (input) => {
+    const dayId = els.calorieTodayCard?.dataset?.dayId;
+    if (!dayId || !input) return;
+    const sheet = ensureCaloriePayload();
+    if (input.hasAttribute('data-ctc-meal')) {
+      const idx = Number(input.getAttribute('data-ctc-meal'));
+      const day = sheet.days.find((d) => d.id === dayId);
+      if (!day || !Number.isFinite(idx)) return;
+      const meals = expandMealsForEdit(day.meals);
+      while (meals.length <= idx) meals.push('');
+      meals[idx] = String(input.value || '').trim().slice(0, 32);
+      persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
+        status: '',
+        fullRender: true,
+      });
+      return;
+    }
+    const field =
+      input === els.calorieTodayWeight
+        ? 'weight'
+        : input === els.calorieTodayWaist
+          ? 'waist'
+          : input === els.calorieTodayMus
+            ? 'mus'
+            : null;
+    if (!field) return;
+    const num = String(input.value || '').trim();
+    const parsed = num === '' ? null : Number(num);
+    if (num !== '' && !Number.isFinite(parsed)) return;
+    let next = patchDay(sheet, dayId, { [field]: parsed });
+    if (field === 'mus' && (parsed == null || parsed === 0)) {
+      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, note: '' }));
+    }
+    // Derived refresh is enough for body/burn — avoid full table rebuild flicker.
+    persistCalorie(next, { status: '', fullRender: false });
+  };
+  const onTodayCardChange = (e) => {
+    const input = e.target?.closest?.('input');
+    if (!input || !els.calorieTodayCard?.contains(input)) return;
+    applyTodayCardField(input);
+  };
+  els.calorieTodayCard?.addEventListener('input', (e) => {
+    const input = e.target?.closest?.('input');
+    if (!input || !els.calorieTodayCard?.contains(input)) return;
+    const wrap = input.closest('.cal-input-wrap, .ctc-field-wrap');
+    if (wrap) wrap.classList.toggle('has-value', String(input.value || '').trim() !== '');
+  });
+  els.calorieTodayCard?.addEventListener('change', onTodayCardChange);
+  els.calorieTodayCard?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const input = e.target?.closest?.('input');
+    if (!input || !els.calorieTodayCard.contains(input)) return;
+    e.preventDefault();
+    input.blur();
+  });
+  els.calorieTodayCard?.addEventListener('click', (e) => {
+    // แตะตัวเลขมื้อ/mus → แผ่นเคลียร์+บันทึก (ไม่มี ×)
+    const mealInput = e.target?.closest?.('input[data-ctc-meal]');
+    if (mealInput && els.calorieTodayCard.contains(mealInput)) {
+      e.preventDefault();
+      const dayId = els.calorieTodayCard.dataset.dayId;
+      const idx = Number(mealInput.dataset.ctcMeal);
+      if (!dayId || !Number.isFinite(idx)) return;
+      openCalorieCellEditor({
+        mode: 'meal',
+        dayId,
+        mealIndex: idx,
+        value: mealInput.value,
+      });
+      return;
+    }
+    const burnBox = e.target?.closest?.('#calorie-today-burn, #calorie-today-mus, #calorie-today-pose');
+    if (burnBox && els.calorieTodayCard.contains(burnBox)) {
+      e.preventDefault();
+      const dayId = els.calorieTodayCard.dataset.dayId;
+      if (!dayId) return;
+      openCalorieCellEditor({
+        mode: 'mus',
+        dayId,
+        value: els.calorieTodayMus?.value || '',
+      });
+    }
+  });
+  els.calorieTodayCard?.addEventListener('focusin', (e) => {
+    const mealInput = e.target?.closest?.('input[data-ctc-meal]');
+    if (mealInput && els.calorieTodayCard.contains(mealInput)) {
+      mealInput.blur();
+      const dayId = els.calorieTodayCard.dataset.dayId;
+      const idx = Number(mealInput.dataset.ctcMeal);
+      if (!dayId || !Number.isFinite(idx)) return;
+      openCalorieCellEditor({
+        mode: 'meal',
+        dayId,
+        mealIndex: idx,
+        value: mealInput.value,
+      });
+      return;
+    }
+    const musInput = e.target?.closest?.('#calorie-today-mus');
+    if (musInput && els.calorieTodayCard.contains(musInput)) {
+      musInput.blur();
+      const dayId = els.calorieTodayCard.dataset.dayId;
+      if (!dayId) return;
+      openCalorieCellEditor({ mode: 'mus', dayId, value: musInput.value });
+    }
+  });
+  els.calorieHealthSheet?.addEventListener('click', (e) => {
+    const openGoals = e.target?.closest?.('[data-calorie-action="open-settings"]');
+    if (openGoals && els.calorieHealthSheet.contains(openGoals)) {
+      e.preventDefault();
+      openSettings();
+      const goalRow = document.getElementById('goal-settings-row');
+      if (goalRow) {
+        goalRow.open = true;
+        try {
+          goalRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch { /* ignore */ }
+      }
+      try {
+        els.calorieGoalWaist?.focus();
+      } catch { /* ignore */ }
+      return;
+    }
+    const btn = e.target?.closest?.('[data-chs-range]');
+    if (!btn || !els.calorieHealthSheet.contains(btn)) return;
+    e.preventDefault();
+    const days = normalizeTrendDays(btn.dataset.chsRange, state.calorieTrendDays);
+    if (days === state.calorieTrendDays) return;
+    persistCalorieTrendDays(days);
+    paintCalorieHealthSheet(ensureCaloriePayload());
+  });
+  let calorieScrollTick = 0;
+  els.calorieScroll?.addEventListener('scroll', () => {
+    if (calorieScrollTick) return;
+    calorieScrollTick = requestAnimationFrame(() => {
+      calorieScrollTick = 0;
+      syncCalorieMonthFromScroll();
+    });
+  }, { passive: true });
+  const applyCalorieField = (input) => {
+    if (!input || !els.calorieTbody?.contains(input)) return;
+    const dayId = input.dataset.dayId;
+    const field = input.dataset.calField;
+    if (!dayId || !field || field === 'base') return;
+    const sheet = ensureCaloriePayload();
+    if (field === 'meal') {
+      const idx = Number(input.dataset.mealIndex);
+      const day = sheet.days.find((d) => d.id === dayId);
+      if (!day || !Number.isFinite(idx)) return;
+      const meals = expandMealsForEdit(day.meals);
+      while (meals.length <= idx) meals.push('');
+      meals[idx] = String(input.value || '').trim().slice(0, 32);
+      persistCalorie(patchDay(sheet, dayId, { meals: normalizeMeals(meals) }), {
+        status: '',
+        fullRender: true,
+      });
+      return;
+    }
+    if (field === 'note') {
+      persistCalorie(patchDay(sheet, dayId, { note: String(input.value || '').slice(0, 200) }), { status: '' });
+      return;
+    }
+    if (field === 'date') {
+      const v = String(input.value || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+      const next = patchDay(sheet, dayId, { date: v });
+      state.calorieActiveMonth = monthKeyFromDate(v);
+      persistCalorie(next, { status: '', fullRender: true });
+      return;
+    }
+    const num = String(input.value || '').trim();
+    const parsed = num === '' ? null : Number(num);
+    if (num !== '' && !Number.isFinite(parsed)) return;
+    let next = patchDay(sheet, dayId, { [field]: parsed });
+    if (field === 'mus' && (parsed == null || parsed === 0)) {
+      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, note: '' }));
+    }
+    persistCalorie(next, { status: '', fullRender: false });
+  };
+  const markClearWrap = (input) => {
+    const wrap = input?.closest?.('.cal-input-wrap, .ctc-field-wrap');
+    if (!wrap) return;
+    wrap.classList.toggle('has-value', String(input.value || '').trim() !== '');
+  };
+  els.calorieTbody?.addEventListener('input', (e) => {
+    const input = e.target?.closest?.('input[data-cal-field]');
+    if (input) markClearWrap(input);
+  });
+  els.calorieTbody?.addEventListener('change', (e) => {
+    const input = e.target?.closest?.('input[data-cal-field]');
+    if (input) applyCalorieField(input);
+  });
+  els.calorieTbody?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const input = e.target?.closest?.('input[data-cal-field]');
+    if (!input) return;
+    e.preventDefault();
+    input.blur();
+  });
+  els.calorieTbody?.addEventListener('focusin', (e) => {
+    const mealInput = e.target?.closest?.('input[data-cal-field="meal"]');
+    if (mealInput && els.calorieTbody.contains(mealInput)) {
+      mealInput.blur();
+      openCalorieCellEditor({
+        mode: 'meal',
+        dayId: mealInput.dataset.dayId,
+        mealIndex: Number(mealInput.dataset.mealIndex),
+        value: mealInput.value,
+      });
+      return;
+    }
+    const musInput = e.target?.closest?.('input[data-cal-field="mus"]');
+    if (musInput && els.calorieTbody.contains(musInput)) {
+      musInput.blur();
+      openCalorieCellEditor({
+        mode: 'mus',
+        dayId: musInput.dataset.dayId,
+        value: musInput.value,
+      });
+    }
+  });
+  els.calorieTbody?.addEventListener('click', (e) => {
+    const mealInput = e.target?.closest?.('input[data-cal-field="meal"]');
+    if (mealInput && els.calorieTbody.contains(mealInput)) {
+      e.preventDefault();
+      openCalorieCellEditor({
+        mode: 'meal',
+        dayId: mealInput.dataset.dayId,
+        mealIndex: Number(mealInput.dataset.mealIndex),
+        value: mealInput.value,
+      });
+      return;
+    }
+    const musInput = e.target?.closest?.('input[data-cal-field="mus"]');
+    if (musInput && els.calorieTbody.contains(musInput)) {
+      e.preventDefault();
+      openCalorieCellEditor({
+        mode: 'mus',
+        dayId: musInput.dataset.dayId,
+        value: musInput.value,
+      });
+      return;
+    }
+    const dateOpen = e.target?.closest?.('[data-cal-date-open]');
+    if (dateOpen && els.calorieTbody.contains(dateOpen)) {
+      e.preventDefault();
+      const id = dateOpen.dataset.calDateOpen;
+      const picker = els.calorieTbody.querySelector(
+        `input.cal-date-picker[data-day-id="${CSS.escape(id)}"]`,
+      );
+      if (picker) {
+        try {
+          if (typeof picker.showPicker === 'function') picker.showPicker();
+          else {
+            picker.style.pointerEvents = 'auto';
+            picker.focus();
+            picker.click();
+          }
+        } catch {
+          picker.focus();
+        }
+      }
+    }
+  });
+
   els.notepadQuickScroll?.addEventListener('click', (e) => {
     const chip = e.target.closest?.('[data-notepad-quick-id]');
     if (!chip || !els.notepadQuickScroll.contains(chip)) return;
@@ -6222,7 +8277,7 @@ async function init({ fromBoot = false } = {}) {
   els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
   els.notifyOnBtn?.addEventListener('click', () => setNotificationsEnabled(true));
   els.notifyLabel?.addEventListener('change', () => {
-    persistNotifyPrefs({ label: els.notifyLabel.value.trim() || 'P-Note' });
+    persistNotifyPrefs({ label: els.notifyLabel.value.trim() || 'แคลโน้ต' });
   });
   els.notifyEarly?.addEventListener('change', () => {
     persistNotifyPrefs({ earlyMinutes: Number(els.notifyEarly.value) || 0 });
@@ -6277,6 +8332,24 @@ async function init({ fromBoot = false } = {}) {
 
   initAiScheduleControls();
   bindAiFormDirtyWatchers();
+  els.googleLoginBtn?.addEventListener('click', () => {
+    void handleGoogleLoginClick();
+  });
+  els.signOutBtn?.addEventListener('click', async () => {
+    const ok = await showConfirm('ออกจากระบบ? ข้อมูลในเครื่องยังอยู่ — คลาวด์จะหยุดซิงค์', {
+      okLabel: 'ออกจากระบบ',
+      danger: true,
+    });
+    if (!ok) return;
+    await signOut();
+    state.authUser = null;
+    state.online = false;
+    state.cloudHydrated = false;
+    setSyncReady(false);
+    refreshAuthAccountHint();
+    setAuthOverlayVisible(true);
+    setSyncStatus('offline', 'ออกจากระบบแล้ว');
+  });
   els.exportNotesBtn?.addEventListener('click', exportNotesBackup);
   els.importNotesBtn?.addEventListener('click', () => els.importNotesFile?.click());
   els.importNotesFile?.addEventListener('change', async () => {
@@ -6465,20 +8538,28 @@ async function init({ fromBoot = false } = {}) {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     refreshNoteNotifications();
-    // Soft re-warm when returning to the app (throttled; toast only if data changed).
+    if (!state.authUser) return;
+    if (!isSyncReady()) {
+      void ensureCloudReady({ force: true, announce: true });
+      return;
+    }
+    // Soft re-warm when returning (keep ready; refresh remote quietly).
     void syncSpaceInBackground({ force: false, announce: false }).then((changed) => {
-      if (changed) setDbStatusMessage('ซิงค์ข้อมูลล่าสุดแล้ว');
+      if (changed) setDbStatusMessage('ซิงค์ล่าสุดแล้ว');
     });
   });
   window.addEventListener('pageshow', () => refreshNoteNotifications());
   window.addEventListener('focus', () => refreshNoteNotifications());
   window.addEventListener('online', () => {
     refreshNoteNotifications();
-    setSyncStatus('busy', 'กำลังซิงค์…');
-    void syncSpaceInBackground({ force: true, announce: true });
+    if (!state.authUser) return;
+    void ensureCloudReady({ force: true, announce: true });
   });
   window.addEventListener('offline', () => {
-    setSyncStatus('offline', 'ออฟไลน์ · เก็บในเครื่อง');
+    state.online = false;
+    setSyncReady(false);
+    setSyncStatus('offline', 'รอซิงค์…');
+    showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
   });
 
   // Block iOS pinch/gesture zoom so the fixed layout never overflows its edges.

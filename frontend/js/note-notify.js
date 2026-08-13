@@ -148,7 +148,7 @@ function formatWhen(iso) {
 
 function buildTitle(note, prefs) {
   const p = prefsOrDefault(prefs);
-  const label = String(p.label || 'P-Note').trim() || 'P-Note';
+  const label = String(p.label || 'แคลโน้ต').trim() || 'แคลโน้ต';
   const noteTitle = (note.title && String(note.title).trim()) || 'โน้ตถึงกำหนด';
   return `${label} · ${noteTitle}`;
 }
@@ -198,7 +198,7 @@ function buildOptions(note, prefs, { test = false } = {}) {
       remindBefore: normalizeRemindBefore(note?.remindBefore),
       notifyRepeat: normalizeNotifyRepeat(note?.notifyRepeat),
       url: './note.html',
-      label: String(p.label || 'P-Note'),
+      label: String(p.label || 'แคลโน้ต'),
     },
     icon: './icons/icon-192.png',
     badge: './icons/icon-192.png',
@@ -396,7 +396,7 @@ export async function sendTestNotification(prefs = {}) {
 
   await registerNotifyServiceWorker();
   const p = prefsOrDefault(prefs);
-  const label = String(p.label || 'P-Note').trim() || 'P-Note';
+  const label = String(p.label || 'แคลโน้ต').trim() || 'แคลโน้ต';
   try {
     await displayNotification(
       `${label} · ทดสอบ`,

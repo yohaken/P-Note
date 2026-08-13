@@ -30,7 +30,8 @@ Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/
 - **`js/update-watch.js`** polls the current HTML every ~20s (and when the tab becomes visible) for a newer `pnote-build`; shows a brief toast then purges caches and reloads. Polling is disabled on `localhost`.
 - Notes are stored in **Firestore** (`spaces/{spaceId}` doc holds the payload). All devices use one fixed shared space (`sp-pnote-shared` in `frontend/js/remote.js`) — no sync code. On first open after the change, any previous per-device space id is merged into the shared doc once. **Local-first:** on load the app paints from `localStorage` (`pnote_local_data`) immediately, then syncs Firestore in the background (merge by per-note `updatedAt`); also soft-resyncs when the tab becomes visible / online again. Migrates local notes into the DB when the remote space is empty. Export/import JSON via **สำรอง / นำเข้า** still works.
 - Production Firebase/GCP project is **MyNote** (`mynote-f1bbc`). Live app: https://mynote-f1bbc.web.app — no longer linked to MyPeer (`mypeer-501909`). Production Firestore must exist in `mynote-f1bbc` (Native mode). The deploy workflow best-effort-creates it; if the DB is missing or the Cloud Run SA lacks `roles/datastore.user`, `/api/db-status` returns 503 and the app runs offline (localStorage only). Hosting rewrites `/api/**` to Cloud Run `p-note-api` (same project).
-- Home page is **notes-only** (`note.html`; no Calorie/health page). Schedule field remains in the editor.
+- Home page is `note.html` with modes: งานหลัก / Note / ปฏิทิน / **แคลอรี่** (spreadsheet day log). Schedule field remains in the editor.
+- **แคลอรี่** (build 160+): payload `calorie` on the shared Firestore space (v8). Day rows with meals as `kcal,protein`; derived Add cal / prot / p-rm / balance / bl-kg / bsum / %bl. Switch via dock **แคล** or mode menu.
 - **Bar names (use these Thai names when talking with the user):**
   | ชื่อเรียก | คืออะไร | ที่อยู่ |
   |---|---|---|
@@ -38,5 +39,6 @@ Personal notes PWA. Static frontend (`frontend/`) plus an Express API (`backend/
   | **ความสำคัญ** | กรอง: สำคัญเร่งด่วน / สำคัญ / เร่งด่วน / ทั่วไป | movable bar `data-bar="priority"` |
   | **แท็ก** | กรองตามแท็ก | movable bar `data-bar="tag"` |
   | **กลุ่มงาน** | งาน / ทำแล้ว / ถังขยะ | left drawer ☰ |
-  | **เพิ่ม** | สร้างโน้ต (FAB) | `#add-note-btn` |
+  | **แคลอรี่** | แผ่นงานแคล/โปรตีนรายวัน | mode `calorie` · `#calorie-view` |
+  | **เพิ่ม** | สร้างโน้ต / เพิ่มวัน (โหมดแคล) | `#add-note-btn` |
 - On empty storage, app tries **legacy localStorage recovery** and optional `./data/notes-import.json`. Settings ⚙: paste JSON import or **กู้คืนในเครื่อง**.

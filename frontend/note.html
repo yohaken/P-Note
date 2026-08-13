@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="153">
-  <meta name="pnote-built" content="2026-08-10T21:04:00+07:00">
+  <meta name="pnote-build" content="200">
+  <meta name="pnote-built" content="2026-08-13T01:55:00+00:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="P-Note">
-  <title>P-Note</title>
-  <script src="js/cache-bootstrap.js?v=153"></script>
+  <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
+  <title>แคลโน้ต</title>
+  <script src="js/cache-bootstrap.js?v=200"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=153">
+  <link rel="stylesheet" href="css/pnote.css?v=200">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -24,37 +24,81 @@
       vertical-align: baseline;
     }
     .app-built { display: none !important; }
+    /* Retired work/note/calendar chrome — hide before modules load */
+    #list-view,
+    #editor-view,
+    #calendar-view,
+    #group-drawer,
+    #drawer-backdrop,
+    #modeMenuOverlay,
+    #float-tag-rail,
+    #filter-dock-filters,
+    #notepad-quick-bar,
+    #search-toggle-btn,
+    #note-search-row,
+    #mode-switch-btn,
+    .dock-mode-switch,
+    #group-nav-btn,
+    #filter-due-menu,
+    #filter-sort-menu,
+    #filter-priority-menu,
+    #filter-recurrence-menu,
+    #filter-dd-backdrop,
+    #icon-picker-overlay,
+    #ai-note-modal,
+    #selection-dock,
+    #undo-fab-btn {
+      display: none !important;
+    }
+    #calorie-app-title {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .app-logo {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      object-fit: cover;
+    }
   </style>
 </head>
-<body class="light">
+<body class="light calorie-mode calorie-only">
   <div id="app">
+    <!-- Calorie chrome (work/note/calendar surfaces retired) -->
+    <header id="board-topbar" class="topbar topbar-thin">
+      <div class="topbar-title">
+        <button type="button" class="mode-switch-btn" id="mode-switch-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="modeMenuOverlay" title="แคลโน้ต" hidden>
+          <span class="mode-switch-name" id="mode-switch-name">แคลโน้ต</span>
+          <span class="mode-switch-ver" id="mode-switch-ver" aria-hidden="true"></span>
+          <span class="mode-switch-chev" aria-hidden="true">▾</span>
+        </button>
+        <div class="calorie-app-title" id="calorie-app-title">
+          <img class="app-logo" src="icons/icon-192.png?v=200" width="22" height="22" alt="" aria-hidden="true">
+          <span class="mode-switch-name">แคลโน้ต</span>
+          <span class="mode-switch-ver" id="calorie-app-ver" aria-hidden="true"></span>
+        </div>
+        <h1 id="app-title" class="sr-only">แคลโน้ต</h1>
+        <p id="app-built" class="app-built">อัปเดต —</p>
+      </div>
+      <div class="topbar-actions">
+        <button id="search-toggle-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="โฟกัสค้นหา" aria-expanded="true" aria-controls="note-search-row" hidden>⌕</button>
+        <button
+          id="sync-status-btn"
+          class="btn btn-mini sync-status-btn"
+          type="button"
+          data-state="idle"
+          aria-label="สถานะฐานข้อมูล"
+          title="สถานะฐานข้อมูล"
+        >
+          <span class="sync-status-glyph" aria-hidden="true"></span>
+          <span id="sync-status-tip" class="sync-status-tip" hidden></span>
+        </button>
+        <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">ตั้งค่า</button>
+      </div>
+    </header>
+
     <section id="list-view" class="view" hidden>
-      <header class="topbar topbar-thin">
-        <div class="topbar-title">
-          <button type="button" class="mode-switch-btn" id="mode-switch-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="modeMenuOverlay" title="สลับโหมด">
-            <span class="mode-switch-name" id="mode-switch-name">งานหลัก</span>
-            <span class="mode-switch-ver" id="mode-switch-ver" aria-hidden="true"></span>
-            <span class="mode-switch-chev" aria-hidden="true">▾</span>
-          </button>
-          <h1 id="app-title" class="sr-only">P-Note</h1>
-          <p id="app-built" class="app-built">อัปเดต —</p>
-        </div>
-        <div class="topbar-actions">
-          <button id="search-toggle-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="โฟกัสค้นหา" aria-expanded="true" aria-controls="note-search-row" hidden>⌕</button>
-          <button
-            id="sync-status-btn"
-            class="btn btn-mini sync-status-btn"
-            type="button"
-            data-state="idle"
-            aria-label="สถานะฐานข้อมูล"
-            title="สถานะฐานข้อมูล"
-          >
-            <span class="sync-status-glyph" aria-hidden="true"></span>
-            <span id="sync-status-tip" class="sync-status-tip" hidden></span>
-          </button>
-          <button id="settings-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="ตั้งค่า">ตั้งค่า</button>
-        </div>
-      </header>
       <div id="note-search-row" class="note-search-row">
         <input id="note-search-input" class="note-search-input" type="search" placeholder="ค้นหาโน้ต…" autocomplete="off" enterkeyhint="search">
         <button id="note-search-clear" class="btn btn-text note-search-clear" type="button" hidden aria-label="ล้างค้นหา">×</button>
@@ -63,7 +107,7 @@
       <div class="list-scroll">
         <div id="empty-state" class="empty-state" hidden>
           <p id="empty-state-text">ยังไม่มีโน้ต</p>
-          <p class="empty-state-hint">ข้อมูลถูกเก็บบนเซิร์ฟเวอร์อัตโนมัติ · แตะ + เพื่อจดเร็ว หรือใช้ AI ช่วย</p>
+          <p class="empty-state-hint">บันทึกคลาวด์ Firestore อัตโนมัติหลังล็อกอิน · แตะ + เพื่อจด หรือนำเข้า JSON</p>
           <div class="empty-state-actions">
             <button class="btn btn-secondary" type="button" id="empty-add-blank-btn">จดโน้ตว่าง</button>
             <button class="btn btn-primary" type="button" id="empty-add-ai-btn">เพิ่มด้วย AI</button>
@@ -157,13 +201,119 @@
       </footer>
     </section>
 
-    <div id="drawer-backdrop" class="drawer-backdrop"></div>
-    <aside id="group-drawer" class="drawer" aria-label="กลุ่มงาน">
+    <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+    <aside id="group-drawer" class="drawer" hidden aria-hidden="true" aria-label="กลุ่มงาน">
       <h2>กลุ่มงาน</h2>
       <button id="group-active-btn" class="drawer-item active" type="button">งาน</button>
       <button id="group-done-btn" class="drawer-item" type="button">ทำแล้ว</button>
       <button id="group-trash-btn" class="drawer-item" type="button">ถังขยะ</button>
     </aside>
+
+    <section id="calorie-view" class="view calorie-view" aria-label="แผ่นงานแคลอรี่">
+      <div class="calorie-toolbar">
+        <div class="calorie-totals" id="calorie-totals" aria-live="polite"></div>
+      </div>
+
+      <!-- Simple 7-day dashboard (numbers + tiny sparks) -->
+      <div id="calorie-dash" class="calorie-dash" hidden aria-label="สรุป 7 วัน"></div>
+
+      <!-- Compact “today” card — primary logging surface on mobile -->
+      <div id="calorie-today-card" class="calorie-today-card" hidden>
+        <div class="ctc-head">
+          <span class="ctc-title" id="calorie-today-title">วันนี้</span>
+          <span class="ctc-sub" id="calorie-today-sub"></span>
+          <span class="ctc-pill" id="calorie-today-base" title="BMR อัตโนมัติ">base —</span>
+          <span class="ctc-pill" id="calorie-today-bmi" title="BMI">BMI —</span>
+        </div>
+        <div class="ctc-stats" aria-live="polite">
+          <div class="ctc-stat" id="calorie-today-bal">
+            <span class="ctc-stat-label">แคลอรี่วันนี้</span>
+            <strong class="ctc-stat-value" id="calorie-today-bal-value">—</strong>
+            <span class="ctc-stat-kg" id="calorie-today-kg-value" title="น้ำหนักจากดุลแคลอรี่">—</span>
+            <span class="ctc-stat-meta" id="calorie-today-bal-meta"></span>
+          </div>
+          <div class="ctc-stat" id="calorie-today-prot">
+            <span class="ctc-stat-label">โปรตีนวันนี้</span>
+            <strong class="ctc-stat-value" id="calorie-today-prot-value">—</strong>
+            <span class="ctc-stat-meta" id="calorie-today-prot-meta"></span>
+          </div>
+          <div class="ctc-stat ctc-stat-edit" id="calorie-today-body">
+            <span class="ctc-stat-label">ร่างกาย</span>
+            <div class="ctc-stat-duo">
+              <label class="ctc-stat-field">
+                <span>น้ำหนัก · กก</span>
+                <span class="ctc-field-wrap"><input id="calorie-today-weight" type="number" inputmode="decimal" step="0.1" min="20" max="300" autocomplete="off" aria-label="น้ำหนักตัว"></span>
+              </label>
+              <label class="ctc-stat-field">
+                <span>รอบเอว · ซม</span>
+                <span class="ctc-field-wrap"><input id="calorie-today-waist" type="number" inputmode="decimal" step="0.1" min="40" max="200" autocomplete="off" aria-label="รอบเอว"></span>
+              </label>
+            </div>
+          </div>
+          <div class="ctc-stat ctc-stat-burn" id="calorie-today-burn" title="แตะเพื่อแก้เบิร์น / ท่า">
+            <span class="ctc-stat-label">เบิร์น / ท่า</span>
+            <span class="ctc-field-wrap ctc-burn-wrap">
+              <input id="calorie-today-mus" class="ctc-stat-value-input" type="number" inputmode="numeric" step="1" min="0" max="5000" autocomplete="off" readonly aria-label="แคลที่เบิร์น" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก">
+            </span>
+            <span class="ctc-stat-meta" id="calorie-today-pose">ยังไม่มีท่า</span>
+          </div>
+        </div>
+        <div class="ctc-meals" id="calorie-today-meals" aria-label="มื้อวันนี้ · ปัดซ้ายถ้ามื้อเยอะ"></div>
+        <div class="ctc-summary" id="calorie-today-summary" hidden></div>
+      </div>
+
+      <div class="calorie-scroll" id="calorie-scroll">
+        <table class="calorie-table" id="calorie-table" aria-label="ตารางแคลอรี่รายวัน">
+          <thead id="calorie-thead"></thead>
+          <tbody id="calorie-tbody"></tbody>
+        </table>
+        <p class="calorie-empty" id="calorie-empty" hidden>ยังไม่มีวัน — ระบบสร้างวันนี้ให้อัตโนมัติ</p>
+      </div>
+
+      <!-- Separate health metrics sheet (not on logging home) -->
+      <div id="calorie-health-sheet" class="calorie-health-sheet" hidden aria-label="สรุปสุขภาพ"></div>
+    </section>
+
+    <div id="calorie-quick-overlay" class="calorie-quick-overlay" hidden>
+      <div class="calorie-quick-backdrop" id="calorie-quick-backdrop"></div>
+      <div class="calorie-quick-sheet" role="dialog" aria-modal="true" aria-labelledby="calorie-quick-title">
+        <h3 id="calorie-quick-title" class="calorie-quick-title">เพิ่มมื้อ</h3>
+        <div id="calorie-quick-freq" class="calorie-quick-freq" hidden aria-label="ใช้บ่อย"></div>
+        <p id="calorie-quick-hint" class="calorie-quick-hint">ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27 หรือ ข้าวต้ม 180,12</p>
+        <input id="calorie-quick-input" class="calorie-quick-input" type="text" autocomplete="off" enterkeyhint="done" />
+        <div class="calorie-quick-actions">
+          <button type="button" class="btn btn-secondary" id="calorie-quick-clear" hidden>เคลียร์</button>
+          <button type="button" class="btn btn-secondary" id="calorie-quick-cancel">ยกเลิก</button>
+          <button type="button" class="btn btn-primary" id="calorie-quick-ok">เพิ่ม</button>
+        </div>
+      </div>
+    </div>
+
+    <section id="calendar-view" class="view calendar-view" hidden aria-label="ปฏิทิน" data-cal-zoom="month">
+      <header class="cal-header">
+        <button type="button" class="cal-year-back" id="cal-year-back" aria-label="มุมมองรายปี">‹ <span id="cal-year-label">—</span></button>
+        <h2 class="cal-month-title" id="cal-month-title"></h2>
+        <span class="cal-header-spacer" aria-hidden="true"></span>
+      </header>
+      <div class="cal-weekdays" id="cal-weekdays" aria-hidden="true">
+        <span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span><span>อา</span>
+      </div>
+      <div class="cal-body">
+        <div class="cal-scroll" id="cal-scroll" tabindex="0" aria-label="เลื่อนดูเดือน"></div>
+        <div class="cal-year-view" id="cal-year-view" hidden aria-label="มุมมองรายปี"></div>
+      </div>
+      <div class="cal-notes" id="cal-notes" hidden>
+        <div class="cal-notes-handle" aria-hidden="true"></div>
+        <p class="cal-notes-empty">เลือกวันที่เพื่อดูงาน</p>
+      </div>
+      <footer class="cal-toolbar" aria-label="ควบคุมปฏิทิน">
+        <button type="button" class="cal-toolbar-btn" id="cal-today-btn">วันนี้</button>
+        <div class="cal-zoom-group" role="group" aria-label="ซูม">
+          <button type="button" class="cal-toolbar-btn cal-zoom-btn" id="cal-zoom-out" aria-label="ซูมออก — มุมมองปี" title="ซูมออก">−</button>
+          <button type="button" class="cal-toolbar-btn cal-zoom-btn" id="cal-zoom-in" aria-label="ซูมเข้า — มุมมองเดือน" title="ซูมเข้า">+</button>
+        </div>
+      </footer>
+    </section>
 
     <div id="ai-note-modal" class="modal" hidden>
       <div class="modal-card modal-card-ai" role="dialog" aria-labelledby="ai-note-title">
@@ -302,7 +452,94 @@
       <div class="settings-panel" role="dialog" aria-labelledby="settings-title">
         <h2 id="settings-title">ตั้งค่า</h2>
 
-        <details class="settings-group" id="card-display-settings-row" open>
+        <!-- Body profile: rare-change fields only (weight/waist stay on today card) -->
+        <details class="settings-group" id="body-settings-row" open>
+          <summary class="settings-group-summary">ร่างกาย · คำนวณ base</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-tight">
+              <p class="settings-hint" style="margin-top:0">
+                ค่าที่แทบไม่เปลี่ยน · ใช้คำนวณ BMR (base) อัตโนมัติ · น้ำหนักและรอบเอวกรอกในการ์ดวันนี้
+              </p>
+              <label class="notify-field" for="calorie-height">
+                <span>ส่วนสูง (ซม.)</span>
+                <input id="calorie-height" class="notify-select" type="number" min="100" max="250" step="1" inputmode="numeric" aria-label="ส่วนสูงเซนติเมตร">
+              </label>
+              <label class="notify-field" for="calorie-birthdate" style="margin-top:0.45rem">
+                <span>วันเกิด</span>
+                <input id="calorie-birthdate" class="notify-select" type="date" aria-label="วันเกิด">
+              </label>
+              <p class="settings-hint" id="calorie-age-display" style="margin-top:0.25rem">อายุ — ปี</p>
+              <label class="notify-field" for="calorie-sex" style="margin-top:0.45rem">
+                <span>เพศ</span>
+                <select id="calorie-sex" class="notify-select" aria-label="เพศ">
+                  <option value="male">ชาย</option>
+                  <option value="female">หญิง</option>
+                </select>
+              </label>
+              <label class="notify-field" for="calorie-protein-factor" style="margin-top:0.45rem">
+                <span>เป้าโปรตีน × ต่อ กก.</span>
+                <input id="calorie-protein-factor" class="notify-select" type="number" min="0.5" max="4" step="0.05" inputmode="decimal" aria-label="ตัวคูณโปรตีนต่อกก.">
+              </label>
+              <p class="settings-hint">สูตร base: Mifflin–St Jeor จากน้ำหนักวันนั้น + ส่วนสูง/วันเกิด/เพศ</p>
+            </div>
+          </div>
+        </details>
+
+        <details class="settings-group" id="goal-settings-row" open>
+          <summary class="settings-group-summary">เป้าหมายร่างกาย</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-tight">
+              <p class="settings-hint" style="margin-top:0">
+                <strong>เอวเป็นหัวใจหลัก</strong> — ไขมันช่วงกลางตัวสัมพันธ์กับความเสี่ยงสุขภาพ · น้ำหนักเป็นเป้า<strong>รอง</strong> เพราะกล้ามเนื้อทำให้ชั่งขึ้นได้โดยไม่แย่
+              </p>
+              <label class="notify-field" for="calorie-goal-waist">
+                <span>เป้าเอวหลัก (ซม.)</span>
+                <input id="calorie-goal-waist" class="notify-select" type="number" min="40" max="200" step="0.1" inputmode="decimal" placeholder="เช่น 80" aria-label="เป้ารอบเอวเซนติเมตร">
+              </label>
+              <label class="notify-field" for="calorie-goal-weight" style="margin-top:0.45rem">
+                <span>เป้าน้ำหนักรอง (กก.)</span>
+                <input id="calorie-goal-weight" class="notify-select" type="number" min="30" max="300" step="0.1" inputmode="decimal" placeholder="ไม่บังคับ" aria-label="เป้าน้ำหนักกิโลกรัม">
+              </label>
+              <p class="settings-hint">ว่างไว้ = ยังไม่ตั้ง · ความคืบหน้าดูในหน้าสรุป</p>
+            </div>
+          </div>
+        </details>
+
+        <details class="settings-group" id="tone-settings-row" open>
+          <summary class="settings-group-summary">โทนสีตาราง</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-tight">
+              <p class="settings-hint" style="margin-top:0">กิน = มื้อ · เบิร์น = ออกกำลัง · ว่าง = แถวบน · เส้น = คั่นวัน — เปลี่ยนแล้วเห็นทันที</p>
+              <div class="cal-tone-grid" role="group" aria-label="โทนสีแคลอรี่">
+                <label class="cal-tone-field" for="calorie-tone-eat">
+                  <span>กิน / มื้อ</span>
+                  <input id="calorie-tone-eat" type="color" value="#ea580c" aria-label="โทนกิน">
+                </label>
+                <label class="cal-tone-field" for="calorie-tone-burn">
+                  <span>เบิร์น / ออกกำลัง</span>
+                  <input id="calorie-tone-burn" type="color" value="#16a34a" aria-label="โทนเบิร์น">
+                </label>
+                <label class="cal-tone-field" for="calorie-tone-empty">
+                  <span>พื้นว่าง</span>
+                  <input id="calorie-tone-empty" type="color" value="#ffffff" aria-label="โทนว่าง">
+                </label>
+                <label class="cal-tone-field" for="calorie-tone-line">
+                  <span>เส้นคั่นวัน</span>
+                  <input id="calorie-tone-line" type="color" value="#d9d2c5" aria-label="สีเส้นคั่นวัน">
+                </label>
+              </div>
+              <div class="cal-tone-preview" aria-hidden="true">
+                <span data-tone-swatch="eat">มื้อ</span>
+                <span data-tone-swatch="burn">เบิร์น</span>
+                <span data-tone-swatch="empty">ว่าง</span>
+                <span data-tone-swatch="line">เส้น</span>
+              </div>
+              <button type="button" class="btn btn-secondary btn-mini" id="calorie-tone-reset" style="margin-top:0.4rem">คืนค่าเริ่มต้น</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="settings-group work-only-settings" id="card-display-settings-row" hidden>
           <summary class="settings-group-summary">กล่องงาน · แสดงอะไร</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-row-tight">
@@ -380,7 +617,7 @@
           </div>
         </details>
 
-        <details class="settings-group" id="tags-settings-row">
+        <details class="settings-group work-only-settings" id="tags-settings-row" hidden>
           <summary class="settings-group-summary">แท็ก · ไอคอน</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-tags">
@@ -399,7 +636,7 @@
           </div>
         </details>
 
-        <details class="settings-group" id="notify-settings-row">
+        <details class="settings-group work-only-settings" id="notify-settings-row" hidden>
           <summary class="settings-group-summary">แจ้งเตือนเครื่อง</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-row-last">
@@ -408,12 +645,12 @@
                 <button id="notify-on-btn" type="button">เปิด</button>
               </div>
               <p class="settings-hint" id="notify-hint">
-                โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · เวลามาตรฐาน 09:00 น. · แนะนำติดตั้ง P-Note บนหน้าจอโฮม
+                โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · เวลามาตรฐาน 09:00 น. · แนะนำติดตั้ง แคลโน้ต บนหน้าจอโฮม
               </p>
               <div id="notify-options" class="notify-options" hidden>
                 <label class="notify-field">
                   <span>ป้ายกำกับ</span>
-                  <input id="notify-label" type="text" maxlength="24" placeholder="P-Note" autocomplete="off">
+                  <input id="notify-label" type="text" maxlength="24" placeholder="แคลโน้ต" autocomplete="off">
                 </label>
                 <div class="notify-toggle-row">
                   <span>เสียง</span>
@@ -479,7 +716,7 @@
           </div>
         </details>
 
-        <details class="settings-group" id="gemini-settings-row">
+        <details class="settings-group work-only-settings" id="gemini-settings-row" hidden>
           <summary class="settings-group-summary">Gemini AI</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-row-last">
@@ -545,7 +782,7 @@
           </div>
         </details>
 
-        <details class="settings-group" id="camera-settings-row">
+        <details class="settings-group work-only-settings" id="camera-settings-row" hidden>
           <summary class="settings-group-summary">กล้อง</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-row-last">
@@ -581,40 +818,31 @@
           </div>
         </details>
 
-        <details class="settings-group" id="backup-settings-row">
-          <summary class="settings-group-summary">สำรอง / นำเข้า</summary>
+        <details class="settings-group" id="backup-settings-row" hidden>
+          <summary class="settings-group-summary">สำรองแคลอรี่</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-row-last">
-              <p class="settings-hint" style="margin-top:0">
-                ดาวน์โหลด JSON ทั้งก้อนไว้กู้คืน · นำเข้าได้ทั้งแทนที่หรือรวมกับของเดิม (โน้ตซ้ำใช้ตัวที่ใหม่กว่า)
-              </p>
-              <button id="export-notes-btn" class="btn btn-primary" type="button">ดาวน์โหลดสำรอง</button>
-              <button id="import-notes-btn" class="btn btn-secondary" type="button" style="margin-top:0.45rem">เลือกไฟล์นำเข้า…</button>
+              <p class="settings-hint" style="margin-top:0">ปิดการสำรอง/ส่งออกแล้ว · ข้อมูลซิงค์ผ่านบัญชีคลาวด์</p>
+              <button id="export-notes-btn" class="btn btn-primary" type="button" hidden>ดาวน์โหลดสำรอง</button>
+              <button id="import-notes-btn" class="btn btn-secondary" type="button" hidden>เลือกไฟล์นำเข้า…</button>
               <input id="import-notes-file" type="file" accept="application/json,.json" hidden>
-              <label class="notify-field" for="import-notes-text" style="margin-top:0.75rem">
-                <span>หรือวาง JSON</span>
-                <textarea id="import-notes-text" rows="3" placeholder='{"version":5,"notes":[],"tags":[]}' spellcheck="false"></textarea>
-              </label>
-              <div class="notify-toggle-row" style="margin-top:0.45rem">
-                <span>รวมกับของเดิม</span>
-                <div class="segmented segmented-sm" id="import-merge-seg">
-                  <button type="button" data-import-merge="0">แทนที่</button>
-                  <button type="button" data-import-merge="1" class="active">รวม</button>
-                </div>
-              </div>
-              <button id="import-notes-paste-btn" class="btn btn-secondary" type="button" style="margin-top:0.55rem">นำเข้าจากข้อความ</button>
+              <textarea id="import-notes-text" hidden></textarea>
+              <div id="import-merge-seg" hidden></div>
+              <button id="import-notes-paste-btn" type="button" hidden>นำเข้าจากข้อความ</button>
             </div>
           </div>
         </details>
 
-        <details class="settings-group">
-          <summary class="settings-group-summary">ฐานข้อมูล</summary>
+        <details class="settings-group" open>
+          <summary class="settings-group-summary">บัญชี / คลาวด์</summary>
           <div class="settings-group-body">
             <div class="settings-row settings-row-last">
               <p class="settings-hint" style="margin-top:0">
-                ซิงค์อัตโนมัติผ่าน Firebase — มือถือกับคอมใช้ฐานข้อมูลก้อนเดียวกัน ไม่ต้องคัดลอกรหัส
+                Firebase MyNote · ล็อกอินเฉพาะ yohaken@gmail.com · เขียน Firestore ตรง ไม่ผ่าน API โน้ต
               </p>
+              <p class="settings-hint" id="auth-account-hint">ยังไม่ได้เข้าสู่ระบบ</p>
               <p class="settings-hint" id="db-sync-hint">สถานะ: กำลังเชื่อม…</p>
+              <button id="sign-out-btn" class="btn btn-secondary" type="button" style="margin-top:0.45rem" hidden>ออกจากระบบ</button>
             </div>
           </div>
         </details>
@@ -629,6 +857,29 @@
     <div id="loading-overlay" class="loading-overlay" hidden>
       <div class="spinner"></div>
       <p>กำลังโหลด...</p>
+    </div>
+
+    <div id="auth-overlay" class="auth-overlay" hidden>
+      <div class="auth-panel" role="dialog" aria-labelledby="auth-title">
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=200" width="36" height="36" alt="">แคลโน้ต</p>
+        <h2 id="auth-title" class="auth-title">เข้าสู่ระบบ</h2>
+        <p class="auth-copy">ใช้ Google บัญชี <strong>yohaken@gmail.com</strong> เท่านั้น · ข้อมูลบันทึกขึ้น Firestore ทันที</p>
+        <button id="google-login-btn" class="btn btn-primary auth-login-btn" type="button">Sign in with Google</button>
+        <p id="auth-error" class="auth-error" hidden></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="sync-gate-overlay" class="sync-gate-overlay" hidden>
+    <div class="sync-gate-pop" role="dialog" aria-modal="true" aria-labelledby="sync-gate-title">
+      <div class="spinner sync-gate-spinner" aria-hidden="true"></div>
+      <p id="sync-gate-title" class="sync-gate-title">กำลังซิงค์…</p>
+      <p id="sync-gate-sub" class="sync-gate-sub">รอข้อมูลพร้อมก่อนใส่</p>
+    </div>
+  </div>
+  <div id="sync-saved-overlay" class="sync-saved-overlay" hidden>
+    <div class="sync-saved-pop" role="status" aria-live="polite">
+      <p id="sync-saved-msg" class="sync-saved-msg">อัปเดตแล้ว</p>
     </div>
   </div>
 
@@ -708,38 +959,68 @@
   </div>
 
   <nav id="filter-dock" class="filter-dock" aria-label="แถบล่าง">
-    <div class="filter-dock-inner filter-dock-inner-stack">
-      <div class="filter-dock-filters" id="filter-dock-filters">
-        <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรอง">
-          <div class="filter-dd" data-filter="due">
-            <button type="button" class="filter-dd-btn" id="filter-due-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-due-menu">กำหนด</button>
-          </div>
-          <div class="filter-dd" data-filter="sort">
-            <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-sort-menu">ล่าสุด</button>
-          </div>
-          <div class="filter-dd" data-filter="priority">
-            <button type="button" class="filter-dd-btn" id="filter-priority-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-priority-menu">ความสำคัญ</button>
-          </div>
-          <div class="filter-dd" data-filter="recurrence">
-            <button type="button" class="filter-dd-btn" id="filter-recurrence-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-recurrence-menu">การซ้ำ</button>
+    <div class="filter-dock-float">
+      <!-- Contextual rail (mode-specific) — above the primary capsule -->
+      <div class="dock-context-rail" id="dock-context-rail" aria-label="ทางลัดตามโหมด">
+        <div id="dock-context-calorie" class="dock-context-calorie" hidden>
+          <button type="button" class="dock-ctx-btn dock-ctx-primary" id="calorie-fab-meal" title="เพิ่มมื้อ" aria-label="เพิ่มมื้ออาหาร">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M4.5 3.5h2v7.2c0 1.4-.7 2.5-2 3.1V20H3v-6.2c-1.3-.6-2-1.7-2-3.1V3.5h2v7h.5v-7zm6.2 0h1.6c2.8 0 4.7 1.7 4.7 4.6V20h-1.7v-5.2h-2.9V20H10.7V3.5zm1.7 1.6v4.8h2.9V7.8c0-1.5-.8-2.7-2.9-2.7zM20 3.5h1.7V20H20V3.5z"/>
+            </svg>
+            <span>มื้อ</span>
+          </button>
+          <button type="button" class="dock-ctx-btn dock-ctx-mus" id="calorie-fab-mus" title="เพิ่มออกกำลัง" aria-label="เพิ่มออกกำลังกาย">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/>
+            </svg>
+            <span>ออกกำลัง</span>
+          </button>
+        </div>
+        <div class="filter-dock-filters" id="filter-dock-filters" hidden aria-hidden="true">
+          <div class="filter-dock-cluster" role="toolbar" aria-label="ตัวกรอง">
+            <div class="filter-dd" data-filter="due">
+              <button type="button" class="filter-dd-btn" id="filter-due-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-due-menu">กำหนด</button>
+            </div>
+            <div class="filter-dd" data-filter="sort">
+              <button type="button" class="filter-dd-btn" id="filter-sort-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-sort-menu">ล่าสุด</button>
+            </div>
+            <div class="filter-dd" data-filter="priority">
+              <button type="button" class="filter-dd-btn" id="filter-priority-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-priority-menu">ความสำคัญ</button>
+            </div>
+            <div class="filter-dd" data-filter="recurrence">
+              <button type="button" class="filter-dd-btn" id="filter-recurrence-btn" aria-haspopup="listbox" aria-expanded="false" aria-controls="filter-recurrence-menu">การซ้ำ</button>
+            </div>
           </div>
         </div>
+        <div class="notepad-quick-bar" id="notepad-quick-bar" hidden>
+          <div class="notepad-quick-scroll" id="notepad-quick-scroll" role="toolbar" aria-label="หัวข้อโน้ตล่าสุด"></div>
+        </div>
       </div>
-      <div class="notepad-quick-bar" id="notepad-quick-bar" hidden>
-        <div class="notepad-quick-scroll" id="notepad-quick-scroll" role="toolbar" aria-label="หัวข้อโน้ตล่าสุด"></div>
-      </div>
-      <div class="filter-dock-actions" role="toolbar" aria-label="ทางลัด">
-        <div class="dock-actions-center">
-          <button type="button" class="dock-action-btn" id="group-nav-btn" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน">☰</button>
-          <div class="dock-mode-switch" role="group" aria-label="สลับหน้า">
-            <button type="button" class="dock-mode-btn" id="dock-mode-work" data-app-mode="work" aria-pressed="true">งาน</button>
-            <button type="button" class="dock-mode-btn" id="dock-mode-note" data-app-mode="note" aria-pressed="false">โน้ต</button>
+      <!-- Primary floating capsule — calorie-only shortcuts -->
+      <div class="filter-dock-primary">
+        <div class="filter-dock-actions" role="toolbar" aria-label="ทางลัดแคลอรี่">
+          <div class="dock-actions-center dock-actions-calorie">
+            <button type="button" class="dock-action-btn is-slot-empty" id="group-nav-btn" aria-label="กลุ่มงาน" aria-controls="group-drawer" title="กลุ่มงาน" hidden>☰</button>
+            <div class="dock-mode-switch" role="group" aria-label="สลับหน้า" hidden>
+              <button type="button" class="dock-mode-btn" id="dock-mode-work" data-app-mode="work" aria-pressed="false" title="งาน" hidden>
+                <span class="dock-mode-label">งาน</span>
+              </button>
+              <button type="button" class="dock-mode-btn" id="dock-mode-note" data-app-mode="note" aria-pressed="false" title="โน้ต" hidden>
+                <span class="dock-mode-label">โน้ต</span>
+              </button>
+              <button type="button" class="dock-mode-btn" id="dock-mode-calendar" data-app-mode="calendar" aria-pressed="false" title="ปฏิทิน" hidden>
+                <span class="dock-mode-label">ปฏิทิน</span>
+              </button>
+              <button type="button" class="dock-mode-btn" id="dock-mode-calorie" data-app-mode="calorie" aria-pressed="true" title="แคล" hidden>
+                <span class="dock-mode-label">แคล</span>
+              </button>
+            </div>
+            <button type="button" class="dock-pill-btn" id="dock-calorie-log-btn" aria-label="หน้าบันทึก" title="หน้าบันทึก" hidden>บันทึก</button>
+            <button type="button" class="dock-pill-btn" id="dock-calorie-health-btn" aria-label="สรุปสุขภาพ" title="สรุปสุขภาพ">สรุป</button>
+            <button type="button" class="dock-action-btn dock-action-primary" id="add-note-btn" aria-label="เพิ่ม" title="เพิ่ม" hidden>
+              <span class="dock-add-label">+</span>
+            </button>
           </div>
-          <button type="button" class="dock-action-btn dock-action-primary" id="add-note-btn" aria-label="เพิ่มงาน" title="เพิ่มงาน">
-            <svg class="dock-action-ai-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
-              <path fill="currentColor" d="M12 2.2l1.55 5.95L19.5 9.7l-5.95 1.55L12 17.2l-1.55-5.95L4.5 9.7l5.95-1.55L12 2.2z"/>
-            </svg>
-          </button>
         </div>
       </div>
     </div>
@@ -772,6 +1053,12 @@
       <button type="button" class="mode-menu-item" role="menuitem" data-app-mode="note" id="mode-menu-note">
         <span>Note</span><span class="pm-sub">ข้อความล้วน</span>
       </button>
+      <button type="button" class="mode-menu-item" role="menuitem" data-app-mode="calendar" id="mode-menu-calendar">
+        <span>ปฏิทิน</span><span class="pm-sub">ดูตามวันที่</span>
+      </button>
+      <button type="button" class="mode-menu-item" role="menuitem" data-app-mode="calorie" id="mode-menu-calorie">
+        <span>แคลโน้ต</span><span class="pm-sub">แผ่นงานรายวัน</span>
+      </button>
       <div id="notepad-menu-section" class="notepad-menu-section" hidden>
         <p class="mode-menu-title" style="margin-top:0.55rem">Note ของฉัน</p>
         <div id="notepad-menu-list" class="workspace-menu-list"></div>
@@ -782,7 +1069,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=153"></script>
-  <script src="js/update-watch.js?v=153"></script>
+  <script type="module" src="js/boot.js?v=200"></script>
+  <script src="js/update-watch.js?v=200"></script>
 </body>
 </html>

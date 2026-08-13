@@ -724,3 +724,17 @@ export function monthLabel(year, month) {
     new Date(year, month, 1),
   );
 }
+
+/** Short month name only (Thai), e.g. "ส.ค." / "สิงหาคม". */
+export function monthNameOnly(year, month, { short = false } = {}) {
+  return new Intl.DateTimeFormat('th-TH', {
+    month: short ? 'short' : 'long',
+  }).format(new Date(year, month, 1));
+}
+
+/** Buddhist-era year digits for headers (Apple-style), e.g. "2569". */
+export function yearLabel(year) {
+  const y = Number(year);
+  if (!Number.isFinite(y)) return '';
+  return String(y + 543);
+}

@@ -1,23 +1,27 @@
 /**
- * List-first entry — paint the work board ASAP, then hydrate full app.
- * Other surfaces (settings / AI / editor / camera) load with app.js after paint.
+ * Calorie-first entry — paint the calorie shell ASAP, then hydrate full app.
  */
-import { paintListFromLocal } from './list-paint.js?v=153';
+import { paintListFromLocal } from './list-paint.js?v=200';
 
 document.documentElement.dataset.pnoteBoot = '1';
 
 try {
   paintListFromLocal();
 } catch (err) {
-  console.warn('list boot paint failed', err);
+  console.warn('calorie boot paint failed', err);
+  document.body.classList.add('light', 'calorie-mode', 'calorie-only');
   const loading = document.getElementById('loading-overlay');
+  const boardTopbar = document.getElementById('board-topbar');
+  const calorieView = document.getElementById('calorie-view');
   const listView = document.getElementById('list-view');
-  if (listView) listView.hidden = false;
+  if (boardTopbar) boardTopbar.hidden = false;
+  if (calorieView) calorieView.hidden = false;
+  if (listView) listView.hidden = true;
   if (loading) loading.hidden = true;
 }
 
-// Full app (interactions, sync, settings, AI) after first paint.
-import('./app.js?v=153')
+// Full app (interactions, sync, settings) after first paint.
+import('./app.js?v=200')
   .then((m) => {
     if (typeof m.hydrateApp === 'function') return m.hydrateApp();
     return undefined;

@@ -1,5 +1,5 @@
 /**
- * Gemini API helpers for P-Note (browser → Google AI REST).
+ * Gemini API helpers for แคลโน้ต (browser → Google AI REST).
  * API key stays on-device in settings; never logged.
  */
 

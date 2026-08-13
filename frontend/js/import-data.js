@@ -1,4 +1,5 @@
 import { normalizeNotesData } from './notes.js?v=148';
+import { mergeCalorieByUpdatedAt } from './calorie.js?v=199';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -29,6 +30,14 @@ function parseMaybeNotes(raw) {
 
 export function hasAnyNotes(data) {
   return Array.isArray(data?.notes) && data.notes.length > 0;
+}
+
+/** True when payload has anything worth keeping on cloud (incl. calorie days). */
+export function hasCloudContent(data) {
+  return hasAnyNotes(data)
+    || (Array.isArray(data?.notepads) && data.notepads.length > 0)
+    || (Array.isArray(data?.tags) && data.tags.length > 0)
+    || (Array.isArray(data?.calorie?.days) && data.calorie.days.length > 0);
 }
 
 export function mergeNotesData(target, incoming) {
@@ -89,11 +98,13 @@ export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
 
   const localAt = new Date(local.updatedAt || 0).getTime();
   const remoteAt = new Date(remote.updatedAt || 0).getTime();
+  const calorie = mergeCalorieByUpdatedAt(local.calorie, remote.calorie);
 
   return normalizeNotesData({
-    version: Math.max(Number(local.version) || 7, Number(remote.version) || 7, 7),
+    version: Math.max(Number(local.version) || 8, Number(remote.version) || 8, 8),
     workspaces: [...workspaces.values()],
     notepads: [...notepads.values()],
+    calorie,
     tags: [...tags.values()],
     notes: [...notes.values()],
     updatedAt: new Date(Math.max(localAt, remoteAt, Date.now())).toISOString(),
@@ -116,21 +127,23 @@ function entityNeedsPush(localList, remoteList) {
 export function localNeedsRemotePush(localRaw, remoteRaw) {
   const local = normalizeNotesData(localRaw);
   const remote = normalizeNotesData(remoteRaw);
-  const localHas =
-    hasAnyNotes(local) || (Array.isArray(local.notepads) && local.notepads.length > 0);
-  const remoteHas =
-    hasAnyNotes(remote) || (Array.isArray(remote.notepads) && remote.notepads.length > 0);
+  const localHas = hasCloudContent(local);
+  const remoteHas = hasCloudContent(remote);
   if (!localHas) return false;
   if (!remoteHas) return true;
   if (entityNeedsPush(local.notes, remote.notes)) return true;
   if (entityNeedsPush(local.notepads, remote.notepads)) return true;
+  if (entityNeedsPush(local.calorie?.days || [], remote.calorie?.days || [])) return true;
+  const localCalAt = new Date(local.calorie?.updatedAt || 0).getTime();
+  const remoteCalAt = new Date(remote.calorie?.updatedAt || 0).getTime();
+  if (localCalAt > remoteCalAt) return true;
   return false;
 }
 
 export function recoverLegacyLocalStorage() {
   for (const key of LEGACY_STORAGE_KEYS) {
     const data = parseMaybeNotes(localStorage.getItem(key));
-    if (hasAnyNotes(data)) {
+    if (hasCloudContent(data)) {
       return { data, source: key };
     }
   }
@@ -148,7 +161,7 @@ export async function fetchBundledImport() {
 }
 
 export async function tryAutoImport(currentData) {
-  if (hasAnyNotes(currentData)) {
+  if (hasCloudContent(currentData)) {
     return { data: currentData, imported: false };
   }
 
@@ -162,7 +175,7 @@ export async function tryAutoImport(currentData) {
   }
 
   const bundled = await fetchBundledImport();
-  if (hasAnyNotes(bundled)) {
+  if (hasCloudContent(bundled)) {
     localStorage.setItem(IMPORT_FLAG_KEY, '1');
     return { data: bundled, imported: true, source: 'bundled' };
   }
@@ -172,7 +185,7 @@ export async function tryAutoImport(currentData) {
 
 export function importFromText(text, currentData, { merge = false } = {}) {
   const incoming = normalizeNotesData(JSON.parse(text));
-  if (merge && hasAnyNotes(currentData)) {
+  if (merge && hasCloudContent(currentData)) {
     return mergeNotesData(currentData, incoming);
   }
   return incoming;

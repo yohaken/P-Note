@@ -1,13 +1,13 @@
 {
-  "name": "P-Note",
-  "short_name": "P-Note",
-  "description": "โน้ตส่วนตัว ซิงค์ผ่าน Google Drive",
+  "name": "แคลโน้ต",
+  "short_name": "แคลโน้ต",
+  "description": "บันทึกแคลอรี่ โปรตีน และน้ำหนักรายวัน",
   "start_url": "./note.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#e8f0ea",
+  "theme_color": "#e8f0ea",
   "icons": [
     {
       "src": "icons/icon-192.png",

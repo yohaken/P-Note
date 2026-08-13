@@ -36,8 +36,10 @@ export function loadNotes() {
   }
 }
 
+/** Persist to localStorage. Caller owns `updatedAt` — do not bump here (avoids stale snaps looking newer). */
 export function saveNotes(notesData) {
-  notesData.updatedAt = new Date().toISOString();
+  if (!notesData || typeof notesData !== 'object') return;
+  if (!notesData.updatedAt) notesData.updatedAt = new Date().toISOString();
   localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(notesData));
 }
 

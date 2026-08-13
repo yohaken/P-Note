@@ -8,7 +8,7 @@ import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=148
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
-  label: 'P-Note',
+  label: 'แคลโน้ต',
   sound: true,
   vibrate: true,
   preview: 'full', // full | title | hidden
@@ -100,12 +100,16 @@ const DEFAULTS = {
   cardDisplay: { ...DEFAULT_CARD_DISPLAY, priorityIconColors: { ...DEFAULT_CARD_DISPLAY.priorityIconColors } },
   /** Last opened workspace id (legacy device key) */
   lastWorkspaceId: null,
-  /** 'work' = งานหลัก · 'note' = Note (plain notepad pages) */
-  appMode: 'work',
+  /** App is calorie-only; other modes are retired from the UI. */
+  appMode: 'calorie',
   /** Last opened notepad id in Note mode */
   lastNotepadId: null,
   /** Recent notepad ids for bottom quick-title bar (most recent first) */
   recentNotepadIds: [],
+  /** Table / today-card color tones — filled in loadSettings via normalizeCalorieTones */
+  calorieTones: null,
+  /** Last health-summary chart range (days): 1/3/7/14/90/180/365 */
+  calorieTrendDays: 7,
 };
 
 function withFixedUi(settings) {
@@ -141,6 +145,34 @@ export const DEFAULT_DUE_COLORS = {
   overdue: '#e23b2e',
 };
 
+/** Calorie table / today-card tones (eat = caution, burn = green, empty = white, line = day guide). */
+export const DEFAULT_CALORIE_TONES = {
+  eat: '#ea580c',
+  burn: '#16a34a',
+  empty: '#ffffff',
+  line: '#d9d2c5',
+};
+
+export function normalizeCalorieTones(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return {
+    eat: safeHexColor(src.eat, DEFAULT_CALORIE_TONES.eat),
+    burn: safeHexColor(src.burn, DEFAULT_CALORIE_TONES.burn),
+    empty: safeHexColor(src.empty, DEFAULT_CALORIE_TONES.empty),
+    line: safeHexColor(src.line, DEFAULT_CALORIE_TONES.line),
+  };
+}
+
+/** Keep in sync with HEALTH_TREND_RANGES in calorie.js */
+const CALORIE_TREND_DAY_OPTIONS = [1, 3, 7, 14, 90, 180, 365];
+
+export function normalizeCalorieTrendDays(raw, fallback = 7) {
+  const n = Number(raw);
+  if (CALORIE_TREND_DAY_OPTIONS.includes(n)) return n;
+  const fb = Number(fallback);
+  return CALORIE_TREND_DAY_OPTIONS.includes(fb) ? fb : 7;
+}
+
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
 export function safeHexColor(value, fallback) {
@@ -149,6 +181,57 @@ export function safeHexColor(value, fallback) {
     ? `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`
     : v.slice(0, 7);
   return fallback;
+}
+
+function hexToRgb(hex) {
+  const h = safeHexColor(hex, '#000000').slice(1);
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+function rgbToHex(r, g, b) {
+  const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${[clamp(r), clamp(g), clamp(b)]
+    .map((n) => n.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+/** Mix `fg` over `bg` by amount (0–1 of fg). */
+export function mixHex(fg, bg, amount) {
+  const a = Math.max(0, Math.min(1, Number(amount) || 0));
+  const [fr, fgG, fb] = hexToRgb(fg);
+  const [br, bgG, bb] = hexToRgb(bg);
+  return rgbToHex(
+    fr * a + br * (1 - a),
+    fgG * a + bgG * (1 - a),
+    fb * a + bb * (1 - a),
+  );
+}
+
+/**
+ * Concrete hex washes for the calorie table — set as inline CSS vars so
+ * Settings color changes always win (no fragile color-mix + transparent).
+ */
+export function calorieToneCssVars(raw) {
+  const t = normalizeCalorieTones(raw);
+  const ink = '#333333';
+  return {
+    '--cal-tone-eat': t.eat,
+    '--cal-tone-burn': t.burn,
+    '--cal-tone-empty': t.empty,
+    '--cal-tone-eat-wash': mixHex(t.eat, t.empty, 0.1),
+    '--cal-tone-burn-wash': mixHex(t.burn, t.empty, 0.12),
+    '--cal-tone-eat-head': mixHex(t.eat, t.empty, 0.16),
+    '--cal-tone-burn-head': mixHex(t.burn, t.empty, 0.14),
+    '--cal-tone-eat-ink': mixHex(t.eat, ink, 0.62),
+    '--cal-tone-burn-ink': mixHex(t.burn, ink, 0.55),
+    '--cal-tone-pos-ink': mixHex(t.burn, ink, 0.7),
+    '--cal-tone-neg-ink': mixHex(t.eat, ink, 0.75),
+    '--cal-tone-row-line': t.line,
+  };
 }
 
 export function normalizePriorityColors(raw) {
@@ -345,7 +428,7 @@ export function normalizeNotifyPrefs(raw, legacyEnabled) {
       : Boolean(legacyEnabled);
   return {
     enabled,
-    label: String(src.label || DEFAULT_NOTIFY_PREFS.label).trim().slice(0, 24) || 'P-Note',
+    label: String(src.label || DEFAULT_NOTIFY_PREFS.label).trim().slice(0, 24) || 'แคลโน้ต',
     sound: src.sound !== false,
     vibrate: src.vibrate !== false,
     preview: PREVIEW_MODES.includes(src.preview) ? src.preview : 'full',
@@ -374,9 +457,11 @@ export function loadSettings() {
         cameraQuality: 'max',
         notifyMonthPresets: [3, 5, 6],
         lastWorkspaceId: null,
-        appMode: 'work',
+        appMode: 'calorie',
         lastNotepadId: null,
         recentNotepadIds: [],
+        calorieTones: normalizeCalorieTones(null),
+        calorieTrendDays: normalizeCalorieTrendDays(null),
       });
     }
     const parsed = JSON.parse(raw);
@@ -403,9 +488,11 @@ export function loadSettings() {
       priorityIcons: normalizePriorityIcons(parsed.priorityIcons),
       cardDisplay: normalizeCardDisplay(parsed.cardDisplay),
       lastWorkspaceId: parsed.lastWorkspaceId ? String(parsed.lastWorkspaceId) : null,
-      appMode: parsed.appMode === 'note' ? 'note' : 'work',
+      appMode: normalizeAppMode(parsed.appMode),
       lastNotepadId: parsed.lastNotepadId ? String(parsed.lastNotepadId) : null,
       recentNotepadIds: normalizeRecentNotepadIds(parsed.recentNotepadIds, parsed.lastNotepadId),
+      calorieTones: normalizeCalorieTones(parsed.calorieTones),
+      calorieTrendDays: normalizeCalorieTrendDays(parsed.calorieTrendDays),
     });
   } catch {
     return withFixedUi({
@@ -423,11 +510,18 @@ export function loadSettings() {
       cameraQuality: 'max',
       notifyMonthPresets: [3, 5, 6],
       lastWorkspaceId: null,
-      appMode: 'work',
+      appMode: 'calorie',
       lastNotepadId: null,
       recentNotepadIds: [],
+      calorieTones: normalizeCalorieTones(null),
+      calorieTrendDays: normalizeCalorieTrendDays(null),
     });
   }
+}
+
+/** Calorie-only product — always normalize to calorie. */
+export function normalizeAppMode(_mode) {
+  return 'calorie';
 }
 
 export function saveSettings(settings) {
@@ -448,9 +542,11 @@ export function saveSettings(settings) {
     cameraQuality: normalizeCameraQuality(settings.cameraQuality),
     notifyMonthPresets: normalizeMonthPresets(settings.notifyMonthPresets),
     lastWorkspaceId: settings.lastWorkspaceId ? String(settings.lastWorkspaceId) : null,
-    appMode: settings.appMode === 'note' ? 'note' : 'work',
+    appMode: normalizeAppMode(settings.appMode),
     lastNotepadId: settings.lastNotepadId ? String(settings.lastNotepadId) : null,
     recentNotepadIds: normalizeRecentNotepadIds(settings.recentNotepadIds, settings.lastNotepadId),
+    calorieTones: normalizeCalorieTones(settings.calorieTones),
+    calorieTrendDays: normalizeCalorieTrendDays(settings.calorieTrendDays),
   });
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }

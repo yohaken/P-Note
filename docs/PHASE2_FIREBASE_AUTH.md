@@ -13,9 +13,20 @@
    - `mynote-f1bbc.firebaseapp.com`
    - `localhost` (สำหรับทดสอบในเครื่อง)
 
-4. **มือถือ / Safari:** แอปใช้ `authDomain` = `mynote-f1bbc.firebaseapp.com` (โดเมน default ของ Firebase ที่ลงทะเบียน OAuth handler ไว้แล้ว) — ถ้ายังล็อกอินไม่ได้ ให้เพิ่ม redirect URI ใน Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client (Web client ของ Firebase):
-   - `https://mynote-f1bbc.firebaseapp.com/__/auth/handler`
-   - `https://mynote-f1bbc.web.app/__/auth/handler` (ถ้าใช้ authDomain เป็น web.app)
+4. **ถ้าขึ้น Error 400: `redirect_uri_mismatch`:**  
+   Firebase Google Sign-In ของ MyNote ยังชี้ OAuth client เก่าจาก MyPeer (`470549580687-…`) ซึ่งรับแค่  
+   `https://mypeer-501909.firebaseapp.com/__/auth/handler`  
+
+   แก้แบบเร็ว (แนะนำ): เปิด Google Cloud Console ของโปรเจกต์ที่ถือ client นั้น (มักเป็น **mypeer-501909**) →  
+   **APIs & Services → Credentials → OAuth 2.0 Client ID** ตัวที่ลงท้าย `…ehmr3mviof4enc4accjpgeooqqqibeak` → เพิ่ม:
+
+   - Authorized redirect URIs: `https://mynote-f1bbc.firebaseapp.com/__/auth/handler`
+   - Authorized JavaScript origins: `https://mynote-f1bbc.web.app` และ `https://mynote-f1bbc.firebaseapp.com`
+
+   หรือแก้แบบสะอาด: ใน Firebase **mynote-f1bbc** → Authentication → Sign-in method → Google →  
+   Web SDK configuration ให้ใช้ Web client ของโปรเจกต์ **mynote-f1bbc** เอง (ไม่ใช่ client ที่ขึ้นต้น `470549580687-`)
+
+5. **มือถือ / Safari:** แอปใช้ `authDomain` = `mynote-f1bbc.firebaseapp.com` — ต้องมี redirect URI ตามข้อ 4
 
 ## การล็อกอินบนมือถือ
 
