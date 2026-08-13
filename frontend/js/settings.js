@@ -166,7 +166,7 @@ export function normalizeCalorieTones(raw) {
 }
 
 /** Keep in sync with HEALTH_TREND_RANGES in calorie.js */
-const CALORIE_TREND_DAY_OPTIONS = [1, 3, 7, 14, 90, 180, 365];
+const CALORIE_TREND_DAY_OPTIONS = [1, 3, 7, 14, 30, 90, 180, 365];
 
 export function normalizeCalorieTrendDays(raw, fallback = 7) {
   const n = Number(raw);

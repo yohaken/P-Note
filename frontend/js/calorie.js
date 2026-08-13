@@ -989,6 +989,7 @@ export const HEALTH_TREND_RANGES = [
   { days: 3, label: '3 วัน' },
   { days: 7, label: '7 วัน' },
   { days: 14, label: '14 วัน' },
+  { days: 30, label: '1 เดือน' },
   { days: 90, label: '3 เดือน' },
   { days: 180, label: '6 เดือน' },
   { days: 365, label: '1 ปี' },

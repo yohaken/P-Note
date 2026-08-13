@@ -21,7 +21,7 @@ try {
 }
 
 // Full app (interactions, sync, settings) after first paint.
-import('./app.js?v=211')
+import('./app.js?v=212')
   .then((m) => {
     if (typeof m.hydrateApp === 'function') return m.hydrateApp();
     return undefined;
