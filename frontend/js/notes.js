@@ -1,6 +1,6 @@
 import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=148';
 import { bestIconForLabel, normalizeIconId } from './icons.js?v=148';
-import { createEmptyCalorie, normalizeCalorie } from './calorie.js?v=203';
+import { createEmptyCalorie, normalizeCalorie, normalizeHomePins } from './calorie.js?v=204';
 
 /** Lite notepad helpers — keep notes.js free of sheet.js / note-text.js on boot. */
 function normalizeTextPrefs(raw) {
@@ -674,6 +674,20 @@ export function normalizeNotesData(data) {
     ? normalizeCalorie(base.calorie)
     : createEmptyCalorie();
 
+  // Root-level home pins (preferred). Fall back to nested calorie.homePins.
+  const rootPins = normalizeHomePins(base.homePins);
+  const nestedPins = normalizeHomePins(calorie?.homePins);
+  const homePins = rootPins.length ? rootPins : nestedPins;
+  let homePinsAt = String(base.homePinsAt || '').trim();
+  if (!homePinsAt && homePins.length) {
+    homePinsAt = String(calorie?.homePinsAt || calorie?.updatedAt || base.updatedAt || '').trim();
+  }
+  // Keep nested copy aligned for older readers / merges.
+  if (calorie && typeof calorie === 'object') {
+    calorie.homePins = homePins;
+    calorie.homePinsAt = homePinsAt;
+  }
+
   const tags = Array.isArray(base.tags)
     ? base.tags
         .filter((tag) => tag && typeof tag === 'object' && tag.id)
@@ -756,6 +770,8 @@ export function normalizeNotesData(data) {
     workspaces,
     notepads,
     calorie,
+    homePins,
+    homePinsAt,
     tags,
     notes,
   };

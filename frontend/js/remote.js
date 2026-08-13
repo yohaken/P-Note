@@ -1,9 +1,10 @@
-import { STORAGE_KEYS } from './config.js?v=154';
-import { initFirebase, getDb, auth } from './firebase.js?v=154';
+import { STORAGE_KEYS } from './config.js?v=204';
+import { initFirebase, getDb, auth } from './firebase.js?v=204';
 import {
   doc,
   getDoc,
   setDoc,
+  onSnapshot,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 /**
@@ -60,11 +61,26 @@ function emptyPayload() {
     workspaces: [],
     notepads: [],
     calorie: null,
+    homePins: [],
+    homePinsAt: '',
   };
 }
 
+/**
+ * Preserve homePins at document root (and pass calorie through).
+ * Older clients only nested pins under calorie — both are kept on write.
+ */
 function normalizePayload(raw) {
   const data = raw && typeof raw === 'object' ? raw : {};
+  const calorie = data.calorie && typeof data.calorie === 'object' ? data.calorie : null;
+  const rootPins = Array.isArray(data.homePins) ? data.homePins : null;
+  const nestedPins = Array.isArray(calorie?.homePins) ? calorie.homePins : null;
+  const homePins = rootPins && rootPins.length ? rootPins : (nestedPins || []);
+  const homePinsAt = String(
+    data.homePinsAt
+      || (homePins.length ? (calorie?.homePinsAt || calorie?.updatedAt || '') : '')
+      || '',
+  );
   return {
     version: Number(data.version) || 8,
     updatedAt: data.updatedAt || new Date().toISOString(),
@@ -72,13 +88,23 @@ function normalizePayload(raw) {
     notes: Array.isArray(data.notes) ? data.notes : [],
     workspaces: Array.isArray(data.workspaces) ? data.workspaces : [],
     notepads: Array.isArray(data.notepads) ? data.notepads : [],
-    calorie: data.calorie && typeof data.calorie === 'object' ? data.calorie : null,
+    calorie,
+    homePins,
+    homePinsAt,
   };
 }
 
 /** Strip undefined (Firestore rejects them) and non-JSON values. */
 function toFirestorePayload(data) {
   const normalized = normalizePayload(data);
+  // Mirror pins into calorie so older readers still see them.
+  if (normalized.calorie && typeof normalized.calorie === 'object') {
+    normalized.calorie = {
+      ...normalized.calorie,
+      homePins: Array.isArray(normalized.homePins) ? normalized.homePins : [],
+      homePinsAt: normalized.homePinsAt || '',
+    };
+  }
   normalized.updatedAt = new Date().toISOString();
   return JSON.parse(JSON.stringify(normalized));
 }
@@ -110,6 +136,31 @@ export async function pushRemoteNotes(spaceId, data) {
   const payload = toFirestorePayload(data);
   await setDoc(spaceRef(spaceId || SHARED_SPACE_ID), payload);
   return payload;
+}
+
+/**
+ * Live listener on the shared space doc. Returns an unsubscribe fn.
+ * @param {string} spaceId
+ * @param {(data: object) => void} onData
+ * @param {(err: Error) => void} [onError]
+ */
+export async function watchRemoteNotes(spaceId, onData, onError) {
+  await initFirebase();
+  requireSignedIn();
+  return onSnapshot(
+    spaceRef(spaceId || SHARED_SPACE_ID),
+    (snap) => {
+      if (!snap.exists()) {
+        onData(emptyPayload());
+        return;
+      }
+      onData(normalizePayload(snap.data()));
+    },
+    (err) => {
+      if (typeof onError === 'function') onError(err);
+      else console.warn('watchRemoteNotes', err);
+    },
+  );
 }
 
 /** True when browser is online and Firebase Auth session exists. */

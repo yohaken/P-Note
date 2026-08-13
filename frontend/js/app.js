@@ -1,8 +1,8 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=199';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=204';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable } from './sortable.js?v=136';
 import { CONFIG } from './config.js?v=154';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=203';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=204';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -100,7 +100,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=203';
+} from './calorie.js?v=204';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -151,7 +151,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=203';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=204';
 import {
   allIcons,
   bestIconForLabel,
@@ -220,14 +220,25 @@ import {
   getPreviousSpaceId,
   clearPreviousSpaceId,
   pushRemoteNotes,
+  watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=154';
-import { normalizeNotesData } from './notes.js?v=148';
-import { SaveManager } from './sync.js?v=200';
+} from './remote.js?v=204';
+import { normalizeNotesData } from './notes.js?v=204';
+import { SaveManager } from './sync.js?v=204';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
 
 const state = {
-  notesData: { version: 8, updatedAt: '', tags: [], notes: [], workspaces: [], notepads: [], calorie: null },
+  notesData: {
+    version: 8,
+    updatedAt: '',
+    tags: [],
+    notes: [],
+    workspaces: [],
+    notepads: [],
+    calorie: null,
+    homePins: [],
+    homePinsAt: '',
+  },
   settings: loadSettings(),
   appMode: function() {
     const m = loadSettings().appMode;
@@ -689,13 +700,59 @@ function refreshSyncGateUi() {
   showSyncGate('รอซิงค์…', 'ยังไม่พร้อม · กำลังลองใหม่');
 }
 
+let stopRemoteWatch = null;
+let remoteWatchStartedFor = null;
+
+function stopSpaceRemoteWatch() {
+  if (typeof stopRemoteWatch === 'function') {
+    try { stopRemoteWatch(); } catch { /* ignore */ }
+  }
+  stopRemoteWatch = null;
+  remoteWatchStartedFor = null;
+}
+
+async function startSpaceRemoteWatch() {
+  if (!state.authUser || !state.syncReady) return;
+  const spaceId = state.spaceId || SHARED_SPACE_ID;
+  if (remoteWatchStartedFor === spaceId && stopRemoteWatch) return;
+  stopSpaceRemoteWatch();
+  try {
+    stopRemoteWatch = await watchRemoteNotes(
+      spaceId,
+      (remoteRaw) => {
+        if (!state.syncReady || !state.authUser) return;
+        const remote = normalizeNotesData(remoteRaw);
+        const pinsBefore = homePinsFingerprint(state.notesData);
+        const beforeKey = notesContentKey(state.notesData);
+        const merged = mergeNotesByUpdatedAt(state.notesData, remote);
+        const pinsAfter = homePinsFingerprint(merged);
+        const afterKey = notesContentKey(merged);
+        if (pinsAfter === pinsBefore && afterKey === beforeKey) return;
+        state.notesData = merged;
+        saveNotes(state.notesData);
+        if (pinsAfter !== pinsBefore || afterKey !== beforeKey) {
+          if (state.caloriePane === 'log') paintCalorieDash(ensureCaloriePayload());
+          else if (state.caloriePane === 'health') paintCalorieHealthSheet(ensureCaloriePayload());
+          if (pinsAfter !== pinsBefore) setDbStatusMessage('ซิงค์กล่องแล้ว');
+        }
+      },
+      (err) => console.warn('space watch failed', err),
+    );
+    remoteWatchStartedFor = spaceId;
+  } catch (err) {
+    console.warn('startSpaceRemoteWatch failed', err);
+  }
+}
+
 function setSyncReady(ready) {
   state.syncReady = Boolean(ready);
   if (state.syncReady) {
     clearSyncRetryLoop();
     hideSyncGate();
     setSyncStatus('ok', 'พร้อมใส่ข้อมูล');
+    void startSpaceRemoteWatch();
   } else {
+    stopSpaceRemoteWatch();
     refreshSyncGateUi();
     startSyncRetryLoop();
   }
@@ -1651,31 +1708,63 @@ function syncCalorieProfileInputs(sheet) {
   }
 }
 
-function getHomePins(sheet = ensureCaloriePayload()) {
-  const fromCloud = normalizeHomePins(sheet?.homePins);
+function readHomePinsFromData(data = state.notesData) {
+  const root = normalizeHomePins(data?.homePins);
+  if (root.length) return root;
+  return normalizeHomePins(data?.calorie?.homePins);
+}
+
+function getHomePins() {
+  const fromCloud = readHomePinsFromData(state.notesData);
   if (fromCloud.length) return fromCloud;
   // One-time migrate: older builds stored pins only in local settings.
   if (!state.settings) state.settings = loadSettings();
-  const legacy = normalizeHomePins(state.settings.calorieHomePins);
-  return legacy;
+  return normalizeHomePins(state.settings.calorieHomePins);
 }
 
-function persistHomePins(pins) {
+function homePinsFingerprint(data = state.notesData) {
+  const pins = readHomePinsFromData(data);
+  const at = data?.homePinsAt || data?.calorie?.homePinsAt || '';
+  return `${at}|${pins.join(',')}`;
+}
+
+async function persistHomePins(pins) {
   const next = normalizeHomePins(pins);
+  if (!requireSyncReady()) {
+    setStatus('รอซิงค์ก่อนส่งกล่อง', { forceToast: true, ms: 1800 });
+    return next;
+  }
   const sheet = ensureCaloriePayload();
   const now = new Date().toISOString();
-  // Cloud-synced field on calorie payload (Firestore), not device-only settings.
-  // homePinsAt must bump on every pin change so merge keeps this side's layout.
-  persistCalorie(
-    { ...sheet, homePins: next, homePinsAt: now },
-    { status: '', fullRender: false, immediate: true },
-  );
+  // Root-level fields sync via Firestore; mirror into calorie for compatibility.
+  state.notesData = normalizeNotesData({
+    ...state.notesData,
+    homePins: next,
+    homePinsAt: now,
+    updatedAt: now,
+    calorie: {
+      ...sheet,
+      homePins: next,
+      homePinsAt: now,
+      updatedAt: now,
+    },
+  });
+  try {
+    saveNotes(state.notesData);
+  } catch { /* ignore quota */ }
+  try {
+    // SaveManager.onCloudSaved shows 「อัปเดตแล้ว」 after Firestore setDoc.
+    await saveManager.saveNow(() => state.notesData);
+  } catch {
+    setStatus('ซิงค์ไม่สำเร็จ', { forceToast: true, ms: 2000 });
+  }
   // Clear legacy local-only copy so devices don't re-migrate stale pins.
   if (!state.settings) state.settings = loadSettings();
   if (Array.isArray(state.settings.calorieHomePins) && state.settings.calorieHomePins.length) {
     state.settings.calorieHomePins = [];
     saveSettings(state.settings);
   }
+  if (state.caloriePane === 'log') paintCalorieDash(ensureCaloriePayload());
   return next;
 }
 
@@ -1691,20 +1780,20 @@ function paintCalorieDash(sheet) {
     7,
   );
   state.calorieTrendDays = days;
-  // Migrate legacy settings pins into synced calorie payload once.
-  const cloudPins = normalizeHomePins(sheet?.homePins);
+  // Migrate legacy settings pins into synced payload once.
+  const cloudPins = readHomePinsFromData(state.notesData);
   if (!cloudPins.length) {
     if (!state.settings) state.settings = loadSettings();
     const legacy = normalizeHomePins(state.settings.calorieHomePins);
     if (legacy.length) {
-      persistHomePins(legacy);
+      void persistHomePins(legacy);
       sheet = ensureCaloriePayload();
     }
   }
   const snap = computeHealthSnapshot(sheet, toDateKey(), days);
   el.hidden = false;
   el.setAttribute('aria-label', 'แนวโน้มหน้าแรก');
-  el.innerHTML = renderHomeDashHtml(snap, getHomePins(sheet), {
+  el.innerHTML = renderHomeDashHtml(snap, getHomePins(), {
     rangeOpen: state.homeDashRangeOpen,
   });
 }
@@ -1753,18 +1842,18 @@ function pinWidgetToHome(pinId) {
     setStatus('ครบทุกกล่องแล้ว', { forceToast: true, ms: 1600 });
     return;
   }
-  persistHomePins([...pins, id]);
-  setStatus(`ส่ง ${homePinLabel(id)} แล้ว`, { forceToast: true, ms: 1600 });
-  if (state.caloriePane === 'log') paintCalorieDash(ensureCaloriePayload());
+  void persistHomePins([...pins, id]).then(() => {
+    setStatus(`ส่ง ${homePinLabel(id)} แล้ว`, { forceToast: true, ms: 1400 });
+  });
 }
 
 function unpinWidgetFromHome(pinId) {
   const id = String(pinId || '').trim();
   if (!id) return;
   const next = getHomePins().filter((p) => p !== id);
-  persistHomePins(next);
-  setStatus('นำออกแล้ว', { forceToast: true, ms: 1400 });
-  paintCalorieDash(ensureCaloriePayload());
+  void persistHomePins(next).then(() => {
+    setStatus('นำออกแล้ว', { forceToast: true, ms: 1400 });
+  });
 }
 
 function openHealthPinMenu(pinId) {
@@ -7477,7 +7566,8 @@ function notesContentKey(data) {
     .map((d) => `${d.id}:${d.updatedAt || ''}`)
     .sort()
     .join(',')}`;
-  return `${notePart}|${tagPart}|${padPart}|${calPart}`;
+  const pinPart = homePinsFingerprint(data);
+  return `${notePart}|${tagPart}|${padPart}|${calPart}|${pinPart}`;
 }
 
 function paintNotesFromLocal(data) {
@@ -7510,6 +7600,7 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   if (state.view === 'editor') flushEditorToState();
 
   const beforeKey = notesContentKey(state.notesData);
+  const pinsBefore = homePinsFingerprint(state.notesData);
   const merged = mergeNotesByUpdatedAt(state.notesData, result.data);
   state.notesData = merged;
   state.online = result.online;
@@ -7538,11 +7629,14 @@ async function applySpaceSyncResult(result, { localVerBefore = null, announce = 
   }
 
   const contentChanged = notesContentKey(state.notesData) !== beforeKey;
-  if (contentChanged && (state.view === 'list' || state.view === 'calendar' || state.view === 'calorie')) {
+  const pinsChanged = homePinsFingerprint(state.notesData) !== pinsBefore;
+  if ((contentChanged || pinsChanged) && (state.view === 'list' || state.view === 'calendar' || state.view === 'calorie')) {
     renderModeSwitcher();
     if (state.view === 'calendar') renderCalendar();
     else if (state.view === 'calorie') renderCalorieSheet();
     else renderNotesList();
+  } else if (pinsChanged && state.caloriePane === 'log') {
+    paintCalorieDash(ensureCaloriePayload());
   } else if (contentChanged && state.activeNotepadId) {
     const pad = getNotepad(state.notesData, state.activeNotepadId);
     if (pad) {
