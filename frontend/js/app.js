@@ -225,7 +225,7 @@ import {
   SHARED_SPACE_ID,
 } from './remote.js?v=204';
 import { normalizeNotesData } from './notes.js?v=204';
-import { SaveManager } from './sync.js?v=204';
+import { SaveManager } from './sync.js?v=209';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
 
 const state = {
@@ -791,7 +791,11 @@ function startSyncRetryLoop() {
   }, 4000);
 }
 
+/** Sticky while a SaveManager cloud batch is in flight — dismiss only when idle. */
+let syncSavedSticky = false;
+
 function hideSyncSavedPopup() {
+  syncSavedSticky = false;
   if (syncSavedTimer) {
     clearTimeout(syncSavedTimer);
     syncSavedTimer = null;
@@ -801,19 +805,41 @@ function hideSyncSavedPopup() {
   els.syncSavedOverlay.setAttribute('hidden', '');
 }
 
-function showSyncSavedPopup(message = 'อัปเดตแล้ว') {
+/**
+ * 「อัปเดตแล้ว」 — one popup per cloud batch.
+ * sticky:true while saves are still queued; sticky:false starts dismiss after
+ * the batch drains (and will stay open if another batch starts).
+ */
+function showSyncSavedPopup(message = 'อัปเดตแล้ว', { sticky = false } = {}) {
   if (!els.syncSavedOverlay || !els.syncSavedMsg) return;
   els.syncSavedMsg.textContent = message;
-  const alreadyOpen = !els.syncSavedOverlay.hidden && Boolean(syncSavedTimer);
+  const wasOpen = !els.syncSavedOverlay.hidden;
   els.syncSavedOverlay.hidden = false;
   els.syncSavedOverlay.removeAttribute('hidden');
-  // Rapid cloud saves (autosave / pin / watch echo) must not keep resetting
-  // the dismiss timer — otherwise 「อัปเดตแล้ว」 stays forever.
-  if (alreadyOpen) return;
+  // Replay enter animation only when newly shown (avoid flicker on coalesced saves).
+  const pop = els.syncSavedOverlay.querySelector?.('.sync-saved-pop');
+  if (pop && !wasOpen) {
+    pop.classList.remove('is-replay');
+    // force reflow so animation restarts next open
+    void pop.offsetWidth;
+    pop.classList.add('is-replay');
+  }
+  if (sticky) {
+    syncSavedSticky = true;
+    if (syncSavedTimer) {
+      clearTimeout(syncSavedTimer);
+      syncSavedTimer = null;
+    }
+    return;
+  }
+  syncSavedSticky = false;
   if (syncSavedTimer) clearTimeout(syncSavedTimer);
   syncSavedTimer = setTimeout(() => {
+    syncSavedTimer = null;
+    // Another reorder/save landed while we were waiting — keep showing.
+    if (syncSavedSticky || saveManager.isBusy) return;
     hideSyncSavedPopup();
-  }, 1200);
+  }, 1100);
 }
 
 /** Block user edits until cloud sync is ready; show waiting popup. */
@@ -1776,7 +1802,7 @@ async function persistHomePins(pins) {
     saveNotes(state.notesData);
   } catch { /* ignore quota */ }
   try {
-    // SaveManager.onCloudSaved shows 「อัปเดตแล้ว」 after Firestore setDoc.
+    // SaveManager batches cloud pushes; one 「อัปเดตแล้ว」 when the queue drains.
     await saveManager.saveNow(() => state.notesData);
   } catch {
     setStatus('ซิงค์ไม่สำเร็จ', { forceToast: true, ms: 2000 });
@@ -7872,8 +7898,13 @@ async function bootstrapData() {
         }
         return safePushRemote(data);
       },
+      onCloudBatchStart: () => {
+        // Hold one popup for the whole queued batch (pin drags, rapid edits).
+        if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว', { sticky: true });
+      },
       onCloudSaved: () => {
-        if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว');
+        // Fires once when the save queue drains after a successful cloud push.
+        if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว', { sticky: false });
         else hideSyncSavedPopup();
         setDbStatusMessage('พร้อมใส่ข้อมูล');
       },
