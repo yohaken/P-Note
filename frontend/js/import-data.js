@@ -136,7 +136,9 @@ export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
     homePinsAt,
     tags: [...tags.values()],
     notes: [...notes.values()],
-    updatedAt: new Date(Math.max(localAt, remoteAt, Date.now())).toISOString(),
+    // Never stamp Date.now() on merge — that makes a watch echo look "newer"
+    // than the doc we just pushed and triggers an endless re-save loop.
+    updatedAt: new Date(Math.max(localAt, remoteAt) || 0).toISOString(),
   });
 }
 

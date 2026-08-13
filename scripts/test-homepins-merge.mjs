@@ -89,6 +89,19 @@ const needsPush = localNeedsRemotePush(
 );
 assert(needsPush === true, 'localNeedsRemotePush true when local pins newer');
 
+// Watch-echo safety: merge must not inject Date.now() or every setDoc
+// looks "newer" locally and re-queues forever (popup spam).
+const stamped = mergeNotesByUpdatedAt(localDoc, remoteDoc);
+const echo = mergeNotesByUpdatedAt(stamped, stamped);
+assert(echo.updatedAt === stamped.updatedAt, 'notes echo merge keeps updatedAt');
+const calEcho = mergeCalorieByUpdatedAt(stamped.calorie, stamped.calorie);
+assert(calEcho.updatedAt === stamped.calorie.updatedAt, 'calorie echo merge keeps updatedAt');
+const maxKnown = Math.max(
+  new Date(localDoc.updatedAt).getTime(),
+  new Date(remoteDoc.updatedAt).getTime(),
+);
+assert(new Date(stamped.updatedAt).getTime() <= maxKnown, 'notes merge updatedAt ≤ max(local, remote)');
+
 if (process.exitCode) {
   console.error('homepins merge tests failed');
   process.exit(1);
