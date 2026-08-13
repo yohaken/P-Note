@@ -6213,17 +6213,34 @@ body.calorie-only .dock-action-primary {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.4rem;
+  touch-action: pan-y;
 }
 
 .cd-pin-card {
   margin: 0;
   min-width: 0;
   padding: 0.5rem 0.45rem 0.45rem;
-  cursor: pointer;
+  cursor: grab;
   -webkit-tap-highlight-color: transparent;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+
+.cd-pin-card.reordering {
+  cursor: grabbing;
+  z-index: 5;
+  opacity: 0.92;
+  transform: scale(1.03);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+body.reordering-active {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .cd-pin-card .chs-big {

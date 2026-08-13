@@ -1,6 +1,6 @@
 import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=204';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
-import { initListSortable } from './sortable.js?v=136';
+import { initListSortable, initGridSortable } from './sortable.js?v=206';
 import { CONFIG } from './config.js?v=154';
 import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=204';
 import {
@@ -1810,6 +1810,29 @@ function paintCalorieDash(sheet) {
   el.setAttribute('aria-label', 'แนวโน้มหน้าแรก');
   el.innerHTML = renderHomeDashHtml(snap, getHomePins(), {
     rangeOpen: state.homeDashRangeOpen,
+  });
+  ensureHomePinSortable();
+}
+
+let homePinSortableReady = false;
+function ensureHomePinSortable() {
+  if (homePinSortableReady || !els.calorieDash) return;
+  homePinSortableReady = true;
+  initGridSortable(els.calorieDash, {
+    gridSelector: '.cd-pin-grid',
+    itemSelector: '[data-pin-id]',
+    getItemId: (el) => el?.dataset?.pinId || '',
+    isEnabled: () => state.caloriePane === 'log' && isSyncReady() && Boolean(els.calorieDash && !els.calorieDash.hidden),
+    onTap: (pinId) => openHomePinMenu(pinId),
+    onReorder: (ids) => {
+      const next = normalizeHomePins(ids);
+      if (!next.length) return;
+      const prev = getHomePins();
+      if (prev.join(',') === next.join(',')) return;
+      void persistHomePins(next).then(() => {
+        setStatus('จัดเรียงแล้ว', { forceToast: true, ms: 1200 });
+      });
+    },
   });
 }
 
@@ -8342,12 +8365,10 @@ async function init({ fromBoot = false } = {}) {
       paintCalorieDash(ensureCaloriePayload());
       return;
     }
-    const pinCard = e.target?.closest?.('[data-pin-id]');
-    if (pinCard && els.calorieDash.contains(pinCard)) {
-      e.preventDefault();
-      openHomePinMenu(pinCard.dataset.pinId);
-    }
+    // Pin cards: short tap / long-press-drag handled by initGridSortable
+    // (click alone would fight long-press reorder).
   });
+  ensureHomePinSortable();
   let calorieScrollTick = 0;
   els.calorieScroll?.addEventListener('scroll', () => {
     if (calorieScrollTick) return;
