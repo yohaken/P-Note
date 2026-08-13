@@ -1,8 +1,7 @@
 /**
- * Long-press drag reordering for the notes list (manual/free sort mode).
- * Base gesture = long-press then drag up/down. A short tap opens the note.
- * Done/trash actions live in small corner buttons (handled by the caller),
- * so they never clash with the drag gesture.
+ * Long-press drag reordering.
+ * - Notes list: vertical reorder (manual/free sort)
+ * - Home pin grid: 2-column card swap (แตะค้างลาก / แตะทีเดียว = tap)
  */
 const LONG_PRESS_MS = 320;
 const MOVE_CANCEL_PX = 10;
@@ -130,6 +129,153 @@ export function initListSortable(listEl, { onTap, onReorder, isEnabled }) {
     clearTimer();
     endDrag();
     card = null;
+    pointerId = null;
+    dragging = false;
+  });
+}
+
+/**
+ * Long-press drag reorder for a CSS grid of cards (e.g. home trend pins).
+ * Short tap → onTap. Long-press + drag → swap DOM order → onReorder(ids).
+ */
+export function initGridSortable(containerEl, {
+  gridSelector = '.cd-pin-grid',
+  itemSelector = '[data-pin-id]',
+  getItemId = (el) => el?.dataset?.pinId || '',
+  onTap,
+  onReorder,
+  isEnabled,
+  ignoreSelector = 'button, a, input, [data-cd-range-toggle], [data-cd-range], [data-calorie-action]',
+} = {}) {
+  if (!containerEl || containerEl.dataset.gridSortableBound === '1') return;
+  containerEl.dataset.gridSortableBound = '1';
+
+  const enabled = () => (typeof isEnabled === 'function' ? isEnabled() : true);
+  let card = null;
+  let grid = null;
+  let dragging = false;
+  let pointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let pressTimer = null;
+
+  const clearTimer = () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  };
+
+  const endDrag = () => {
+    if (card) card.classList.remove('reordering');
+    document.body.classList.remove('reordering-active');
+    if (pointerId !== null) {
+      try {
+        containerEl.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  const beginDrag = () => {
+    if (!card || !grid) return;
+    dragging = true;
+    card.classList.add('reordering');
+    document.body.classList.add('reordering-active');
+    try {
+      containerEl.setPointerCapture(pointerId);
+    } catch {
+      /* ignore */
+    }
+    if (navigator.vibrate) navigator.vibrate(12);
+  };
+
+  const reorderTo = (clientX, clientY) => {
+    if (!grid || !card) return;
+    const others = Array.from(grid.querySelectorAll(itemSelector)).filter((c) => c !== card);
+    let placedBefore = null;
+    for (const c of others) {
+      const rect = c.getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      const midY = rect.top + rect.height / 2;
+      // Row-major: above this card, or same row and to the left of center.
+      if (clientY < midY - 2 || (clientY < rect.bottom && clientX < midX)) {
+        placedBefore = c;
+        break;
+      }
+    }
+    if (placedBefore) grid.insertBefore(card, placedBefore);
+    else grid.appendChild(card);
+  };
+
+  const onDown = (event) => {
+    if (!enabled()) return;
+    if (event.button !== undefined && event.button !== 0) return;
+    if (ignoreSelector && event.target.closest?.(ignoreSelector)) return;
+    grid = containerEl.querySelector(gridSelector);
+    if (!grid) return;
+    card = event.target.closest(itemSelector);
+    if (!card || !grid.contains(card)) {
+      card = null;
+      return;
+    }
+    pointerId = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+    dragging = false;
+    clearTimer();
+    pressTimer = setTimeout(beginDrag, LONG_PRESS_MS);
+  };
+
+  const onMove = (event) => {
+    if (!card || event.pointerId !== pointerId) return;
+    const dx = Math.abs(event.clientX - startX);
+    const dy = Math.abs(event.clientY - startY);
+    if (!dragging) {
+      if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) clearTimer();
+      return;
+    }
+    event.preventDefault();
+    reorderTo(event.clientX, event.clientY);
+  };
+
+  const onUp = (event) => {
+    if (!card || event.pointerId !== pointerId) return;
+    clearTimer();
+    const wasDragging = dragging;
+    const tappedCard = card;
+    const activeGrid = grid;
+    endDrag();
+    card = null;
+    grid = null;
+    pointerId = null;
+    dragging = false;
+
+    if (wasDragging && activeGrid) {
+      const ids = Array.from(activeGrid.querySelectorAll(itemSelector))
+        .map((c) => getItemId(c))
+        .filter(Boolean);
+      if (typeof onReorder === 'function') onReorder(ids);
+      return;
+    }
+
+    const dx = Math.abs(event.clientX - startX);
+    const dy = Math.abs(event.clientY - startY);
+    const id = getItemId(tappedCard);
+    if (dx < MOVE_CANCEL_PX && dy < MOVE_CANCEL_PX && id && typeof onTap === 'function') {
+      onTap(id);
+    }
+  };
+
+  containerEl.addEventListener('pointerdown', onDown);
+  containerEl.addEventListener('pointermove', onMove, { passive: false });
+  containerEl.addEventListener('pointerup', onUp);
+  containerEl.addEventListener('pointercancel', () => {
+    clearTimer();
+    endDrag();
+    card = null;
+    grid = null;
     pointerId = null;
     dragging = false;
   });
