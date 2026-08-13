@@ -671,6 +671,7 @@ function showSyncGate(title = 'กำลังซิงค์…', sub = 'รอ
     hideSyncGate();
     return;
   }
+  hideSyncSavedPopup();
   if (els.syncGateTitle) els.syncGateTitle.textContent = title;
   if (els.syncGateSub) els.syncGateSub.textContent = sub;
   if (els.syncGateOverlay) els.syncGateOverlay.hidden = false;
@@ -782,15 +783,29 @@ function startSyncRetryLoop() {
   }, 4000);
 }
 
+function hideSyncSavedPopup() {
+  if (syncSavedTimer) {
+    clearTimeout(syncSavedTimer);
+    syncSavedTimer = null;
+  }
+  if (!els.syncSavedOverlay) return;
+  els.syncSavedOverlay.hidden = true;
+  els.syncSavedOverlay.setAttribute('hidden', '');
+}
+
 function showSyncSavedPopup(message = 'อัปเดตแล้ว') {
   if (!els.syncSavedOverlay || !els.syncSavedMsg) return;
   els.syncSavedMsg.textContent = message;
+  const alreadyOpen = !els.syncSavedOverlay.hidden && Boolean(syncSavedTimer);
   els.syncSavedOverlay.hidden = false;
+  els.syncSavedOverlay.removeAttribute('hidden');
+  // Rapid cloud saves (autosave / pin / watch echo) must not keep resetting
+  // the dismiss timer — otherwise 「อัปเดตแล้ว」 stays forever.
+  if (alreadyOpen) return;
   if (syncSavedTimer) clearTimeout(syncSavedTimer);
   syncSavedTimer = setTimeout(() => {
-    els.syncSavedOverlay.hidden = true;
-    syncSavedTimer = null;
-  }, 1100);
+    hideSyncSavedPopup();
+  }, 1200);
 }
 
 /** Block user edits until cloud sync is ready; show waiting popup. */
@@ -7743,10 +7758,12 @@ async function bootstrapData() {
       },
       onCloudSaved: () => {
         if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว');
+        else hideSyncSavedPopup();
         setDbStatusMessage('พร้อมใส่ข้อมูล');
       },
       onCloudFailed: () => {
         // Don't recurse into ensureCloudReady here — retry loop will pull again.
+        hideSyncSavedPopup();
         state.online = false;
         setSyncReady(false);
         setSyncStatus('offline', 'รอซิงค์…');
