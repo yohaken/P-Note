@@ -1833,9 +1833,9 @@ export function mergeCalorieByUpdatedAt(localRaw, remoteRaw) {
     homePins: pinField.homePins,
     homePinsAt: pinField.homePinsAt,
     days: [...byDate.values()],
-    // Keep the winning meta's updatedAt when it is newer so a just-saved profile
-    // is not diluted to "now" in a way that loses the causality on the next merge.
-    updatedAt: new Date(Math.max(localAt, remoteAt, Date.now())).toISOString(),
+    // Keep max of the two stamps only — do NOT inject Date.now() or a watch
+    // echo merge looks newer than the push we just wrote (re-save loop).
+    updatedAt: new Date(Math.max(localAt, remoteAt) || 0).toISOString(),
   });
 }
 

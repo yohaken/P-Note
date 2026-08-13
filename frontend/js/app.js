@@ -2,7 +2,7 @@ import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
 import { initListSortable, initGridSortable } from './sortable.js?v=206';
 import { CONFIG } from './config.js?v=154';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=204';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=210';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -101,7 +101,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=204';
+} from './calorie.js?v=210';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -225,7 +225,7 @@ import {
   SHARED_SPACE_ID,
 } from './remote.js?v=204';
 import { normalizeNotesData } from './notes.js?v=204';
-import { SaveManager } from './sync.js?v=209';
+import { SaveManager } from './sync.js?v=210';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
 
 const state = {
@@ -791,11 +791,19 @@ function startSyncRetryLoop() {
   }, 4000);
 }
 
-/** Sticky while a SaveManager cloud batch is in flight — dismiss only when idle. */
-let syncSavedSticky = false;
+/**
+ * Confirm toast for user-initiated cloud writes only.
+ * Background re-push / watch echoes must stay silent — sync runs behind the scenes.
+ */
+let syncToastArmed = false;
+let syncToastLastShownAt = 0;
+const SYNC_TOAST_COOLDOWN_MS = 2500;
+
+function armSyncToast() {
+  syncToastArmed = true;
+}
 
 function hideSyncSavedPopup() {
-  syncSavedSticky = false;
   if (syncSavedTimer) {
     clearTimeout(syncSavedTimer);
     syncSavedTimer = null;
@@ -805,41 +813,26 @@ function hideSyncSavedPopup() {
   els.syncSavedOverlay.setAttribute('hidden', '');
 }
 
-/**
- * 「อัปเดตแล้ว」 — one popup per cloud batch.
- * sticky:true while saves are still queued; sticky:false starts dismiss after
- * the batch drains (and will stay open if another batch starts).
- */
-function showSyncSavedPopup(message = 'อัปเดตแล้ว', { sticky = false } = {}) {
+/** Brief 「อัปเดตแล้ว」 — never sticky; ignores background/echo saves. */
+function showSyncSavedPopup(message = 'อัปเดตแล้ว') {
   if (!els.syncSavedOverlay || !els.syncSavedMsg) return;
-  els.syncSavedMsg.textContent = message;
-  const wasOpen = !els.syncSavedOverlay.hidden;
-  els.syncSavedOverlay.hidden = false;
-  els.syncSavedOverlay.removeAttribute('hidden');
-  // Replay enter animation only when newly shown (avoid flicker on coalesced saves).
-  const pop = els.syncSavedOverlay.querySelector?.('.sync-saved-pop');
-  if (pop && !wasOpen) {
-    pop.classList.remove('is-replay');
-    // force reflow so animation restarts next open
-    void pop.offsetWidth;
-    pop.classList.add('is-replay');
-  }
-  if (sticky) {
-    syncSavedSticky = true;
-    if (syncSavedTimer) {
-      clearTimeout(syncSavedTimer);
-      syncSavedTimer = null;
-    }
+  if (!syncToastArmed) return;
+  const now = Date.now();
+  // Already visible or just shown — don't bounce again.
+  if (!els.syncSavedOverlay.hidden || now - syncToastLastShownAt < SYNC_TOAST_COOLDOWN_MS) {
+    syncToastArmed = false;
     return;
   }
-  syncSavedSticky = false;
+  syncToastArmed = false;
+  syncToastLastShownAt = now;
+  els.syncSavedMsg.textContent = message;
+  els.syncSavedOverlay.hidden = false;
+  els.syncSavedOverlay.removeAttribute('hidden');
   if (syncSavedTimer) clearTimeout(syncSavedTimer);
   syncSavedTimer = setTimeout(() => {
     syncSavedTimer = null;
-    // Another reorder/save landed while we were waiting — keep showing.
-    if (syncSavedSticky || saveManager.isBusy) return;
     hideSyncSavedPopup();
-  }, 1100);
+  }, 1000);
 }
 
 /** Block user edits until cloud sync is ready; show waiting popup. */
@@ -1623,6 +1616,7 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
     saveNotes(state.notesData);
   } catch { /* ignore quota */ }
   // Cloud queue resolves getNotesData() at write time (never a stale snap).
+  armSyncToast();
   if (immediate) {
     void saveManager.saveNow(() => state.notesData).catch(() => {
       /* cloud failure handled via onCloudFailed → sync gate */
@@ -1802,7 +1796,8 @@ async function persistHomePins(pins) {
     saveNotes(state.notesData);
   } catch { /* ignore quota */ }
   try {
-    // SaveManager batches cloud pushes; one 「อัปเดตแล้ว」 when the queue drains.
+    armSyncToast();
+    // Cloud push is background; toast arms once for this user gesture.
     await saveManager.saveNow(() => state.notesData);
   } catch {
     setStatus('ซิงค์ไม่สำเร็จ', { forceToast: true, ms: 2000 });
@@ -6363,15 +6358,21 @@ async function safePushRemote(data) {
     const merged = mergeNotesByUpdatedAt(live, remote);
     // Fold any edits that landed while we were fetching.
     const freshest = mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), merged);
+    const pushedKey = notesContentKey(freshest);
     const saved = await pushRemoteNotes(spaceId, freshest);
-    const memAt = new Date(state.notesData?.updatedAt || 0).getTime();
-    const outAt = new Date(freshest.updatedAt || 0).getTime();
-    // Never clobber newer in-memory edits with an older merge result.
-    if (outAt >= memAt) {
+    const liveNow = normalizeNotesData(state.notesData);
+    const liveKey = notesContentKey(liveNow);
+    // Same content as pushed (typical watch echo) — adopt memory, never re-queue.
+    if (liveKey === pushedKey) {
+      state.syncBaseUpdatedAt = saved?.updatedAt || freshest.updatedAt || liveNow.updatedAt;
+      return saved;
+    }
+    // Real local edits landed mid-push — quiet background retry (no toast).
+    if (localNeedsRemotePush(liveNow, freshest)) {
+      saveManager.scheduleSave(() => state.notesData);
+    } else {
       state.notesData = freshest;
       saveNotes(freshest);
-    } else {
-      saveManager.scheduleSave(() => state.notesData);
     }
     state.syncBaseUpdatedAt = saved?.updatedAt || freshest.updatedAt;
     return saved;
@@ -7899,12 +7900,11 @@ async function bootstrapData() {
         return safePushRemote(data);
       },
       onCloudBatchStart: () => {
-        // Hold one popup for the whole queued batch (pin drags, rapid edits).
-        if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว', { sticky: true });
+        // Background sync — no blocking/sticky popup while the queue runs.
       },
       onCloudSaved: () => {
-        // Fires once when the save queue drains after a successful cloud push.
-        if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว', { sticky: false });
+        // Brief toast only when a user gesture armed it (not watch/re-push loops).
+        if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว');
         else hideSyncSavedPopup();
         setDbStatusMessage('พร้อมใส่ข้อมูล');
       },
