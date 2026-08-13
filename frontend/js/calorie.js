@@ -553,6 +553,8 @@ export function normalizeCalorie(raw) {
     goalWeightKg: normalizeOptionalGoal(src.goalWeightKg, 30, 300),
     freqMeals: normalizeFreqList(src.freqMeals),
     freqMus: normalizeFreqList(src.freqMus),
+    /** Pinned health widgets on home dash — synced via Firestore with calorie payload */
+    homePins: normalizeHomePins(src.homePins),
     days,
   };
 }
@@ -1064,8 +1066,7 @@ export function renderPoseBarsHtml(poses) {
   return `<div class="chs-pose-bars">${rows}</div>`;
 }
 
-/** Pinnable widgets from health sheet → home dash (max 4). */
-export const HOME_PIN_MAX = 4;
+/** Pinnable widgets from health sheet → home dash (unique ids, 2 per row). */
 export const HOME_PIN_IDS = [
   'goal-waist',
   'goal-weight',
@@ -1084,6 +1085,8 @@ export const HOME_PIN_IDS = [
   'ex-poses',
   'ex-mus',
 ];
+/** Soft cap = all pinnable widgets (no arbitrary 4-box limit). */
+export const HOME_PIN_MAX = HOME_PIN_IDS.length;
 
 const HOME_PIN_LABELS = {
   'goal-waist': 'เป้าเอว',
@@ -1118,7 +1121,6 @@ export function normalizeHomePins(raw) {
     if (!allowed.has(id) || seen.has(id)) continue;
     seen.add(id);
     out.push(id);
-    if (out.length >= HOME_PIN_MAX) break;
   }
   return out;
 }
@@ -1146,20 +1148,25 @@ function chartCardHtml(title, values, { signed = false, unit = '', digits = 0, p
   </article>`;
 }
 
-/** Compact home-dash card for one pinned widget. */
+/**
+ * Home-dash card with the same inner details as the health-sheet widget.
+ */
 export function renderHomePinCardHtml(pinId, snap) {
   const id = String(pinId || '');
   if (!snap || !HOME_PIN_LABELS[id]) return '';
   const t = snap.trends || {};
   const ex = snap.exercise || {};
+  const levelClass = (lv) =>
+    lv === 'ok' ? 'is-ok' : lv === 'watch' ? 'is-watch' : lv === 'high' ? 'is-high' : '';
+
   if (id.startsWith('chart-')) {
     const map = {
       'chart-waist': { title: 'เอว', values: t.waist, unit: 'ซม.', digits: 1 },
       'chart-weight': { title: 'น้ำหนัก', values: t.weight, unit: 'กก.', digits: 1 },
       'chart-cal': { title: 'แคล', values: t.cal, unit: 'kcal', digits: 0 },
       'chart-prot': { title: 'โปรตีน', values: t.prot, unit: 'ก.', digits: 1 },
-      'chart-balance': { title: 'Balance', values: t.balance, signed: true, unit: 'kcal', digits: 0 },
-      'chart-blKg': { title: 'กก.±', values: t.blKg, signed: true, unit: 'กก.', digits: 2 },
+      'chart-balance': { title: 'Balance แคล', values: t.balance, signed: true, unit: 'kcal', digits: 0 },
+      'chart-blKg': { title: 'น้ำหนักบวกลบ', values: t.blKg, signed: true, unit: 'กก.', digits: 2 },
     };
     const cfg = map[id];
     return chartCardHtml(cfg.title, cfg.values || [], {
@@ -1174,19 +1181,21 @@ export function renderHomePinCardHtml(pinId, snap) {
         <h3>ท่าที่เล่น</h3>
         <p class="chs-chart-last">${esc(ex.poses?.length || 0)}<span class="chs-chart-unit">ท่า</span></p>
       </div>
-      ${renderPoseBarsHtml((ex.poses || []).slice(0, 4))}
+      ${renderPoseBarsHtml(ex.poses)}
     </article>`;
   }
   if (id === 'ex-mus') {
     const musPts = (ex.mus || []).filter((v) => v != null && Number.isFinite(v) && v > 0);
     const musLast = musPts.length ? musPts[musPts.length - 1] : null;
     const musTone = musLast == null || musLast === 0 ? '' : 'is-pos';
+    const burnSum = ex.musSum == null ? '' : `รวม ${ex.musSum} kcal`;
     return `<article class="chs-chart-card cd-pin-card ${musTone} is-pinnable" data-pin-id="${esc(id)}">
       <div class="chs-chart-top">
         <h3>แคลอรีเบิร์น</h3>
         <p class="chs-chart-last">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></p>
       </div>
-      ${renderSeriesChartSvg(ex.mus || [], { className: 'chs-chart-svg is-burn', height: 52 })}
+      ${renderSeriesChartSvg(ex.mus || [], { className: 'chs-chart-svg is-burn' })}
+      ${burnSum ? `<p class="chs-hint">${esc(burnSum)}</p>` : ''}
     </article>`;
   }
   if (id === 'goal-waist' || id === 'goal-weight') {
@@ -1195,7 +1204,7 @@ export function renderHomePinCardHtml(pinId, snap) {
       isWaist ? 'เอว' : 'น้ำหนัก',
       isWaist ? 'ซม.' : 'กก.',
       isWaist ? snap.goalWaist : snap.goalWeight,
-      { primary: isWaist, hint: isWaist ? 'หัวใจหลัก' : 'เป้าเสริม' },
+      { primary: isWaist, hint: isWaist ? 'หัวใจหลัก' : 'กล้ามเนื้อทำให้น้ำหนักขึ้นได้' },
     );
     return html
       .replace('class="chs-card chs-goal-card', `class="chs-card chs-goal-card cd-pin-card is-pinnable`)
@@ -1204,55 +1213,73 @@ export function renderHomePinCardHtml(pinId, snap) {
 
   const sexLabel = snap.sex === 'female' ? 'หญิง' : 'ชาย';
   const waistV = snap.waist == null ? '—' : snap.waist;
-  const levelClass = (lv) =>
-    lv === 'ok' ? 'is-ok' : lv === 'watch' ? 'is-watch' : lv === 'high' ? 'is-high' : '';
+  const whtrV = snap.whtr == null ? '—' : snap.whtr;
+  const whtrHint =
+    snap.whtrLevel === 'ok'
+      ? 'ต่ำกว่า 0.5 — ช่วงกลางตัวโอเค'
+      : snap.whtrLevel === 'watch'
+        ? '0.5–0.6 — ควรลดไขมันช่วงกลางตัว'
+        : snap.whtrLevel === 'high'
+          ? '≥ 0.6 — เสี่ยงสูงขึ้น'
+          : 'เอว ÷ ส่วนสูง';
+  const waistHint = snap.waistZone
+    ? `${snap.waistZone.label} (เกณฑ์เอเชีย ${snap.sex === 'female' ? 'หญิง ≥80' : 'ชาย ≥90'} ซม.)`
+    : 'ยังไม่มีรอบเอว';
+  const idealV = snap.ideal ? `${snap.ideal.low}–${snap.ideal.high} กก.` : '—';
+  const weekKgV =
+    snap.weekKg == null
+      ? '—'
+      : `${snap.weekKg > 0 ? '+' : ''}${snap.weekKg} กก.`;
+  const weekKgTone =
+    snap.weekKg == null || snap.weekKg === 0 ? '' : snap.weekKg > 0 ? 'is-pos' : 'is-neg';
+
   if (id === 'card-body') {
     return `<article class="chs-card cd-pin-card is-pinnable" data-pin-id="${esc(id)}">
       <h3>ร่างกายล่าสุด</h3>
-      <p>สูง <strong>${esc(snap.heightCm ?? '—')}</strong> · ${esc(sexLabel)}</p>
-      <p>นน. <strong>${esc(snap.weight ?? '—')}</strong> · เอว <strong>${esc(waistV)}</strong></p>
+      <p>สูง <strong>${esc(snap.heightCm ?? '—')}</strong> ซม. · ${esc(sexLabel)} · อายุ <strong>${esc(snap.age ?? '—')}</strong> ปี</p>
+      <p>น้ำหนัก <strong>${esc(snap.weight ?? '—')}</strong> กก. · เอว <strong>${esc(waistV)}</strong> ซม.</p>
     </article>`;
   }
   if (id === 'card-bmi') {
     return `<article class="chs-card cd-pin-card is-pinnable" data-pin-id="${esc(id)}">
       <h3>BMI</h3>
       <p class="chs-big">${esc(snap.bmi == null ? '—' : snap.bmi)}</p>
+      <p class="chs-hint">น้ำหนัก ÷ ส่วนสูง²</p>
     </article>`;
   }
   if (id === 'card-whtr') {
     return `<article class="chs-card cd-pin-card is-pinnable ${levelClass(snap.whtrLevel)}" data-pin-id="${esc(id)}">
-      <h3>WHtR</h3>
-      <p class="chs-big">${esc(snap.whtr == null ? '—' : snap.whtr)}</p>
+      <h3>WHtR เอว/สูง</h3>
+      <p class="chs-big">${esc(whtrV)}</p>
+      <p class="chs-hint">${esc(whtrHint)}</p>
     </article>`;
   }
   if (id === 'card-waistZone') {
     return `<article class="chs-card cd-pin-card is-pinnable ${levelClass(snap.waistZone?.level)}" data-pin-id="${esc(id)}">
-      <h3>โซนเอว</h3>
-      <p class="chs-big chs-big-sm">${esc(snap.waistZone?.label || '—')}</p>
+      <h3>โซนรอบเอว</h3>
+      <p class="chs-big">${esc(snap.waistZone?.label || '—')}</p>
+      <p class="chs-hint">${esc(waistHint)}</p>
     </article>`;
   }
   if (id === 'card-ideal') {
-    const idealV = snap.ideal ? `${snap.ideal.low}–${snap.ideal.high}` : '—';
     return `<article class="chs-card cd-pin-card is-pinnable" data-pin-id="${esc(id)}">
-      <h3>กก. แนะนำ</h3>
+      <h3>ช่วง กก. แนะนำ</h3>
       <p class="chs-big chs-big-sm">${esc(idealV)}</p>
+      <p class="chs-hint">BMI 18.5–24.9 จากส่วนสูง</p>
     </article>`;
   }
   if (id === 'card-weekKg') {
-    const weekKgV =
-      snap.weekKg == null ? '—' : `${snap.weekKg > 0 ? '+' : ''}${snap.weekKg}`;
-    const weekKgTone =
-      snap.weekKg == null || snap.weekKg === 0 ? '' : snap.weekKg > 0 ? 'is-pos' : 'is-neg';
     return `<article class="chs-card cd-pin-card is-pinnable ${weekKgTone}" data-pin-id="${esc(id)}">
-      <h3>แนวโน้มกก.</h3>
+      <h3>แนวโน้ม 7 วัน</h3>
       <p class="chs-big chs-big-sm">${esc(weekKgV)}</p>
+      <p class="chs-hint">จาก bal รวม ÷ 7700 · คร่าวๆ เท่านั้น</p>
     </article>`;
   }
   return '';
 }
 
 /**
- * Home dash: range control + up to 4 pinned cards (2 per row).
+ * Home dash: range control + pinned cards (2 per row, grows as needed).
  * @param {{ rangeOpen?: boolean }} opts
  */
 export function renderHomeDashHtml(snap, pins, opts = {}) {
@@ -1267,7 +1294,7 @@ export function renderHomeDashHtml(snap, pins, opts = {}) {
   const cards = list.map((id) => renderHomePinCardHtml(id, snap)).filter(Boolean).join('');
   const grid = list.length
     ? `<div class="cd-pin-grid">${cards}</div>`
-    : `<p class="cd-pin-empty">แตะกล่องในหน้าสรุป → ส่งไปหน้าแรก · ได้ ${HOME_PIN_MAX} กล่อง</p>`;
+    : `<p class="cd-pin-empty">แตะกล่องในหน้าสรุป → ส่งไปหน้าแรก<br>จัดเรียงแถวละ 2 กล่อง · sync คลาวด์อัตโนมัติ</p>`;
   const rangeLabel = snap?.trends
     ? `${snap.trends.startLabel}–${snap.trends.endLabel}`
     : rangeMeta.label;
@@ -1278,7 +1305,7 @@ export function renderHomeDashHtml(snap, pins, opts = {}) {
         ${esc(rangeMeta.label)} <span aria-hidden="true">${rangeOpen ? '▴' : '▾'}</span>
       </button>
     </div>
-    <p class="cd-sub cd-range-sub">${esc(rangeLabel)}${list.length ? ` · ${list.length}/${HOME_PIN_MAX}` : ''}</p>
+    <p class="cd-sub cd-range-sub">${esc(rangeLabel)}${list.length ? ` · ${list.length} กล่อง` : ''}</p>
     <div class="cd-range-panel${rangeOpen ? ' is-open' : ''}" ${rangeOpen ? '' : 'hidden'}>
       <div class="chs-range cd-range" role="toolbar" aria-label="ช่วงเวลากราฟ">${rangeChips}</div>
     </div>

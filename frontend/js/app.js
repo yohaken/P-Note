@@ -100,7 +100,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=201';
+} from './calorie.js?v=202';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -151,7 +151,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=201';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=202';
 import {
   allIcons,
   bestIconForLabel,
@@ -1651,16 +1651,29 @@ function syncCalorieProfileInputs(sheet) {
   }
 }
 
-function getHomePins() {
+function getHomePins(sheet = ensureCaloriePayload()) {
+  const fromCloud = normalizeHomePins(sheet?.homePins);
+  if (fromCloud.length) return fromCloud;
+  // One-time migrate: older builds stored pins only in local settings.
   if (!state.settings) state.settings = loadSettings();
-  return normalizeHomePins(state.settings.calorieHomePins);
+  const legacy = normalizeHomePins(state.settings.calorieHomePins);
+  return legacy;
 }
 
 function persistHomePins(pins) {
   const next = normalizeHomePins(pins);
+  const sheet = ensureCaloriePayload();
+  // Cloud-synced field on calorie payload (Firestore), not device-only settings.
+  persistCalorie(
+    { ...sheet, homePins: next },
+    { status: '', fullRender: false, immediate: true },
+  );
+  // Clear legacy local-only copy so devices don't re-migrate stale pins.
   if (!state.settings) state.settings = loadSettings();
-  state.settings.calorieHomePins = next;
-  saveSettings(state.settings);
+  if (Array.isArray(state.settings.calorieHomePins) && state.settings.calorieHomePins.length) {
+    state.settings.calorieHomePins = [];
+    saveSettings(state.settings);
+  }
   return next;
 }
 
@@ -1676,10 +1689,20 @@ function paintCalorieDash(sheet) {
     7,
   );
   state.calorieTrendDays = days;
+  // Migrate legacy settings pins into synced calorie payload once.
+  const cloudPins = normalizeHomePins(sheet?.homePins);
+  if (!cloudPins.length) {
+    if (!state.settings) state.settings = loadSettings();
+    const legacy = normalizeHomePins(state.settings.calorieHomePins);
+    if (legacy.length) {
+      persistHomePins(legacy);
+      sheet = ensureCaloriePayload();
+    }
+  }
   const snap = computeHealthSnapshot(sheet, toDateKey(), days);
   el.hidden = false;
   el.setAttribute('aria-label', 'แนวโน้มหน้าแรก');
-  el.innerHTML = renderHomeDashHtml(snap, getHomePins(), {
+  el.innerHTML = renderHomeDashHtml(snap, getHomePins(sheet), {
     rangeOpen: state.homeDashRangeOpen,
   });
 }
@@ -1725,7 +1748,7 @@ function pinWidgetToHome(pinId) {
     return;
   }
   if (pins.length >= HOME_PIN_MAX) {
-    setStatus(`เต็ม ${HOME_PIN_MAX} กล่อง · เอาออกก่อน`, { forceToast: true, ms: 2000 });
+    setStatus('ครบทุกกล่องแล้ว', { forceToast: true, ms: 1600 });
     return;
   }
   persistHomePins([...pins, id]);
@@ -1738,7 +1761,7 @@ function unpinWidgetFromHome(pinId) {
   if (!id) return;
   const next = getHomePins().filter((p) => p !== id);
   persistHomePins(next);
-  setStatus(`นำออกแล้ว`, { forceToast: true, ms: 1400 });
+  setStatus('นำออกแล้ว', { forceToast: true, ms: 1400 });
   paintCalorieDash(ensureCaloriePayload());
 }
 
