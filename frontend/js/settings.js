@@ -108,8 +108,10 @@ const DEFAULTS = {
   recentNotepadIds: [],
   /** Table / today-card color tones — filled in loadSettings via normalizeCalorieTones */
   calorieTones: null,
-  /** Last health-summary chart range (days): 1/3/7/14/90/180/365 */
+  /** Last health-summary chart range (days): 1/3/7/14/90/180/365 — shared with home dash */
   calorieTrendDays: 7,
+  /** Pinned health widgets on home dash (max 4 ids) */
+  calorieHomePins: [],
 };
 
 function withFixedUi(settings) {
@@ -171,6 +173,41 @@ export function normalizeCalorieTrendDays(raw, fallback = 7) {
   if (CALORIE_TREND_DAY_OPTIONS.includes(n)) return n;
   const fb = Number(fallback);
   return CALORIE_TREND_DAY_OPTIONS.includes(fb) ? fb : 7;
+}
+
+/** Home-dash pin ids from health sheet (keep in sync with HOME_PIN_IDS in calorie.js). */
+const HOME_PIN_ID_OPTIONS = [
+  'goal-waist',
+  'goal-weight',
+  'card-body',
+  'card-bmi',
+  'card-whtr',
+  'card-waistZone',
+  'card-ideal',
+  'card-weekKg',
+  'chart-waist',
+  'chart-weight',
+  'chart-cal',
+  'chart-prot',
+  'chart-balance',
+  'chart-blKg',
+  'ex-poses',
+  'ex-mus',
+];
+
+export function normalizeCalorieHomePins(raw) {
+  const allowed = new Set(HOME_PIN_ID_OPTIONS);
+  const seen = new Set();
+  const out = [];
+  if (!Array.isArray(raw)) return out;
+  for (const item of raw) {
+    const id = String(item || '').trim();
+    if (!allowed.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+    if (out.length >= 4) break;
+  }
+  return out;
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
@@ -462,6 +499,7 @@ export function loadSettings() {
         recentNotepadIds: [],
         calorieTones: normalizeCalorieTones(null),
         calorieTrendDays: normalizeCalorieTrendDays(null),
+        calorieHomePins: normalizeCalorieHomePins(null),
       });
     }
     const parsed = JSON.parse(raw);
@@ -493,6 +531,7 @@ export function loadSettings() {
       recentNotepadIds: normalizeRecentNotepadIds(parsed.recentNotepadIds, parsed.lastNotepadId),
       calorieTones: normalizeCalorieTones(parsed.calorieTones),
       calorieTrendDays: normalizeCalorieTrendDays(parsed.calorieTrendDays),
+      calorieHomePins: normalizeCalorieHomePins(parsed.calorieHomePins),
     });
   } catch {
     return withFixedUi({
@@ -515,6 +554,7 @@ export function loadSettings() {
       recentNotepadIds: [],
       calorieTones: normalizeCalorieTones(null),
       calorieTrendDays: normalizeCalorieTrendDays(null),
+      calorieHomePins: normalizeCalorieHomePins(null),
     });
   }
 }
@@ -547,6 +587,7 @@ export function saveSettings(settings) {
     recentNotepadIds: normalizeRecentNotepadIds(settings.recentNotepadIds, settings.lastNotepadId),
     calorieTones: normalizeCalorieTones(settings.calorieTones),
     calorieTrendDays: normalizeCalorieTrendDays(settings.calorieTrendDays),
+    calorieHomePins: normalizeCalorieHomePins(settings.calorieHomePins),
   });
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
