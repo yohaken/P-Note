@@ -861,8 +861,6 @@ function requireSyncReady() {
   return false;
 }
 
-let ensureCloudReadyInFlight = null;
-
 /**
  * Pull/merge cloud in the background. Unlocks edits as soon as local data
  * exists (or after first pull on an empty device). Does not block the UI
