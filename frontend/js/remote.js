@@ -5,6 +5,7 @@ import {
   getDoc,
   setDoc,
   onSnapshot,
+  runTransaction,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 /**
@@ -136,6 +137,48 @@ export async function pushRemoteNotes(spaceId, data) {
   const payload = toFirestorePayload(data);
   await setDoc(spaceRef(spaceId || SHARED_SPACE_ID), payload);
   return payload;
+}
+
+/**
+ * Bank-style atomic commit on the shared space doc (Firestore transaction).
+ *
+ * Same guarantee as a ledger transfer for sub-second races:
+ * 1. Read latest cloud revision inside the txn
+ * 2. Merge local + cloud by entity updatedAt
+ * 3. Commit set — if another device wrote in between, Firestore aborts
+ *    and auto-retries from step 1 (default ~5 attempts)
+ *
+ * Blind getDoc→setDoc is forbidden for multi-device saves.
+ *
+ * @param {string} spaceId
+ * @param {(remote: object) => { write: boolean, data: object }} resolveMerged
+ *   Called with the latest cloud payload inside the transaction.
+ *   Return `{ write: false, data }` to skip setDoc (e.g. sparse local).
+ * @returns {Promise<{ written: boolean, data: object, remote: object }>}
+ */
+export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
+  await initFirebase();
+  requireSignedIn();
+  if (typeof resolveMerged !== 'function') {
+    throw new Error('resolveMerged required');
+  }
+  const ref = spaceRef(spaceId || SHARED_SPACE_ID);
+  // runTransaction = optimistic concurrency + automatic retry on conflict.
+  return runTransaction(getDb(), async (transaction) => {
+    const snap = await transaction.get(ref);
+    const remote = snap.exists() ? normalizePayload(snap.data()) : emptyPayload();
+    const decision = resolveMerged(remote);
+    if (!decision || decision.write === false) {
+      return {
+        written: false,
+        data: decision?.data != null ? decision.data : remote,
+        remote,
+      };
+    }
+    const payload = toFirestorePayload(decision.data);
+    transaction.set(ref, payload);
+    return { written: true, data: payload, remote };
+  });
 }
 
 /**

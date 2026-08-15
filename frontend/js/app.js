@@ -221,9 +221,10 @@ import {
   getPreviousSpaceId,
   clearPreviousSpaceId,
   pushRemoteNotes,
+  pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=204';
+} from './remote.js?v=213';
 import { normalizeNotesData } from './notes.js?v=204';
 import { SaveManager } from './sync.js?v=210';
 import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
@@ -6333,59 +6334,65 @@ async function applyImportedNotes(text, { merge } = {}) {
   return true;
 }
 
+/**
+ * Cloud write standard: always merge inside a Firestore transaction.
+ * Never getDoc → setDoc outside a txn — phone/desktop concurrent saves
+ * would otherwise replace the whole shared doc and drop the other device's
+ * newer notes / meals.
+ */
 async function safePushRemote(data) {
   const spaceId = state.spaceId || getSpaceId();
-  let remoteRaw;
+  let result;
   try {
-    remoteRaw = await fetchRemoteNotes(spaceId);
+    result = await pushRemoteNotesMerged(spaceId, (remoteRaw) => {
+      const remote = normalizeNotesData(remoteRaw);
+      // Live memory wins over any queued snapshot (local-first).
+      const live = normalizeNotesData(state.notesData || data);
+      const remoteHas = hasCloudContent(remote);
+      const liveHas = hasCloudContent(live);
+
+      // Sparse/empty local must never overwrite a filled Firestore space.
+      if (!liveHas && remoteHas) {
+        return { write: false, data: remote };
+      }
+      if (!liveHas) {
+        return { write: false, data: live };
+      }
+      if (remoteHas) {
+        const merged = mergeNotesByUpdatedAt(live, remote);
+        const freshest = mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), merged);
+        return { write: true, data: freshest };
+      }
+      return { write: true, data: live };
+    });
   } catch (err) {
-    // Never setDoc-blind when we cannot read cloud — keep local until retry.
+    // Never setDoc-blind when we cannot read/merge cloud — keep local until retry.
     throw err;
   }
-  const remote = normalizeNotesData(remoteRaw);
-  // Live memory wins over any queued snapshot (local-first).
-  const live = normalizeNotesData(state.notesData || data);
-  const remoteHas = hasCloudContent(remote);
-  const liveHas = hasCloudContent(live);
 
-  // Sparse/empty local must never overwrite a filled Firestore space.
-  if (!liveHas && remoteHas) {
-    state.syncBaseUpdatedAt = remote.updatedAt || state.syncBaseUpdatedAt;
-    return remote;
-  }
+  const saved = result?.data;
+  const pushedKey = notesContentKey(saved);
+  const liveNow = normalizeNotesData(state.notesData);
+  const liveKey = notesContentKey(liveNow);
 
-  if (remoteHas) {
-    const merged = mergeNotesByUpdatedAt(live, remote);
-    // Fold any edits that landed while we were fetching.
-    const freshest = mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), merged);
-    const pushedKey = notesContentKey(freshest);
-    const saved = await pushRemoteNotes(spaceId, freshest);
-    const liveNow = normalizeNotesData(state.notesData);
-    const liveKey = notesContentKey(liveNow);
-    // Same content as pushed (typical watch echo) — adopt memory, never re-queue.
-    if (liveKey === pushedKey) {
-      state.syncBaseUpdatedAt = saved?.updatedAt || freshest.updatedAt || liveNow.updatedAt;
-      return saved;
-    }
-    // Real local edits landed mid-push — quiet background retry (no toast).
-    if (localNeedsRemotePush(liveNow, freshest)) {
-      saveManager.scheduleSave(() => state.notesData);
-    } else {
-      state.notesData = freshest;
-      saveNotes(freshest);
-    }
-    state.syncBaseUpdatedAt = saved?.updatedAt || freshest.updatedAt;
+  if (!result?.written) {
+    state.syncBaseUpdatedAt = saved?.updatedAt || state.syncBaseUpdatedAt;
     return saved;
   }
 
-  if (!liveHas) {
-    // Both empty — skip noisy overwrite.
-    state.syncBaseUpdatedAt = live.updatedAt || state.syncBaseUpdatedAt;
-    return live;
+  // Same content as pushed (typical watch echo) — adopt memory, never re-queue.
+  if (liveKey === pushedKey) {
+    state.syncBaseUpdatedAt = saved?.updatedAt || liveNow.updatedAt;
+    return saved;
   }
-
-  const saved = await pushRemoteNotes(spaceId, live);
-  state.syncBaseUpdatedAt = saved?.updatedAt || live.updatedAt || new Date().toISOString();
+  // Real local edits landed mid-push — quiet background retry (no toast).
+  if (localNeedsRemotePush(liveNow, saved)) {
+    saveManager.scheduleSave(() => state.notesData);
+  } else {
+    state.notesData = normalizeNotesData(saved);
+    saveNotes(state.notesData);
+  }
+  state.syncBaseUpdatedAt = saved?.updatedAt || liveNow.updatedAt;
   return saved;
 }
 
@@ -7651,12 +7658,29 @@ async function loadSpaceData(spaceId, localData) {
   const localHas = hasCloudContent(localData);
 
   if (!remoteHas && localHas) {
-    const merged = normalizeNotesData(localData);
+    // Empty cloud + local content: still use a txn so a concurrent device
+    // write mid-migrate is merged instead of wiped.
     try {
-      await pushRemoteNotes(spaceId, merged);
-      return { data: merged, online: true, migrated: true, scheduleSnap: remoteVer < 5 };
+      const tx = await pushRemoteNotesMerged(spaceId, (latestRaw) => {
+        const latest = normalizeNotesData(latestRaw);
+        if (hasCloudContent(latest)) {
+          return { write: true, data: mergeNotesByUpdatedAt(localData, latest) };
+        }
+        return { write: true, data: normalizeNotesData(localData) };
+      });
+      return {
+        data: normalizeNotesData(tx.data),
+        online: true,
+        migrated: true,
+        scheduleSnap: remoteVer < 5,
+      };
     } catch {
-      return { data: merged, online: false, migrated: false, scheduleSnap: remoteVer < 5 };
+      return {
+        data: normalizeNotesData(localData),
+        online: false,
+        migrated: false,
+        scheduleSnap: remoteVer < 5,
+      };
     }
   }
 
@@ -7664,9 +7688,13 @@ async function loadSpaceData(spaceId, localData) {
     const merged = mergeNotesByUpdatedAt(localData, remote);
     if (localNeedsRemotePush(localData, remote)) {
       try {
-        await pushRemoteNotes(spaceId, merged);
+        const tx = await pushRemoteNotesMerged(spaceId, (latestRaw) => {
+          const latest = normalizeNotesData(latestRaw);
+          const live = normalizeNotesData(state.notesData || localData);
+          return { write: true, data: mergeNotesByUpdatedAt(live, latest) };
+        });
         return {
-          data: merged,
+          data: normalizeNotesData(tx.data),
           online: true,
           migrated: false,
           merged: true,
