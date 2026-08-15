@@ -220,7 +220,6 @@ import {
   getSpaceId,
   getPreviousSpaceId,
   clearPreviousSpaceId,
-  pushRemoteNotes,
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
