@@ -664,9 +664,20 @@ function setAuthOverlayVisible(visible) {
 
 let syncRetryTimer = null;
 let syncSavedTimer = null;
+let ensureCloudReadyInFlight = null;
 
 function isSyncReady() {
-  return Boolean(state.syncReady && state.authUser && state.cloudHydrated && state.online);
+  // Local-first: signed-in users may edit immediately.
+  // Only block when this device has no local data yet and cloud has not arrived
+  // (empty phone waiting for first pull — avoids typing into a blank slate).
+  if (!state.syncReady || !state.authUser) return false;
+  if (!state.cloudHydrated && !hasCloudContent(state.notesData)) return false;
+  return true;
+}
+
+/** True when we must wait on first cloud pull before allowing edits. */
+function needsFirstCloudPull() {
+  return Boolean(state.authUser && !state.cloudHydrated && !hasCloudContent(state.notesData));
 }
 
 function hideSyncGate() {
@@ -691,22 +702,23 @@ function refreshSyncGateUi() {
     hideSyncGate();
     return;
   }
-  if (isSyncReady()) {
-    hideSyncGate();
-    return;
-  }
   if (!state.authUser) {
     hideSyncGate();
     return;
   }
-  if (spaceSyncInFlight || !navigator.onLine) {
+  if (isSyncReady()) {
+    hideSyncGate();
+    return;
+  }
+  // Only the empty-device first-pull case blocks the UI.
+  if (needsFirstCloudPull()) {
     showSyncGate(
       navigator.onLine ? 'กำลังซิงค์…' : 'รอซิงค์…',
-      navigator.onLine ? 'รอข้อมูลพร้อมก่อนใส่' : 'ไม่มีเน็ต · รอเชื่อมใหม่',
+      navigator.onLine ? 'ดึงข้อมูลครั้งแรก…' : 'ไม่มีเน็ต · รอเชื่อมใหม่',
     );
     return;
   }
-  showSyncGate('รอซิงค์…', 'ยังไม่พร้อม · กำลังลองใหม่');
+  hideSyncGate();
 }
 
 let stopRemoteWatch = null;
@@ -777,17 +789,21 @@ function clearSyncRetryLoop() {
 function startSyncRetryLoop() {
   if (syncRetryTimer) return;
   syncRetryTimer = setInterval(() => {
-    if (isSyncReady() || !state.authUser) {
+    if (!state.authUser) {
       clearSyncRetryLoop();
       return;
     }
-    if (spaceSyncInFlight) return;
+    // Stop once first pull landed (or we already have local and are editing).
+    if (state.cloudHydrated || isSyncReady()) {
+      clearSyncRetryLoop();
+      return;
+    }
+    if (spaceSyncInFlight || ensureCloudReadyInFlight) return;
     if (!navigator.onLine) {
       refreshSyncGateUi();
       return;
     }
-    showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
-    void ensureCloudReady({ force: true, announce: true });
+    void ensureCloudReady({ force: true, announce: false });
   }, 4000);
 }
 
@@ -848,7 +864,9 @@ function requireSyncReady() {
 let ensureCloudReadyInFlight = null;
 
 /**
- * Pull/merge cloud until ready. Resolves true when user may enter data.
+ * Pull/merge cloud in the background. Unlocks edits as soon as local data
+ * exists (or after first pull on an empty device). Does not block the UI
+ * for routine warm syncs — transactional merge keeps multi-device safe.
  */
 async function ensureCloudReady({ force = true, announce = true } = {}) {
   if (ensureCloudReadyInFlight) return ensureCloudReadyInFlight;
@@ -857,27 +875,49 @@ async function ensureCloudReady({ force = true, announce = true } = {}) {
       setSyncReady(false);
       return false;
     }
+
+    // Unlock immediately when this device already has notes/calories.
+    if (hasCloudContent(state.notesData)) {
+      setSyncReady(true);
+    }
+
     if (!navigator.onLine) {
       state.online = false;
-      setSyncReady(false);
-      setSyncStatus('offline', 'รอซิงค์…');
-      showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
-      return false;
+      if (needsFirstCloudPull()) {
+        setSyncReady(false);
+        setSyncStatus('offline', 'รอซิงค์…');
+        showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
+        return false;
+      }
+      setSyncStatus('offline', 'ออฟไลน์ · บันทึกในเครื่อง');
+      hideSyncGate();
+      return isSyncReady();
     }
-    showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
-    setSyncStatus('busy', 'กำลังซิงค์…');
+
+    if (needsFirstCloudPull()) {
+      showSyncGate('กำลังซิงค์…', 'ดึงข้อมูลครั้งแรก…');
+      setSyncStatus('busy', 'กำลังซิงค์…');
+    } else if (announce) {
+      setSyncStatus('busy', 'กำลังซิงค์…');
+      hideSyncGate();
+    }
+
     try {
       await syncSpaceInBackground({ force, announce });
     } catch (err) {
       console.warn('ensureCloudReady failed', err);
     }
-    const ready = Boolean(state.authUser && state.cloudHydrated && state.online && navigator.onLine);
-    setSyncReady(ready);
-    if (!ready) {
-      setSyncStatus('offline', 'รอซิงค์…');
-      showSyncGate('รอซิงค์…', 'ยังไม่พร้อม · กำลังลองใหม่');
+
+    if (state.authUser && (state.cloudHydrated || hasCloudContent(state.notesData))) {
+      setSyncReady(true);
+      hideSyncGate();
+      return true;
     }
-    return ready;
+
+    setSyncReady(false);
+    setSyncStatus('offline', 'รอซิงค์…');
+    refreshSyncGateUi();
+    return false;
   })();
   try {
     return await ensureCloudReadyInFlight;
@@ -2173,10 +2213,10 @@ function renderCalorieSheet({ preserveScroll = false } = {}) {
         calorie: normalizeCalorie(withToday),
         updatedAt: new Date().toISOString(),
       };
-      // Local only until sync is ready — never let a blank today
-      // race ahead and setDoc-wipe the shared cloud space.
+      // Local only until cloud hydrated — blank today must not race ahead of
+      // the first pull (txn merge prefers newer stamps; empty+newer could win).
       saveNotes(state.notesData);
-      if (isSyncReady()) {
+      if (state.cloudHydrated) {
         saveManager.scheduleSave(() => state.notesData);
       }
     }
@@ -7867,7 +7907,8 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
     try {
       if (announce) {
         setSyncStatus('busy', 'กำลังซิงค์…');
-        if (!state.syncReady) showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
+        if (needsFirstCloudPull()) showSyncGate('กำลังซิงค์…', 'ดึงข้อมูลครั้งแรก…');
+        else hideSyncGate();
       }
       const prevMerge = await mergePreviousDeviceSpace(state.notesData);
       if (prevMerge.fromPrev) {
@@ -7915,14 +7956,15 @@ async function bootstrapData() {
         if (!state.authUser) {
           throw new Error('Not signed in');
         }
-        if (!state.syncReady && !state.cloudHydrated) {
-          throw new Error('Sync not ready');
-        }
-        // Wait for first cloud pull so we merge instead of wiping Firestore.
+        // Wait for first cloud pull when this device is empty — otherwise
+        // transactional merge is enough and edits stay unlocked.
         if (!state.cloudHydrated && spaceSyncInFlight) {
           try {
             await spaceSyncInFlight;
           } catch { /* continue — safePushRemote still merges */ }
+        }
+        if (!state.cloudHydrated && !hasCloudContent(data) && needsFirstCloudPull()) {
+          throw new Error('Sync not ready');
         }
         return safePushRemote(data);
       },
@@ -7936,12 +7978,12 @@ async function bootstrapData() {
         setDbStatusMessage('พร้อมใส่ข้อมูล');
       },
       onCloudFailed: () => {
-        // Don't recurse into ensureCloudReady here — retry loop will pull again.
+        // Keep local edits unlocked — cloud retries quietly in the background.
         hideSyncSavedPopup();
         state.online = false;
-        setSyncReady(false);
-        setSyncStatus('offline', 'รอซิงค์…');
-        showSyncGate('รอซิงค์…', 'ส่งไม่สำเร็จ · กำลังลองใหม่');
+        setSyncStatus('offline', 'ซิงค์ไม่สำเร็จ · บันทึกในเครื่องแล้ว');
+        hideSyncGate();
+        if (state.authUser && !state.cloudHydrated) startSyncRetryLoop();
       },
     });
 
@@ -7965,6 +8007,7 @@ async function bootstrapData() {
       }
       const first = !state.authUser;
       onSignedIn(nextUser);
+      if (hasCloudContent(state.notesData)) setSyncReady(true);
       if (first) {
         void ensureCloudReady({ force: true, announce: true });
       }
@@ -7975,6 +8018,8 @@ async function bootstrapData() {
       return;
     }
 
+    // Unlock before awaiting cloud when local cache already has data.
+    if (hasCloudContent(state.notesData)) setSyncReady(true);
     await ensureCloudReady({ force: true, announce: true });
   } catch (err) {
     console.warn('bootstrap failed', err);
@@ -7984,9 +8029,15 @@ async function bootstrapData() {
       applyTheme();
       showView(boardHomeView());
       if (!isCalendarMode()) renderNotesList();
-      setSyncReady(false);
-      setDbStatusMessage('รอซิงค์…');
-      showSyncGate('รอซิงค์…', 'โหลดไม่สำเร็จ · กำลังลองใหม่');
+      if (state.authUser && hasCloudContent(state.notesData)) {
+        setSyncReady(true);
+        setDbStatusMessage('ใช้ข้อมูลในเครื่อง · รอซิงค์…');
+        hideSyncGate();
+      } else {
+        setSyncReady(false);
+        setDbStatusMessage('รอซิงค์…');
+        refreshSyncGateUi();
+      }
       startSyncRetryLoop();
     } catch (fallbackErr) {
       console.warn('bootstrap fallback failed', fallbackErr);
@@ -9005,7 +9056,7 @@ async function init({ fromBoot = false } = {}) {
     if (document.visibilityState !== 'visible') return;
     refreshNoteNotifications();
     if (!state.authUser) return;
-    if (!isSyncReady()) {
+    if (needsFirstCloudPull()) {
       void ensureCloudReady({ force: true, announce: true });
       return;
     }
@@ -9019,13 +9070,18 @@ async function init({ fromBoot = false } = {}) {
   window.addEventListener('online', () => {
     refreshNoteNotifications();
     if (!state.authUser) return;
-    void ensureCloudReady({ force: true, announce: true });
+    void ensureCloudReady({ force: true, announce: false });
   });
   window.addEventListener('offline', () => {
     state.online = false;
-    setSyncReady(false);
-    setSyncStatus('offline', 'รอซิงค์…');
-    showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
+    setSyncStatus('offline', 'ออฟไลน์ · บันทึกในเครื่อง');
+    // Keep editing unlocked when local data exists.
+    if (needsFirstCloudPull()) {
+      setSyncReady(false);
+      showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
+    } else {
+      hideSyncGate();
+    }
   });
 
   // Block iOS pinch/gesture zoom so the fixed layout never overflows its edges.
