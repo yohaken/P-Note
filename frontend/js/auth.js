@@ -1,5 +1,5 @@
-import { CONFIG } from './config.js?v=223';
-import { auth, initFirebase } from './firebase.js?v=223';
+import { CONFIG } from './config.js?v=224';
+import { auth, initFirebase } from './firebase.js?v=224';
 import {
   GoogleAuthProvider,
   getRedirectResult,
