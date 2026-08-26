@@ -1,7 +1,7 @@
 /**
  * Calorie-first entry — paint the calorie shell ASAP, then hydrate full app.
  */
-import { paintListFromLocal } from './list-paint.js?v=224';
+import { paintListFromLocal } from './list-paint.js?v=225';
 
 document.documentElement.dataset.pnoteBoot = '1';
 
@@ -21,11 +21,16 @@ try {
 }
 
 // Full app (interactions, sync, settings) after first paint.
-import('./app.js?v=224')
+import('./app.js?v=225')
   .then((m) => {
     if (typeof m.hydrateApp === 'function') return m.hydrateApp();
     return undefined;
   })
   .catch((err) => {
     console.error('app hydrate failed', err);
+    const loading = document.getElementById('loading-overlay');
+    if (loading) loading.hidden = true;
+    const gate = document.getElementById('sync-gate-overlay');
+    if (gate) gate.hidden = true;
+    document.body.classList.remove('sync-gated');
   });
