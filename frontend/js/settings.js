@@ -1,10 +1,11 @@
-import { STORAGE_KEYS } from './config.js?v=51';
-import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=46';
+import { STORAGE_KEYS } from './config.js?v=223';
+import { compareStamp, nowIso } from './clock.js?v=223';
+import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=223';
 import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
-} from './schedule.js?v=122';
-import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=148';
+} from './schedule.js?v=223';
+import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=223';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -569,8 +570,9 @@ export function saveSettings(settings) {
     settings.notifyPrefs,
     settings.notificationsEnabled,
   );
+  const stamped = touchSettingsCloudStamp(settings);
   const next = withFixedUi({
-    ...settings,
+    ...stamped,
     notifyPrefs,
     notificationsEnabled: notifyPrefs.enabled,
     geminiApiKey: String(settings.geminiApiKey || '').trim().slice(0, 200),
@@ -590,6 +592,100 @@ export function saveSettings(settings) {
     calorieHomePins: normalizeCalorieHomePins(settings.calorieHomePins),
   });
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+}
+
+/** Cloud-syncable settings blob (never includes Gemini API key). */
+export function normalizeSettingsSync(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const notifyPrefs = normalizeNotifyPrefs(raw.notifyPrefs, raw.notificationsEnabled);
+  const updatedAt = String(raw.updatedAt || '').trim();
+  if (!updatedAt) return null;
+  return {
+    updatedAt,
+    sortMode: SORT_MODES.includes(raw.sortMode) ? raw.sortMode : 'updated',
+    tagFilterId: normalizeTagFilterId(raw.tagFilterId),
+    priorityFilter: normalizePriorityFilter(raw.priorityFilter),
+    recurrenceFilter: normalizeRecurrenceFilterSetting(raw.recurrenceFilter),
+    dueScope: ['today', 'soon', 'overdue'].includes(raw.dueScope) ? raw.dueScope : null,
+    tagOrder: normalizeTagOrder(raw.tagOrder),
+    barLayout: normalizeLayout(raw.barLayout),
+    notificationsEnabled: notifyPrefs.enabled,
+    notifyPrefs,
+    geminiModel: normalizeGeminiModel(raw.geminiModel),
+    aiProfile: normalizeAiProfile(raw.aiProfile),
+    aiTagRules: normalizeAiTagRules(raw.aiTagRules),
+    cameraSaveToDevice: normalizeCameraSaveToDevice(raw.cameraSaveToDevice),
+    cameraFacing: normalizeCameraFacing(raw.cameraFacing),
+    cameraQuality: normalizeCameraQuality(raw.cameraQuality),
+    notifyMonthPresets: normalizeMonthPresets(raw.notifyMonthPresets),
+    priorityIcons: normalizePriorityIcons(raw.priorityIcons),
+    cardDisplay: normalizeCardDisplay(raw.cardDisplay),
+    lastWorkspaceId: raw.lastWorkspaceId ? String(raw.lastWorkspaceId) : null,
+    appMode: normalizeAppMode(raw.appMode),
+    lastNotepadId: raw.lastNotepadId ? String(raw.lastNotepadId) : null,
+    recentNotepadIds: normalizeRecentNotepadIds(raw.recentNotepadIds, raw.lastNotepadId),
+    calorieTones: normalizeCalorieTones(raw.calorieTones),
+    calorieTrendDays: normalizeCalorieTrendDays(raw.calorieTrendDays),
+    calorieHomePins: normalizeCalorieHomePins(raw.calorieHomePins),
+  };
+}
+
+export function settingsForCloud(settings) {
+  const s = settings && typeof settings === 'object' ? settings : loadSettings();
+  const notifyPrefs = normalizeNotifyPrefs(s.notifyPrefs, s.notificationsEnabled);
+  const updatedAt = String(s.cloudUpdatedAt || '').trim() || nowIso();
+  return normalizeSettingsSync({
+    ...s,
+    updatedAt,
+    notifyPrefs,
+    notificationsEnabled: notifyPrefs.enabled,
+  });
+}
+
+/** Apply newer cloud settings into local state; preserve API key. */
+export function mergeSettingsFromCloud(localSettings, cloudRaw) {
+  const cloud = normalizeSettingsSync(cloudRaw);
+  if (!cloud) return localSettings;
+  const localAt = String(localSettings?.cloudUpdatedAt || '').trim();
+  if (localAt && compareStamp(cloud.updatedAt, localAt) <= 0) {
+    return localSettings;
+  }
+  const apiKey = String(localSettings?.geminiApiKey || '').trim();
+  const merged = withFixedUi({
+    ...localSettings,
+    sortMode: cloud.sortMode,
+    tagFilterId: cloud.tagFilterId,
+    priorityFilter: cloud.priorityFilter,
+    recurrenceFilter: cloud.recurrenceFilter,
+    dueScope: cloud.dueScope,
+    tagOrder: cloud.tagOrder,
+    barLayout: cloud.barLayout,
+    notificationsEnabled: cloud.notificationsEnabled,
+    notifyPrefs: cloud.notifyPrefs,
+    geminiApiKey: apiKey,
+    geminiModel: cloud.geminiModel,
+    aiProfile: cloud.aiProfile,
+    aiTagRules: cloud.aiTagRules,
+    cameraSaveToDevice: cloud.cameraSaveToDevice,
+    cameraFacing: cloud.cameraFacing,
+    cameraQuality: cloud.cameraQuality,
+    notifyMonthPresets: cloud.notifyMonthPresets,
+    priorityIcons: cloud.priorityIcons,
+    cardDisplay: cloud.cardDisplay,
+    lastWorkspaceId: cloud.lastWorkspaceId,
+    appMode: cloud.appMode,
+    lastNotepadId: cloud.lastNotepadId,
+    recentNotepadIds: cloud.recentNotepadIds,
+    calorieTones: cloud.calorieTones,
+    calorieTrendDays: cloud.calorieTrendDays,
+    calorieHomePins: cloud.calorieHomePins,
+    cloudUpdatedAt: cloud.updatedAt,
+  });
+  return merged;
+}
+
+export function touchSettingsCloudStamp(settings) {
+  return { ...settings, cloudUpdatedAt: nowIso() };
 }
 
 export function normalizeRecentNotepadIds(raw, lastId = null) {

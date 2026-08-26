@@ -1,5 +1,5 @@
-import { CONFIG } from './config.js?v=154';
-import { saveNotes } from './local.js?v=204';
+import { CONFIG } from './config.js?v=223';
+import { saveNotes, markCloudPending, clearCloudPending } from './local.js?v=223';
 
 export class SaveManager {
   constructor() {
@@ -91,10 +91,12 @@ export class SaveManager {
       // Re-read memory right before cloud push (edits may have landed mid-queue).
       const latest = this.resolveData(getNotesData) || notesData;
       await this.remotePush(latest);
+      clearCloudPending();
       this.onStatus('บันทึกคลาวด์แล้ว');
       this._batchHadCloudSuccess = true;
     } catch {
       this.onStatus('ซิงค์ไม่สำเร็จ');
+      markCloudPending();
       try { this.onCloudFailed('ซิงค์ไม่สำเร็จ'); } catch { /* ignore */ }
     }
   }

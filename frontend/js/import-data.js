@@ -1,5 +1,12 @@
-import { normalizeNotesData } from './notes.js?v=204';
-import { mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=204';
+import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=223';
+import { mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=223';
+import { compareStamp, newerStampIso } from './clock.js?v=223';
+import {
+  applyDeletionFilter,
+  isEntityTombstoned,
+  mergeDeletions,
+  normalizeDeletions,
+} from './deletions.js?v=223';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -53,33 +60,33 @@ export function mergeNotesData(target, incoming) {
 export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
   const local = normalizeNotesData(localRaw);
   const remote = normalizeNotesData(remoteRaw);
+  const mergedDeletions = mergeDeletions(local.deletions, remote.deletions);
 
   const tags = new Map();
   local.tags.forEach((t) => tags.set(t.id, t));
   remote.tags.forEach((t) => {
+    if (isEntityTombstoned(mergedDeletions, 'tags', t.id, t.createdAt)) return;
     const prev = tags.get(t.id);
     if (!prev) {
       tags.set(t.id, t);
       return;
     }
-    const pt = new Date(prev.createdAt || 0).getTime();
-    const nt = new Date(t.createdAt || 0).getTime();
-    // Prefer remote label/color if same id (shared catalog); keep stable id
     tags.set(t.id, { ...prev, ...t, id: t.id });
-    void pt;
-    void nt;
   });
 
   const notes = new Map();
   const takeNewer = (a, b) => {
-    const at = new Date(a?.updatedAt || 0).getTime();
-    const bt = new Date(b?.updatedAt || 0).getTime();
-    if (bt > at) return b;
-    if (at > bt) return a;
-    return b; // tie → prefer remote/incoming
+    const c = compareStamp(a?.updatedAt, b?.updatedAt);
+    if (c > 0) return a;
+    return b;
   };
-  local.notes.forEach((n) => notes.set(n.id, n));
+  local.notes.forEach((n) => {
+    if (!isEntityTombstoned(mergedDeletions, 'notes', n.id, n.updatedAt)) {
+      notes.set(n.id, n);
+    }
+  });
   remote.notes.forEach((n) => {
+    if (isEntityTombstoned(mergedDeletions, 'notes', n.id, n.updatedAt)) return;
     const prev = notes.get(n.id);
     notes.set(n.id, prev ? takeNewer(prev, n) : n);
   });
@@ -92,14 +99,17 @@ export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
   });
 
   const notepads = new Map();
-  (local.notepads || []).forEach((n) => notepads.set(n.id, n));
-  (remote.notepads || []).forEach((n) => {
+  local.notepads.forEach((n) => {
+    if (!isEntityTombstoned(mergedDeletions, 'notepads', n.id, n.updatedAt)) {
+      notepads.set(n.id, n);
+    }
+  });
+  remote.notepads.forEach((n) => {
+    if (isEntityTombstoned(mergedDeletions, 'notepads', n.id, n.updatedAt)) return;
     const prev = notepads.get(n.id);
     notepads.set(n.id, prev ? takeNewer(prev, n) : n);
   });
 
-  const localAt = new Date(local.updatedAt || 0).getTime();
-  const remoteAt = new Date(remote.updatedAt || 0).getTime();
   const calorie = mergeCalorieByUpdatedAt(local.calorie, remote.calorie);
 
   // Root homePins merge by homePinsAt (independent of meal/day edits).
@@ -123,8 +133,8 @@ export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
     homePinsAt = local.homePinsAt || local.calorie?.homePinsAt || remote.homePinsAt || '';
   }
 
-  return normalizeNotesData({
-    version: Math.max(Number(local.version) || 8, Number(remote.version) || 8, 8),
+  return applyDeletionFilter(normalizeNotesData({
+    version: Math.max(Number(local.version) || 9, Number(remote.version) || 9, 9),
     workspaces: [...workspaces.values()],
     notepads: [...notepads.values()],
     calorie: {
@@ -136,10 +146,14 @@ export function mergeNotesByUpdatedAt(localRaw, remoteRaw) {
     homePinsAt,
     tags: [...tags.values()],
     notes: [...notes.values()],
-    // Never stamp Date.now() on merge — that makes a watch echo look "newer"
-    // than the doc we just pushed and triggers an endless re-save loop.
-    updatedAt: new Date(Math.max(localAt, remoteAt) || 0).toISOString(),
-  });
+    deletions: mergedDeletions,
+    updatedAt: newerStampIso(local.updatedAt, remote.updatedAt),
+  }));
+}
+
+/** Payload safe for Firestore document size limits. */
+export function notesDataForCloudPush(data) {
+  return stripInlineAttachmentsForCloud(normalizeNotesData(data));
 }
 
 function entityNeedsPush(localList, remoteList) {
@@ -147,7 +161,7 @@ function entityNeedsPush(localList, remoteList) {
   for (const n of localList || []) {
     const r = remoteById.get(n.id);
     if (!r) return true;
-    if (new Date(n.updatedAt || 0).getTime() > new Date(r.updatedAt || 0).getTime()) {
+    if (compareStamp(n.updatedAt, r.updatedAt) > 0) {
       return true;
     }
   }
@@ -165,12 +179,14 @@ export function localNeedsRemotePush(localRaw, remoteRaw) {
   if (entityNeedsPush(local.notes, remote.notes)) return true;
   if (entityNeedsPush(local.notepads, remote.notepads)) return true;
   if (entityNeedsPush(local.calorie?.days || [], remote.calorie?.days || [])) return true;
-  const localCalAt = new Date(local.calorie?.updatedAt || 0).getTime();
-  const remoteCalAt = new Date(remote.calorie?.updatedAt || 0).getTime();
-  if (localCalAt > remoteCalAt) return true;
-  const localPinsAt = new Date(local.homePinsAt || local.calorie?.homePinsAt || 0).getTime() || 0;
-  const remotePinsAt = new Date(remote.homePinsAt || remote.calorie?.homePinsAt || 0).getTime() || 0;
-  if (localPinsAt > remotePinsAt) return true;
+  if (compareStamp(local.calorie?.updatedAt, remote.calorie?.updatedAt) > 0) return true;
+  const ld = normalizeDeletions(local.deletions);
+  const rd = normalizeDeletions(remote.deletions);
+  if (compareStamp(ld.updatedAt, rd.updatedAt) > 0) return true;
+  if (compareStamp(
+    local.homePinsAt || local.calorie?.homePinsAt,
+    remote.homePinsAt || remote.calorie?.homePinsAt,
+  ) > 0) return true;
   const localPins = JSON.stringify(local.homePins || local.calorie?.homePins || []);
   const remotePins = JSON.stringify(remote.homePins || remote.calorie?.homePins || []);
   if (localPins !== remotePins && (local.homePins || local.calorie?.homePins || []).length > 0

@@ -1,5 +1,8 @@
-import { STORAGE_KEYS } from './config.js?v=204';
-import { initFirebase, getDb, auth } from './firebase.js?v=204';
+import { STORAGE_KEYS } from './config.js?v=223';
+import { initFirebase, getDb, auth } from './firebase.js?v=223';
+import { nowIso, setClockOffset } from './clock.js?v=223';
+import { emptyDeletions, normalizeDeletions } from './deletions.js?v=223';
+import { notesDataForCloudPush } from './import-data.js?v=223';
 import {
   doc,
   getDoc,
@@ -55,8 +58,8 @@ export function clearPreviousSpaceId() {
 
 function emptyPayload() {
   return {
-    version: 8,
-    updatedAt: new Date().toISOString(),
+    version: 9,
+    updatedAt: nowIso(),
     tags: [],
     notes: [],
     workspaces: [],
@@ -64,6 +67,8 @@ function emptyPayload() {
     calorie: null,
     homePins: [],
     homePinsAt: '',
+    deletions: emptyDeletions(),
+    settingsSync: null,
   };
 }
 
@@ -83,8 +88,10 @@ function normalizePayload(raw) {
       || '',
   );
   return {
-    version: Number(data.version) || 8,
-    updatedAt: data.updatedAt || new Date().toISOString(),
+    version: Number(data.version) || 9,
+    // Preserve the stored stamp; do NOT fabricate "now" for existing data
+    // (a fabricated stamp makes old cloud content look newer than it is).
+    updatedAt: data.updatedAt || '',
     tags: Array.isArray(data.tags) ? data.tags : [],
     notes: Array.isArray(data.notes) ? data.notes : [],
     workspaces: Array.isArray(data.workspaces) ? data.workspaces : [],
@@ -92,12 +99,14 @@ function normalizePayload(raw) {
     calorie,
     homePins,
     homePinsAt,
+    deletions: normalizeDeletions(data.deletions),
+    settingsSync: data.settingsSync && typeof data.settingsSync === 'object' ? data.settingsSync : null,
   };
 }
 
 /** Strip undefined (Firestore rejects them) and non-JSON values. */
-function toFirestorePayload(data) {
-  const normalized = normalizePayload(data);
+function toFirestorePayload(data, { settingsSync } = {}) {
+  const normalized = notesDataForCloudPush(normalizePayload(data));
   // Mirror pins into calorie so older readers still see them.
   if (normalized.calorie && typeof normalized.calorie === 'object') {
     normalized.calorie = {
@@ -106,7 +115,12 @@ function toFirestorePayload(data) {
       homePinsAt: normalized.homePinsAt || '',
     };
   }
-  normalized.updatedAt = new Date().toISOString();
+  normalized.updatedAt = nowIso();
+  if (settingsSync && typeof settingsSync === 'object') {
+    normalized.settingsSync = settingsSync;
+  } else if (data.settingsSync && typeof data.settingsSync === 'object') {
+    normalized.settingsSync = data.settingsSync;
+  }
   return JSON.parse(JSON.stringify(normalized));
 }
 
@@ -121,10 +135,20 @@ function spaceRef(spaceId) {
   return doc(getDb(), COLLECTION, id);
 }
 
+/** Anchor the local clock to Firestore server time (snapshot.readTime). */
+function anchorClock(snap) {
+  try {
+    if (snap && snap.readTime && typeof snap.readTime.toMillis === 'function') {
+      setClockOffset(snap.readTime.toMillis());
+    }
+  } catch { /* ignore */ }
+}
+
 export async function fetchRemoteNotes(spaceId) {
   await initFirebase();
   requireSignedIn();
   const snap = await getDoc(spaceRef(spaceId || SHARED_SPACE_ID));
+  anchorClock(snap);
   if (!snap.exists()) {
     return emptyPayload();
   }
@@ -166,6 +190,7 @@ export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
   // runTransaction = optimistic concurrency + automatic retry on conflict.
   return runTransaction(getDb(), async (transaction) => {
     const snap = await transaction.get(ref);
+    anchorClock(snap);
     const remote = snap.exists() ? normalizePayload(snap.data()) : emptyPayload();
     const decision = resolveMerged(remote);
     if (!decision || decision.write === false) {
@@ -175,7 +200,9 @@ export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
         remote,
       };
     }
-    const payload = toFirestorePayload(decision.data);
+    const payload = toFirestorePayload(decision.data, {
+      settingsSync: decision.settingsSync,
+    });
     transaction.set(ref, payload);
     return { written: true, data: payload, remote };
   });
@@ -193,6 +220,7 @@ export async function watchRemoteNotes(spaceId, onData, onError) {
   return onSnapshot(
     spaceRef(spaceId || SHARED_SPACE_ID),
     (snap) => {
+      anchorClock(snap);
       if (!snap.exists()) {
         onData(emptyPayload());
         return;

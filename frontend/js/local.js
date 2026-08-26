@@ -1,5 +1,5 @@
-import { STORAGE_KEYS } from './config.js?v=51';
-import { normalizeNotesData } from './notes.js?v=204';
+import { STORAGE_KEYS } from './config.js?v=223';
+import { normalizeNotesData } from './notes.js?v=223';
 
 export const LOCAL_DATA_KEY = STORAGE_KEYS.LOCAL_DATA;
 
@@ -36,10 +36,9 @@ export function loadNotes() {
   }
 }
 
-/** Persist to localStorage. Caller owns `updatedAt` — do not bump here (avoids stale snaps looking newer). */
+/** Persist to localStorage. Caller owns `updatedAt` — do not fabricate a stamp here. */
 export function saveNotes(notesData) {
   if (!notesData || typeof notesData !== 'object') return;
-  if (!notesData.updatedAt) notesData.updatedAt = new Date().toISOString();
   localStorage.setItem(LOCAL_DATA_KEY, JSON.stringify(notesData));
 }
 
@@ -49,4 +48,24 @@ export function exportNotesBlob(notesData) {
 
 export function parseNotesImport(text) {
   return normalizeNotesData(JSON.parse(text));
+}
+
+export function markCloudPending() {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CLOUD_PENDING, '1');
+  } catch { /* ignore */ }
+}
+
+export function clearCloudPending() {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.CLOUD_PENDING);
+  } catch { /* ignore */ }
+}
+
+export function isCloudPending() {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.CLOUD_PENDING) === '1';
+  } catch {
+    return false;
+  }
 }

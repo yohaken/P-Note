@@ -3,6 +3,8 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=223';
+
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
 export const DEFAULT_KCAL_PER_KG = 7700;
@@ -26,10 +28,6 @@ const THAI_MONTHS_SHORT = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
   'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
 ];
-
-function nowIso() {
-  return new Date().toISOString();
-}
 
 function clampNum(value, min, max, fallback) {
   const n = Number(value);
@@ -289,6 +287,13 @@ export function formatDateDisplay(dateKey) {
   return `${d.getDate()}/${d.getMonth() + 1}/${String(d.getFullYear()).slice(-2)}`;
 }
 
+/** Day-of-month (1–31) only — month/year come from the month header above. */
+export function dayNumberFromKey(dateKey) {
+  const d = parseDateKey(dateKey);
+  if (!d) return '';
+  return String(d.getDate());
+}
+
 export function thaiDayName(dateKey) {
   const d = parseDateKey(dateKey);
   if (!d) return '';
@@ -497,17 +502,40 @@ export function mealColumnCount(calorie) {
 
 export function createDayRow(partial = {}) {
   const date = partial.date ? toDateKey(partial.date) : toDateKey(new Date());
+  const updatedAt = partial.updatedAt || '';
+  const meals = normalizeMeals(partial.meals);
   return {
     id: String(partial.id || crypto.randomUUID()),
     date,
     waist: partial.waist == null || partial.waist === '' ? null : Number(partial.waist),
     weight: partial.weight == null || partial.weight === '' ? null : Number(partial.weight),
-    meals: normalizeMeals(partial.meals),
+    meals,
+    mealsAt: normalizeMealsAt(partial.mealsAt, meals, updatedAt),
     mus: partial.mus == null || partial.mus === '' ? null : Number(partial.mus),
     base: partial.base == null || partial.base === '' ? null : Number(partial.base),
     note: String(partial.note || '').slice(0, 200),
-    updatedAt: partial.updatedAt || nowIso(),
+    waistAt: partial.waistAt || '',
+    weightAt: partial.weightAt || '',
+    musAt: partial.musAt || '',
+    noteAt: partial.noteAt || '',
+    // Do NOT fabricate a "now" stamp for existing rows — that lets stale
+    // legacy data win merges against genuinely newer cloud content.
+    updatedAt,
   };
+}
+
+/**
+ * Align per-slot meal edit times to the meal cells. A provided stamp is kept
+ * even for an empty cell (that empty = an intentional clear), while a slot
+ * with no stamp falls back to the day stamp only when it has content.
+ */
+function normalizeMealsAt(mealsAt, meals, fallbackAt) {
+  const at = Array.isArray(mealsAt) ? mealsAt : [];
+  return meals.map((cell, i) => {
+    if (at[i]) return String(at[i]).slice(0, 40);
+    if (!String(cell || '').trim()) return '';
+    return fallbackAt ? String(fallbackAt).slice(0, 40) : '';
+  });
 }
 
 export function normalizeDayRow(raw, fallbackBase = DEFAULT_BASE_KCAL) {
@@ -541,7 +569,12 @@ export function normalizeCalorie(raw) {
     .slice(0, 400);
   return {
     version: CALORIE_PAYLOAD_VERSION,
-    updatedAt: src.updatedAt || nowIso(),
+    // Do NOT fabricate "now" — existing sheets without a stamp must merge as
+    // "oldest", not as "newest".
+    updatedAt: src.updatedAt || '',
+    // Profile/goal edits carry their own stamp so a meal/day edit on the other
+    // device cannot clobber height/sex/goals (and vice versa).
+    profileAt: src.profileAt || '',
     proteinFactor: round(proteinFactor, 2),
     kcalPerKg: Math.round(kcalPerKg),
     defaultBase: Math.round(defaultBase),
@@ -1807,17 +1840,6 @@ export function computeTotals(calorie) {
   const sheet = normalizeCalorie(calorie);
   const all = emptyTotals();
   const byMonth = new Map();
-  // Day# within month counts oldest→newest even though display is newest-first.
-  const monthIndex = new Map();
-  const countById = new Map();
-  [...sheet.days]
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .forEach((day) => {
-      const mk = monthKeyFromDate(day.date);
-      const mi = (monthIndex.get(mk) || 0) + 1;
-      monthIndex.set(mk, mi);
-      countById.set(day.id, mi);
-    });
   const rows = sheet.days.map((day) => {
     const metrics = computeDayMetrics(day, sheet);
     const monthKey = monthKeyFromDate(day.date);
@@ -1826,11 +1848,11 @@ export function computeTotals(calorie) {
     accumulateTotals(byMonth.get(monthKey), metrics);
     return {
       ...day,
-      count: countById.get(day.id) || 0,
       monthKey,
       monthLabel: formatMonthLabel(monthKey),
       metrics,
       dayName: thaiDayName(day.date),
+      dayDisplay: dayNumberFromKey(day.date),
       dateDisplay: formatDateDisplay(day.date),
     };
   });
@@ -1874,10 +1896,17 @@ export function totalsForMonth(calorie, monthKey) {
 
 export function upsertDay(calorie, dayPartial) {
   const sheet = normalizeCalorie(calorie);
+  const now = nowIso();
   const next = normalizeDayRow(
-    { ...dayPartial, updatedAt: nowIso() },
+    { ...dayPartial, updatedAt: dayPartial.updatedAt || now },
     sheet.defaultBase,
   );
+  // Stamp per-field edit times for anything with content lacking a stamp.
+  next.mealsAt = normalizeMealsAt(next.mealsAt, next.meals, next.updatedAt || now);
+  if (hasValue(next.waist) && !next.waistAt) next.waistAt = next.updatedAt || now;
+  if (hasValue(next.weight) && !next.weightAt) next.weightAt = next.updatedAt || now;
+  if (next.mus != null && !next.musAt) next.musAt = next.updatedAt || now;
+  if (String(next.note || '').trim() && !next.noteAt) next.noteAt = next.updatedAt || now;
   const idx = sheet.days.findIndex((d) => d.id === next.id || d.date === next.date);
   const days = [...sheet.days];
   if (idx >= 0) {
@@ -1886,16 +1915,53 @@ export function upsertDay(calorie, dayPartial) {
     days.push(next);
   }
   days.sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  return { ...sheet, days, updatedAt: nowIso() };
+  return { ...sheet, days, updatedAt: now };
 }
 
 export function patchDay(calorie, dayId, patch) {
   const sheet = normalizeCalorie(calorie);
+  const now = nowIso();
   const days = sheet.days.map((d) => {
     if (d.id !== dayId) return d;
-    return normalizeDayRow({ ...d, ...patch, id: d.id, updatedAt: nowIso() }, sheet.defaultBase);
+    const meals = normalizeMeals(patch.meals !== undefined ? patch.meals : d.meals);
+    return normalizeDayRow(
+      {
+        ...d,
+        ...patch,
+        id: d.id,
+        meals,
+        mealsAt: stampMealsAt(d, meals, now),
+        waistAt: patch.waist !== undefined ? now : (d.waistAt || ''),
+        weightAt: patch.weight !== undefined ? now : (d.weightAt || ''),
+        musAt: patch.mus !== undefined ? now : (d.musAt || ''),
+        noteAt: patch.note !== undefined ? now : (d.noteAt || ''),
+        updatedAt: now,
+      },
+      sheet.defaultBase,
+    );
   });
-  return { ...sheet, days, updatedAt: nowIso() };
+  return { ...sheet, days, updatedAt: now };
+}
+
+/**
+ * Stamp `now` for meal slots that changed (added, edited, or cleared).
+ * Unchanged non-empty slots keep their prior stamp; never-edited empty slots
+ * stay unstamped so a blank auto-today shell can't beat real content.
+ */
+function stampMealsAt(prev, nextMeals, now) {
+  const prevAt = Array.isArray(prev?.mealsAt) ? prev.mealsAt : [];
+  const prevMeals = Array.isArray(prev?.meals) ? prev.meals : [];
+  return nextMeals.map((cell, i) => {
+    const cur = String(cell || '').trim();
+    const prevCell = String(prevMeals[i] || '').trim();
+    if (!cur) {
+      // Cleared slot → stamp the clear so it can win over older content.
+      return prevCell ? now : '';
+    }
+    const prevStamp = prevAt[i] || prev?.updatedAt || '';
+    if (prevCell === cur && prevStamp) return String(prevStamp).slice(0, 40);
+    return now;
+  });
 }
 
 /** @deprecated Days are not deleted — use clearDayValues. Kept for rare data repair. */
@@ -1941,22 +2007,6 @@ export function addDayFromLast(calorie, dateKey = toDateKey(new Date())) {
   return { sheet: next, day: next.days.find((d) => d.date === dateKey), created: true };
 }
 
-/** How much real logging a day has — empty auto-created shells score 0. */
-function dayContentScore(day) {
-  if (!day) return 0;
-  let score = 0;
-  // null must not count (Number(null) === 0 is finite).
-  if (day.waist != null && Number.isFinite(Number(day.waist))) score += 1;
-  if (day.weight != null && Number.isFinite(Number(day.weight))) score += 1;
-  if (day.mus != null && Number.isFinite(Number(day.mus)) && Number(day.mus) > 0) score += 2;
-  if (String(day.note || '').trim()) score += 1;
-  const meals = Array.isArray(day.meals) ? day.meals : [];
-  meals.forEach((cell) => {
-    if (String(cell || '').trim()) score += 2;
-  });
-  return score;
-}
-
 /**
  * Home pins use their own stamp (homePinsAt) so logging a meal later cannot
  * wipe pins from the other device — and an intentional clear still wins.
@@ -1983,50 +2033,114 @@ function mergeHomePinsField(local, remote) {
 export function mergeCalorieByUpdatedAt(localRaw, remoteRaw) {
   const local = normalizeCalorie(localRaw);
   const remote = normalizeCalorie(remoteRaw);
-  const byId = new Map();
-  const takeBetter = (a, b) => {
-    const sa = dayContentScore(a);
-    const sb = dayContentScore(b);
-    const at = new Date(a?.updatedAt || 0).getTime();
-    const bt = new Date(b?.updatedAt || 0).getTime();
-    // Never let a blank auto-today beat a filled cloud day — unless the
-    // empty side is intentionally newer (user cleared the day).
-    if (sa === 0 && sb > 0) return at > bt ? a : b;
-    if (sb === 0 && sa > 0) return bt > at ? b : a;
-    if (bt > at) return b;
-    if (at > bt) return a;
-    // Same time — prefer the richer row.
-    return sb >= sa ? b : a;
-  };
-  local.days.forEach((d) => byId.set(d.id, d));
-  remote.days.forEach((d) => {
-    const prev = byId.get(d.id);
-    byId.set(d.id, prev ? takeBetter(prev, d) : d);
-  });
-  // Also merge by date when ids differ (same calendar day)
+
+  // Union days by calendar date, merging each row field-by-field. Meals keep
+  // per-slot edit stamps so a same-day edit on one device never wipes the
+  // other device's meals/body/note.
   const byDate = new Map();
-  [...byId.values()].forEach((d) => {
-    const prev = byDate.get(d.date);
-    byDate.set(d.date, prev ? takeBetter(prev, d) : d);
+  [...local.days, ...remote.days].forEach((d) => {
+    const key = String(d.date || d.id || '');
+    const prev = byDate.get(key);
+    byDate.set(key, prev ? mergeDayFields(prev, d) : normalizeDayRow(d));
   });
-  const localAt = new Date(local.updatedAt || 0).getTime();
-  const remoteAt = new Date(remote.updatedAt || 0).getTime();
-  // Sheet meta (height, goals, sex…) follows the newer stamp — never day-count alone.
-  const localDays = local.days.length;
-  const remoteDays = remote.days.length;
-  let metaSrc = localAt > remoteAt ? local : remoteAt > localAt ? remote : local;
-  if (localDays === 0 && remoteDays > 0 && localAt <= remoteAt) metaSrc = remote;
-  else if (remoteDays === 0 && localDays > 0 && remoteAt <= localAt) metaSrc = local;
+  const days = [...byDate.values()].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+  const meta = pickMeta(local, remote);
   const pinField = mergeHomePinsField(local, remote);
   return normalizeCalorie({
-    ...metaSrc,
+    ...meta,
     homePins: pinField.homePins,
     homePinsAt: pinField.homePinsAt,
-    days: [...byDate.values()],
-    // Keep max of the two stamps only — do NOT inject Date.now() or a watch
-    // echo merge looks newer than the push we just wrote (re-save loop).
-    updatedAt: new Date(Math.max(localAt, remoteAt) || 0).toISOString(),
+    days,
+    // Max of the two stamps only — never Date.now() (avoids watch-echo loops).
+    updatedAt: newerStampIso(local.updatedAt, remote.updatedAt),
   });
+}
+
+/** True when a scalar/string field carries a meaningful value. */
+function hasValue(v) {
+  return v != null && v !== '';
+}
+
+/**
+ * Merge one scalar field. Newer field-stamp wins (including an intentional
+ * clear). On a tie, prefer the non-empty side so content is never dropped.
+ * A side only falls back to its day stamp when that side actually has content
+ * — a blank auto-today shell must never look "newer" than a filled day.
+ */
+function mergeScalarField(aVal, bVal, aAt, bAt, aDayAt, bDayAt) {
+  const aHas = hasValue(aVal);
+  const bHas = hasValue(bVal);
+  const aStamp = aAt || (aHas ? aDayAt : '');
+  const bStamp = bAt || (bHas ? bDayAt : '');
+  const cmp = compareStamp(aStamp, bStamp);
+  if (cmp > 0) return aVal;
+  if (cmp < 0) return bVal;
+  if (aHas) return aVal;
+  if (bHas) return bVal;
+  return aVal;
+}
+
+/** Merge two meal slot arrays slot-by-slot, keeping per-slot edit times. */
+function mergeMealsField(a, b) {
+  const aMeals = Array.isArray(a?.meals) ? a.meals : [];
+  const bMeals = Array.isArray(b?.meals) ? b.meals : [];
+  const aAt = Array.isArray(a?.mealsAt) ? a.mealsAt : [];
+  const bAt = Array.isArray(b?.mealsAt) ? b.mealsAt : [];
+  const len = Math.max(aMeals.length, bMeals.length);
+  const meals = [];
+  const mealsAt = [];
+  for (let i = 0; i < len; i += 1) {
+    const ac = String(aMeals[i] || '').trim();
+    const bc = String(bMeals[i] || '').trim();
+    // Only fall back to the day stamp when that side's slot has content.
+    const aStamp = aAt[i] || (ac ? (a?.updatedAt || '') : '');
+    const bStamp = bAt[i] || (bc ? (b?.updatedAt || '') : '');
+    if (!ac && !bc) { meals.push(''); mealsAt.push(''); continue; }
+    const cmp = compareStamp(aStamp, bStamp);
+    if (cmp > 0) { meals.push(ac || bc); mealsAt.push(aStamp); }
+    else if (cmp < 0) { meals.push(bc || ac); mealsAt.push(bStamp); }
+    else { meals.push(ac || bc); mealsAt.push(aStamp || bStamp); }
+  }
+  const normMeals = normalizeMeals(meals);
+  return { meals: normMeals, mealsAt: normalizeMealsAt(mealsAt, normMeals, '') };
+}
+
+/** Merge two day rows field-by-field (waist/weight/meals/mus/note independently). */
+function mergeDayFields(a, b) {
+  const waist = mergeScalarField(a.waist, b.waist, a.waistAt, b.waistAt, a.updatedAt, b.updatedAt);
+  const weight = mergeScalarField(a.weight, b.weight, a.weightAt, b.weightAt, a.updatedAt, b.updatedAt);
+  const mus = mergeScalarField(a.mus, b.mus, a.musAt, b.musAt, a.updatedAt, b.updatedAt);
+  const note = mergeScalarField(a.note, b.note, a.noteAt, b.noteAt, a.updatedAt, b.updatedAt);
+  const base = mergeScalarField(a.base, b.base, a.updatedAt, b.updatedAt, a.updatedAt, b.updatedAt);
+  const meals = mergeMealsField(a, b);
+  return normalizeDayRow({
+    id: a.id || b.id,
+    date: a.date || b.date,
+    waist,
+    weight,
+    meals: meals.meals,
+    mealsAt: meals.mealsAt,
+    mus,
+    base,
+    note,
+    waistAt: newerStampIso(a.waistAt, b.waistAt),
+    weightAt: newerStampIso(a.weightAt, b.weightAt),
+    musAt: newerStampIso(a.musAt, b.musAt),
+    noteAt: newerStampIso(a.noteAt, b.noteAt),
+    updatedAt: newerStampIso(a.updatedAt, b.updatedAt),
+  });
+}
+
+/**
+ * Pick sheet meta (height/sex/goals/factors) by the newer profile stamp so
+ * meal/day edits on the other device can't clobber these choices.
+ */
+function pickMeta(local, remote) {
+  const lAt = new Date(local.profileAt || local.updatedAt || 0).getTime();
+  const rAt = new Date(remote.profileAt || remote.updatedAt || 0).getTime();
+  if (rAt > lAt) return remote;
+  return local;
 }
 
 export function formatSigned(n, digits = 0) {
@@ -2070,8 +2184,8 @@ export function renderCalorieTotalsHtml(totals, { monthLabel = '' } = {}) {
   return `${month}${body}`;
 }
 
-/** Fixed fit-width grid: 10 columns (no × — note spans former clear col). */
-const CAL_FIT_COLS = 10;
+/** Fixed fit-width grid: 9 columns (no #; date shows day-of-month only). */
+const CAL_FIT_COLS = 9;
 
 function colCountForMeals(_mealCols) {
   return CAL_FIT_COLS;
@@ -2080,7 +2194,6 @@ function colCountForMeals(_mealCols) {
 export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
   const n = clampNum(mealCols, MIN_MEAL_SLOTS, MAX_MEAL_SLOTS, MIN_MEAL_SLOTS);
   return `<colgroup>
-              <col class="cal-cg-n">
               <col class="cal-cg-date">
               <col class="cal-cg-mealband">
               <col class="cal-cg-mealband">
@@ -2092,8 +2205,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
               <col class="cal-cg-tail">
             </colgroup>
             <tr class="cal-head-a">
-              <th class="cal-col-n" scope="col">#</th>
-              <th class="cal-col-date" scope="col">ว/ด/ป</th>
+              <th class="cal-col-date" scope="col">วันที่</th>
               <th class="cal-col-day" scope="col">ว</th>
               <th class="cal-col-body" scope="col">เอว</th>
               <th class="cal-col-body" scope="col">กก</th>
@@ -2106,7 +2218,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
             <tr class="cal-head-b">
               <th class="cal-col-burn" scope="col">mus</th>
               <th class="cal-col-burn" scope="col" title="base · Σ · %">เบิร์น</th>
-              <th class="cal-col-meals" colspan="6" scope="col" title="${n > 7 ? 'ปัดซ้ายในแถบมื้อเพื่อดูมื้อที่ซ่อน' : ''}">มื้อ 1–${n}${n > 7 ? ' · ปัด→' : ''}</th>
+              <th class="cal-col-meals" colspan="5" scope="col" title="${n > 7 ? 'ปัดซ้ายในแถบมื้อเพื่อดูมื้อที่ซ่อน' : ''}">มื้อ 1–${n}${n > 7 ? ' · ปัด→' : ''}</th>
               <th class="cal-col-note" colspan="2" scope="col">หลัก</th>
             </tr>`;
 }
@@ -2139,9 +2251,8 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
       const id = esc(row.id);
       const month = esc(row.monthKey || '');
       return `${sep}<tr class="cal-row cal-day-a${today}" data-day-id="${id}" data-month="${month}">
-        <td class="cal-col-n">${row.count}</td>
         <td class="cal-col-date">
-          <button type="button" class="cal-date-btn" data-cal-date-open="${id}" aria-label="วันที่ ${esc(row.dateDisplay)}">${esc(row.dateDisplay)}</button>
+          <button type="button" class="cal-date-btn" data-cal-date-open="${id}" aria-label="วันที่ ${esc(row.dateDisplay)}" title="${esc(row.dateDisplay)}">${esc(row.dayDisplay)}</button>
           <input class="cal-date-picker" type="date" data-cal-field="date" data-day-id="${id}" value="${esc(row.date)}" tabindex="-1" aria-hidden="true">
         </td>
         <td class="cal-col-day">${esc(row.dayName)}</td>
@@ -2162,7 +2273,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
             <span class="cal-derived ${toneClass(m.pctBl)}" data-cal-derived="pctBl">${m.pctBl == null ? '' : `${m.pctBl}%`}</span>
           </span>
         </td>
-        <td class="cal-col-meals" colspan="6"><div class="cal-meals-fit${cols > 7 ? ' is-scrollable' : ''}" style="--cal-meal-n:${cols}" title="${cols > 7 ? 'ปัดซ้ายเพื่อดูมื้อเพิ่ม' : ''}">${mealInputs.join('')}</div></td>
+        <td class="cal-col-meals" colspan="5"><div class="cal-meals-fit${cols > 7 ? ' is-scrollable' : ''}" style="--cal-meal-n:${cols}" title="${cols > 7 ? 'ปัดซ้ายเพื่อดูมื้อเพิ่ม' : ''}">${mealInputs.join('')}</div></td>
         <td class="cal-col-note" colspan="2"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>
       </tr>`;
     })

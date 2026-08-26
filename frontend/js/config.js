@@ -27,4 +27,6 @@ export const STORAGE_KEYS = {
   SPACE_ID: 'pnote_space_id',
   /** Legacy key from removed Calorie app. */
   LEGACY_CALORIE_SPACE_ID: 'calorie_space_id',
+  /** Set when a cloud push failed — retry on next online session. */
+  CLOUD_PENDING: 'pnote_cloud_pending',
 };

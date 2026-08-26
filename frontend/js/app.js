@@ -1,15 +1,16 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob } from './local.js?v=204';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=136';
-import { initListSortable, initGridSortable } from './sortable.js?v=206';
-import { CONFIG } from './config.js?v=154';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=210';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=223';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=223';
+import { initListSortable, initGridSortable } from './sortable.js?v=223';
+import { CONFIG } from './config.js?v=223';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=223';
+import { nowIso } from './clock.js?v=223';
 import {
   getAllowedUser,
   handleAuthRedirect,
   startLogin,
   signOut,
   watchAuth,
-} from './auth.js?v=155';
+} from './auth.js?v=223';
 import {
   addTag,
   addNotepad,
@@ -54,7 +55,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=148';
+} from './notes.js?v=223';
 import {
   cellKey,
   colIndexToLetter,
@@ -64,7 +65,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=148';
+} from './sheet.js?v=223';
 import {
   addDayFromLast,
   ageFromBirthDate,
@@ -101,7 +102,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=212';
+} from './calorie.js?v=223';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -109,8 +110,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=148';
-import { bindComposableInput } from './text-input.js?v=148';
+} from './note-text.js?v=223';
+import { bindComposableInput } from './text-input.js?v=223';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -151,8 +152,8 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=148';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=212';
+} from './schedule.js?v=223';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=223';
 import {
   allIcons,
   bestIconForLabel,
@@ -161,7 +162,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=148';
+} from './icons.js?v=223';
 import {
   notificationPermission,
   notificationSupported,
@@ -170,27 +171,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=122';
+} from './note-notify.js?v=223';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=148';
+} from './files.js?v=223';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=148');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=223');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=148');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=223');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=148');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=223');
   return userContextModPromise;
 }
 
@@ -214,7 +215,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=122';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=223';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -223,14 +224,15 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=213';
-import { normalizeNotesData } from './notes.js?v=204';
-import { SaveManager } from './sync.js?v=210';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=153';
+} from './remote.js?v=223';
+import { normalizeNotesData } from './notes.js?v=223';
+import { SaveManager } from './sync.js?v=223';
+import { emptyDeletions } from './deletions.js?v=223';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=223';
 
 const state = {
   notesData: {
-    version: 8,
+    version: 9,
     updatedAt: '',
     tags: [],
     notes: [],
@@ -239,6 +241,7 @@ const state = {
     calorie: null,
     homePins: [],
     homePinsAt: '',
+    deletions: emptyDeletions(),
   },
   settings: loadSettings(),
   appMode: function() {
@@ -663,21 +666,25 @@ function setAuthOverlayVisible(visible) {
 }
 
 let syncRetryTimer = null;
+let cloudPendingTimer = null;
 let syncSavedTimer = null;
 let ensureCloudReadyInFlight = null;
 
 function isSyncReady() {
-  // Local-first: signed-in users may edit immediately.
-  // Only block when this device has no local data yet and cloud has not arrived
-  // (empty phone waiting for first pull — avoids typing into a blank slate).
   if (!state.syncReady || !state.authUser) return false;
-  if (!state.cloudHydrated && !hasCloudContent(state.notesData)) return false;
+  // Online: must finish first cloud pull before edits / push.
+  if (navigator.onLine && !state.cloudHydrated) return false;
   return true;
 }
 
-/** True when we must wait on first cloud pull before allowing edits. */
+/** Block UI until first successful cloud pull (online + signed in). */
+function needsSyncGate() {
+  return Boolean(state.authUser && navigator.onLine && !state.cloudHydrated);
+}
+
+/** @deprecated Use needsSyncGate */
 function needsFirstCloudPull() {
-  return Boolean(state.authUser && !state.cloudHydrated && !hasCloudContent(state.notesData));
+  return needsSyncGate();
 }
 
 function hideSyncGate() {
@@ -710,11 +717,11 @@ function refreshSyncGateUi() {
     hideSyncGate();
     return;
   }
-  // Only the empty-device first-pull case blocks the UI.
-  if (needsFirstCloudPull()) {
+  // Online first-pull blocks the UI until cloud hydrates.
+  if (needsSyncGate()) {
     showSyncGate(
       navigator.onLine ? 'กำลังซิงค์…' : 'รอซิงค์…',
-      navigator.onLine ? 'ดึงข้อมูลครั้งแรก…' : 'ไม่มีเน็ต · รอเชื่อมใหม่',
+      navigator.onLine ? 'รอข้อมูลพร้อมก่อนใส่' : 'ไม่มีเน็ต · รอเชื่อมใหม่',
     );
     return;
   }
@@ -732,6 +739,61 @@ function stopSpaceRemoteWatch() {
   remoteWatchStartedFor = null;
 }
 
+function applySettingsFromCloudPayload(remoteRaw) {
+  const sync = remoteRaw?.settingsSync;
+  if (!sync) return false;
+  const beforeAt = String(state.settings?.cloudUpdatedAt || '');
+  const merged = mergeSettingsFromCloud(state.settings, sync);
+  if (String(merged.cloudUpdatedAt || '') === beforeAt) return false;
+  state.settings = merged;
+  saveSettings(state.settings);
+  applyTheme();
+  applyCardDensity();
+  applyDockScale();
+  applyFilterOrder();
+  applyBarThickness();
+  reapplyBarLayout();
+  return true;
+}
+
+/**
+ * Merge an incoming cloud payload into live state and repaint if anything
+ * changed. Shared by the Firestore onSnapshot listener AND the fast
+ * background poll so both paths apply updates identically.
+ * @returns {boolean} true when state actually changed.
+ */
+function applyRemotePayload(remoteRaw) {
+  if (!state.syncReady || !state.authUser) return false;
+  applySettingsFromCloudPayload(remoteRaw);
+  const remote = normalizeNotesData(remoteRaw);
+  const pinsBefore = homePinsFingerprint(state.notesData);
+  const beforeKey = notesContentKey(state.notesData);
+  const merged = mergeNotesByUpdatedAt(state.notesData, remote);
+  const pinsAfter = homePinsFingerprint(merged);
+  const afterKey = notesContentKey(merged);
+  const contentChanged = afterKey !== beforeKey;
+  const pinsChanged = pinsAfter !== pinsBefore;
+  if (!contentChanged && !pinsChanged) return false;
+
+  state.notesData = merged;
+  saveNotes(state.notesData);
+
+  // Repaint whatever is on screen so the other device's data shows instantly.
+  if ((contentChanged || pinsChanged)
+    && (state.view === 'list' || state.view === 'calendar' || state.view === 'calorie')) {
+    renderModeSwitcher();
+    if (state.view === 'calendar') renderCalendar();
+    else if (state.view === 'calorie') renderCalorieSheet({ preserveScroll: true });
+    else renderNotesList();
+  } else if (pinsChanged && state.caloriePane === 'log') {
+    paintCalorieDash(ensureCaloriePayload());
+  } else if (contentChanged && state.caloriePane === 'health') {
+    paintCalorieHealthSheet(ensureCaloriePayload());
+  }
+  if (pinsChanged) setDbStatusMessage('ซิงค์กล่องแล้ว');
+  return true;
+}
+
 async function startSpaceRemoteWatch() {
   if (!state.authUser || !state.syncReady) return;
   const spaceId = state.spaceId || SHARED_SPACE_ID;
@@ -740,29 +802,49 @@ async function startSpaceRemoteWatch() {
   try {
     stopRemoteWatch = await watchRemoteNotes(
       spaceId,
-      (remoteRaw) => {
-        if (!state.syncReady || !state.authUser) return;
-        const remote = normalizeNotesData(remoteRaw);
-        const pinsBefore = homePinsFingerprint(state.notesData);
-        const beforeKey = notesContentKey(state.notesData);
-        const merged = mergeNotesByUpdatedAt(state.notesData, remote);
-        const pinsAfter = homePinsFingerprint(merged);
-        const afterKey = notesContentKey(merged);
-        if (pinsAfter === pinsBefore && afterKey === beforeKey) return;
-        state.notesData = merged;
-        saveNotes(state.notesData);
-        if (pinsAfter !== pinsBefore || afterKey !== beforeKey) {
-          if (state.caloriePane === 'log') paintCalorieDash(ensureCaloriePayload());
-          else if (state.caloriePane === 'health') paintCalorieHealthSheet(ensureCaloriePayload());
-          if (pinsAfter !== pinsBefore) setDbStatusMessage('ซิงค์กล่องแล้ว');
-        }
-      },
+      (remoteRaw) => { applyRemotePayload(remoteRaw); },
       (err) => console.warn('space watch failed', err),
     );
     remoteWatchStartedFor = spaceId;
   } catch (err) {
     console.warn('startSpaceRemoteWatch failed', err);
   }
+}
+
+/* ---- Fast background poll (~2.5s) — live updates without refresh ---- */
+let pollTimer = null;
+let pollInFlight = false;
+const SPACE_POLL_INTERVAL_MS = 2500;
+
+async function pollRemoteNow() {
+  if (pollInFlight) return;
+  if (!state.authUser || !state.syncReady || !state.spaceId) return;
+  if (!navigator.onLine) return;
+  // Poll while the app is open/visible; hidden tabs rely on onSnapshot +
+  // the visibilitychange handler below (poll restarts on return).
+  if (document.visibilityState === 'hidden') return;
+  pollInFlight = true;
+  try {
+    const remoteRaw = await fetchRemoteNotes(state.spaceId);
+    applyRemotePayload(remoteRaw);
+  } catch {
+    // Offline / auth hiccup — next tick retries silently.
+  } finally {
+    pollInFlight = false;
+  }
+}
+
+function stopSpacePolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function startSpacePolling() {
+  stopSpacePolling();
+  pollTimer = setInterval(pollRemoteNow, SPACE_POLL_INTERVAL_MS);
+  void pollRemoteNow();
 }
 
 function setSyncReady(ready) {
@@ -772,8 +854,10 @@ function setSyncReady(ready) {
     hideSyncGate();
     setSyncStatus('ok', 'พร้อมใส่ข้อมูล');
     void startSpaceRemoteWatch();
+    startSpacePolling();
   } else {
     stopSpaceRemoteWatch();
+    stopSpacePolling();
     refreshSyncGateUi();
     startSyncRetryLoop();
   }
@@ -786,6 +870,33 @@ function clearSyncRetryLoop() {
   }
 }
 
+function startCloudPendingRetry() {
+  if (cloudPendingTimer) return;
+  cloudPendingTimer = setInterval(() => {
+    if (!state.authUser) {
+      clearCloudPendingRetry();
+      return;
+    }
+    if (!navigator.onLine) return;
+    if (!isCloudPending()) {
+      clearCloudPendingRetry();
+      return;
+    }
+    if (!state.cloudHydrated) {
+      void ensureCloudReady({ force: true, announce: false });
+      return;
+    }
+    void saveManager.saveNow(() => state.notesData).catch(() => {});
+  }, 5000);
+}
+
+function clearCloudPendingRetry() {
+  if (cloudPendingTimer) {
+    clearInterval(cloudPendingTimer);
+    cloudPendingTimer = null;
+  }
+}
+
 function startSyncRetryLoop() {
   if (syncRetryTimer) return;
   syncRetryTimer = setInterval(() => {
@@ -793,7 +904,7 @@ function startSyncRetryLoop() {
       clearSyncRetryLoop();
       return;
     }
-    // Stop once first pull landed (or we already have local and are editing).
+    // Stop once first pull landed.
     if (state.cloudHydrated || isSyncReady()) {
       clearSyncRetryLoop();
       return;
@@ -874,26 +985,22 @@ async function ensureCloudReady({ force = true, announce = true } = {}) {
       return false;
     }
 
-    // Unlock immediately when this device already has notes/calories.
-    if (hasCloudContent(state.notesData)) {
-      setSyncReady(true);
-    }
-
     if (!navigator.onLine) {
       state.online = false;
-      if (needsFirstCloudPull()) {
+      if (needsSyncGate()) {
         setSyncReady(false);
         setSyncStatus('offline', 'รอซิงค์…');
         showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
         return false;
       }
+      setSyncReady(true);
       setSyncStatus('offline', 'ออฟไลน์ · บันทึกในเครื่อง');
       hideSyncGate();
-      return isSyncReady();
+      return true;
     }
 
-    if (needsFirstCloudPull()) {
-      showSyncGate('กำลังซิงค์…', 'ดึงข้อมูลครั้งแรก…');
+    if (needsSyncGate()) {
+      showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
       setSyncStatus('busy', 'กำลังซิงค์…');
     } else if (announce) {
       setSyncStatus('busy', 'กำลังซิงค์…');
@@ -906,7 +1013,13 @@ async function ensureCloudReady({ force = true, announce = true } = {}) {
       console.warn('ensureCloudReady failed', err);
     }
 
-    if (state.authUser && (state.cloudHydrated || hasCloudContent(state.notesData))) {
+    if (state.authUser && state.cloudHydrated) {
+      setSyncReady(true);
+      hideSyncGate();
+      return true;
+    }
+
+    if (state.authUser && !navigator.onLine) {
       setSyncReady(true);
       hideSyncGate();
       return true;
@@ -1641,12 +1754,17 @@ function ensureCaloriePayload() {
 function persistCalorie(nextCalorie, { status = '', fullRender = false, immediate = true } = {}) {
   if (!requireSyncReady()) return;
   const prevCols = mealColumnCount(state.notesData?.calorie);
-  const now = new Date().toISOString();
-  // Always stamp calorie.updatedAt so cloud merge keeps profile/goals (height etc.)
-  // instead of letting a newer remote sheet meta overwrite local choices.
+  const now = nowIso();
+  // Stamp calorie.updatedAt (meal/day edits) and, separately, profileAt when a
+  // profile/goal field changed — so a meal edit on one device never clobbers
+  // height/sex/goals set on the other, and vice versa.
+  const profileChanged = calorieProfileChanged(state.notesData?.calorie, nextCalorie);
+  const profileAt = profileChanged
+    ? now
+    : (state.notesData?.calorie?.profileAt || nextCalorie?.profileAt || '');
   state.notesData = {
     ...state.notesData,
-    calorie: normalizeCalorie({ ...nextCalorie, updatedAt: now }),
+    calorie: normalizeCalorie({ ...nextCalorie, updatedAt: now, profileAt }),
     updatedAt: now,
   };
   // Local-first: disk sync from memory immediately, then paint from memory.
@@ -1816,7 +1934,7 @@ async function persistHomePins(pins) {
     return next;
   }
   const sheet = ensureCaloriePayload();
-  const now = new Date().toISOString();
+  const now = nowIso();
   // Root-level fields sync via Firestore; mirror into calorie for compatibility.
   state.notesData = normalizeNotesData({
     ...state.notesData,
@@ -6398,9 +6516,17 @@ async function safePushRemote(data) {
       if (remoteHas) {
         const merged = mergeNotesByUpdatedAt(live, remote);
         const freshest = mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), merged);
-        return { write: true, data: freshest };
+        return {
+          write: true,
+          data: freshest,
+          settingsSync: settingsForCloud(state.settings),
+        };
       }
-      return { write: true, data: live };
+      return {
+        write: true,
+        data: live,
+        settingsSync: settingsForCloud(state.settings),
+      };
     });
   } catch (err) {
     // Never setDoc-blind when we cannot read/merge cloud — keep local until retry.
@@ -7701,12 +7827,21 @@ async function loadSpaceData(spaceId, localData) {
       const tx = await pushRemoteNotesMerged(spaceId, (latestRaw) => {
         const latest = normalizeNotesData(latestRaw);
         if (hasCloudContent(latest)) {
-          return { write: true, data: mergeNotesByUpdatedAt(localData, latest) };
+          return {
+            write: true,
+            data: mergeNotesByUpdatedAt(localData, latest),
+            settingsSync: settingsForCloud(state.settings),
+          };
         }
-        return { write: true, data: normalizeNotesData(localData) };
+        return {
+          write: true,
+          data: normalizeNotesData(localData),
+          settingsSync: settingsForCloud(state.settings),
+        };
       });
       return {
         data: normalizeNotesData(tx.data),
+        settingsSync: remoteRaw?.settingsSync || null,
         online: true,
         migrated: true,
         scheduleSnap: remoteVer < 5,
@@ -7714,6 +7849,7 @@ async function loadSpaceData(spaceId, localData) {
     } catch {
       return {
         data: normalizeNotesData(localData),
+        settingsSync: remoteRaw?.settingsSync || null,
         online: false,
         migrated: false,
         scheduleSnap: remoteVer < 5,
@@ -7728,10 +7864,15 @@ async function loadSpaceData(spaceId, localData) {
         const tx = await pushRemoteNotesMerged(spaceId, (latestRaw) => {
           const latest = normalizeNotesData(latestRaw);
           const live = normalizeNotesData(state.notesData || localData);
-          return { write: true, data: mergeNotesByUpdatedAt(live, latest) };
+          return {
+            write: true,
+            data: mergeNotesByUpdatedAt(live, latest),
+            settingsSync: settingsForCloud(state.settings),
+          };
         });
         return {
           data: normalizeNotesData(tx.data),
+          settingsSync: remoteRaw?.settingsSync || null,
           online: true,
           migrated: false,
           merged: true,
@@ -7740,6 +7881,7 @@ async function loadSpaceData(spaceId, localData) {
       } catch {
         return {
           data: merged,
+          settingsSync: remoteRaw?.settingsSync || null,
           online: false,
           migrated: false,
           merged: true,
@@ -7749,6 +7891,7 @@ async function loadSpaceData(spaceId, localData) {
     }
     return {
       data: merged,
+      settingsSync: remoteRaw?.settingsSync || null,
       online: true,
       migrated: false,
       merged: true,
@@ -7758,6 +7901,7 @@ async function loadSpaceData(spaceId, localData) {
 
   return {
     data: remote,
+    settingsSync: remoteRaw?.settingsSync || null,
     online: true,
     migrated: false,
     scheduleSnap: remoteVer < 5,
@@ -7821,6 +7965,10 @@ function paintNotesFromLocal(data) {
  */
 async function applySpaceSyncResult(result, { localVerBefore = null, announce = true } = {}) {
   if (state.view === 'editor') flushEditorToState();
+
+  if (result.settingsSync) {
+    applySettingsFromCloudPayload({ settingsSync: result.settingsSync });
+  }
 
   const beforeKey = notesContentKey(state.notesData);
   const pinsBefore = homePinsFingerprint(state.notesData);
@@ -7905,7 +8053,7 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
     try {
       if (announce) {
         setSyncStatus('busy', 'กำลังซิงค์…');
-        if (needsFirstCloudPull()) showSyncGate('กำลังซิงค์…', 'ดึงข้อมูลครั้งแรก…');
+        if (needsSyncGate()) showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
         else hideSyncGate();
       }
       const prevMerge = await mergePreviousDeviceSpace(state.notesData);
@@ -7956,12 +8104,7 @@ async function bootstrapData() {
         }
         // Wait for first cloud pull when this device is empty — otherwise
         // transactional merge is enough and edits stay unlocked.
-        if (!state.cloudHydrated && spaceSyncInFlight) {
-          try {
-            await spaceSyncInFlight;
-          } catch { /* continue — safePushRemote still merges */ }
-        }
-        if (!state.cloudHydrated && !hasCloudContent(data) && needsFirstCloudPull()) {
+        if (navigator.onLine && !state.cloudHydrated) {
           throw new Error('Sync not ready');
         }
         return safePushRemote(data);
@@ -7976,11 +8119,12 @@ async function bootstrapData() {
         setDbStatusMessage('พร้อมใส่ข้อมูล');
       },
       onCloudFailed: () => {
-        // Keep local edits unlocked — cloud retries quietly in the background.
         hideSyncSavedPopup();
         state.online = false;
+        markCloudPending();
         setSyncStatus('offline', 'ซิงค์ไม่สำเร็จ · บันทึกในเครื่องแล้ว');
         hideSyncGate();
+        startCloudPendingRetry();
         if (state.authUser && !state.cloudHydrated) startSyncRetryLoop();
       },
     });
@@ -8005,7 +8149,6 @@ async function bootstrapData() {
       }
       const first = !state.authUser;
       onSignedIn(nextUser);
-      if (hasCloudContent(state.notesData)) setSyncReady(true);
       if (first) {
         void ensureCloudReady({ force: true, announce: true });
       }
@@ -8016,9 +8159,8 @@ async function bootstrapData() {
       return;
     }
 
-    // Unlock before awaiting cloud when local cache already has data.
-    if (hasCloudContent(state.notesData)) setSyncReady(true);
     await ensureCloudReady({ force: true, announce: true });
+    if (isCloudPending()) startCloudPendingRetry();
   } catch (err) {
     console.warn('bootstrap failed', err);
     try {
@@ -8027,16 +8169,19 @@ async function bootstrapData() {
       applyTheme();
       showView(boardHomeView());
       if (!isCalendarMode()) renderNotesList();
-      if (state.authUser && hasCloudContent(state.notesData)) {
-        setSyncReady(true);
-        setDbStatusMessage('ใช้ข้อมูลในเครื่อง · รอซิงค์…');
-        hideSyncGate();
-      } else {
-        setSyncReady(false);
-        setDbStatusMessage('รอซิงค์…');
-        refreshSyncGateUi();
+      if (state.authUser) {
+        if (!navigator.onLine || state.cloudHydrated) {
+          setSyncReady(true);
+          setDbStatusMessage('ใช้ข้อมูลในเครื่อง · รอซิงค์…');
+          hideSyncGate();
+        } else {
+          setSyncReady(false);
+          setDbStatusMessage('รอซิงค์…');
+          refreshSyncGateUi();
+        }
+        startSyncRetryLoop();
+        if (isCloudPending()) startCloudPendingRetry();
       }
-      startSyncRetryLoop();
     } catch (fallbackErr) {
       console.warn('bootstrap fallback failed', fallbackErr);
       setDbStatusMessage('รอซิงค์…');
@@ -9054,10 +9199,12 @@ async function init({ fromBoot = false } = {}) {
     if (document.visibilityState !== 'visible') return;
     refreshNoteNotifications();
     if (!state.authUser) return;
-    if (needsFirstCloudPull()) {
+    if (needsSyncGate()) {
       void ensureCloudReady({ force: true, announce: true });
       return;
     }
+    // Update instantly on return, then keep the fast poll running.
+    void pollRemoteNow();
     // Soft re-warm when returning (keep ready; refresh remote quietly).
     void syncSpaceInBackground({ force: false, announce: false }).then((changed) => {
       if (changed) setDbStatusMessage('ซิงค์ล่าสุดแล้ว');
@@ -9074,10 +9221,11 @@ async function init({ fromBoot = false } = {}) {
     state.online = false;
     setSyncStatus('offline', 'ออฟไลน์ · บันทึกในเครื่อง');
     // Keep editing unlocked when local data exists.
-    if (needsFirstCloudPull()) {
+    if (needsSyncGate()) {
       setSyncReady(false);
       showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
     } else {
+      setSyncReady(true);
       hideSyncGate();
     }
   });

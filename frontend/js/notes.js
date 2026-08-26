@@ -1,6 +1,13 @@
-import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=148';
-import { bestIconForLabel, normalizeIconId } from './icons.js?v=148';
-import { createEmptyCalorie, normalizeCalorie, normalizeHomePins } from './calorie.js?v=204';
+import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=223';
+import { bestIconForLabel, normalizeIconId } from './icons.js?v=223';
+import { createEmptyCalorie, normalizeCalorie, normalizeHomePins } from './calorie.js?v=223';
+import { nowIso } from './clock.js?v=223';
+import {
+  applyDeletionFilter,
+  emptyDeletions,
+  normalizeDeletions,
+  recordHardDelete,
+} from './deletions.js?v=223';
 
 /** Lite notepad helpers — keep notes.js free of sheet.js / note-text.js on boot. */
 function normalizeTextPrefs(raw) {
@@ -139,7 +146,7 @@ export function activeNotes(notes) {
 }
 
 export function markNoteDone(note) {
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     ...note,
     status: NOTE_STATUS.DONE,
@@ -153,12 +160,12 @@ export function markNoteActive(note) {
     ...note,
     status: NOTE_STATUS.ACTIVE,
     completedAt: null,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso(),
   };
 }
 
 export function moveNoteToTrash(note) {
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     ...note,
     status: NOTE_STATUS.TRASH,
@@ -172,15 +179,12 @@ export function restoreNoteFromTrash(note) {
     ...note,
     status: NOTE_STATUS.ACTIVE,
     deletedAt: null,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso(),
   };
 }
 
 export function purgeNote(noteId, data) {
-  return {
-    ...data,
-    notes: data.notes.filter((note) => note.id !== noteId),
-  };
+  return recordHardDelete(data, 'notes', noteId);
 }
 
 export function updateNoteInData(data, updatedNote) {
@@ -194,7 +198,7 @@ export const DEFAULT_WORKSPACE_ID = 'ws-general';
 export const DEFAULT_WORKSPACE_NAME = 'ทั่วไป';
 
 export function createWorkspace(name = DEFAULT_WORKSPACE_NAME, order = Date.now()) {
-  const now = new Date().toISOString();
+  const now = nowIso();
   const trimmed = String(name || '').trim() || DEFAULT_WORKSPACE_NAME;
   return {
     id: crypto.randomUUID(),
@@ -206,7 +210,7 @@ export function createWorkspace(name = DEFAULT_WORKSPACE_NAME, order = Date.now(
 }
 
 export function defaultWorkspace() {
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     id: DEFAULT_WORKSPACE_ID,
     name: DEFAULT_WORKSPACE_NAME,
@@ -224,8 +228,8 @@ export function normalizeWorkspaces(raw) {
           id: String(w.id),
           name: String(w.name || DEFAULT_WORKSPACE_NAME).trim().slice(0, 40) || DEFAULT_WORKSPACE_NAME,
           order: Number.isFinite(w.order) ? w.order : i,
-          createdAt: w.createdAt || new Date().toISOString(),
-          updatedAt: w.updatedAt || w.createdAt || new Date().toISOString(),
+          createdAt: w.createdAt || '',
+          updatedAt: w.updatedAt || w.createdAt || '',
         }))
     : [];
   if (!list.length) return [defaultWorkspace()];
@@ -252,7 +256,7 @@ export function getWorkspace(data, workspaceId) {
 export function renameWorkspace(data, workspaceId, name) {
   const trimmed = String(name || '').trim().slice(0, 40);
   if (!trimmed) return data;
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     ...data,
     workspaces: normalizeWorkspaces(data.workspaces).map((w) =>
@@ -274,7 +278,7 @@ export function deleteWorkspace(data, workspaceId) {
   if (!canDeleteWorkspace(data, workspaceId)) {
     throw new Error('ลบแผ่นงานไม่ได้ — ยังมีโน้ตอยู่ในแผ่นนี้ หรือเหลือแผ่นเดียว');
   }
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     ...data,
     workspaces: normalizeWorkspaces(data.workspaces).filter((w) => w.id !== workspaceId),
@@ -285,7 +289,7 @@ export function deleteWorkspace(data, workspaceId) {
 export function addWorkspace(data, name) {
   const list = normalizeWorkspaces(data.workspaces);
   const ws = createWorkspace(name, (list[list.length - 1]?.order || 0) + 1);
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     data: {
       ...data,
@@ -298,7 +302,7 @@ export function addWorkspace(data, name) {
 
 /** Plain-text notepad pages (Note mode) — separate from งานหลัก tasks. */
 export function createNotepad(name = 'Note ใหม่', order = Date.now()) {
-  const now = new Date().toISOString();
+  const now = nowIso();
   const trimmed = String(name || '').trim() || 'Note ใหม่';
   return {
     id: crypto.randomUUID(),
@@ -323,8 +327,8 @@ export function normalizeNotepads(raw) {
           sheets: normalizeSheetBlocks(n.sheets),
           textPrefs: normalizeTextPrefs(n.textPrefs),
           order: Number.isFinite(n.order) ? n.order : i,
-          createdAt: n.createdAt || new Date().toISOString(),
-          updatedAt: n.updatedAt || n.createdAt || new Date().toISOString(),
+          createdAt: n.createdAt || '',
+          updatedAt: n.updatedAt || n.createdAt || '',
         }))
     : [];
   list.sort((a, b) => b.order - a.order || String(a.name).localeCompare(String(b.name), 'th'));
@@ -360,7 +364,7 @@ export function getNotepad(data, notepadId) {
 export function addNotepad(data, name) {
   const list = normalizeNotepads(data.notepads);
   const pad = createNotepad(name, Date.now());
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     data: {
       ...data,
@@ -374,7 +378,7 @@ export function addNotepad(data, name) {
 export function renameNotepad(data, notepadId, name) {
   const trimmed = String(name || '').trim().slice(0, 40);
   if (!trimmed) return data;
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     ...data,
     notepads: normalizeNotepads(data.notepads).map((n) =>
@@ -385,7 +389,7 @@ export function renameNotepad(data, notepadId, name) {
 }
 
 export function updateNotepadContent(data, notepadId, { name, content, sheets, textPrefs } = {}) {
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     ...data,
     notepads: normalizeNotepads(data.notepads).map((n) => {
@@ -408,16 +412,11 @@ export function deleteNotepad(data, notepadId) {
   if (!list.some((n) => n.id === notepadId)) {
     throw new Error('ไม่พบ Note นี้');
   }
-  const now = new Date().toISOString();
-  return {
-    ...data,
-    notepads: list.filter((n) => n.id !== notepadId),
-    updatedAt: now,
-  };
+  return recordHardDelete(data, 'notepads', notepadId);
 }
 
 export function createNote(title = '', content = '', workspaceId = DEFAULT_WORKSPACE_ID) {
-  const now = new Date().toISOString();
+  const now = nowIso();
   return {
     id: crypto.randomUUID(),
     title: title.trim(),
@@ -441,7 +440,7 @@ export function createNote(title = '', content = '', workspaceId = DEFAULT_WORKS
 }
 
 export function createTag(name, color, icon) {
-  const now = new Date().toISOString();
+  const now = nowIso();
   const trimmed = name.trim();
   return {
     id: crypto.randomUUID(),
@@ -457,7 +456,7 @@ export function updateNote(note, { title, content, scheduledAt, recurrence, prio
     ...note,
     title: title !== undefined ? title.trim() : note.title,
     content: content !== undefined ? content : note.content,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso(),
   };
   if (scheduledAt !== undefined) {
     next.scheduledAt = scheduledAt || null;
@@ -582,7 +581,7 @@ export function toggleChecklistItem(note, itemId) {
   return {
     ...note,
     checklist: list,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso(),
   };
 }
 
@@ -641,6 +640,33 @@ export function attachmentsForPersist(raw) {
     .filter(Boolean);
 }
 
+/** Firestore push: drop inline base64 — cloud path / preview only. */
+export function stripInlineAttachmentsForCloud(data) {
+  if (!data || typeof data !== 'object') return data;
+  const notes = Array.isArray(data.notes)
+    ? data.notes.map((note) => {
+        const attachments = (note.attachments || [])
+          .map((a) => {
+            if (!a || typeof a !== 'object') return null;
+            const base = {
+              id: a.id,
+              name: a.name,
+              mimeType: a.mimeType,
+              size: a.size,
+              kind: a.kind,
+              fullRes: a.fullRes !== false,
+            };
+            if (a.storagePath) return { ...base, storagePath: a.storagePath };
+            if (a.previewUrl) return { ...base, previewUrl: String(a.previewUrl) };
+            return null;
+          })
+          .filter(Boolean);
+        return { ...note, attachments };
+      })
+    : data.notes;
+  return { ...data, notes };
+}
+
 export function formatDate(iso) {
   try {
     return new Intl.DateTimeFormat('th-TH', {
@@ -659,6 +685,7 @@ export function formatDate(iso) {
 // v6: workspaces[] + note.workspaceId (legacy; งานหลัก no longer filters by these).
 // v7: notepads[] for Note mode (plain text); migrate extra workspaces → notepads.
 // v8: calorie spreadsheet payload (day rows + protein/base settings).
+// v9: deletions tombstones for hard-delete sync.
 export function normalizeNotesData(data) {
   const base = data && typeof data === 'object' ? data : {};
   const prevVersion = Number(base.version) || 1;
@@ -698,7 +725,7 @@ export function normalizeNotesData(data) {
             name,
             color: safeTagColor(tag.color),
             icon: normalizeTagIcon(tag.icon, name),
-            createdAt: tag.createdAt || new Date().toISOString(),
+            createdAt: tag.createdAt || '',
           };
         })
     : [];
@@ -764,9 +791,13 @@ export function normalizeNotesData(data) {
     (snapScheduleTimes && Array.isArray(base.notes) && base.notes.some((n) => n?.scheduledAt)) ||
     prevVersion < 8;
 
-  return {
-    version: 8,
-    updatedAt: bumped ? new Date().toISOString() : base.updatedAt || new Date().toISOString(),
+  const deletions = normalizeDeletions(
+    prevVersion >= 9 ? base.deletions : emptyDeletions(),
+  );
+
+  const shaped = applyDeletionFilter({
+    version: 9,
+    updatedAt: bumped ? nowIso() : (base.updatedAt || ''),
     workspaces,
     notepads,
     calorie,
@@ -774,7 +805,9 @@ export function normalizeNotesData(data) {
     homePinsAt,
     tags,
     notes,
-  };
+    deletions,
+  });
+  return shaped;
 }
 
 export function addTag(data, name, color) {
@@ -828,14 +861,7 @@ export function setTagIcon(data, tagId, icon) {
 }
 
 export function deleteTag(data, tagId) {
-  return {
-    ...data,
-    tags: data.tags.filter((tag) => tag.id !== tagId),
-    notes: data.notes.map((note) => ({
-      ...note,
-      tagIds: (note.tagIds || []).filter((id) => id !== tagId),
-    })),
-  };
+  return recordHardDelete(data, 'tags', tagId);
 }
 
 export function toggleNoteTag(note, tagId) {
@@ -844,7 +870,7 @@ export function toggleNoteTag(note, tagId) {
   return {
     ...note,
     tagIds: hasTag ? tagIds.filter((id) => id !== tagId) : [...tagIds, tagId],
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso(),
   };
 }
 
