@@ -7593,6 +7593,42 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .calorie-table .cal-col-body input.cal-cell,
 .calorie-table .cal-col-burn input.cal-cell,
+.calorie-table .cal-col-burn .cal-input-wrap.has-value::before,
+.calorie-table .cal-col-burn .cal-input-wrap.has-value::after {
+  color: var(--cal-tone-burn-ink, #1f6b3a);
+}
+
+.calorie-table .cal-col-burn .cal-input-wrap.has-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 0 0.04rem;
+  box-sizing: border-box;
+}
+
+.calorie-table .cal-col-burn .cal-input-wrap.has-value::before {
+  content: '(';
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.calorie-table .cal-col-burn .cal-input-wrap.has-value::after {
+  content: ')';
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.calorie-table .cal-col-burn .cal-input-wrap.has-value input.cal-cell {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  max-width: 2.2rem;
+}
 .calorie-table .cal-col-sum {
   font-size: 0.52rem;
 }

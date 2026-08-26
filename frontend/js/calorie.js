@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=225';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=226';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -2150,6 +2150,13 @@ export function formatSigned(n, digits = 0) {
   return String(v);
 }
 
+/** Parentheses for mus / burn column so they read apart from meal-row metrics. */
+export function formatBurnMusDisplay(val, { percent = false } = {}) {
+  if (val == null || val === '') return '';
+  const inner = percent ? `${val}%` : String(val);
+  return `(${inner})`;
+}
+
 function toneClass(n) {
   if (n == null || !Number.isFinite(n) || n === 0) return 'is-zero';
   return n > 0 ? 'is-pos' : 'is-neg';
@@ -2267,10 +2274,10 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
       <tr class="cal-row cal-day-b${today}" data-day-id="${id}" data-month="${month}">
         <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></span></td>
         <td class="cal-col-burn cal-burn-stack" title="BMR · รวมเบิร์น · %bal">
-          <span class="cal-derived cal-base-auto" data-cal-derived="base">${m.base ?? ''}</span>
+          <span class="cal-derived cal-base-auto" data-cal-derived="base">${formatBurnMusDisplay(m.base)}</span>
           <span class="cal-burn-stack-sub">
-            <span class="cal-derived" data-cal-derived="bsum">${m.bsum ?? ''}</span>
-            <span class="cal-derived ${toneClass(m.pctBl)}" data-cal-derived="pctBl">${m.pctBl == null ? '' : `${m.pctBl}%`}</span>
+            <span class="cal-derived" data-cal-derived="bsum">${formatBurnMusDisplay(m.bsum)}</span>
+            <span class="cal-derived ${toneClass(m.pctBl)}" data-cal-derived="pctBl">${formatBurnMusDisplay(m.pctBl, { percent: true })}</span>
           </span>
         </td>
         <td class="cal-col-meals" colspan="5"><div class="cal-meals-fit${cols > 7 ? ' is-scrollable' : ''}" style="--cal-meal-n:${cols}" title="${cols > 7 ? 'ปัดซ้ายเพื่อดูมื้อเพิ่ม' : ''}">${mealInputs.join('')}</div></td>
