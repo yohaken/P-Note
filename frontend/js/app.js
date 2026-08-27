@@ -1,16 +1,16 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=226';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=226';
-import { initListSortable, initGridSortable } from './sortable.js?v=226';
-import { CONFIG } from './config.js?v=226';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=226';
-import { nowIso } from './clock.js?v=226';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=227';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=227';
+import { initListSortable, initGridSortable } from './sortable.js?v=227';
+import { CONFIG } from './config.js?v=227';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=227';
+import { nowIso } from './clock.js?v=227';
 import {
   getAllowedUser,
   handleAuthRedirect,
   startLogin,
   signOut,
   watchAuth,
-} from './auth.js?v=226';
+} from './auth.js?v=227';
 import {
   addTag,
   addNotepad,
@@ -55,7 +55,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=226';
+} from './notes.js?v=227';
 import {
   cellKey,
   colIndexToLetter,
@@ -65,7 +65,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=226';
+} from './sheet.js?v=227';
 import {
   addDayFromLast,
   ageFromBirthDate,
@@ -103,7 +103,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=226';
+} from './calorie.js?v=227';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -111,8 +111,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=226';
-import { bindComposableInput } from './text-input.js?v=226';
+} from './note-text.js?v=227';
+import { bindComposableInput } from './text-input.js?v=227';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -153,8 +153,8 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=226';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=226';
+} from './schedule.js?v=227';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=227';
 import {
   allIcons,
   bestIconForLabel,
@@ -163,7 +163,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=226';
+} from './icons.js?v=227';
 import {
   notificationPermission,
   notificationSupported,
@@ -172,27 +172,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=226';
+} from './note-notify.js?v=227';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=226';
+} from './files.js?v=227';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=226');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=227');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=226');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=227');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=226');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=227');
   return userContextModPromise;
 }
 
@@ -216,7 +216,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=226';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=227';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -225,11 +225,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=226';
-import { normalizeNotesData } from './notes.js?v=226';
-import { SaveManager } from './sync.js?v=226';
-import { emptyDeletions } from './deletions.js?v=226';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=226';
+} from './remote.js?v=227';
+import { normalizeNotesData } from './notes.js?v=227';
+import { SaveManager } from './sync.js?v=227';
+import { emptyDeletions } from './deletions.js?v=227';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=227';
 
 const state = {
   notesData: {
@@ -2394,6 +2394,37 @@ function syncDockContextRail() {
 let calorieQuickMode = null; // 'meal' | 'mus'
 /** Edit existing cell: { dayId, mealIndex? } — null = append (FAB). */
 let calorieQuickEdit = null;
+/** Past days confirmed for edit this session (dayId → true). */
+const unlockedPastDayIds = new Set();
+
+function calorieDayDate(dayId) {
+  const id = String(dayId || '');
+  if (!id) return '';
+  const sheet = ensureCaloriePayload();
+  const day = sheet.days.find((d) => d.id === id);
+  return String(day?.date || '').trim();
+}
+
+function isPastCalorieDay(dayId) {
+  const date = calorieDayDate(dayId);
+  if (!date) return false;
+  return date < toDateKey();
+}
+
+/** Confirm before editing a past day. Returns true if allowed. */
+async function confirmPastDayEdit(dayId) {
+  const id = String(dayId || '');
+  if (!id || !isPastCalorieDay(id)) return true;
+  if (unlockedPastDayIds.has(id)) return true;
+  const date = calorieDayDate(id);
+  const label = date ? formatDateDisplay(date) : 'วันก่อน';
+  const ok = await showConfirm(`วันก่อน (${label})\nต้องการแก้ไขข้อมูลนี้?`, {
+    okLabel: 'แก้ไข',
+    cancelLabel: 'ปิด',
+  });
+  if (ok) unlockedPastDayIds.add(id);
+  return ok;
+}
 
 function paintCalorieQuickFreq() {
   const wrap = els.calorieQuickFreq;
@@ -2450,14 +2481,16 @@ function openCalorieQuick(mode) {
 
 /**
  * Tap a calorie number cell → edit sheet: เคลียร์ → บันทึก → data updates.
+ * Past days require confirm (แก้ไข / ปิด) first.
  * @param {{ mode: 'meal'|'mus', dayId: string, mealIndex?: number, value?: string }} opts
  */
-function openCalorieCellEditor(opts) {
+async function openCalorieCellEditor(opts) {
   if (!requireSyncReady()) return;
   closeCalorieBodyQuick();
   const mode = opts?.mode === 'mus' ? 'mus' : 'meal';
   const dayId = String(opts?.dayId || '');
   if (!dayId || !els.calorieQuickOverlay) return;
+  if (!(await confirmPastDayEdit(dayId))) return;
   // Avoid double-open from focusin + click on the same cell.
   if (
     !els.calorieQuickOverlay.hidden &&
@@ -8631,7 +8664,7 @@ async function init({ fromBoot = false } = {}) {
       const dayId = els.calorieTodayCard.dataset.dayId;
       const idx = Number(mealInput.dataset.ctcMeal);
       if (!dayId || !Number.isFinite(idx)) return;
-      openCalorieCellEditor({
+      void openCalorieCellEditor({
         mode: 'meal',
         dayId,
         mealIndex: idx,
@@ -8644,7 +8677,7 @@ async function init({ fromBoot = false } = {}) {
       e.preventDefault();
       const dayId = els.calorieTodayCard.dataset.dayId;
       if (!dayId) return;
-      openCalorieCellEditor({
+      void openCalorieCellEditor({
         mode: 'mus',
         dayId,
         value: els.calorieTodayMus?.value || '',
@@ -8658,7 +8691,7 @@ async function init({ fromBoot = false } = {}) {
       const dayId = els.calorieTodayCard.dataset.dayId;
       const idx = Number(mealInput.dataset.ctcMeal);
       if (!dayId || !Number.isFinite(idx)) return;
-      openCalorieCellEditor({
+      void       void openCalorieCellEditor({
         mode: 'meal',
         dayId,
         mealIndex: idx,
@@ -8671,7 +8704,7 @@ async function init({ fromBoot = false } = {}) {
       musInput.blur();
       const dayId = els.calorieTodayCard.dataset.dayId;
       if (!dayId) return;
-      openCalorieCellEditor({ mode: 'mus', dayId, value: musInput.value });
+      void openCalorieCellEditor({ mode: 'mus', dayId, value: musInput.value });
     }
   });
   els.calorieHealthSheet?.addEventListener('click', (e) => {
@@ -8747,6 +8780,12 @@ async function init({ fromBoot = false } = {}) {
     const dayId = input.dataset.dayId;
     const field = input.dataset.calField;
     if (!dayId || !field || field === 'base') return;
+    if (isPastCalorieDay(dayId) && !unlockedPastDayIds.has(dayId)) {
+      if (field === 'waist' || field === 'weight' || field === 'note' || field === 'date') {
+        try { input.blur(); } catch { /* ignore */ }
+      }
+      return;
+    }
     const sheet = ensureCaloriePayload();
     if (field === 'meal') {
       const idx = Number(input.dataset.mealIndex);
@@ -8806,7 +8845,7 @@ async function init({ fromBoot = false } = {}) {
     const mealInput = e.target?.closest?.('input[data-cal-field="meal"]');
     if (mealInput && els.calorieTbody.contains(mealInput)) {
       mealInput.blur();
-      openCalorieCellEditor({
+      void openCalorieCellEditor({
         mode: 'meal',
         dayId: mealInput.dataset.dayId,
         mealIndex: Number(mealInput.dataset.mealIndex),
@@ -8817,18 +8856,36 @@ async function init({ fromBoot = false } = {}) {
     const musInput = e.target?.closest?.('input[data-cal-field="mus"]');
     if (musInput && els.calorieTbody.contains(musInput)) {
       musInput.blur();
-      openCalorieCellEditor({
+      void openCalorieCellEditor({
         mode: 'mus',
         dayId: musInput.dataset.dayId,
         value: musInput.value,
       });
+      return;
+    }
+    const locked = e.target?.closest?.(
+      'input[data-cal-field="waist"], input[data-cal-field="weight"], input[data-cal-field="note"]',
+    );
+    if (locked && els.calorieTbody.contains(locked) && locked.dataset.pastLock === '1') {
+      const dayId = locked.dataset.dayId;
+      locked.blur();
+      void (async () => {
+        if (!(await confirmPastDayEdit(dayId))) return;
+        els.calorieTbody
+          ?.querySelectorAll(`input[data-day-id="${CSS.escape(dayId)}"][data-past-lock]`)
+          .forEach((el) => {
+            el.removeAttribute('readonly');
+            el.removeAttribute('data-past-lock');
+          });
+        try { locked.focus(); } catch { /* ignore */ }
+      })();
     }
   });
   els.calorieTbody?.addEventListener('click', (e) => {
     const mealInput = e.target?.closest?.('input[data-cal-field="meal"]');
     if (mealInput && els.calorieTbody.contains(mealInput)) {
       e.preventDefault();
-      openCalorieCellEditor({
+      void openCalorieCellEditor({
         mode: 'meal',
         dayId: mealInput.dataset.dayId,
         mealIndex: Number(mealInput.dataset.mealIndex),
@@ -8839,7 +8896,7 @@ async function init({ fromBoot = false } = {}) {
     const musInput = e.target?.closest?.('input[data-cal-field="mus"]');
     if (musInput && els.calorieTbody.contains(musInput)) {
       e.preventDefault();
-      openCalorieCellEditor({
+      void openCalorieCellEditor({
         mode: 'mus',
         dayId: musInput.dataset.dayId,
         value: musInput.value,
@@ -8850,10 +8907,14 @@ async function init({ fromBoot = false } = {}) {
     if (dateOpen && els.calorieTbody.contains(dateOpen)) {
       e.preventDefault();
       const id = dateOpen.dataset.calDateOpen;
-      const picker = els.calorieTbody.querySelector(
-        `input.cal-date-picker[data-day-id="${CSS.escape(id)}"]`,
-      );
-      if (picker) {
+      void (async () => {
+        if (!(await confirmPastDayEdit(id))) return;
+        const picker = els.calorieTbody.querySelector(
+          `input.cal-date-picker[data-day-id="${CSS.escape(id)}"]`,
+        );
+        if (!picker) return;
+        picker.removeAttribute('readonly');
+        picker.removeAttribute('data-past-lock');
         try {
           if (typeof picker.showPicker === 'function') picker.showPicker();
           else {
@@ -8864,7 +8925,7 @@ async function init({ fromBoot = false } = {}) {
         } catch {
           picker.focus();
         }
-      }
+      })();
     }
   });
 

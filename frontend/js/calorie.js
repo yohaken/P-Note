@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=226';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=227';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -2239,13 +2239,18 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
     .map((row) => {
       const m = row.metrics;
       const today = row.date === todayKey ? ' cal-row-today' : '';
+      const isPast = Boolean(row.date && row.date < todayKey);
+      const past = isPast ? ' cal-row-past' : '';
+      const pastLock = isPast ? ' readonly data-past-lock="1"' : '';
+      const pastTitle = isPast ? ' title="วันก่อน · แตะเพื่อปลดล็อกแก้"' : '';
+      const cellTitle = isPast ? 'วันก่อน · แตะเพื่อปลดล็อกแก้' : 'แตะเพื่อแก้ / เคลียร์แล้วบันทึก';
       const rawMeals = expandMealsForEdit(row.meals);
       const mealInputs = [];
       for (let i = 0; i < cols; i += 1) {
         const cell = rawMeals[i] || '';
         const has = cell ? ' has-value' : '';
         mealInputs.push(
-          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></span>`,
+          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="${cellTitle}"></span>`,
         );
       }
       let sep = '';
@@ -2257,22 +2262,22 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
       }
       const id = esc(row.id);
       const month = esc(row.monthKey || '');
-      return `${sep}<tr class="cal-row cal-day-a${today}" data-day-id="${id}" data-month="${month}">
+      return `${sep}<tr class="cal-row cal-day-a${today}${past}" data-day-id="${id}" data-month="${month}" data-date="${esc(row.date)}">
         <td class="cal-col-date">
-          <button type="button" class="cal-date-btn" data-cal-date-open="${id}" aria-label="วันที่ ${esc(row.dateDisplay)}" title="${esc(row.dateDisplay)}">${esc(row.dayDisplay)}</button>
-          <input class="cal-date-picker" type="date" data-cal-field="date" data-day-id="${id}" value="${esc(row.date)}" tabindex="-1" aria-hidden="true">
+          <button type="button" class="cal-date-btn" data-cal-date-open="${id}" aria-label="วันที่ ${esc(row.dateDisplay)}" title="${esc(row.dateDisplay)}${isPast ? ' · วันก่อน' : ''}">${esc(row.dayDisplay)}</button>
+          <input class="cal-date-picker" type="date" data-cal-field="date" data-day-id="${id}" value="${esc(row.date)}" tabindex="-1" aria-hidden="true"${pastLock}>
         </td>
         <td class="cal-col-day">${esc(row.dayName)}</td>
-        <td class="cal-col-body"><input class="cal-cell" data-cal-field="waist" data-day-id="${id}" value="${row.waist ?? ''}" inputmode="decimal" aria-label="รอบเอว"></td>
-        <td class="cal-col-body"><input class="cal-cell" data-cal-field="weight" data-day-id="${id}" value="${row.weight ?? ''}" inputmode="decimal" aria-label="น้ำหนัก"></td>
+        <td class="cal-col-body"><input class="cal-cell" data-cal-field="waist" data-day-id="${id}" value="${row.waist ?? ''}" inputmode="decimal" aria-label="รอบเอว"${pastLock}${pastTitle}></td>
+        <td class="cal-col-body"><input class="cal-cell" data-cal-field="weight" data-day-id="${id}" value="${row.weight ?? ''}" inputmode="decimal" aria-label="น้ำหนัก"${pastLock}${pastTitle}></td>
         <td class="cal-col-sum cal-col-add cal-derived" data-cal-derived="addCal">${m.addCal ?? ''}</td>
         <td class="cal-col-sum cal-derived" data-cal-derived="prot">${m.prot ?? ''}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.pRm)}" data-cal-derived="pRm">${m.pRm == null ? '' : formatSigned(m.pRm, 1)}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.balance)}" data-cal-derived="balance">${m.balance == null ? '' : formatSigned(m.balance, 0)}</td>
         <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}" data-cal-derived="blKg">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
       </tr>
-      <tr class="cal-row cal-day-b${today}" data-day-id="${id}" data-month="${month}">
-        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง" title="แตะเพื่อแก้ / เคลียร์แล้วบันทึก"></span></td>
+      <tr class="cal-row cal-day-b${today}${past}" data-day-id="${id}" data-month="${month}" data-date="${esc(row.date)}">
+        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง" title="${cellTitle}"></span></td>
         <td class="cal-col-burn cal-burn-stack" title="BMR · รวมเบิร์น · %bal">
           <span class="cal-derived cal-base-auto" data-cal-derived="base">${formatBurnMusDisplay(m.base)}</span>
           <span class="cal-burn-stack-sub">
@@ -2281,7 +2286,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
           </span>
         </td>
         <td class="cal-col-meals" colspan="5"><div class="cal-meals-fit${cols > 7 ? ' is-scrollable' : ''}" style="--cal-meal-n:${cols}" title="${cols > 7 ? 'ปัดซ้ายเพื่อดูมื้อเพิ่ม' : ''}">${mealInputs.join('')}</div></td>
-        <td class="cal-col-note" colspan="2"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"></td>
+        <td class="cal-col-note" colspan="2"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"${pastLock}${pastTitle}></td>
       </tr>`;
     })
     .join('');

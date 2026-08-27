@@ -7679,6 +7679,19 @@ body.calorie-health-pane #dock-calorie-health-btn {
   background: color-mix(in srgb, var(--accent) 8%, var(--cal-tone-burn-wash));
 }
 
+.calorie-table tr.cal-row-past td {
+  opacity: 0.92;
+}
+
+.calorie-table tr.cal-row-past input.cal-cell[data-past-lock],
+.calorie-table tr.cal-row-past input.cal-cell-meal {
+  cursor: pointer;
+}
+
+.calorie-table tr.cal-row-past .cal-date-btn {
+  cursor: pointer;
+}
+
 .calorie-table tr.cal-month-sep td {
   position: sticky;
   top: 2.2rem;
