@@ -6856,6 +6856,30 @@ body.calorie-health-pane #dock-calorie-health-btn {
   white-space: nowrap;
 }
 
+.chs-chart-nudge {
+  margin: 0.12rem 0 0.28rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text-muted, #6b7280);
+}
+
+.chs-chart-nudge.is-ok {
+  color: #15803d;
+}
+
+.chs-chart-nudge.is-watch {
+  color: #b45309;
+}
+
+.chs-chart-nudge.is-nudge {
+  color: #c2410c;
+}
+
+.chs-chart-nudge.is-idle {
+  font-weight: 650;
+}
+
 .chs-chart-unit {
   margin-left: 0.15rem;
   font-size: 0.52rem;

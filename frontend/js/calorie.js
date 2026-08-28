@@ -1092,6 +1092,91 @@ function looksLikeMealFragment(s) {
 }
 
 /**
+ * Most recent day with exercise logged (any history), and gap from endKey (usually today).
+ * @returns {{ lastKey: string|null, lastLabel: string|null, daysSince: number|null }}
+ */
+export function computeLastExerciseInfo(calorie, endKey = toDateKey()) {
+  const sheet = normalizeCalorie(calorie);
+  let lastKey = null;
+  sheet.days.forEach((day) => {
+    if (!day?.date || day.date > endKey) return;
+    const hasEx = normalizeExercises(day.exercises).length > 0
+      || (Number.isFinite(day.mus) && day.mus > 0);
+    if (!hasEx) return;
+    if (!lastKey || day.date > lastKey) lastKey = day.date;
+  });
+  if (!lastKey) {
+    return { lastKey: null, lastLabel: null, daysSince: null };
+  }
+  const end = parseDateKey(endKey);
+  const last = parseDateKey(lastKey);
+  const daysSince = end && last
+    ? Math.max(0, Math.round((end.getTime() - last.getTime()) / 86400000))
+    : null;
+  return {
+    lastKey,
+    lastLabel: formatDateDisplay(lastKey),
+    daysSince,
+  };
+}
+
+function exerciseNudgeLine(lastExercise) {
+  if (!lastExercise?.lastKey) {
+    return {
+      text: 'ยังไม่มีบันทึกออกกำลัง · วันนี้ลองกด ออกกำลัง',
+      tone: 'is-idle',
+    };
+  }
+  const n = lastExercise.daysSince;
+  if (n === 0) {
+    return { text: 'ออกกำลังครั้งล่าสุด · วันนี้', tone: 'is-ok' };
+  }
+  if (n === 1) {
+    return {
+      text: 'ออกกำลังครั้งล่าสุด · เมื่อวาน · วันนี้ยังไม่เล่น',
+      tone: 'is-watch',
+    };
+  }
+  return {
+    text: `ออกกำลังครั้งล่าสุด · ${lastExercise.lastLabel} · ห่างจากวันนี้ ${n} วัน`,
+    tone: n >= 4 ? 'is-nudge' : 'is-watch',
+  };
+}
+
+function renderBurnChartNudgeHtml(ex) {
+  const { text, tone } = exerciseNudgeLine(ex?.lastExercise);
+  if (!text) return '';
+  return `<p class="chs-chart-nudge ${tone}">${esc(text)}</p>`;
+}
+
+function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide = false } = {}) {
+  const musPts = (ex?.mus || []).filter((v) => v != null && Number.isFinite(v) && v > 0);
+  const musLast = musPts.length ? musPts[musPts.length - 1] : null;
+  const musTone = musLast == null || musLast === 0 ? '' : 'is-pos';
+  const wideClass = wide ? ' chs-chart-card-wide' : '';
+  const pinClass = pinId ? ' is-pinnable' : '';
+  const pinAttr = pinId ? ` data-pin-id="${esc(pinId)}"` : '';
+  const burnSum = ex?.musSum == null ? '' : `รวม ${ex.musSum} kcal`;
+  return `<article class="chs-chart-card${wideClass} ${musTone}${pinClass} ${esc(className)}"${pinAttr}>
+    <div class="chs-chart-top">
+      <h3>แคลอรีเบิร์น</h3>
+      <p class="chs-chart-last">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></p>
+    </div>
+    ${renderBurnChartNudgeHtml(ex)}
+    ${renderSeriesChartSvg(ex?.mus || [], {
+      className: 'chs-chart-svg is-burn',
+      unit: 'kcal',
+      digits: 0,
+      labels: ex?.labels,
+      dates: t?.dates,
+      yLabel: 'kcal',
+      xLabel: 'วัน',
+    })}
+    ${burnSum && className.includes('cd-pin') ? `<p class="chs-hint">${esc(burnSum)}</p>` : ''}
+  </article>`;
+}
+
+/**
  * Exercise group stats from live day rows only (no freqMus chip fallback —
  * cleared mus/notes must disappear from สรุป).
  */
@@ -1140,6 +1225,7 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
     dayCount: trend.dayCount,
     startLabel: trend.startLabel,
     endLabel: trend.endLabel,
+    lastExercise: computeLastExerciseInfo(sheet, endKey),
   };
 }
 
@@ -1577,26 +1663,7 @@ export function renderHomePinCardHtml(pinId, snap) {
     </article>`;
   }
   if (id === 'ex-mus') {
-    const musPts = (ex.mus || []).filter((v) => v != null && Number.isFinite(v) && v > 0);
-    const musLast = musPts.length ? musPts[musPts.length - 1] : null;
-    const musTone = musLast == null || musLast === 0 ? '' : 'is-pos';
-    const burnSum = ex.musSum == null ? '' : `รวม ${ex.musSum} kcal`;
-    return `<article class="chs-chart-card cd-pin-card ${musTone} is-pinnable" data-pin-id="${esc(id)}">
-      <div class="chs-chart-top">
-        <h3>แคลอรีเบิร์น</h3>
-        <p class="chs-chart-last">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></p>
-      </div>
-      ${renderSeriesChartSvg(ex.mus || [], {
-        className: 'chs-chart-svg is-burn',
-        unit: 'kcal',
-        digits: 0,
-        labels: ex.labels,
-        dates: t.dates,
-        yLabel: 'kcal',
-        xLabel: 'วัน',
-      })}
-      ${burnSum ? `<p class="chs-hint">${esc(burnSum)}</p>` : ''}
-    </article>`;
+    return renderBurnChartCardHtml(ex, t, { pinId: id, className: 'cd-pin-card' });
   }
   if (id === 'goal-waist' || id === 'goal-weight') {
     const isWaist = id === 'goal-waist';
@@ -1914,10 +1981,6 @@ export function renderHealthSheetHtml(snap) {
       </div>
     </section>`
     : '';
-  const musPts = (ex?.mus || []).filter((v) => v != null && Number.isFinite(v) && v > 0);
-  const musLast = musPts.length ? musPts[musPts.length - 1] : null;
-  const musTone =
-    musLast == null || musLast === 0 ? '' : musLast > 0 ? 'is-pos' : '';
   const exerciseBlock = ex
     ? `<section class="chs-section">
       <header class="chs-section-head">
@@ -1931,21 +1994,7 @@ export function renderHealthSheetHtml(snap) {
         </div>
         ${renderPoseBarsHtml(ex.poses)}
       </article>
-      <article class="chs-chart-card chs-chart-card-wide ${musTone} is-pinnable" data-pin-id="ex-mus">
-        <div class="chs-chart-top">
-          <h3>แคลอรีเบิร์น</h3>
-          <p class="chs-chart-last">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></p>
-        </div>
-        ${renderSeriesChartSvg(ex.mus || [], {
-          className: 'chs-chart-svg is-burn',
-          unit: 'kcal',
-          digits: 0,
-          labels: ex.labels,
-          dates: t?.dates,
-          yLabel: 'kcal',
-          xLabel: 'วัน',
-        })}
-      </article>
+      ${renderBurnChartCardHtml(ex, t, { pinId: 'ex-mus', wide: true })}
     </section>`
     : '';
 
