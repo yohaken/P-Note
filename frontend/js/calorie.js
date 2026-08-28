@@ -256,6 +256,31 @@ function migrateLegacyExercises(row) {
   return { ...row, exercises: normalizeExercises(exercises), mus, note };
 }
 
+/** True when a day row has logged exercise burn. */
+export function dayHasExercise(day) {
+  if (!day) return false;
+  if (normalizeExercises(day.exercises).length) return true;
+  return Number.isFinite(day.mus) && day.mus > 0;
+}
+
+/** Remove all exercise burn for a day (keeps meal-only note fragments). */
+export function clearDayExercises(calorie, dayId) {
+  const sheet = normalizeCalorie(calorie);
+  const day = sheet.days.find((d) => d.id === dayId);
+  if (!day) return sheet;
+  const noteRaw = String(day.note || '').trim();
+  const mealNote = noteRaw
+    ? noteRaw
+      .split(/\s*·\s*/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .filter((bit) => looksLikeMealFragment(bit))
+      .join(' · ')
+      .slice(0, 200)
+    : '';
+  return patchDay(sheet, dayId, { exercises: [], mus: null, note: mealNote });
+}
+
 /** Ensure a day exists (clone body from last), return { sheet, day }. */
 export function ensureDay(calorie, dateKey = toDateKey(new Date())) {
   const { sheet, day, created } = addDayFromLast(calorie, dateKey);
@@ -2606,12 +2631,10 @@ function mergeMealsField(a, b) {
   return { meals: normMeals, mealsAt: normalizeMealsAt(mealsAt, normMeals, '') };
 }
 
-/** Merge exercise slot lists — newer musAt / day stamp wins the whole list. */
+/** Merge exercise slot lists — newer musAt / day stamp wins the whole list (empty = cleared). */
 function mergeExercisesField(a, b) {
   const aEx = normalizeExercises(a?.exercises);
   const bEx = normalizeExercises(b?.exercises);
-  if (!aEx.length) return bEx;
-  if (!bEx.length) return aEx;
   const cmp = compareStamp(a?.musAt || a?.updatedAt, b?.musAt || b?.updatedAt);
   return cmp >= 0 ? aEx : bEx;
 }
@@ -2621,9 +2644,8 @@ function mergeDayFields(a, b) {
   const waist = mergeScalarField(a.waist, b.waist, a.waistAt, b.waistAt, a.updatedAt, b.updatedAt);
   const weight = mergeScalarField(a.weight, b.weight, a.weightAt, b.weightAt, a.updatedAt, b.updatedAt);
   const exercises = mergeExercisesField(a, b);
-  const musFromEx = sumExerciseBurn(exercises);
-  const mus = musFromEx
-    || mergeScalarField(a.mus, b.mus, a.musAt, b.musAt, a.updatedAt, b.updatedAt);
+  const musBurn = sumExerciseBurn(exercises);
+  const mus = musBurn > 0 ? musBurn : null;
   const note = mergeScalarField(a.note, b.note, a.noteAt, b.noteAt, a.updatedAt, b.updatedAt);
   const base = mergeScalarField(a.base, b.base, a.updatedAt, b.updatedAt, a.updatedAt, b.updatedAt);
   const meals = mergeMealsField(a, b);

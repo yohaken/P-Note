@@ -72,6 +72,8 @@ import {
   appendQuickExercise,
   appendQuickMeal,
   clearDayValues,
+  clearDayExercises,
+  dayHasExercise,
   ensureDay,
   formatExerciseDisplay,
   formatExercisesForEdit,
@@ -111,7 +113,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=246';
+} from './calorie.js?v=247';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -624,6 +626,7 @@ const els = {
   calorieQuickHint: document.getElementById('calorie-quick-hint'),
   calorieQuickInput: document.getElementById('calorie-quick-input'),
   calorieQuickClear: document.getElementById('calorie-quick-clear'),
+  calorieQuickDelete: document.getElementById('calorie-quick-delete'),
   calorieQuickCancel: document.getElementById('calorie-quick-cancel'),
   calorieQuickOk: document.getElementById('calorie-quick-ok'),
   calorieBodyOverlay: document.getElementById('calorie-body-overlay'),
@@ -2529,7 +2532,15 @@ function paintCalorieQuickFreq() {
 
 function syncCalorieQuickChrome() {
   const editing = Boolean(calorieQuickEdit);
-  if (els.calorieQuickClear) els.calorieQuickClear.hidden = !editing;
+  const day = editing && calorieQuickEdit?.dayId
+    ? ensureCaloriePayload().days.find((d) => d.id === calorieQuickEdit.dayId)
+    : null;
+  const canDelete = editing && calorieQuickMode === 'mus' && dayHasExercise(day);
+  if (els.calorieQuickClear) {
+    els.calorieQuickClear.hidden = !editing;
+    els.calorieQuickClear.textContent = editing && calorieQuickMode === 'mus' ? 'ล้างช่อง' : 'เคลียร์';
+  }
+  if (els.calorieQuickDelete) els.calorieQuickDelete.hidden = !canDelete;
   if (els.calorieQuickOk) {
     els.calorieQuickOk.textContent = editing ? 'บันทึก' : 'เพิ่ม';
   }
@@ -2643,8 +2654,9 @@ async function openCalorieCellEditor(opts) {
       els.calorieQuickTitle.textContent = value ? 'แก้ออกกำลังวันนี้' : 'ออกกำลัง';
     }
     if (els.calorieQuickHint) {
-      els.calorieQuickHint.textContent =
-        'แก้รายการทั้งวัน · คั่นด้วย · เช่น อก 120 · ไหล 80 · เคลียร์แล้วบันทึกเพื่อลบ';
+      els.calorieQuickHint.textContent = dayHasExercise(day)
+        ? 'แก้รายการ · กด ลบ เพื่อลบทั้งวัน · บันทึกเพื่ออัปเดต'
+        : 'พิมพ์ท่า + แคล · คั่นด้วย · เช่น อก 120 · ไหล 80';
     }
     if (els.calorieQuickInput) {
       els.calorieQuickInput.placeholder = 'อก 120 · ไหล 80';
@@ -2760,6 +2772,37 @@ function clearCalorieQuickInput() {
   } catch { /* ignore */ }
 }
 
+async function deleteCalorieExercise(dayId) {
+  if (!requireSyncReady()) return;
+  const id = String(dayId || calorieQuickEdit?.dayId || '');
+  if (!id) return;
+  if (!(await confirmPastDayEdit(id))) return;
+  const sheet = ensureCaloriePayload();
+  const day = sheet.days.find((d) => d.id === id);
+  if (!dayHasExercise(day)) {
+    setStatus('ไม่มีออกกำลังให้ลบ', { forceToast: true, ms: 1600 });
+    return;
+  }
+  const label = day?.date ? formatDateDisplay(day.date) : 'วันนี้';
+  const ok = await showConfirm(`ลบออกกำลังของ ${label}?\nข้อมูลจะหายถาวร`, {
+    okLabel: 'ลบ',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok) return;
+  persistCalorie(pruneFrequentMus(clearDayExercises(sheet, id)), {
+    status: `ลบออกกำลัง ${label} แล้ว`,
+    fullRender: true,
+  });
+  closeCalorieQuick();
+}
+
+async function onCalorieQuickDelete() {
+  const dayId = calorieQuickEdit?.dayId;
+  if (!dayId || calorieQuickMode !== 'mus') return;
+  await deleteCalorieExercise(dayId);
+}
+
 function submitCalorieQuick() {
   if (!requireSyncReady()) return;
   const text = String(els.calorieQuickInput?.value || '').trim();
@@ -2777,8 +2820,8 @@ function submitCalorieQuick() {
     try {
       if (calorieQuickMode === 'mus') {
         if (!text) {
-          persistCalorie(pruneFrequentMus(patchDay(sheet, dayId, { exercises: [], mus: null })), {
-            status: 'เคลียร์ออกกำลังแล้ว · อัปเดตแล้ว',
+          persistCalorie(pruneFrequentMus(clearDayExercises(sheet, dayId)), {
+            status: 'ลบออกกำลังแล้ว',
             fullRender: true,
           });
         } else {
@@ -8646,6 +8689,9 @@ async function init({ fromBoot = false } = {}) {
   els.calorieQuickCancel?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickBackdrop?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickClear?.addEventListener('click', clearCalorieQuickInput);
+  els.calorieQuickDelete?.addEventListener('click', () => {
+    void onCalorieQuickDelete();
+  });
   els.calorieQuickOk?.addEventListener('click', submitCalorieQuick);
   els.calorieQuickInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -8742,7 +8788,7 @@ async function init({ fromBoot = false } = {}) {
     if (num !== '' && !Number.isFinite(parsed)) return;
     let next = patchDay(sheet, dayId, { [field]: parsed });
     if (field === 'mus' && (parsed == null || parsed === 0)) {
-      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, exercises: [] }));
+      next = pruneFrequentMus(clearDayExercises(next, dayId));
     }
     // Derived refresh is enough for body/burn — avoid full table rebuild flicker.
     persistCalorie(next, { status: '', fullRender: false });
@@ -8929,7 +8975,7 @@ async function init({ fromBoot = false } = {}) {
     if (num !== '' && !Number.isFinite(parsed)) return;
     let next = patchDay(sheet, dayId, { [field]: parsed });
     if (field === 'mus' && (parsed == null || parsed === 0)) {
-      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, exercises: [] }));
+      next = pruneFrequentMus(clearDayExercises(next, dayId));
     }
     persistCalorie(next, { status: '', fullRender: false });
   };
