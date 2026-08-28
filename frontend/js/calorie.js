@@ -1149,20 +1149,23 @@ function renderBurnChartNudgeHtml(ex) {
   return `<p class="chs-chart-nudge ${tone}">${esc(text)}</p>`;
 }
 
-function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide = false } = {}) {
+function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide = false, compact = false } = {}) {
   const musPts = (ex?.mus || []).filter((v) => v != null && Number.isFinite(v) && v > 0);
   const musLast = musPts.length ? musPts[musPts.length - 1] : null;
   const musTone = musLast == null || musLast === 0 ? '' : 'is-pos';
   const wideClass = wide ? ' chs-chart-card-wide' : '';
   const pinClass = pinId ? ' is-pinnable' : '';
   const pinAttr = pinId ? ` data-pin-id="${esc(pinId)}"` : '';
-  const burnSum = ex?.musSum == null ? '' : `รวม ${ex.musSum} kcal`;
-  return `<article class="chs-chart-card${wideClass} ${musTone}${pinClass} ${esc(className)}"${pinAttr}>
-    <div class="chs-chart-top">
+  const compactClass = compact ? ' is-compact' : '';
+  const head = compact
+    ? `<div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">เบิร์น</span><strong class="chs-compact-val">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></strong></span></div>`
+    : `<div class="chs-chart-top">
       <h3>แคลอรีเบิร์น</h3>
       <p class="chs-chart-last">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></p>
-    </div>
-    ${renderBurnChartNudgeHtml(ex)}
+    </div>`;
+  return `<article class="chs-chart-card${wideClass} ${musTone}${pinClass}${compactClass} ${esc(className)}"${pinAttr}>
+    ${head}
+    ${compact ? '' : renderBurnChartNudgeHtml(ex)}
     ${renderSeriesChartSvg(ex?.mus || [], {
       className: 'chs-chart-svg is-burn',
       unit: 'kcal',
@@ -1171,8 +1174,8 @@ function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide
       dates: t?.dates,
       yLabel: 'kcal',
       xLabel: 'วัน',
+      compact,
     })}
-    ${burnSum && className.includes('cd-pin') ? `<p class="chs-hint">${esc(burnSum)}</p>` : ''}
   </article>`;
 }
 
@@ -1225,10 +1228,6 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
     dayCount: trend.dayCount,
     startLabel: trend.startLabel,
     endLabel: trend.endLabel,
-    lastExercise: computeLastExerciseInfo(sheet, endKey),
-  };
-}
-
     lastExercise: computeLastExerciseInfo(sheet, endKey),
   };
 }
@@ -1520,6 +1519,7 @@ export function renderSeriesChartSvg(
     yLabel = '',
     referenceValues = null,
     referenceLegend = '',
+    compact = false,
   } = {},
 ) {
   const pts = [];
@@ -1531,10 +1531,10 @@ export function renderSeriesChartSvg(
     if (v != null && Number.isFinite(v)) refPts.push({ i, v });
   });
   const w = width;
-  const h = height;
+  const h = compact ? 52 : height;
   const yAxisName = yLabel || unit || '';
   if (pts.length < 1 && refPts.length < 1) {
-    return `<svg class="${esc(className)}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="ยังไม่มีข้อมูลกราฟ">
+    return `<svg class="${esc(className)}${compact ? ' is-compact' : ''}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="ยังไม่มีข้อมูลกราฟ">
       <text class="chs-chart-empty-text" x="${w / 2}" y="${h / 2}" text-anchor="middle">ไม่มีข้อมูล</text>
     </svg>`;
   }
@@ -1542,16 +1542,18 @@ export function renderSeriesChartSvg(
   const allV = [...pts.map((p) => p.v), ...refPts.map((p) => p.v)];
   const rawMin = Math.min(...allV);
   const rawMax = Math.max(...allV);
-  const scale = niceAxisScale(rawMin, rawMax, { signed, tickTarget: 3 });
-  const { min, max, ticks: yTicks } = scale;
+  const scale = niceAxisScale(rawMin, rawMax, { signed, tickTarget: compact ? 2 : 3 });
+  let { min, max, ticks: yTicks } = scale;
+  if (compact && yTicks.length > 2) {
+    yTicks = [yTicks[0], yTicks[yTicks.length - 1]];
+  }
   const span = max - min || 1;
   const n = Math.max((values || []).length, 2);
 
-  // Plot box leaves room for Y ticks (left), X ticks (bottom), unit (top).
-  const padL = 30;
-  const padR = 6;
-  const padT = 14;
-  const padB = 18;
+  const padL = compact ? 18 : 30;
+  const padR = compact ? 2 : 6;
+  const padT = compact ? 2 : 14;
+  const padB = compact ? 8 : 18;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
   const xAt = (i) => padL + (i / (n - 1)) * plotW;
@@ -1560,22 +1562,22 @@ export function renderSeriesChartSvg(
   const coords = pts.map((p) => `${xAt(p.i).toFixed(1)},${yAt(p.v).toFixed(1)}`);
   const last = pts[pts.length - 1];
 
-  // Grid + Y ticks
-  const grid = yTicks
-    .map((tv) => {
-      const y = yAt(tv).toFixed(1);
-      return `<line class="chs-chart-grid" x1="${padL}" x2="${(padL + plotW).toFixed(1)}" y1="${y}" y2="${y}" />`;
-    })
-    .join('');
+  const grid = compact
+    ? ''
+    : yTicks
+      .map((tv) => {
+        const y = yAt(tv).toFixed(1);
+        return `<line class="chs-chart-grid" x1="${padL}" x2="${(padL + plotW).toFixed(1)}" y1="${y}" y2="${y}" />`;
+      })
+      .join('');
   const yTickLabels = yTicks
     .map((tv) => {
       const y = yAt(tv).toFixed(1);
-      return `<text class="chs-chart-tick chs-chart-tick-y" x="${padL - 3}" y="${y}" text-anchor="end" dominant-baseline="middle">${esc(formatAxisTick(tv, digits))}</text>`;
+      return `<text class="chs-chart-tick chs-chart-tick-y" x="${padL - 2}" y="${y}" text-anchor="end" dominant-baseline="middle">${esc(formatAxisTick(tv, digits))}</text>`;
     })
     .join('');
 
-  // X ticks from dates (preferred) or day-name labels
-  const xIdx = xTickIndices(n);
+  const xIdx = compact ? (n <= 1 ? [0] : [0, n - 1]) : xTickIndices(n);
   const xTickLabels = xIdx
     .map((i) => {
       const dateKey = Array.isArray(dates) ? dates[i] : null;
@@ -1584,15 +1586,17 @@ export function renderSeriesChartSvg(
       if (!text) return '';
       const x = xAt(i).toFixed(1);
       const anchor = i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle';
-      return `<text class="chs-chart-tick chs-chart-tick-x" x="${x}" y="${(h - 4).toFixed(1)}" text-anchor="${anchor}">${esc(text)}</text>`;
+      return `<text class="chs-chart-tick chs-chart-tick-x" x="${x}" y="${(h - 2).toFixed(1)}" text-anchor="${anchor}">${esc(text)}</text>`;
     })
     .join('');
 
-  const axisLines = `
+  const axisLines = compact
+    ? `<line class="chs-chart-axis" x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${(padT + plotH).toFixed(1)}" />`
+    : `
     <line class="chs-chart-axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${(padT + plotH).toFixed(1)}" />
     <line class="chs-chart-axis" x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${(padT + plotH).toFixed(1)}" />`;
 
-  const yTitle = yAxisName
+  const yTitle = !compact && yAxisName
     ? `<text class="chs-chart-axis-label chs-chart-axis-y" x="${padL}" y="9">${esc(`Y · ${yAxisName}`)}</text>`
     : '';
 
@@ -1618,26 +1622,32 @@ export function renderSeriesChartSvg(
     pts.length >= 2
       ? `<polyline class="chs-chart-line" fill="none" points="${coords.join(' ')}" />`
       : '';
+  const dotR = compact ? 2 : 2.4;
   const dot =
     pts.length >= 1
-      ? `<circle class="chs-chart-dot" cx="${xAt(last.i).toFixed(1)}" cy="${yAt(last.v).toFixed(1)}" r="2.4" />`
+      ? `<circle class="chs-chart-dot" cx="${xAt(last.i).toFixed(1)}" cy="${yAt(last.v).toFixed(1)}" r="${dotR}" />`
       : '';
-  const refLegendHtml = referenceLegend && refPts.length
+  const refLegendHtml = !compact && referenceLegend && refPts.length
     ? `<span class="chs-chart-ref-legend">${esc(referenceLegend)}</span>`
     : '';
 
   const scaleHint = `${yAxisName || 'ค่า'} ${formatAxisTick(min, digits)}–${formatAxisTick(max, digits)} · แกน X วัน`;
-  return `<svg class="${esc(className)}${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''} has-axes" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dot}${yTickLabels}${xTickLabels}</svg>
-  <p class="chs-chart-scale"><span>Y: ${esc(yAxisName || 'ค่า')} (${esc(formatAxisTick(min, digits))}–${esc(formatAxisTick(max, digits))})</span>${refLegendHtml}<span>X: ${esc(xLabel || 'วัน')}</span></p>`;
+  const scaleBlock = compact
+    ? ''
+    : `<p class="chs-chart-scale"><span>Y: ${esc(yAxisName || 'ค่า')} (${esc(formatAxisTick(min, digits))}–${esc(formatAxisTick(max, digits))})</span>${refLegendHtml}<span>X: ${esc(xLabel || 'วัน')}</span></p>`;
+  const axesClass = compact ? '' : ' has-axes';
+  return `<svg class="${esc(className)}${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${compact ? ' is-compact' : axesClass}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dot}${yTickLabels}${xTickLabels}</svg>${scaleBlock}`;
 }
 
 /** Horizontal bar list for exercise poses. */
-export function renderPoseBarsHtml(poses) {
+export function renderPoseBarsHtml(poses, { maxRows = 0 } = {}) {
   if (!poses?.length) {
     return `<p class="chs-chart-empty">ยังไม่มีประวัติท่าออกกำลัง — เพิ่มจากปุ่ม ออกกำลัง</p>`;
   }
-  const max = Math.max(1, ...poses.map((p) => p.count || 0));
-  const rows = poses
+  const list = maxRows > 0 ? poses.slice(0, maxRows) : poses;
+  const extra = maxRows > 0 && poses.length > maxRows ? poses.length - maxRows : 0;
+  const max = Math.max(1, ...list.map((p) => p.count || 0));
+  const rows = list
     .map((p) => {
       const pct = Math.max(6, Math.round(((p.count || 0) / max) * 100));
       const burn = p.burn ? ` · ${p.burn} kcal` : '';
@@ -1648,7 +1658,10 @@ export function renderPoseBarsHtml(poses) {
       </div>`;
     })
     .join('');
-  return `<div class="chs-pose-bars">${rows}</div>`;
+  const more = extra > 0
+    ? `<p class="chs-pose-more">+${extra} ท่า</p>`
+    : '';
+  return `<div class="chs-pose-bars">${rows}</div>${more}`;
 }
 
 /** Pinnable widgets from health sheet → home dash (unique ids, 2 per row). */
@@ -1723,6 +1736,7 @@ function chartCardHtml(
     dates = null,
     referenceValues = null,
     referenceLegend = '',
+    compact = false,
   } = {},
 ) {
   const pts = (values || []).filter((v) => v != null && Number.isFinite(v));
@@ -1738,7 +1752,7 @@ function chartCardHtml(
   if (last != null && lastRef != null) {
     const delta = round(last - lastRef, digits);
     const deltaWord = delta === 0 ? 'พอดีเป้า' : delta > 0 ? `+${delta}` : String(delta);
-    lastLabel = `${lastLabel} · ${deltaWord}`;
+    lastLabel = compact ? `${lastLabel} ${deltaWord}` : `${lastLabel} · ${deltaWord}`;
   }
   const tone =
     !signed || last == null || last === 0 ? '' : last > 0 ? 'is-pos' : 'is-neg';
@@ -1751,15 +1765,21 @@ function chartCardHtml(
     yLabel: unit,
     xLabel: 'วัน',
     referenceValues,
-    referenceLegend,
+    referenceLegend: compact ? '' : referenceLegend,
+    compact,
   });
   const pinAttr = pinId ? ` data-pin-id="${esc(pinId)}"` : '';
   const pinClass = pinId ? ' is-pinnable' : '';
-  return `<article class="chs-chart-card ${tone}${pinClass} ${esc(className)}"${pinAttr}>
-    <div class="chs-chart-top">
+  const compactClass = compact ? ' is-compact' : '';
+  const unitHtml = unit ? `<span class="chs-chart-unit">${esc(unit)}</span>` : '';
+  const head = compact
+    ? `<div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">${esc(title)}</span><strong class="chs-compact-val">${esc(lastLabel)}${unitHtml}</strong></span></div>`
+    : `<div class="chs-chart-top">
       <h3>${esc(title)}</h3>
-      <p class="chs-chart-last">${esc(lastLabel)}${unit ? `<span class="chs-chart-unit">${esc(unit)}</span>` : ''}</p>
-    </div>
+      <p class="chs-chart-last">${esc(lastLabel)}${unitHtml}</p>
+    </div>`;
+  return `<article class="chs-chart-card ${tone}${pinClass}${compactClass} ${esc(className)}"${pinAttr}>
+    ${head}
     ${svg}
   </article>`;
 }
@@ -1798,19 +1818,19 @@ export function renderHomePinCardHtml(pinId, snap) {
       dates: t.dates,
       pinId: id,
       className: 'cd-pin-card',
+      compact: true,
+      referenceLegend: '',
     });
   }
   if (id === 'ex-poses') {
-    return `<article class="chs-chart-card cd-pin-card is-pinnable" data-pin-id="${esc(id)}">
-      <div class="chs-chart-top">
-        <h3>ท่าที่เล่น</h3>
-        <p class="chs-chart-last">${esc(ex.poses?.length || 0)}<span class="chs-chart-unit">ท่า</span></p>
-      </div>
-      ${renderPoseBarsHtml(ex.poses)}
+    const n = ex.poses?.length || 0;
+    return `<article class="chs-chart-card cd-pin-card is-pinnable is-compact" data-pin-id="${esc(id)}">
+      <div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">ท่าที่เล่น</span><strong class="chs-compact-val">${esc(n)}<span class="chs-chart-unit">ท่า</span></strong></span></div>
+      ${renderPoseBarsHtml(ex.poses, { maxRows: 3 })}
     </article>`;
   }
   if (id === 'ex-mus') {
-    return renderBurnChartCardHtml(ex, t, { pinId: id, className: 'cd-pin-card' });
+    return renderBurnChartCardHtml(ex, t, { pinId: id, className: 'cd-pin-card', compact: true });
   }
   if (id === 'goal-waist' || id === 'goal-weight') {
     const isWaist = id === 'goal-waist';
@@ -1821,24 +1841,12 @@ export function renderHomePinCardHtml(pinId, snap) {
       { primary: isWaist, hint: isWaist ? 'หัวใจหลัก' : 'กล้ามเนื้อทำให้น้ำหนักขึ้นได้' },
     );
     return html
-      .replace('class="chs-card chs-goal-card', `class="chs-card chs-goal-card cd-pin-card is-pinnable`)
+      .replace('class="chs-card chs-goal-card', `class="chs-card chs-goal-card cd-pin-card is-pinnable is-compact`)
       .replace('<article ', `<article data-pin-id="${esc(id)}" `);
   }
 
-  const sexLabel = snap.sex === 'female' ? 'หญิง' : 'ชาย';
   const waistV = snap.waist == null ? '—' : snap.waist;
   const whtrV = snap.whtr == null ? '—' : snap.whtr;
-  const whtrHint =
-    snap.whtrLevel === 'ok'
-      ? 'ต่ำกว่า 0.5 — ช่วงกลางตัวโอเค'
-      : snap.whtrLevel === 'watch'
-        ? '0.5–0.6 — ควรลดไขมันช่วงกลางตัว'
-        : snap.whtrLevel === 'high'
-          ? '≥ 0.6 — เสี่ยงสูงขึ้น'
-          : 'เอว ÷ ส่วนสูง';
-  const waistHint = snap.waistZone
-    ? `${snap.waistZone.label} (เกณฑ์เอเชีย ${snap.sex === 'female' ? 'หญิง ≥80' : 'ชาย ≥90'} ซม.)`
-    : 'ยังไม่มีรอบเอว';
   const idealV = snap.ideal ? `${snap.ideal.low}–${snap.ideal.high} กก.` : '—';
   const weekKgV =
     snap.weekKg == null
@@ -1848,45 +1856,33 @@ export function renderHomePinCardHtml(pinId, snap) {
     snap.weekKg == null || snap.weekKg === 0 ? '' : snap.weekKg > 0 ? 'is-pos' : 'is-neg';
 
   if (id === 'card-body') {
-    return `<article class="chs-card cd-pin-card is-pinnable" data-pin-id="${esc(id)}">
-      <h3>ร่างกายล่าสุด</h3>
-      <p>สูง <strong>${esc(snap.heightCm ?? '—')}</strong> ซม. · ${esc(sexLabel)} · อายุ <strong>${esc(snap.age ?? '—')}</strong> ปี</p>
-      <p>น้ำหนัก <strong>${esc(snap.weight ?? '—')}</strong> กก. · เอว <strong>${esc(waistV)}</strong> ซม.</p>
+    return `<article class="chs-card cd-pin-card is-pinnable is-compact" data-pin-id="${esc(id)}">
+      <p class="cd-compact-line"><strong>ร่างกาย</strong> · ${esc(snap.weight ?? '—')} กก. · เอว ${esc(waistV)} ซม.</p>
     </article>`;
   }
   if (id === 'card-bmi') {
-    return `<article class="chs-card cd-pin-card is-pinnable" data-pin-id="${esc(id)}">
-      <h3>BMI</h3>
-      <p class="chs-big">${esc(snap.bmi == null ? '—' : snap.bmi)}</p>
-      <p class="chs-hint">น้ำหนัก ÷ ส่วนสูง²</p>
+    return `<article class="chs-card cd-pin-card is-pinnable is-compact" data-pin-id="${esc(id)}">
+      <p class="cd-compact-line"><strong>BMI</strong> · ${esc(snap.bmi == null ? '—' : snap.bmi)}</p>
     </article>`;
   }
   if (id === 'card-whtr') {
-    return `<article class="chs-card cd-pin-card is-pinnable ${levelClass(snap.whtrLevel)}" data-pin-id="${esc(id)}">
-      <h3>WHtR เอว/สูง</h3>
-      <p class="chs-big">${esc(whtrV)}</p>
-      <p class="chs-hint">${esc(whtrHint)}</p>
+    return `<article class="chs-card cd-pin-card is-pinnable is-compact ${levelClass(snap.whtrLevel)}" data-pin-id="${esc(id)}">
+      <p class="cd-compact-line"><strong>WHtR</strong> · ${esc(whtrV)}</p>
     </article>`;
   }
   if (id === 'card-waistZone') {
-    return `<article class="chs-card cd-pin-card is-pinnable ${levelClass(snap.waistZone?.level)}" data-pin-id="${esc(id)}">
-      <h3>โซนรอบเอว</h3>
-      <p class="chs-big">${esc(snap.waistZone?.label || '—')}</p>
-      <p class="chs-hint">${esc(waistHint)}</p>
+    return `<article class="chs-card cd-pin-card is-pinnable is-compact ${levelClass(snap.waistZone?.level)}" data-pin-id="${esc(id)}">
+      <p class="cd-compact-line"><strong>โซนเอว</strong> · ${esc(snap.waistZone?.label || '—')}</p>
     </article>`;
   }
   if (id === 'card-ideal') {
-    return `<article class="chs-card cd-pin-card is-pinnable" data-pin-id="${esc(id)}">
-      <h3>ช่วง กก. แนะนำ</h3>
-      <p class="chs-big chs-big-sm">${esc(idealV)}</p>
-      <p class="chs-hint">BMI 18.5–24.9 จากส่วนสูง</p>
+    return `<article class="chs-card cd-pin-card is-pinnable is-compact" data-pin-id="${esc(id)}">
+      <p class="cd-compact-line"><strong>กก. แนะนำ</strong> · ${esc(idealV)}</p>
     </article>`;
   }
   if (id === 'card-weekKg') {
-    return `<article class="chs-card cd-pin-card is-pinnable ${weekKgTone}" data-pin-id="${esc(id)}">
-      <h3>แนวโน้ม 7 วัน</h3>
-      <p class="chs-big chs-big-sm">${esc(weekKgV)}</p>
-      <p class="chs-hint">จาก bal รวม ÷ 7700 · คร่าวๆ เท่านั้น</p>
+    return `<article class="chs-card cd-pin-card is-pinnable is-compact ${weekKgTone}" data-pin-id="${esc(id)}">
+      <p class="cd-compact-line"><strong>7 วัน</strong> · ${esc(weekKgV)}</p>
     </article>`;
   }
   return '';
