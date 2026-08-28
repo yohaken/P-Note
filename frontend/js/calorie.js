@@ -1691,7 +1691,7 @@ export function renderSeriesChartSvg(
 }
 
 /** Horizontal bar list for exercise poses. */
-export function renderPoseBarsHtml(poses, { maxRows = 0 } = {}) {
+export function renderPoseBarsHtml(poses, { maxRows = 0, scrollable = false, scrollHintAfter = 3 } = {}) {
   if (!poses?.length) {
     return `<p class="chs-chart-empty">ยังไม่มีประวัติท่าออกกำลัง — เพิ่มจากปุ่ม ออกกำลัง</p>`;
   }
@@ -1712,7 +1712,8 @@ export function renderPoseBarsHtml(poses, { maxRows = 0 } = {}) {
   const more = extra > 0
     ? `<p class="chs-pose-more">+${extra} ท่า</p>`
     : '';
-  return `<div class="chs-pose-bars">${rows}</div>${more}`;
+  const scrollClass = scrollable && list.length > scrollHintAfter ? ' is-scrollable' : '';
+  return `<div class="chs-pose-bars${scrollClass}">${rows}</div>${more}`;
 }
 
 /** Pinnable widgets from health sheet → home dash (unique ids, 2 per row). */
@@ -1875,9 +1876,13 @@ export function renderHomePinCardHtml(pinId, snap) {
   }
   if (id === 'ex-poses') {
     const n = ex.poses?.length || 0;
+    const scrollHint = n > 3
+      ? `<p class="chs-pose-scroll-hint" aria-hidden="true">เลื่อนลงดูท่าเพิ่ม</p>`
+      : '';
     return `<article class="chs-chart-card cd-pin-card is-pinnable is-compact" data-pin-id="${esc(id)}">
       <div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">ท่าที่เล่น</span><strong class="chs-compact-val">${esc(n)}<span class="chs-chart-unit">ท่า</span></strong></span></div>
-      ${renderPoseBarsHtml(ex.poses)}
+      ${renderPoseBarsHtml(ex.poses, { scrollable: true, scrollHintAfter: 3 })}
+      ${scrollHint}
     </article>`;
   }
   if (id === 'ex-mus') {
