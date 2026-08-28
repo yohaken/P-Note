@@ -1932,9 +1932,13 @@ export function renderHomePinCardHtml(pinId, snap) {
   }
   if (id === 'ex-poses') {
     const n = ex.poses?.length || 0;
+    const scrollHint = n > 3
+      ? `<p class="chs-pose-scroll-hint" aria-hidden="true">เลื่อนดูท่าเพิ่ม</p>`
+      : '';
     return `<article class="chs-chart-card cd-pin-card is-pinnable is-compact is-editable-ex" data-pin-id="${esc(id)}" title="แตะแก้ออกกำลังวันนี้ · กดค้างจัดเรียง">
       <div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">ท่าที่เล่น</span><strong class="chs-compact-val">${esc(n)}<span class="chs-chart-unit">ท่า</span></strong></span></div>
-      ${renderPoseBarsHtml(ex.poses)}
+      ${renderPoseBarsHtml(ex.poses, { scrollable: true, scrollHintAfter: 3 })}
+      ${scrollHint}
     </article>`;
   }
   if (id === 'ex-mus') {
