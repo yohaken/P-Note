@@ -1266,7 +1266,6 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
   });
   const poses = [...poseMap.values()]
     .sort((a, b) => b.count - a.count || b.burn - a.burn)
-    .slice(0, 8)
     .map((p) => ({
       label: p.label,
       count: p.count,
@@ -1690,7 +1689,7 @@ export function renderSeriesChartSvg(
   return `<svg class="${esc(className)}${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${compact ? ' is-compact' : axesClass}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dot}${yTickLabels}${xTickLabels}</svg>${scaleBlock}`;
 }
 
-/** Horizontal bar list for exercise poses. */
+/** Horizontal bar list for exercise poses (count bar + cumulative kcal column). */
 export function renderPoseBarsHtml(poses, { maxRows = 0, scrollable = false, scrollHintAfter = 3 } = {}) {
   if (!poses?.length) {
     return `<p class="chs-chart-empty">ยังไม่มีประวัติท่าออกกำลัง — เพิ่มจากปุ่ม ออกกำลัง</p>`;
@@ -1698,14 +1697,16 @@ export function renderPoseBarsHtml(poses, { maxRows = 0, scrollable = false, scr
   const list = maxRows > 0 ? poses.slice(0, maxRows) : poses;
   const extra = maxRows > 0 && poses.length > maxRows ? poses.length - maxRows : 0;
   const max = Math.max(1, ...list.map((p) => p.count || 0));
+  const head = `<div class="chs-pose-head" aria-hidden="true"><span class="chs-pose-head-label">ท่า</span><span class="chs-pose-head-bar"></span><span class="chs-pose-head-count">ครั้ง</span><span class="chs-pose-head-burn">kcal</span></div>`;
   const rows = list
     .map((p) => {
       const pct = Math.max(6, Math.round(((p.count || 0) / max) * 100));
-      const burn = p.burn ? ` · ${p.burn} kcal` : '';
-      return `<div class="chs-pose-row" title="${esc(p.label)} ×${p.count}${burn}">
+      const burnVal = p.burn != null && p.burn > 0 ? String(p.burn) : '—';
+      return `<div class="chs-pose-row" title="${esc(p.label)} · ${esc(p.count)} ครั้ง · ${esc(burnVal)} kcal สะสม">
         <span class="chs-pose-label">${esc(p.label)}</span>
         <span class="chs-pose-track"><i style="width:${pct}%"></i></span>
         <span class="chs-pose-count">${esc(p.count)}</span>
+        <span class="chs-pose-burn">${esc(burnVal)}</span>
       </div>`;
     })
     .join('');
@@ -1713,7 +1714,7 @@ export function renderPoseBarsHtml(poses, { maxRows = 0, scrollable = false, scr
     ? `<p class="chs-pose-more">+${extra} ท่า</p>`
     : '';
   const scrollClass = scrollable && list.length > scrollHintAfter ? ' is-scrollable' : '';
-  return `<div class="chs-pose-bars${scrollClass}">${rows}</div>${more}`;
+  return `<div class="chs-pose-bars${scrollClass}">${head}${rows}</div>${more}`;
 }
 
 /** Pinnable widgets from health sheet → home dash (unique ids, 2 per row). */
