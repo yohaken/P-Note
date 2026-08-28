@@ -106,13 +106,12 @@ import {
   renderHealthSheetHtml,
   renderHomeDashHtml,
   homePinLabel,
-  HOME_PIN_MAX,
   normalizeHomePins,
   thaiDayName,
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=243';
+} from './calorie.js?v=244';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -2112,10 +2111,6 @@ function pinWidgetToHome(pinId) {
   const pins = getHomePins();
   if (pins.includes(id)) {
     setStatus('มีในหน้าแรกแล้ว', { forceToast: true, ms: 1600 });
-    return;
-  }
-  if (pins.length >= HOME_PIN_MAX) {
-    setStatus('ครบทุกกล่องแล้ว', { forceToast: true, ms: 1600 });
     return;
   }
   void persistHomePins([...pins, id]).then(() => {

@@ -1759,9 +1759,6 @@ export const HOME_PIN_IDS = [
   'ex-poses',
   'ex-mus',
 ];
-/** Soft cap = all pinnable widgets (no arbitrary 4-box limit). */
-export const HOME_PIN_MAX = HOME_PIN_IDS.length;
-
 const HOME_PIN_LABELS = {
   'goal-waist': 'เป้าเอว',
   'goal-weight': 'เป้าน้ำหนัก',
@@ -1990,7 +1987,7 @@ export function renderHomeDashHtml(snap, pins, opts = {}) {
   const cards = list.map((id) => renderHomePinCardHtml(id, snap)).filter(Boolean).join('');
   const grid = list.length
     ? `<div class="cd-pin-grid">${cards}</div>`
-    : `<p class="cd-pin-empty">แตะกล่องในหน้าสรุป → ส่งไปหน้าแรก<br>จัดเรียงแถวละ 2 กล่อง · sync คลาวด์อัตโนมัติ</p>`;
+    : `<p class="cd-pin-empty">แตะกล่องในหน้าสรุป → ส่งไปหน้าแรก<br>วางได้เรื่อยๆ · แถวละ 2 กล่อง · sync คลาวด์</p>`;
   const rangeLabel = snap?.trends
     ? `${snap.trends.startLabel}–${snap.trends.endLabel}`
     : rangeMeta.label;

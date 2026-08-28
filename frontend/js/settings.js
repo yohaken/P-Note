@@ -111,7 +111,7 @@ const DEFAULTS = {
   calorieTones: null,
   /** Last health-summary chart range (days): 1/3/7/14/90/180/365 — shared with home dash */
   calorieTrendDays: 7,
-  /** Pinned health widgets on home dash (max 4 ids) */
+  /** Pinned health widgets on home dash (unique ids, synced to cloud) */
   calorieHomePins: [],
 };
 
@@ -192,6 +192,7 @@ const HOME_PIN_ID_OPTIONS = [
   'chart-prot',
   'chart-balance',
   'chart-blKg',
+  'chart-mealTime',
   'ex-poses',
   'ex-mus',
 ];

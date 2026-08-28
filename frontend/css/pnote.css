@@ -6210,7 +6210,7 @@ body.calorie-only .dock-action-primary {
   font-size: 0.65rem !important;
 }
 
-/* Home dash — pinned health charts (2 per row, max 4) */
+/* Home dash — pinned health charts (2 per row, scrolls with table) */
 .calorie-dash {
   margin: 0 0.2rem;
   padding: 0.22rem 0.24rem;
@@ -7695,6 +7695,10 @@ body.calorie-health-pane #dock-calorie-health-btn {
   -webkit-overflow-scrolling: touch;
   padding: 0 0 calc(0.55rem + var(--filters-dock-h, 5.5rem));
   border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.calorie-scroll > .calorie-dash:not([hidden]) {
+  margin: 0.12rem 0.2rem 0.18rem;
 }
 
 .calorie-table {
