@@ -1364,7 +1364,7 @@ function mealTimeNudgeLine(stats) {
 }
 
 /** 2-hour bucket histogram (12 bars) from 24 hourly counts. */
-function renderMealTimeHistSvg(hourCounts, { width = 300, height = 96 } = {}) {
+function renderMealTimeHistSvg(hourCounts, { width = 300, height = 96, compact = false } = {}) {
   const bins = [];
   for (let b = 0; b < 12; b += 1) {
     let sum = 0;
@@ -1372,18 +1372,18 @@ function renderMealTimeHistSvg(hourCounts, { width = 300, height = 96 } = {}) {
     bins.push(sum);
   }
   const w = width;
-  const h = height;
+  const h = compact ? 72 : height;
   const total = bins.reduce((s, v) => s + v, 0);
   if (total < 1) {
-    return `<svg class="chs-chart-svg is-hist" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="ยังไม่มีข้อมูลรอบเวลากิน">
+    return `<svg class="chs-chart-svg is-hist${compact ? ' is-compact' : ''}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="ยังไม่มีข้อมูลรอบเวลากิน">
       <text class="chs-chart-empty-text" x="${w / 2}" y="${h / 2}" text-anchor="middle">ไม่มีข้อมูล</text>
     </svg>`;
   }
   const max = Math.max(1, ...bins);
-  const padL = 22;
-  const padR = 4;
-  const padT = 12;
-  const padB = 20;
+  const padL = compact ? 24 : 22;
+  const padR = compact ? 4 : 4;
+  const padT = compact ? 10 : 12;
+  const padB = compact ? 16 : 20;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
   const barW = plotW / bins.length;
@@ -1398,33 +1398,55 @@ function renderMealTimeHistSvg(hourCounts, { width = 300, height = 96 } = {}) {
     .join('');
   const xLabels = bins
     .map((_, i) => {
+      if (compact && i % 3 !== 0 && i !== bins.length - 1) return '';
       const hour = i * 2;
       const x = padL + i * barW + barW / 2;
-      return `<text class="chs-chart-tick chs-chart-tick-x" x="${x.toFixed(1)}" y="${(h - 3).toFixed(1)}" text-anchor="middle">${hour}</text>`;
+      const anchor = i === 0 ? 'start' : i === bins.length - 1 ? 'end' : 'middle';
+      return `<text class="chs-chart-tick chs-chart-tick-x" x="${x.toFixed(1)}" y="${(h - 3).toFixed(1)}" text-anchor="${anchor}">${hour}</text>`;
     })
     .join('');
   const yMaxLabel = `<text class="chs-chart-tick chs-chart-tick-y" x="${padL - 2}" y="${(padT + 4).toFixed(1)}" text-anchor="end">${max}</text>`;
   const axis = `<line class="chs-chart-axis" x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${(padT + plotH).toFixed(1)}" />`;
-  const title = `<text class="chs-chart-axis-label chs-chart-axis-y" x="${padL}" y="8">Y · มื้อ</text>`;
-  return `<svg class="chs-chart-svg is-hist has-axes" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="กราฟรอบเวลาบันทึกมื้อ">
+  const title = !compact
+    ? `<text class="chs-chart-axis-label chs-chart-axis-y" x="${padL}" y="8">Y · มื้อ</text>`
+    : '';
+  const scaleBlock = compact
+    ? ''
+    : `<p class="chs-chart-scale"><span>Y: จำนวนมื้อ (สูงสุด ${max})</span><span>X: ชั่วโมง (0–22)</span></p>`;
+  return `<svg class="chs-chart-svg is-hist${compact ? ' is-compact' : ' has-axes'}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="กราฟรอบเวลาบันทึกมื้อ">
     ${title}${axis}${bars}${yMaxLabel}${xLabels}
-  </svg>
-  <p class="chs-chart-scale"><span>Y: จำนวนมื้อ (สูงสุด ${max})</span><span>X: ชั่วโมง (0–22)</span></p>`;
+  </svg>${scaleBlock}`;
 }
 
-function renderMealTimeChartHtml(stats) {
+function renderMealTimeChartCardHtml(stats, { pinId = '', className = '', wide = false, compact = false } = {}) {
   const { text, tone } = mealTimeNudgeLine(stats);
   const peakLabel = stats?.peakHour != null && stats.peakCount > 0
     ? formatHourRange(stats.peakHour)
     : '—';
-  return `<article class="chs-chart-card chs-chart-card-wide">
-    <div class="chs-chart-top">
+  const mealCount = stats?.totalLogs ?? 0;
+  const wideClass = wide ? ' chs-chart-card-wide' : '';
+  const pinClass = pinId ? ' is-pinnable' : '';
+  const pinAttr = pinId ? ` data-pin-id="${esc(pinId)}"` : '';
+  const compactClass = compact ? ' is-compact' : '';
+  const head = compact
+    ? `<div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">รอบกิน</span><strong class="chs-compact-val">${esc(peakLabel)}<span class="chs-chart-unit">น.</span></strong></span></div>`
+    : `<div class="chs-chart-top">
       <h3>รอบเวลากิน</h3>
       <p class="chs-chart-last">${esc(peakLabel)}<span class="chs-chart-unit"> น.</span></p>
-    </div>
-    <p class="chs-chart-nudge ${tone}">${esc(text)}</p>
-    ${renderMealTimeHistSvg(stats?.hourCounts || [])}
+    </div>`;
+  const sub = compact && mealCount > 0
+    ? `<p class="cd-mealtime-sub">${esc(mealCount)} มื้อ · ${esc(stats.startLabel)}–${esc(stats.endLabel)}</p>`
+    : '';
+  return `<article class="chs-chart-card${wideClass}${pinClass}${compactClass} ${esc(className)}"${pinAttr}>
+    ${head}
+    ${sub}
+    ${compact ? '' : `<p class="chs-chart-nudge ${tone}">${esc(text)}</p>`}
+    ${renderMealTimeHistSvg(stats?.hourCounts || [], { compact })}
   </article>`;
+}
+
+function renderMealTimeChartHtml(stats) {
+  return renderMealTimeChartCardHtml(stats, { wide: true });
 }
 
 /** Drop freqMus chips when no day still has burn logged. */
@@ -1733,6 +1755,7 @@ export const HOME_PIN_IDS = [
   'chart-prot',
   'chart-balance',
   'chart-blKg',
+  'chart-mealTime',
   'ex-poses',
   'ex-mus',
 ];
@@ -1754,6 +1777,7 @@ const HOME_PIN_LABELS = {
   'chart-prot': 'โปรตีน',
   'chart-balance': 'Balance แคล',
   'chart-blKg': 'น้ำหนักบวกลบ',
+  'chart-mealTime': 'รอบเวลากิน',
   'ex-poses': 'ท่าที่เล่น',
   'ex-mus': 'แคลอรีเบิร์น',
 };
@@ -1888,6 +1912,9 @@ export function renderHomePinCardHtml(pinId, snap) {
   }
   if (id === 'ex-mus') {
     return renderBurnChartCardHtml(ex, t, { pinId: id, className: 'cd-pin-card', compact: true });
+  }
+  if (id === 'chart-mealTime') {
+    return renderMealTimeChartCardHtml(snap.mealTimes, { pinId: id, className: 'cd-pin-card', compact: true });
   }
   if (id === 'goal-waist' || id === 'goal-weight') {
     const isWaist = id === 'goal-waist';
@@ -2192,7 +2219,7 @@ export function renderHealthSheetHtml(snap) {
         <h3 class="chs-section-title">รอบเวลากิน</h3>
         <p class="chs-section-sub">จากเวลาที่กดบันทึกมื้อ · ${esc(mt.startLabel)}–${esc(mt.endLabel)} · ไม่นับตอนแก้ไข</p>
       </header>
-      ${renderMealTimeChartHtml(mt)}
+      ${renderMealTimeChartCardHtml(mt, { pinId: 'chart-mealTime', wide: true })}
     </section>`
     : '';
   const exerciseBlock = ex

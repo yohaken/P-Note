@@ -6518,6 +6518,23 @@ body.reordering-active {
   opacity: 0.75;
 }
 
+.cd-pin-card.is-compact .chs-chart-svg.is-hist.is-compact {
+  min-height: 4.5rem;
+  height: 4.5rem;
+}
+
+.cd-mealtime-sub {
+  margin: 0;
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.15;
+}
+
+.calorie-dash .cd-pin-card.is-compact .cd-mealtime-sub {
+  display: none;
+}
+
 .cd-pin-card.is-compact .chs-pose-row,
 .cd-pin-card.is-compact .chs-pose-head {
   font-size: 0.62rem;
