@@ -1229,6 +1229,153 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
   };
 }
 
+    lastExercise: computeLastExerciseInfo(sheet, endKey),
+  };
+}
+
+/** Hour-of-day (0–23) from ISO stamp; null if unparseable. */
+function hourFromStamp(stamp) {
+  const t = new Date(String(stamp || ''));
+  if (Number.isNaN(t.getTime())) return null;
+  return t.getHours();
+}
+
+/**
+ * When meals were logged (mealsAt stamp, not edit) inside the trend window.
+ * @returns {{ hourCounts: number[], totalLogs: number, stampedLogs: number, peakHour: number|null, peakCount: number, dayCount: number, startLabel: string, endLabel: string }}
+ */
+export function computeMealTimeStats(calorie, dayCount = 14, endKey = toDateKey()) {
+  const sheet = normalizeCalorie(calorie);
+  const n = Math.max(1, Math.min(366, Math.round(dayCount) || 14));
+  const end = parseDateKey(endKey) || new Date();
+  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (n - 1));
+  const startKey = toDateKey(start);
+  const hourCounts = Array.from({ length: 24 }, () => 0);
+  let totalLogs = 0;
+  let stampedLogs = 0;
+
+  sheet.days.forEach((day) => {
+    if (!day?.date || day.date < startKey || day.date > endKey) return;
+    const meals = normalizeMeals(day.meals);
+    const at = Array.isArray(day.mealsAt) ? day.mealsAt : [];
+    meals.forEach((cell, i) => {
+      if (parseMealCell(cell).empty) return;
+      totalLogs += 1;
+      const slotStamp = String(at[i] || '').trim();
+      const stamp = slotStamp || String(day.updatedAt || '').trim();
+      const hour = hourFromStamp(stamp);
+      if (hour == null) return;
+      if (slotStamp) stampedLogs += 1;
+      hourCounts[hour] += 1;
+    });
+  });
+
+  let peakHour = null;
+  let peakCount = 0;
+  hourCounts.forEach((c, h) => {
+    if (c > peakCount) {
+      peakCount = c;
+      peakHour = h;
+    }
+  });
+
+  return {
+    hourCounts,
+    totalLogs,
+    stampedLogs,
+    peakHour,
+    peakCount,
+    dayCount: n,
+    startLabel: formatDateDisplay(startKey),
+    endLabel: formatDateDisplay(endKey),
+  };
+}
+
+function formatHourRange(h) {
+  if (h == null || !Number.isFinite(h)) return '—';
+  const hh = Math.max(0, Math.min(23, Math.round(h)));
+  const next = (hh + 1) % 24;
+  const pad = (x) => String(x).padStart(2, '0');
+  return `${pad(hh)}:00–${pad(next)}:00`;
+}
+
+function mealTimeNudgeLine(stats) {
+  if (!stats?.totalLogs) {
+    return { text: 'ยังไม่มีมื้อในช่วงนี้ · บันทึกมื้อเพื่อดูรอบเวลากิน', tone: 'is-idle' };
+  }
+  const approx = stats.stampedLogs < stats.totalLogs;
+  const peak = stats.peakHour != null && stats.peakCount > 0
+    ? `มักบันทึกช่วง ${formatHourRange(stats.peakHour)} น.`
+    : 'ยังไม่มีเวลาบันทึก';
+  const tail = `${stats.totalLogs} มื้อ · ${stats.startLabel}–${stats.endLabel}`;
+  const approxNote = approx ? ' · บางมื้อใช้เวลาวันโดยประมาณ' : '';
+  return { text: `${peak} · ${tail}${approxNote}`, tone: 'is-ok' };
+}
+
+/** 2-hour bucket histogram (12 bars) from 24 hourly counts. */
+function renderMealTimeHistSvg(hourCounts, { width = 300, height = 96 } = {}) {
+  const bins = [];
+  for (let b = 0; b < 12; b += 1) {
+    let sum = 0;
+    for (let h = b * 2; h < b * 2 + 2; h += 1) sum += hourCounts[h] || 0;
+    bins.push(sum);
+  }
+  const w = width;
+  const h = height;
+  const total = bins.reduce((s, v) => s + v, 0);
+  if (total < 1) {
+    return `<svg class="chs-chart-svg is-hist" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="ยังไม่มีข้อมูลรอบเวลากิน">
+      <text class="chs-chart-empty-text" x="${w / 2}" y="${h / 2}" text-anchor="middle">ไม่มีข้อมูล</text>
+    </svg>`;
+  }
+  const max = Math.max(1, ...bins);
+  const padL = 22;
+  const padR = 4;
+  const padT = 12;
+  const padB = 20;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  const barW = plotW / bins.length;
+  const bars = bins
+    .map((v, i) => {
+      const bh = Math.max(v > 0 ? 2 : 0, (v / max) * plotH);
+      const x = padL + i * barW + barW * 0.14;
+      const bw = barW * 0.72;
+      const y = padT + plotH - bh;
+      return `<rect class="chs-hist-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="1.4" />`;
+    })
+    .join('');
+  const xLabels = bins
+    .map((_, i) => {
+      const hour = i * 2;
+      const x = padL + i * barW + barW / 2;
+      return `<text class="chs-chart-tick chs-chart-tick-x" x="${x.toFixed(1)}" y="${(h - 3).toFixed(1)}" text-anchor="middle">${hour}</text>`;
+    })
+    .join('');
+  const yMaxLabel = `<text class="chs-chart-tick chs-chart-tick-y" x="${padL - 2}" y="${(padT + 4).toFixed(1)}" text-anchor="end">${max}</text>`;
+  const axis = `<line class="chs-chart-axis" x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${(padT + plotH).toFixed(1)}" />`;
+  const title = `<text class="chs-chart-axis-label chs-chart-axis-y" x="${padL}" y="8">Y · มื้อ</text>`;
+  return `<svg class="chs-chart-svg is-hist has-axes" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="กราฟรอบเวลาบันทึกมื้อ">
+    ${title}${axis}${bars}${yMaxLabel}${xLabels}
+  </svg>
+  <p class="chs-chart-scale"><span>Y: จำนวนมื้อ (สูงสุด ${max})</span><span>X: ชั่วโมง (0–22)</span></p>`;
+}
+
+function renderMealTimeChartHtml(stats) {
+  const { text, tone } = mealTimeNudgeLine(stats);
+  const peakLabel = stats?.peakHour != null && stats.peakCount > 0
+    ? formatHourRange(stats.peakHour)
+    : '—';
+  return `<article class="chs-chart-card chs-chart-card-wide">
+    <div class="chs-chart-top">
+      <h3>รอบเวลากิน</h3>
+      <p class="chs-chart-last">${esc(peakLabel)}<span class="chs-chart-unit"> น.</span></p>
+    </div>
+    <p class="chs-chart-nudge ${tone}">${esc(text)}</p>
+    ${renderMealTimeHistSvg(stats?.hourCounts || [])}
+  </article>`;
+}
+
 /** Drop freqMus chips when no day still has burn logged. */
 export function pruneFrequentMus(calorie) {
   const sheet = normalizeCalorie(calorie);
@@ -1789,6 +1936,7 @@ export function computeHealthSnapshot(calorie, endKey = toDateKey(), trendDays =
   const week = computeWeekSummary(sheet, endKey);
   const trends = computeTrendSeries(sheet, days, endKey);
   const exercise = computeExerciseStats(sheet, days, endKey);
+  const mealTimes = computeMealTimeStats(sheet, days, endKey);
   const known = lastKnownBody(sheet);
   const weight = known.weight;
   const waist = known.waist;
@@ -1827,6 +1975,7 @@ export function computeHealthSnapshot(calorie, endKey = toDateKey(), trendDays =
     proteinFactor: sheet.proteinFactor,
     trends,
     exercise,
+    mealTimes,
     trendDays: days,
     trendRangeLabel: rangeMeta.label,
     goalWaist,
@@ -1954,6 +2103,7 @@ export function renderHealthSheetHtml(snap) {
 
   const t = snap.trends;
   const ex = snap.exercise;
+  const mt = snap.mealTimes;
   const rangeLabel = t
     ? `${t.startLabel}–${t.endLabel} · ${t.logged || 0} วันที่มีบันทึก`
     : '';
@@ -1979,6 +2129,15 @@ export function renderHealthSheetHtml(snap) {
         ${chartCardHtml('Balance แคล', t.balance, { signed: true, unit: 'kcal', digits: 0, pinId: 'chart-balance', labels: t.labels, dates: t.dates })}
         ${chartCardHtml('น้ำหนักบวกลบ', t.blKg, { signed: true, unit: 'กก.', digits: 2, pinId: 'chart-blKg', labels: t.labels, dates: t.dates })}
       </div>
+    </section>`
+    : '';
+  const mealTimeBlock = mt
+    ? `<section class="chs-section">
+      <header class="chs-section-head">
+        <h3 class="chs-section-title">รอบเวลากิน</h3>
+        <p class="chs-section-sub">จากเวลาที่กดบันทึกมื้อ · ${esc(mt.startLabel)}–${esc(mt.endLabel)} · ไม่นับตอนแก้ไข</p>
+      </header>
+      ${renderMealTimeChartHtml(mt)}
     </section>`
     : '';
   const exerciseBlock = ex
@@ -2063,6 +2222,7 @@ export function renderHealthSheetHtml(snap) {
       </article>
     </div>
     ${trendBlock}
+    ${mealTimeBlock}
     ${exerciseBlock}
     <p class="chs-foot">โปรตีนเป้า ≈ น้ำหนัก × ${esc(snap.proteinFactor)} ก./กก. · กราฟช่วง ${esc(snap.trendRangeLabel || '')}</p>`;
 }

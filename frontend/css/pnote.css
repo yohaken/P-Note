@@ -6994,6 +6994,14 @@ body.calorie-health-pane #dock-calorie-health-btn {
   color: #b91c1c;
 }
 
+.chs-chart-svg.is-hist {
+  color: #0f766e;
+}
+
+.chs-chart-svg .chs-hist-bar {
+  fill: color-mix(in srgb, currentColor 72%, transparent);
+}
+
 .chs-chart-svg.is-burn {
   color: #15803d;
   height: 96px;
