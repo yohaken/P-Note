@@ -1872,6 +1872,10 @@ export function renderHomePinCardHtml(pinId, snap) {
   const levelClass = (lv) =>
     lv === 'ok' ? 'is-ok' : lv === 'watch' ? 'is-watch' : lv === 'high' ? 'is-high' : '';
 
+  if (id === 'chart-mealTime') {
+    return renderMealTimeChartCardHtml(snap.mealTimes, { pinId: id, className: 'cd-pin-card', compact: true });
+  }
+
   if (id.startsWith('chart-')) {
     const map = {
       'chart-waist': { title: 'เอว', values: t.waist, unit: 'ซม.', digits: 1 },
@@ -1889,6 +1893,7 @@ export function renderHomePinCardHtml(pinId, snap) {
       'chart-blKg': { title: 'น้ำหนักบวกลบ', values: t.blKg, signed: true, unit: 'กก.', digits: 2 },
     };
     const cfg = map[id];
+    if (!cfg) return '';
     return chartCardHtml(cfg.title, cfg.values || [], {
       ...cfg,
       labels: t.labels,
@@ -1912,9 +1917,6 @@ export function renderHomePinCardHtml(pinId, snap) {
   }
   if (id === 'ex-mus') {
     return renderBurnChartCardHtml(ex, t, { pinId: id, className: 'cd-pin-card', compact: true });
-  }
-  if (id === 'chart-mealTime') {
-    return renderMealTimeChartCardHtml(snap.mealTimes, { pinId: id, className: 'cd-pin-card', compact: true });
   }
   if (id === 'goal-waist' || id === 'goal-weight') {
     const isWaist = id === 'goal-waist';
