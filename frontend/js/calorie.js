@@ -444,6 +444,43 @@ export function monthKeyFromDate(dateKey) {
   return `${d.getFullYear()}-${m}`;
 }
 
+/** Initial / incremental window for the calorie table (calendar months). */
+export const CAL_TABLE_INITIAL_MONTHS = 3;
+export const CAL_TABLE_LOAD_MONTHS = 3;
+
+/**
+ * Newest-first rows → keep days in the newest N calendar months.
+ * @returns {{ rows: object[], monthKeys: string[], hasMore: boolean, totalMonths: number }}
+ */
+export function sliceRowsByMonthCount(rows, monthCount) {
+  if (!rows?.length || monthCount <= 0) {
+    return { rows: [], monthKeys: [], hasMore: false, totalMonths: 0 };
+  }
+  const monthKeys = [];
+  for (const r of rows) {
+    const k = r.monthKey || monthKeyFromDate(r.date);
+    if (!monthKeys.includes(k)) monthKeys.push(k);
+  }
+  const allowed = new Set(monthKeys.slice(0, monthCount));
+  const sliced = rows.filter((r) => allowed.has(r.monthKey || monthKeyFromDate(r.date)));
+  return {
+    rows: sliced,
+    monthKeys,
+    hasMore: monthKeys.length > monthCount,
+    totalMonths: monthKeys.length,
+  };
+}
+
+/** Table date cell: day only within month; D/M when month changes (no month header rows). */
+export function formatDateTableCell(dateKey, prevDateKey = '') {
+  const d = parseDateKey(dateKey);
+  if (!d) return String(dateKey || '');
+  const curMonth = monthKeyFromDate(dateKey);
+  const prevMonth = prevDateKey ? monthKeyFromDate(prevDateKey) : '';
+  if (prevMonth && prevMonth === curMonth) return String(d.getDate());
+  return `${d.getDate()}/${d.getMonth() + 1}`;
+}
+
 export function formatMonthLabel(monthKey) {
   const m = String(monthKey || '').match(/^(\d{4})-(\d{2})$/);
   if (!m) return String(monthKey || '');
@@ -2643,8 +2680,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
 export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), mealCols = MIN_MEAL_SLOTS) {
   if (!rows.length) return '';
   const cols = clampNum(mealCols, MIN_MEAL_SLOTS, MAX_MEAL_SLOTS, MIN_MEAL_SLOTS);
-  const span = CAL_FIT_COLS;
-  let lastMonth = '';
+  let prevDate = '';
   return rows
     .map((row) => {
       const m = row.metrics;
@@ -2654,6 +2690,8 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
       const pastLock = isPast ? ' readonly data-past-lock="1"' : '';
       const pastTitle = isPast ? ' title="วันก่อน · แตะเพื่อปลดล็อกแก้"' : '';
       const cellTitle = isPast ? 'วันก่อน · แตะเพื่อปลดล็อกแก้' : 'แตะเพื่อแก้ / เคลียร์แล้วบันทึก';
+      const dateLabel = formatDateTableCell(row.date, prevDate);
+      prevDate = row.date;
       const rawMeals = expandMealsForEdit(row.meals);
       const mealInputs = [];
       for (let i = 0; i < cols; i += 1) {
@@ -2663,22 +2701,15 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
           `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="${cellTitle}"></span>`,
         );
       }
-      let sep = '';
-      if (row.monthKey && row.monthKey !== lastMonth) {
-        lastMonth = row.monthKey;
-        sep = `<tr class="cal-month-sep" data-month="${esc(row.monthKey)}" aria-label="${esc(row.monthLabel)}">
-          <td colspan="${span}"><span>${esc(row.monthLabel)}</span></td>
-        </tr>`;
-      }
       const id = esc(row.id);
       const month = esc(row.monthKey || '');
       const exLine = formatExerciseDisplay(row);
       const musTitle = exLine
         ? `${exLine}${row.mus != null ? ` · รวม ${row.mus} kcal` : ''} · ${cellTitle}`
         : cellTitle;
-      return `${sep}<tr class="cal-row cal-day-a${today}${past}" data-day-id="${id}" data-month="${month}" data-date="${esc(row.date)}">
+      return `<tr class="cal-row cal-day-a${today}${past}" data-day-id="${id}" data-month="${month}" data-date="${esc(row.date)}">
         <td class="cal-col-date">
-          <button type="button" class="cal-date-btn" data-cal-date-open="${id}" aria-label="วันที่ ${esc(row.dateDisplay)}" title="${esc(row.dateDisplay)}${isPast ? ' · วันก่อน' : ''}">${esc(row.dayDisplay)}</button>
+          <button type="button" class="cal-date-btn" data-cal-date-open="${id}" aria-label="วันที่ ${esc(row.dateDisplay)}" title="${esc(row.dateDisplay)}${isPast ? ' · วันก่อน' : ''}">${esc(dateLabel)}</button>
           <input class="cal-date-picker" type="date" data-cal-field="date" data-day-id="${id}" value="${esc(row.date)}" tabindex="-1" aria-hidden="true"${pastLock}>
         </td>
         <td class="cal-col-day">${esc(row.dayName)}</td>
@@ -2704,4 +2735,9 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
       </tr>`;
     })
     .join('');
+}
+
+/** Shown at the bottom while older months are not loaded yet. */
+export function renderCalorieTableLoadHintHtml() {
+  return `<tr class="cal-table-more-hint" aria-hidden="true"><td colspan="${CAL_FIT_COLS}"><span>เลื่อนลงโหลดเดือนเก่า…</span></td></tr>`;
 }

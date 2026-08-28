@@ -84,10 +84,14 @@ import {
   computeHealthSnapshot,
   expandMealsForEdit,
   formatDateDisplay,
+  formatDateTableCell,
   formatSigned,
   formatBurnMusDisplay,
   mealColumnCount,
   MIN_MEAL_SLOTS,
+  CAL_TABLE_INITIAL_MONTHS,
+  CAL_TABLE_LOAD_MONTHS,
+  sliceRowsByMonthCount,
   monthKeyFromDate,
   normalizeCalorie,
   normalizeMeals,
@@ -96,6 +100,7 @@ import {
   pruneFrequentMus,
   renderCalorieMealHeaderHtml,
   renderCalorieRowsHtml,
+  renderCalorieTableLoadHintHtml,
   renderCalorieTotalsHtml,
   renderHealthSheetHtml,
   renderHomeDashHtml,
@@ -106,7 +111,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=235';
+} from './calorie.js?v=236';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -271,6 +276,8 @@ const state = {
   homeDashRangeOpen: false,
   /** Active month key (YYYY-MM) for calorie summary strip */
   calorieActiveMonth: null,
+  /** How many calendar months of table rows are rendered (lazy-load older on scroll). */
+  calorieTableMonthsLoaded: CAL_TABLE_INITIAL_MONTHS,
   activeNotepadId: null,
   /** Draft sheet blocks while editing a notepad (insertable Excel-like modules). */
   editorSheets: [],
@@ -1883,6 +1890,35 @@ function syncCalorieMonthFromScroll() {
   }
 }
 
+function paintCalorieTableTbody(allRows, mealCols, { appendLoadHint = true } = {}) {
+  if (!els.calorieTbody) return { hasMore: false };
+  const sliced = sliceRowsByMonthCount(allRows, state.calorieTableMonthsLoaded);
+  const hint = appendLoadHint && sliced.hasMore ? renderCalorieTableLoadHintHtml() : '';
+  els.calorieTbody.innerHTML = renderCalorieRowsHtml(sliced.rows, toDateKey(), mealCols) + hint;
+  return sliced;
+}
+
+/** Scroll near bottom → load 3 more calendar months of day rows. */
+function maybeLoadOlderCalorieMonths() {
+  if (!els.calorieScroll || !els.calorieTbody || state.caloriePane === 'health') return;
+  const { rows } = computeTotals(ensureCaloriePayload());
+  const cur = sliceRowsByMonthCount(rows, state.calorieTableMonthsLoaded);
+  if (!cur.hasMore) return;
+  const el = els.calorieScroll;
+  if (el.scrollTop + el.clientHeight < el.scrollHeight - 96) return;
+  const prev = state.calorieTableMonthsLoaded;
+  state.calorieTableMonthsLoaded = Math.min(
+    cur.totalMonths,
+    state.calorieTableMonthsLoaded + CAL_TABLE_LOAD_MONTHS,
+  );
+  if (state.calorieTableMonthsLoaded === prev) return;
+  const scrollTop = el.scrollTop;
+  const mealCols = mealColumnCount(ensureCaloriePayload());
+  paintCalorieTableTbody(rows, mealCols);
+  el.scrollTop = scrollTop;
+  applyCalorieTones();
+}
+
 function syncCalorieProfileInputs(sheet) {
   if (els.calorieProteinFactor && document.activeElement !== els.calorieProteinFactor) {
     els.calorieProteinFactor.value = String(sheet.proteinFactor);
@@ -2306,7 +2342,10 @@ function refreshCalorieDerived() {
     const dayCell = trA.querySelector('.cal-col-day');
     if (dayCell) dayCell.textContent = row.dayName || '';
     const dateBtn = trA.querySelector('.cal-date-btn');
-    if (dateBtn) dateBtn.textContent = row.dateDisplay || formatDateDisplay(row.date);
+    if (dateBtn) {
+      const prevRow = rows[rows.findIndex((r) => r.id === row.id) + 1];
+      dateBtn.textContent = formatDateTableCell(row.date, prevRow?.date || '');
+    }
     const cell = (tr, key) => tr?.querySelector(`[data-cal-derived="${key}"]`);
     setDerivedCell(cell(trA, 'addCal'), m.addCal ?? '', null);
     setDerivedCell(cell(trA, 'prot'), m.prot ?? '', null);
@@ -2338,6 +2377,9 @@ function refreshCalorieDerived() {
 function renderCalorieSheet({ preserveScroll = false } = {}) {
   if (!els.calorieTbody) return;
   const prevScroll = els.calorieScroll?.scrollTop ?? 0;
+  if (!preserveScroll) {
+    state.calorieTableMonthsLoaded = CAL_TABLE_INITIAL_MONTHS;
+  }
   // Keep a today row ready so the vertical card is always loggable.
   {
     const { sheet: withToday, created } = addDayFromLast(ensureCaloriePayload(), toDateKey());
@@ -2364,7 +2406,7 @@ function renderCalorieSheet({ preserveScroll = false } = {}) {
   syncCalorieProfileInputs(sheet);
   const mealCols = mealColumnCount(sheet);
   if (els.calorieThead) els.calorieThead.innerHTML = renderCalorieMealHeaderHtml(mealCols);
-  els.calorieTbody.innerHTML = renderCalorieRowsHtml(rows, toDateKey(), mealCols);
+  paintCalorieTableTbody(rows, mealCols);
   paintCalorieDash(sheet);
   paintCalorieTodayCard(rows, sheet);
   paintCalorieHealthSheet(sheet);
@@ -8798,6 +8840,7 @@ async function init({ fromBoot = false } = {}) {
     calorieScrollTick = requestAnimationFrame(() => {
       calorieScrollTick = 0;
       syncCalorieMonthFromScroll();
+      maybeLoadOlderCalorieMonths();
     });
   }, { passive: true });
   const applyCalorieField = (input) => {

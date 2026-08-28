@@ -7906,6 +7906,20 @@ body.calorie-health-pane #dock-calorie-health-btn {
   cursor: pointer;
 }
 
+.calorie-table tr.cal-table-more-hint td {
+  padding: 0.3rem 0.2rem 0.45rem;
+  text-align: center;
+  border: none;
+  background: transparent;
+}
+
+.calorie-table tr.cal-table-more-hint span {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
 .calorie-table tr.cal-month-sep td {
   position: sticky;
   top: 2.2rem;
