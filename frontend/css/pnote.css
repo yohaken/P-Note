@@ -6388,8 +6388,17 @@ body.reordering-active {
 
 .cd-pin-card.is-compact .chs-chart-svg,
 .cd-pin-card.is-compact .chs-chart-svg.is-compact {
-  min-height: 3.2rem;
-  height: 3.2rem;
+  min-height: 4.5rem;
+  height: 4.5rem;
+  overflow: visible;
+}
+
+.cd-pin-card.is-compact .chs-chart-svg .chs-chart-tick-y {
+  font-size: 7px;
+}
+
+.cd-pin-card.is-compact .chs-chart-svg .chs-chart-tick-x {
+  font-size: 7px;
 }
 
 .cd-pin-card.is-compact .chs-chart-scale {
@@ -6434,7 +6443,9 @@ body.reordering-active {
 }
 
 .cd-pin-card.is-compact .chs-pose-bars {
-  gap: 0.18rem;
+  gap: 0.16rem;
+  max-height: none;
+  overflow: visible;
 }
 
 .cd-pin-card.is-compact .chs-pose-row {

@@ -1531,7 +1531,7 @@ export function renderSeriesChartSvg(
     if (v != null && Number.isFinite(v)) refPts.push({ i, v });
   });
   const w = width;
-  const h = compact ? 52 : height;
+  const h = compact ? 72 : height;
   const yAxisName = yLabel || unit || '';
   if (pts.length < 1 && refPts.length < 1) {
     return `<svg class="${esc(className)}${compact ? ' is-compact' : ''}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="ยังไม่มีข้อมูลกราฟ">
@@ -1550,10 +1550,10 @@ export function renderSeriesChartSvg(
   const span = max - min || 1;
   const n = Math.max((values || []).length, 2);
 
-  const padL = compact ? 18 : 30;
-  const padR = compact ? 2 : 6;
-  const padT = compact ? 2 : 14;
-  const padB = compact ? 8 : 18;
+  const padL = compact ? 28 : 30;
+  const padR = compact ? 4 : 6;
+  const padT = compact ? 10 : 14;
+  const padB = compact ? 16 : 18;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
   const xAt = (i) => padL + (i / (n - 1)) * plotW;
@@ -1590,9 +1590,7 @@ export function renderSeriesChartSvg(
     })
     .join('');
 
-  const axisLines = compact
-    ? `<line class="chs-chart-axis" x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${(padT + plotH).toFixed(1)}" />`
-    : `
+  const axisLines = `
     <line class="chs-chart-axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${(padT + plotH).toFixed(1)}" />
     <line class="chs-chart-axis" x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${(padT + plotH).toFixed(1)}" />`;
 
@@ -1826,7 +1824,7 @@ export function renderHomePinCardHtml(pinId, snap) {
     const n = ex.poses?.length || 0;
     return `<article class="chs-chart-card cd-pin-card is-pinnable is-compact" data-pin-id="${esc(id)}">
       <div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">ท่าที่เล่น</span><strong class="chs-compact-val">${esc(n)}<span class="chs-chart-unit">ท่า</span></strong></span></div>
-      ${renderPoseBarsHtml(ex.poses, { maxRows: 3 })}
+      ${renderPoseBarsHtml(ex.poses)}
     </article>`;
   }
   if (id === 'ex-mus') {
