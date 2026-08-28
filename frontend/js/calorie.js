@@ -1198,10 +1198,11 @@ function exerciseNudgeLine(lastExercise) {
   };
 }
 
-function renderBurnChartNudgeHtml(ex) {
+function renderBurnChartNudgeHtml(ex, { compact = false } = {}) {
   const { text, tone } = exerciseNudgeLine(ex?.lastExercise);
   if (!text) return '';
-  return `<p class="chs-chart-nudge ${tone}">${esc(text)}</p>`;
+  const cls = compact ? ' chs-chart-nudge-compact' : '';
+  return `<p class="chs-chart-nudge ${tone}${cls}">${esc(text)}</p>`;
 }
 
 function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide = false, compact = false, editTitle = '' } = {}) {
@@ -1221,7 +1222,7 @@ function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide
     </div>`;
   return `<article class="chs-chart-card${wideClass} ${musTone}${pinClass}${compactClass} ${esc(className)}"${pinAttr}${titleAttr}>
     ${head}
-    ${compact ? '' : renderBurnChartNudgeHtml(ex)}
+    ${renderBurnChartNudgeHtml(ex, { compact })}
     ${renderSeriesChartSvg(ex?.mus || [], {
       className: 'chs-chart-svg is-burn',
       unit: 'kcal',
@@ -1443,7 +1444,7 @@ function renderMealTimeChartCardHtml(stats, { pinId = '', className = '', wide =
   return `<article class="chs-chart-card${wideClass}${pinClass}${compactClass} ${esc(className)}"${pinAttr}>
     ${head}
     ${sub}
-    ${compact ? '' : `<p class="chs-chart-nudge ${tone}">${esc(text)}</p>`}
+    <p class="chs-chart-nudge ${tone}${compact ? ' chs-chart-nudge-compact' : ''}">${esc(text)}</p>
     ${renderMealTimeHistSvg(stats?.hourCounts || [], { compact })}
   </article>`;
 }
@@ -1906,13 +1907,9 @@ export function renderHomePinCardHtml(pinId, snap) {
   }
   if (id === 'ex-poses') {
     const n = ex.poses?.length || 0;
-    const scrollHint = n > 3
-      ? `<p class="chs-pose-scroll-hint" aria-hidden="true">เลื่อนลงดูท่าเพิ่ม</p>`
-      : '';
     return `<article class="chs-chart-card cd-pin-card is-pinnable is-compact is-editable-ex" data-pin-id="${esc(id)}" title="แตะแก้ออกกำลังวันนี้ · กดค้างจัดเรียง">
       <div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">ท่าที่เล่น</span><strong class="chs-compact-val">${esc(n)}<span class="chs-chart-unit">ท่า</span></strong></span></div>
-      ${renderPoseBarsHtml(ex.poses, { scrollable: true, scrollHintAfter: 3 })}
-      ${scrollHint}
+      ${renderPoseBarsHtml(ex.poses)}
     </article>`;
   }
   if (id === 'ex-mus') {
@@ -1947,8 +1944,15 @@ export function renderHomePinCardHtml(pinId, snap) {
     snap.weekKg == null || snap.weekKg === 0 ? '' : snap.weekKg > 0 ? 'is-pos' : 'is-neg';
 
   if (id === 'card-body') {
-    return `<article class="chs-card cd-pin-card is-pinnable is-compact" data-pin-id="${esc(id)}">
-      <p class="cd-compact-line"><strong>ร่างกาย</strong> · ${esc(snap.weight ?? '—')} กก. · เอว ${esc(waistV)} ซม.</p>
+    const sexLabel = snap.sex === 'female' ? 'หญิง' : snap.sex === 'male' ? 'ชาย' : '—';
+    const ageV = snap.age ?? '—';
+    const heightV = snap.heightCm ?? '—';
+    const bmiV = snap.bmi == null ? '—' : snap.bmi;
+    const fullTitle = `ร่างกายล่าสุด · สูง ${heightV} ซม. · ${sexLabel} · อายุ ${ageV} · ${snap.weight ?? '—'} กก. · เอว ${waistV} ซม. · BMI ${bmiV}`;
+    return `<article class="chs-card cd-pin-card is-pinnable is-compact" data-pin-id="${esc(id)}" title="${esc(fullTitle)}">
+      <p class="cd-compact-line"><strong>ร่างกายล่าสุด</strong></p>
+      <p class="cd-compact-line">สูง ${esc(heightV)} ซม. · ${esc(sexLabel)} · อายุ ${esc(ageV)} ป.</p>
+      <p class="cd-compact-line">${esc(snap.weight ?? '—')} กก. · เอว ${esc(waistV)} ซม. · BMI ${esc(bmiV)}</p>
     </article>`;
   }
   if (id === 'card-bmi') {
