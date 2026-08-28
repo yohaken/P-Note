@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="233">
-  <meta name="pnote-built" content="2026-08-28T11:35:00+07:00">
+  <meta name="pnote-build" content="234">
+  <meta name="pnote-built" content="2026-08-28T11:40:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=233"></script>
+  <script src="js/cache-bootstrap.js?v=234"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/pnote.css?v=233">
+  <link rel="stylesheet" href="css/pnote.css?v=234">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -24,21 +24,76 @@
       vertical-align: baseline;
     }
     .topbar-title {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.04rem;
+      flex-direction: row;
+      align-items: center;
+      gap: 0;
       min-width: 0;
     }
+    #board-topbar.topbar {
+      padding: 0.04rem 0.38rem;
+      padding-top: max(0.04rem, env(safe-area-inset-top, 0px));
+      min-height: 0;
+      line-height: 1;
+    }
+    #calorie-app-title {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 0.28rem;
+      flex-wrap: nowrap;
+      min-width: 0;
+      overflow: hidden;
+    }
+    #calorie-app-title .mode-switch-name {
+      font-size: 0.72rem;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #calorie-app-title .mode-switch-ver {
+      font-size: 0.58rem;
+      font-weight: 600;
+      color: var(--accent, #2d6a4f);
+      opacity: 1;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .topbar-meta-sep {
+      font-size: 0.58rem;
+      opacity: 0.45;
+      flex-shrink: 0;
+    }
     .app-built {
-      display: block !important;
+      display: inline !important;
       margin: 0;
-      font-size: 0.62rem;
+      font-size: 0.58rem;
       font-weight: 500;
       color: var(--text-muted);
-      line-height: 1.1;
-      opacity: 0.9;
+      line-height: 1;
+      opacity: 0.88;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      flex: 1 1 auto;
     }
-    /* Retired work/note/calendar chrome — hide before modules load */
+    .app-logo {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    #board-topbar .topbar-actions .btn-mini {
+      font-size: 0.58rem;
+      padding: 0.16rem 0.38rem;
+      min-height: 1.32rem;
+      line-height: 1.1;
+    }
+    #board-topbar .sync-status-btn {
+      width: 1.05rem;
+      height: 1.05rem;
+    }
     #list-view,
     #editor-view,
     #calendar-view,
@@ -64,25 +119,6 @@
     #undo-fab-btn {
       display: none !important;
     }
-    #calorie-app-title {
-      display: inline-flex !important;
-      align-items: center;
-      gap: 0.35rem;
-      flex-wrap: wrap;
-    }
-    #calorie-app-title .mode-switch-ver {
-      font-size: 0.68rem;
-      font-weight: 600;
-      color: var(--accent, #2d6a4f);
-      opacity: 1;
-      letter-spacing: 0.02em;
-    }
-    .app-logo {
-      width: 22px;
-      height: 22px;
-      border-radius: 6px;
-      object-fit: cover;
-    }
   </style>
 </head>
 <body class="light calorie-mode calorie-only">
@@ -96,12 +132,13 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/icon-192.png?v=233" width="22" height="22" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/icon-192.png?v=234" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
-          <span class="mode-switch-ver" id="calorie-app-ver">v232</span>
+          <span class="mode-switch-ver" id="calorie-app-ver">v234</span>
+          <span class="topbar-meta-sep" aria-hidden="true">·</span>
+          <span id="app-built" class="app-built">อัปเดต —</span>
         </div>
         <h1 id="app-title" class="sr-only">แคลโน้ต</h1>
-        <p id="app-built" class="app-built">อัปเดต —</p>
       </div>
       <div class="topbar-actions">
         <button id="search-toggle-btn" class="btn btn-mini btn-mini-icon" type="button" aria-label="โฟกัสค้นหา" aria-expanded="true" aria-controls="note-search-row" hidden>⌕</button>
@@ -905,7 +942,7 @@
 
     <div id="auth-overlay" class="auth-overlay" hidden>
       <div class="auth-panel" role="dialog" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=233" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=234" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">เข้าสู่ระบบ</h2>
         <p class="auth-copy">ใช้ Google บัญชี <strong>yohaken@gmail.com</strong> เท่านั้น · ข้อมูลบันทึกขึ้น Firestore ทันที</p>
         <button id="google-login-btn" class="btn btn-primary auth-login-btn" type="button">Sign in with Google</button>
@@ -1121,7 +1158,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=233"></script>
-  <script src="js/update-watch.js?v=233"></script>
+  <script type="module" src="js/boot.js?v=234"></script>
+  <script src="js/update-watch.js?v=234"></script>
 </body>
 </html>
