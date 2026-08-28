@@ -173,7 +173,9 @@ export function renderExerciseTableHtml(day) {
     })
     .join('');
   const scroll = cells.length > 2 ? ' is-scrollable' : '';
-  return `<div class="cal-exercise-fit${scroll}" aria-label="ท่า ${esc(full)}" title="${esc(full)}">${chips}</div>`;
+  const dayId = esc(day?.id || '');
+  const editHint = `${full} · แตะเพื่อแก้ / เคลียร์แล้วบันทึก`;
+  return `<div class="cal-exercise-fit${scroll}" data-cal-exercise-day="${dayId}" role="button" tabindex="-1" aria-label="แก้ท่า ${esc(full)}" title="${esc(editHint)}">${chips}</div>`;
 }
 
 /** Quick-edit sheet text from exercise slots. */
@@ -1202,13 +1204,14 @@ function renderBurnChartNudgeHtml(ex) {
   return `<p class="chs-chart-nudge ${tone}">${esc(text)}</p>`;
 }
 
-function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide = false, compact = false } = {}) {
+function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide = false, compact = false, editTitle = '' } = {}) {
   const musPts = (ex?.mus || []).filter((v) => v != null && Number.isFinite(v) && v > 0);
   const musLast = musPts.length ? musPts[musPts.length - 1] : null;
   const musTone = musLast == null || musLast === 0 ? '' : 'is-pos';
   const wideClass = wide ? ' chs-chart-card-wide' : '';
   const pinClass = pinId ? ' is-pinnable' : '';
   const pinAttr = pinId ? ` data-pin-id="${esc(pinId)}"` : '';
+  const titleAttr = editTitle ? ` title="${esc(editTitle)}"` : '';
   const compactClass = compact ? ' is-compact' : '';
   const head = compact
     ? `<div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">เบิร์น</span><strong class="chs-compact-val">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></strong></span></div>`
@@ -1216,7 +1219,7 @@ function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide
       <h3>แคลอรีเบิร์น</h3>
       <p class="chs-chart-last">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></p>
     </div>`;
-  return `<article class="chs-chart-card${wideClass} ${musTone}${pinClass}${compactClass} ${esc(className)}"${pinAttr}>
+  return `<article class="chs-chart-card${wideClass} ${musTone}${pinClass}${compactClass} ${esc(className)}"${pinAttr}${titleAttr}>
     ${head}
     ${compact ? '' : renderBurnChartNudgeHtml(ex)}
     ${renderSeriesChartSvg(ex?.mus || [], {
@@ -1906,14 +1909,19 @@ export function renderHomePinCardHtml(pinId, snap) {
     const scrollHint = n > 3
       ? `<p class="chs-pose-scroll-hint" aria-hidden="true">เลื่อนลงดูท่าเพิ่ม</p>`
       : '';
-    return `<article class="chs-chart-card cd-pin-card is-pinnable is-compact" data-pin-id="${esc(id)}">
+    return `<article class="chs-chart-card cd-pin-card is-pinnable is-compact is-editable-ex" data-pin-id="${esc(id)}" title="แตะแก้ออกกำลังวันนี้ · กดค้างจัดเรียง">
       <div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">ท่าที่เล่น</span><strong class="chs-compact-val">${esc(n)}<span class="chs-chart-unit">ท่า</span></strong></span></div>
       ${renderPoseBarsHtml(ex.poses, { scrollable: true, scrollHintAfter: 3 })}
       ${scrollHint}
     </article>`;
   }
   if (id === 'ex-mus') {
-    return renderBurnChartCardHtml(ex, t, { pinId: id, className: 'cd-pin-card', compact: true });
+    return renderBurnChartCardHtml(ex, t, {
+      pinId: id,
+      className: 'cd-pin-card is-editable-ex',
+      compact: true,
+      editTitle: 'แตะแก้ออกกำลังวันนี้ · กดค้างจัดเรียง',
+    });
   }
   if (id === 'goal-waist' || id === 'goal-weight') {
     const isWaist = id === 'goal-waist';
@@ -2227,14 +2235,19 @@ export function renderHealthSheetHtml(snap) {
         <h3 class="chs-section-title">กลุ่มออกกำลังกาย</h3>
         <p class="chs-section-sub">เบิร์นรวม ${esc(ex.musSum || 0)} kcal · ${esc(ex.startLabel)}–${esc(ex.endLabel)}</p>
       </header>
-      <article class="chs-chart-card chs-chart-card-wide is-pinnable" data-pin-id="ex-poses">
+      <article class="chs-chart-card chs-chart-card-wide is-pinnable is-editable-ex" data-pin-id="ex-poses" title="แตะแก้ออกกำลังวันนี้ · กดค้างส่งหน้าแรก">
         <div class="chs-chart-top">
           <h3>ท่าที่เล่น</h3>
           <p class="chs-chart-last">${esc(ex.poses?.length || 0)}<span class="chs-chart-unit">ท่า</span></p>
         </div>
         ${renderPoseBarsHtml(ex.poses)}
       </article>
-      ${renderBurnChartCardHtml(ex, t, { pinId: 'ex-mus', wide: true })}
+      ${renderBurnChartCardHtml(ex, t, {
+        pinId: 'ex-mus',
+        wide: true,
+        className: 'is-editable-ex',
+        editTitle: 'แตะแก้ออกกำลังวันนี้ · กดค้างส่งหน้าแรก',
+      })}
     </section>`
     : '';
 
@@ -2266,7 +2279,7 @@ export function renderHealthSheetHtml(snap) {
   return `
     <header class="chs-head">
       <h2 class="chs-title">สรุปสุขภาพ</h2>
-      <p class="chs-sub">กดค้างกล่องเพื่อส่งไปหน้าแรก · เลื่อนผ่านกราฟได้ตามปกติ</p>
+      <p class="chs-sub">แตะท่าที่เล่น/เบิร์นเพื่อแก้วันนี้ · กดค้างกล่องเพื่อส่งหน้าแรก</p>
       <div class="chs-range" role="toolbar" aria-label="ช่วงเวลากราฟ">${rangeChips}</div>
     </header>
     ${goalBlock}

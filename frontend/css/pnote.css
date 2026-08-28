@@ -6306,8 +6306,9 @@ body.calorie-only .dock-action-primary {
   touch-action: pan-y;
 }
 
-.calorie-dash .cd-pin-grid {
-  gap: 2px;
+.chs-chart-card.is-editable-ex {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .cd-pin-card {
@@ -7838,6 +7839,12 @@ body.calorie-health-pane #dock-calorie-health-btn {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   touch-action: pan-x;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.calorie-table .cal-exercise-fit:active {
+  opacity: 0.82;
 }
 
 .calorie-table .cal-exercise-fit::-webkit-scrollbar {

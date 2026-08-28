@@ -111,7 +111,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=244';
+} from './calorie.js?v=245';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -2048,7 +2048,13 @@ function ensureHomePinSortable() {
     itemSelector: '[data-pin-id]',
     getItemId: (el) => el?.dataset?.pinId || '',
     isEnabled: () => state.caloriePane === 'log' && isSyncReady() && Boolean(els.calorieDash && !els.calorieDash.hidden),
-    onTap: (pinId) => openHomePinMenu(pinId),
+    onTap: (pinId) => {
+      if (pinId === 'ex-poses' || pinId === 'ex-mus') {
+        void openTodayExerciseEditor();
+        return;
+      }
+      openHomePinMenu(pinId);
+    },
     onReorder: (ids) => {
       const next = normalizeHomePins(ids);
       if (!next.length) return;
@@ -2564,6 +2570,22 @@ function openCalorieQuick(mode) {
   requestAnimationFrame(() => {
     try { els.calorieQuickInput?.focus({ preventScroll: false }); } catch { /* ignore */ }
   });
+}
+
+/**
+ * Tap a calorie number cell → edit sheet: เคลียร์ → บันทึก → data updates.
+ * Past days require confirm (แก้ไข / ปิด) first.
+ * @param {{ mode: 'meal'|'mus', dayId: string, mealIndex?: number, value?: string }} opts
+ */
+async function openTodayExerciseEditor() {
+  const cardDayId = els.calorieTodayCard?.dataset?.dayId;
+  if (cardDayId) {
+    void openCalorieCellEditor({ mode: 'mus', dayId: cardDayId, value: '' });
+    return;
+  }
+  const { day } = ensureDay(ensureCaloriePayload(), toDateKey());
+  if (!day?.id) return;
+  void openCalorieCellEditor({ mode: 'mus', dayId: day.id, value: '' });
 }
 
 /**
@@ -8779,7 +8801,7 @@ async function init({ fromBoot = false } = {}) {
       const dayId = els.calorieTodayCard.dataset.dayId;
       const idx = Number(mealInput.dataset.ctcMeal);
       if (!dayId || !Number.isFinite(idx)) return;
-      void       void openCalorieCellEditor({
+      void openCalorieCellEditor({
         mode: 'meal',
         dayId,
         mealIndex: idx,
@@ -8820,6 +8842,11 @@ async function init({ fromBoot = false } = {}) {
       persistCalorieTrendDays(days);
       paintCalorieHealthSheet(ensureCaloriePayload());
       return;
+    }
+    const exCard = e.target?.closest?.('[data-pin-id="ex-poses"], [data-pin-id="ex-mus"]');
+    if (exCard && els.calorieHealthSheet.contains(exCard)) {
+      e.preventDefault();
+      void openTodayExerciseEditor();
     }
   });
   els.calorieDash?.addEventListener('click', (e) => {
@@ -8986,6 +9013,14 @@ async function init({ fromBoot = false } = {}) {
         dayId: musInput.dataset.dayId,
         value: musInput.value,
       });
+      return;
+    }
+    const exFit = e.target?.closest?.('.cal-exercise-fit[data-cal-exercise-day]');
+    if (exFit && els.calorieTbody.contains(exFit)) {
+      e.preventDefault();
+      const dayId = exFit.dataset.calExerciseDay;
+      if (!dayId) return;
+      void openCalorieCellEditor({ mode: 'mus', dayId, value: '' });
       return;
     }
     const dateOpen = e.target?.closest?.('[data-cal-date-open]');
