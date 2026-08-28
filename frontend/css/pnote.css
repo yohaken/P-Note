@@ -7723,6 +7723,49 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .calorie-table .cal-col-note {
   text-align: left;
+  vertical-align: top;
+}
+
+.calorie-table .cal-exercise-fit {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.1rem;
+  max-width: 100%;
+  margin: 0 0 1px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.calorie-table .cal-exercise-fit::-webkit-scrollbar {
+  display: none;
+}
+
+.calorie-table .cal-exercise-fit.is-scrollable {
+  mask-image: linear-gradient(90deg, #000 86%, transparent);
+}
+
+.calorie-table .cal-exercise-chip {
+  flex: 0 0 auto;
+  font-size: 0.48rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: color-mix(in srgb, var(--accent, #2d6a4f) 88%, #000);
+  white-space: nowrap;
+  padding: 0.02rem 0.14rem;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent, #2d6a4f) 11%, #fff);
+}
+
+.calorie-table tr.cal-day-b td.cal-col-note {
+  padding-top: 0.06rem;
+}
+
+.calorie-table tr.cal-day-b td.cal-col-note .cal-cell-note {
+  margin-top: 0;
 }
 
 .calorie-table .cal-burn-stack {

@@ -102,6 +102,7 @@ import {
   renderCalorieRowsHtml,
   renderCalorieTableLoadHintHtml,
   renderCalorieTotalsHtml,
+  renderExerciseTableHtml,
   renderHealthSheetHtml,
   renderHomeDashHtml,
   homePinLabel,
@@ -111,7 +112,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=236';
+} from './calorie.js?v=238';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -2371,6 +2372,27 @@ function refreshCalorieDerived() {
       formatBurnMusDisplay(m.pctBl, { percent: true }),
       m.pctBl,
     );
+    if (trB) {
+      const noteTd = trB.querySelector('.cal-col-note');
+      if (noteTd) {
+        const fit = noteTd.querySelector('.cal-exercise-fit');
+        const html = renderExerciseTableHtml(row);
+        if (html) {
+          if (fit) fit.outerHTML = html;
+          else noteTd.insertAdjacentHTML('afterbegin', html);
+        } else if (fit) fit.remove();
+      }
+      const musInput = trB.querySelector('[data-cal-field="mus"]');
+      if (musInput) {
+        const exLine = formatExerciseDisplay(row);
+        const cellTitle = isPastCalorieDay(row.id)
+          ? 'วันก่อน · แตะเพื่อปลดล็อกแก้'
+          : 'แตะเพื่อแก้ / เคลียร์แล้วบันทึก';
+        musInput.title = exLine
+          ? `${exLine}${row.mus != null ? ` · รวม ${row.mus} kcal` : ''} · ${cellTitle}`
+          : cellTitle;
+      }
+    }
   });
 }
 

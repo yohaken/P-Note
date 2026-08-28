@@ -160,6 +160,22 @@ export function formatExerciseDisplay(day) {
   return parts.filter(Boolean).join(' · ');
 }
 
+/** Compact exercise chips for spreadsheet note column (scroll when 3+). */
+export function renderExerciseTableHtml(day) {
+  const cells = normalizeExercises(day?.exercises);
+  if (!cells.length) return '';
+  const full = formatExerciseDisplay(day);
+  const chips = cells
+    .map((cell) => {
+      const p = parseExerciseCell(cell);
+      const text = p.label ? `${p.label} ${p.burn}` : String(p.burn);
+      return `<span class="cal-exercise-chip">${esc(text)}</span>`;
+    })
+    .join('');
+  const scroll = cells.length > 2 ? ' is-scrollable' : '';
+  return `<div class="cal-exercise-fit${scroll}" aria-label="ท่า ${esc(full)}" title="${esc(full)}">${chips}</div>`;
+}
+
 /** Quick-edit sheet text from exercise slots. */
 export function formatExercisesForEdit(day) {
   const cells = normalizeExercises(day?.exercises);
@@ -2731,7 +2747,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
           </span>
         </td>
         <td class="cal-col-meals" colspan="5"><div class="cal-meals-fit${cols > 7 ? ' is-scrollable' : ''}" style="--cal-meal-n:${cols}" title="${cols > 7 ? 'ปัดซ้ายเพื่อดูมื้อเพิ่ม' : ''}">${mealInputs.join('')}</div></td>
-        <td class="cal-col-note" colspan="2"><input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"${pastLock}${pastTitle}></td>
+        <td class="cal-col-note" colspan="2">${renderExerciseTableHtml(row)}<input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"${pastLock}${pastTitle}></td>
       </tr>`;
     })
     .join('');
