@@ -1,6 +1,6 @@
 import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=227';
 import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=227';
-import { initListSortable, initGridSortable } from './sortable.js?v=227';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=232';
 import { CONFIG } from './config.js?v=227';
 import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=227';
 import { nowIso } from './clock.js?v=227';
@@ -106,7 +106,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=231';
+} from './calorie.js?v=232';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -2022,6 +2022,18 @@ function ensureHomePinSortable() {
         setStatus('จัดเรียงแล้ว', { forceToast: true, ms: 1200 });
       });
     },
+  });
+}
+
+let healthPinLongPressReady = false;
+function ensureHealthPinLongPress() {
+  if (healthPinLongPressReady || !els.calorieHealthSheet) return;
+  healthPinLongPressReady = true;
+  initLongPressTap(els.calorieHealthSheet, {
+    itemSelector: '[data-pin-id]',
+    getItemId: (el) => el?.dataset?.pinId || '',
+    isEnabled: () => state.caloriePane === 'health' && Boolean(els.calorieHealthSheet && !els.calorieHealthSheet.hidden),
+    onAction: (pinId) => openHealthPinMenu(pinId),
   });
 }
 
@@ -8750,11 +8762,6 @@ async function init({ fromBoot = false } = {}) {
       paintCalorieHealthSheet(ensureCaloriePayload());
       return;
     }
-    const pinCard = e.target?.closest?.('[data-pin-id]');
-    if (pinCard && els.calorieHealthSheet.contains(pinCard)) {
-      e.preventDefault();
-      openHealthPinMenu(pinCard.dataset.pinId);
-    }
   });
   els.calorieDash?.addEventListener('click', (e) => {
     if (!els.calorieDash || els.calorieDash.hidden) return;
@@ -8784,6 +8791,7 @@ async function init({ fromBoot = false } = {}) {
     // (click alone would fight long-press reorder).
   });
   ensureHomePinSortable();
+  ensureHealthPinLongPress();
   let calorieScrollTick = 0;
   els.calorieScroll?.addEventListener('scroll', () => {
     if (calorieScrollTick) return;

@@ -6250,7 +6250,7 @@ body.calorie-only .dock-action-primary {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  touch-action: none;
+  touch-action: pan-y;
   user-select: none;
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
 }
@@ -6320,12 +6320,7 @@ body.reordering-active {
 .chs-goal-card.is-pinnable {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.chs-card.is-pinnable:active,
-.chs-chart-card.is-pinnable:active,
-.chs-goal-card.is-pinnable:active {
-  transform: scale(0.985);
+  touch-action: pan-y;
 }
 
 .cd-metrics {
@@ -6826,6 +6821,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
   border: 1px solid var(--border);
   background: #fff;
   min-width: 0;
+  touch-action: pan-y;
 }
 
 .chs-chart-card-wide {
@@ -6900,6 +6896,8 @@ body.calorie-health-pane #dock-calorie-health-btn {
   width: 100%;
   height: 96px;
   color: #0f766e;
+  pointer-events: none;
+  touch-action: pan-y;
 }
 
 .chs-chart-svg .chs-chart-line {
@@ -6980,6 +6978,8 @@ body.calorie-health-pane #dock-calorie-health-btn {
   font-weight: 650;
   color: var(--text-muted);
   line-height: 1.2;
+  pointer-events: none;
+  touch-action: pan-y;
 }
 
 .chs-chart-svg.is-signed {

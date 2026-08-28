@@ -2111,7 +2111,7 @@ export function renderHealthSheetHtml(snap) {
     ? `<section class="chs-section">
       <header class="chs-section-head">
         <h3 class="chs-section-title">แนวโน้ม</h3>
-        <p class="chs-section-sub">${esc(rangeLabel)} · แตะกล่องเพื่อส่งไปหน้าแรก</p>
+        <p class="chs-section-sub">${esc(rangeLabel)} · กดค้างกล่องเพื่อส่งไปหน้าแรก</p>
       </header>
       <div class="chs-chart-grid">
         ${chartCardHtml('เอว', t.waist, { unit: 'ซม.', digits: 1, pinId: 'chart-waist', labels: t.labels, dates: t.dates })}
@@ -2185,7 +2185,7 @@ export function renderHealthSheetHtml(snap) {
   return `
     <header class="chs-head">
       <h2 class="chs-title">สรุปสุขภาพ</h2>
-      <p class="chs-sub">แตะกล่องเพื่อส่งไปหน้าแรก · เลือกช่วงเวลากราฟด้านล่าง</p>
+      <p class="chs-sub">กดค้างกล่องเพื่อส่งไปหน้าแรก · เลื่อนผ่านกราฟได้ตามปกติ</p>
       <div class="chs-range" role="toolbar" aria-label="ช่วงเวลากราฟ">${rangeChips}</div>
     </header>
     ${goalBlock}

@@ -280,3 +280,85 @@ export function initGridSortable(containerEl, {
     dragging = false;
   });
 }
+
+/**
+ * Long-press only — scroll passes through (pan-y on items). No short tap action.
+ */
+export function initLongPressTap(containerEl, {
+  itemSelector = '[data-pin-id]',
+  getItemId = (el) => el?.dataset?.pinId || '',
+  onAction,
+  isEnabled,
+  ignoreSelector = 'button, a, input, textarea, select, [data-chs-range], [data-calorie-action]',
+  longPressMs = LONG_PRESS_MS,
+  moveCancelPx = MOVE_CANCEL_PX,
+} = {}) {
+  if (!containerEl || containerEl.dataset.longPressTapBound === '1') return;
+  containerEl.dataset.longPressTapBound = '1';
+
+  const enabled = () => (typeof isEnabled === 'function' ? isEnabled() : true);
+  let card = null;
+  let pointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let pressTimer = null;
+  let fired = false;
+
+  const clearTimer = () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  };
+
+  const onDown = (event) => {
+    if (!enabled()) return;
+    if (event.button !== undefined && event.button !== 0) return;
+    if (ignoreSelector && event.target.closest?.(ignoreSelector)) return;
+    card = event.target.closest(itemSelector);
+    if (!card || !containerEl.contains(card)) {
+      card = null;
+      return;
+    }
+    pointerId = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+    fired = false;
+    clearTimer();
+    pressTimer = setTimeout(() => {
+      fired = true;
+      const id = getItemId(card);
+      if (id && typeof onAction === 'function') onAction(id, card);
+      if (navigator.vibrate) navigator.vibrate(12);
+    }, longPressMs);
+  };
+
+  const onMove = (event) => {
+    if (!card || event.pointerId !== pointerId || fired) return;
+    const dx = Math.abs(event.clientX - startX);
+    const dy = Math.abs(event.clientY - startY);
+    if (dx > moveCancelPx || dy > moveCancelPx) {
+      clearTimer();
+      card = null;
+      pointerId = null;
+    }
+  };
+
+  const onUp = (event) => {
+    if (!card || event.pointerId !== pointerId) return;
+    clearTimer();
+    card = null;
+    pointerId = null;
+    fired = false;
+  };
+
+  containerEl.addEventListener('pointerdown', onDown);
+  containerEl.addEventListener('pointermove', onMove, { passive: true });
+  containerEl.addEventListener('pointerup', onUp);
+  containerEl.addEventListener('pointercancel', () => {
+    clearTimer();
+    card = null;
+    pointerId = null;
+    fired = false;
+  });
+}
