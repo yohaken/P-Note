@@ -6231,7 +6231,37 @@ body.calorie-only .dock-action-primary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.4rem;
+  gap: 0.35rem;
+}
+
+.cd-head-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.02rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cd-head-text .cd-range-sub {
+  margin: 0;
+  white-space: normal;
+  line-height: 1.15;
+}
+
+.cd-range-toggle {
+  flex-shrink: 0;
+  align-self: center;
+  border: 1px solid var(--border);
+  background: var(--surface-2, var(--surface));
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.22rem 0.45rem;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .cd-title {
@@ -6250,19 +6280,6 @@ body.calorie-only .dock-action-primary {
 .cd-range-sub {
   margin: -0.1rem 0 0;
   white-space: normal;
-}
-
-.cd-range-toggle {
-  border: 1px solid var(--border);
-  background: var(--surface-2, var(--surface));
-  color: var(--text);
-  font-size: 0.68rem;
-  font-weight: 700;
-  line-height: 1.2;
-  padding: 0.22rem 0.45rem;
-  border-radius: 999px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .cd-range-toggle:active {

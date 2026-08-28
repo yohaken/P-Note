@@ -1966,12 +1966,14 @@ export function renderHomeDashHtml(snap, pins, opts = {}) {
     : rangeMeta.label;
   return `
     <div class="cd-head">
-      <span class="cd-title">แนวโน้ม</span>
+      <div class="cd-head-text">
+        <span class="cd-title">แนวโน้ม</span>
+        <span class="cd-sub cd-range-sub">${esc(rangeLabel)}${list.length ? ` · ${list.length} กล่อง` : ''}</span>
+      </div>
       <button type="button" class="cd-range-toggle" data-cd-range-toggle="1" aria-expanded="${rangeOpen ? 'true' : 'false'}" title="เปลี่ยนช่วงเวลา">
         ${esc(rangeMeta.label)} <span aria-hidden="true">${rangeOpen ? '▴' : '▾'}</span>
       </button>
     </div>
-    <p class="cd-sub cd-range-sub">${esc(rangeLabel)}${list.length ? ` · ${list.length} กล่อง` : ''}</p>
     <div class="cd-range-panel${rangeOpen ? ' is-open' : ''}" ${rangeOpen ? '' : 'hidden'}>
       <div class="chs-range cd-range" role="toolbar" aria-label="ช่วงเวลากราฟ">${rangeChips}</div>
     </div>

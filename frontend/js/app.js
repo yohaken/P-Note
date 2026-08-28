@@ -112,7 +112,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=239';
+} from './calorie.js?v=240';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,

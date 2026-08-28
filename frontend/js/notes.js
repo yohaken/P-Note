@@ -1,6 +1,6 @@
 import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=227';
 import { bestIconForLabel, normalizeIconId } from './icons.js?v=227';
-import { createEmptyCalorie, normalizeCalorie, normalizeHomePins } from './calorie.js?v=239';
+import { createEmptyCalorie, normalizeCalorie, normalizeHomePins } from './calorie.js?v=240';
 import { nowIso } from './clock.js?v=227';
 import {
   applyDeletionFilter,
