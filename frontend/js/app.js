@@ -73,8 +73,11 @@ import {
   appendQuickMeal,
   clearDayValues,
   ensureDay,
+  formatExerciseDisplay,
+  formatExercisesForEdit,
   formatMealCell,
   MEAL_PATTERN_HINT,
+  parseExerciseList,
   parseQuickExercise,
   parseQuickMeal,
   computeTotals,
@@ -2239,9 +2242,11 @@ function paintCalorieTodayCard(rows, sheet) {
     els.calorieTodayMus.placeholder = '—';
   }
   if (els.calorieTodayPose) {
-    const pose = String(row.note || '').trim();
+    const pose = formatExerciseDisplay(row);
     els.calorieTodayPose.textContent = pose || 'ยังไม่มีท่า · แตะเพื่อเพิ่ม';
-    els.calorieTodayPose.title = pose || 'แตะเพื่อแก้เบิร์น / ท่า';
+    els.calorieTodayPose.title = pose
+      ? `${pose}${row.mus != null ? ` · รวม ${row.mus} kcal` : ''}`
+      : 'แตะเพื่อเพิ่มออกกำลัง (ทีละกล้ามเนื้อ · ได้หลายรอบต่อวัน)';
   }
   if (els.calorieTodayBurn) {
     els.calorieTodayBurn.classList.toggle('has-value', row.mus != null && row.mus !== '');
@@ -2453,6 +2458,17 @@ function syncCalorieQuickChrome() {
   }
 }
 
+function musQuickHintText() {
+  const sheet = ensureCaloriePayload();
+  const day = sheet.days.find((d) => d.date === toDateKey());
+  const list = day ? formatExerciseDisplay(day) : '';
+  const mus = day?.mus;
+  if (list) {
+    return `วันนี้: ${list}${mus != null ? ` · รวม ${mus} kcal` : ''} · กดเพิ่มแล้วบันทึกต่อได้ (ทีละกล้ามเนื้อ)`;
+  }
+  return 'ท่า + แคล เช่น อก 120 · กดเพิ่มแล้วทำซ้ำได้หลายรอบต่อวัน';
+}
+
 function openCalorieQuick(mode) {
   if (!requireSyncReady()) return;
   closeCalorieBodyQuick();
@@ -2464,7 +2480,7 @@ function openCalorieQuick(mode) {
   }
   if (els.calorieQuickHint) {
     els.calorieQuickHint.textContent = calorieQuickMode === 'mus'
-      ? 'แตะใช้บ่อยเพื่อเติมช่อง แล้วกดเพิ่ม · หรือพิมพ์เอง'
+      ? musQuickHintText()
       : 'ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27 — ไม่ถูกจะไม่บันทึก';
   }
   if (els.calorieQuickInput) {
@@ -2528,20 +2544,17 @@ async function openCalorieCellEditor(opts) {
       els.calorieQuickInput.value = value;
     }
   } else {
-    if (!value) {
-      const mus = day.mus;
-      const note = String(day.note || '').trim();
-      value = mus == null || mus === '' ? '' : (note ? `${note} ${mus}` : String(mus));
-    }
+    if (!value) value = formatExercisesForEdit(day);
     calorieQuickEdit = { dayId, mealIndex: null };
     if (els.calorieQuickTitle) {
-      els.calorieQuickTitle.textContent = value ? 'แก้ mus' : 'mus';
+      els.calorieQuickTitle.textContent = value ? 'แก้ออกกำลังวันนี้' : 'ออกกำลัง';
     }
     if (els.calorieQuickHint) {
-      els.calorieQuickHint.textContent = 'แก้แคลเบิร์น · กดเคลียร์แล้วบันทึกเพื่อลบ · หรือพิมพ์ใหม่แล้วบันทึก';
+      els.calorieQuickHint.textContent =
+        'แก้รายการทั้งวัน · คั่นด้วย · เช่น อก 120 · ไหล 80 · เคลียร์แล้วบันทึกเพื่อลบ';
     }
     if (els.calorieQuickInput) {
-      els.calorieQuickInput.placeholder = 'ท่า + แคลที่เผา';
+      els.calorieQuickInput.placeholder = 'อก 120 · ไหล 80';
       els.calorieQuickInput.value = value;
     }
   }
@@ -2671,20 +2684,17 @@ function submitCalorieQuick() {
     try {
       if (calorieQuickMode === 'mus') {
         if (!text) {
-          persistCalorie(pruneFrequentMus(patchDay(sheet, dayId, { mus: null, note: '' })), {
-            status: 'เคลียร์ mus แล้ว · อัปเดตแล้ว',
+          persistCalorie(pruneFrequentMus(patchDay(sheet, dayId, { exercises: [], mus: null })), {
+            status: 'เคลียร์ออกกำลังแล้ว · อัปเดตแล้ว',
             fullRender: true,
           });
         } else {
-          const parsed = parseQuickExercise(text);
-          if (!parsed) throw new Error('ใส่ออกกำลัง + แคล เช่น ไหล่ 150');
-          persistCalorie(
-            patchDay(sheet, dayId, { mus: parsed.burn, note: parsed.label || '' }),
-            {
-              status: `บันทึก mus ${parsed.burn}${parsed.label ? ` · ${parsed.label}` : ''} แล้ว`,
-              fullRender: true,
-            },
-          );
+          const exercises = parseExerciseList(text);
+          if (!exercises.length) throw new Error('ใส่ออกกำลัง + แคล เช่น อก 120 · ไหล 80');
+          persistCalorie(patchDay(sheet, dayId, { exercises }), {
+            status: `บันทึกออกกำลัง ${exercises.length} รายการแล้ว`,
+            fullRender: true,
+          });
         }
       } else {
         const meals = expandMealsForEdit(day.meals);
@@ -2721,12 +2731,19 @@ function submitCalorieQuick() {
   }
   try {
     if (calorieQuickMode === 'mus') {
-      const { sheet, parsed } = appendQuickExercise(ensureCaloriePayload(), text);
+      const { sheet, parsed, mus } = appendQuickExercise(ensureCaloriePayload(), text);
       state.calorieActiveMonth = monthKeyFromDate(toDateKey());
       persistCalorie(sheet, {
-        status: `+mus ${parsed.burn}${parsed.label ? ` · ${parsed.label}` : ''}`,
+        status: `+${parsed.label || 'ออกกำลัง'} ${parsed.burn} kcal · รวม ${mus ?? parsed.burn}`,
         fullRender: true,
       });
+      if (els.calorieQuickInput) els.calorieQuickInput.value = '';
+      if (els.calorieQuickHint) els.calorieQuickHint.textContent = musQuickHintText();
+      paintCalorieQuickFreq();
+      requestAnimationFrame(() => {
+        try { els.calorieQuickInput?.focus({ preventScroll: false }); } catch { /* ignore */ }
+      });
+      return;
     } else {
       const parsed = parseQuickMeal(text);
       if (!parsed) {
@@ -8632,7 +8649,7 @@ async function init({ fromBoot = false } = {}) {
     if (num !== '' && !Number.isFinite(parsed)) return;
     let next = patchDay(sheet, dayId, { [field]: parsed });
     if (field === 'mus' && (parsed == null || parsed === 0)) {
-      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, note: '' }));
+      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, exercises: [] }));
     }
     // Derived refresh is enough for body/burn — avoid full table rebuild flicker.
     persistCalorie(next, { status: '', fullRender: false });
@@ -8817,7 +8834,7 @@ async function init({ fromBoot = false } = {}) {
     if (num !== '' && !Number.isFinite(parsed)) return;
     let next = patchDay(sheet, dayId, { [field]: parsed });
     if (field === 'mus' && (parsed == null || parsed === 0)) {
-      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, note: '' }));
+      next = pruneFrequentMus(patchDay(next, dayId, { mus: null, exercises: [] }));
     }
     persistCalorie(next, { status: '', fullRender: false });
   };

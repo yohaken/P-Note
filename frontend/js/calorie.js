@@ -18,6 +18,9 @@ export const DEFAULT_BIRTH_DATE = `${new Date().getFullYear() - DEFAULT_AGE}-01-
 /** Visible meal columns start at 7; grow when full up to max. */
 export const MIN_MEAL_SLOTS = 7;
 export const MAX_MEAL_SLOTS = 14;
+/** Exercise burn slots per day (label + kcal each); mus = sum of slots. */
+export const MIN_EXERCISE_SLOTS = 3;
+export const MAX_EXERCISE_SLOTS = 10;
 /** @deprecated use MIN_MEAL_SLOTS — kept for older imports */
 export const MEAL_SLOTS = MIN_MEAL_SLOTS;
 /** Compact frequent-use lists (meal / exercise). */
@@ -107,6 +110,134 @@ export function parseQuickExercise(text) {
   return { burn, label: label || `ออกกำลัง ${burn}` };
 }
 
+/** Stored exercise cell: "burn,label" (label optional). */
+export function parseExerciseCell(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return { burn: 0, label: '', empty: true };
+  const m = s.match(/^(\d+)(?:,([^,]*))?$/);
+  if (!m) return { burn: 0, label: '', empty: true };
+  const burn = Number(m[1]);
+  if (!Number.isInteger(burn) || burn <= 0) return { burn: 0, label: '', empty: true };
+  const label = String(m[2] || '').trim().slice(0, 40);
+  return { burn, label, empty: false };
+}
+
+export function formatExerciseCell(burn, label = '') {
+  const b = Math.round(Number(burn));
+  if (!Number.isFinite(b) || b <= 0) return '';
+  const lab = String(label || '').trim().slice(0, 40);
+  return lab ? `${b},${lab}` : `${b},`;
+}
+
+export function normalizeExercises(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const out = [];
+  for (const item of list) {
+    const cell = String(item || '').trim();
+    if (!cell) continue;
+    const p = parseExerciseCell(cell);
+    if (p.empty) continue;
+    out.push(formatExerciseCell(p.burn, p.label));
+    if (out.length >= MAX_EXERCISE_SLOTS) break;
+  }
+  return out;
+}
+
+export function sumExerciseBurn(exercises) {
+  let sum = 0;
+  normalizeExercises(exercises).forEach((cell) => {
+    sum += parseExerciseCell(cell).burn || 0;
+  });
+  return sum > 0 ? Math.round(sum) : 0;
+}
+
+/** Join muscle-group labels for today card / tooltips. */
+export function formatExerciseDisplay(day) {
+  const parts = normalizeExercises(day?.exercises).map((cell) => {
+    const p = parseExerciseCell(cell);
+    return p.label || `${p.burn}`;
+  });
+  return parts.filter(Boolean).join(' · ');
+}
+
+/** Quick-edit sheet text from exercise slots. */
+export function formatExercisesForEdit(day) {
+  const cells = normalizeExercises(day?.exercises);
+  if (!cells.length) {
+    const mus = Number.isFinite(day?.mus) && day.mus > 0 ? Math.round(day.mus) : null;
+    const note = String(day?.note || '').trim();
+    if (mus && note) return `${note} ${mus}`;
+    if (mus) return String(mus);
+    return '';
+  }
+  return cells
+    .map((cell) => {
+      const p = parseExerciseCell(cell);
+      return p.label ? `${p.label} ${p.burn}` : String(p.burn);
+    })
+    .join(' · ');
+}
+
+/** Parse "อก 120 · ไหล 80" (or single entry) into exercise cells. */
+export function parseExerciseList(text) {
+  const s = String(text || '').trim();
+  if (!s) return [];
+  const parts = s.includes('·')
+    ? s.split(/\s*·\s*/).map((x) => x.trim()).filter(Boolean)
+    : [s];
+  const out = [];
+  for (const part of parts) {
+    const parsed = parseQuickExercise(part);
+    if (!parsed) continue;
+    out.push(formatExerciseCell(parsed.burn, parsed.label));
+  }
+  return normalizeExercises(out);
+}
+
+function distributeInt(total, n) {
+  const t = Math.round(Number(total)) || 0;
+  const count = Math.max(1, n);
+  const base = Math.floor(t / count);
+  let rem = t - base * count;
+  return Array.from({ length: count }, () => {
+    const v = base + (rem > 0 ? 1 : 0);
+    if (rem > 0) rem -= 1;
+    return v;
+  });
+}
+
+/** Split legacy mus + note labels into per-muscle exercise slots. */
+function migrateLegacyExercises(row) {
+  const existing = normalizeExercises(row.exercises);
+  if (existing.length) {
+    const mus = sumExerciseBurn(existing) || row.mus;
+    return { ...row, exercises: existing, mus: mus || null };
+  }
+  const mus = Number.isFinite(row.mus) && row.mus > 0 ? Math.round(row.mus) : null;
+  if (!mus) return { ...row, exercises: [] };
+
+  const noteRaw = String(row.note || '').trim();
+  const allBits = noteRaw
+    ? noteRaw.split(/\s*·\s*/).map((x) => x.trim()).filter(Boolean)
+    : [];
+  const exerciseBits = allBits.filter((bit) => !looksLikeMealFragment(bit));
+  const mealBits = allBits.filter((bit) => looksLikeMealFragment(bit));
+
+  let exercises;
+  if (!exerciseBits.length) {
+    exercises = [formatExerciseCell(mus, 'ออกกำลัง')];
+  } else {
+    const burns = distributeInt(mus, exerciseBits.length);
+    exercises = exerciseBits.map((bit, i) => {
+      const parsed = parseQuickExercise(bit);
+      const label = (parsed?.label || bit).slice(0, 40);
+      return formatExerciseCell(burns[i], label);
+    });
+  }
+  const note = mealBits.join(' · ').slice(0, 200);
+  return { ...row, exercises: normalizeExercises(exercises), mus, note };
+}
+
 /** Ensure a day exists (clone body from last), return { sheet, day }. */
 export function ensureDay(calorie, dateKey = toDateKey(new Date())) {
   const { sheet, day, created } = addDayFromLast(calorie, dateKey);
@@ -150,7 +281,7 @@ export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date())) 
   };
 }
 
-/** Add exercise burn into mus; append label to note. */
+/** Append one muscle-group burn slot; mus = sum of all slots (separate from meals/note). */
 export function appendQuickExercise(calorie, text, dateKey = toDateKey(new Date())) {
   const parsed = parseQuickExercise(text);
   if (!parsed) {
@@ -159,18 +290,23 @@ export function appendQuickExercise(calorie, text, dateKey = toDateKey(new Date(
     throw err;
   }
   const { sheet, day } = ensureDay(calorie, dateKey);
-  const mus = (Number.isFinite(day.mus) ? day.mus : 0) + parsed.burn;
-  let note = String(day.note || '');
-  const bit = parsed.label;
-  note = note ? `${note} · ${bit}` : bit;
-  note = note.slice(0, 200);
+  const exercises = [...normalizeExercises(day.exercises)];
+  if (exercises.length >= MAX_EXERCISE_SLOTS) {
+    const err = new Error(`ออกกำลังครบ ${MAX_EXERCISE_SLOTS} รายการต่อวันแล้ว`);
+    err.code = 'exercises_full';
+    throw err;
+  }
+  exercises.push(formatExerciseCell(parsed.burn, parsed.label));
+  const mus = sumExerciseBurn(exercises) || null;
   const textKey = String(text || '').trim().slice(0, 48);
-  let next = patchDay(sheet, day.id, { mus, note });
+  let next = patchDay(sheet, day.id, { exercises, mus });
   next = recordFrequent(next, 'mus', textKey, parsed);
   return {
     sheet: next,
     parsed,
     dayId: day.id,
+    exercises,
+    mus,
   };
 }
 
@@ -512,6 +648,7 @@ export function createDayRow(partial = {}) {
     meals,
     mealsAt: normalizeMealsAt(partial.mealsAt, meals, updatedAt),
     mus: partial.mus == null || partial.mus === '' ? null : Number(partial.mus),
+    exercises: normalizeExercises(partial.exercises),
     base: partial.base == null || partial.base === '' ? null : Number(partial.base),
     note: String(partial.note || '').slice(0, 200),
     waistAt: partial.waistAt || '',
@@ -547,7 +684,7 @@ export function normalizeDayRow(raw, fallbackBase = DEFAULT_BASE_KCAL) {
   if (!Number.isFinite(row.weight)) row.weight = null;
   if (!Number.isFinite(row.mus)) row.mus = null;
   if (!Number.isFinite(row.base)) row.base = null;
-  return row;
+  return migrateLegacyExercises(row);
 }
 
 export function normalizeCalorie(raw) {
@@ -975,20 +1112,16 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
   const startKey = toDateKey(start);
   sheet.days.forEach((day) => {
     if (!day?.date || day.date < startKey || day.date > endKey) return;
-    if (!Number.isFinite(day.mus) || day.mus <= 0) return;
-    const bits = String(day.note || '')
-      .split(/\s*·\s*/)
-      .map((x) => x.trim())
-      .filter((bit) => bit && !looksLikeMealFragment(bit));
-    if (!bits.length) {
-      bump('ออกกำลัง', day.mus);
+    const cells = normalizeExercises(day.exercises);
+    if (cells.length) {
+      cells.forEach((cell) => {
+        const p = parseExerciseCell(cell);
+        bump(p.label || 'ออกกำลัง', p.burn);
+      });
       return;
     }
-    const share = day.mus / bits.length;
-    bits.forEach((bit) => {
-      const parsed = parseQuickExercise(bit);
-      bump(parsed?.label || bit, parsed?.burn || share);
-    });
+    if (!Number.isFinite(day.mus) || day.mus <= 0) return;
+    bump('ออกกำลัง', day.mus);
   });
   const poses = [...poseMap.values()]
     .sort((a, b) => b.count - a.count || b.burn - a.burn)
@@ -1973,16 +2106,25 @@ export function patchDay(calorie, dayId, patch) {
   const days = sheet.days.map((d) => {
     if (d.id !== dayId) return d;
     const meals = normalizeMeals(patch.meals !== undefined ? patch.meals : d.meals);
+    const exercises = patch.exercises !== undefined
+      ? normalizeExercises(patch.exercises)
+      : normalizeExercises(d.exercises);
+    const mus = patch.exercises !== undefined
+      ? (sumExerciseBurn(exercises) || null)
+      : patch.mus;
+    const musStamp = patch.exercises !== undefined || patch.mus !== undefined;
     return normalizeDayRow(
       {
         ...d,
         ...patch,
         id: d.id,
         meals,
+        exercises,
+        mus,
         mealsAt: stampMealsAt(d, meals, now),
         waistAt: patch.waist !== undefined ? now : (d.waistAt || ''),
         weightAt: patch.weight !== undefined ? now : (d.weightAt || ''),
-        musAt: patch.mus !== undefined ? now : (d.musAt || ''),
+        musAt: musStamp ? now : (d.musAt || ''),
         noteAt: patch.note !== undefined ? now : (d.noteAt || ''),
         updatedAt: now,
       },
@@ -2028,6 +2170,7 @@ export function clearDayValues(calorie, dayId, { clearBody = false } = {}) {
   const sheet = normalizeCalorie(calorie);
   const patch = {
     meals: Array.from({ length: MIN_MEAL_SLOTS }, () => ''),
+    exercises: [],
     mus: null,
     note: '',
   };
@@ -2049,6 +2192,7 @@ export function addDayFromLast(calorie, dateKey = toDateKey(new Date())) {
     waist: known.waist,
     weight: known.weight,
     meals: [],
+    exercises: [],
     mus: null,
     note: '',
   });
@@ -2155,11 +2299,24 @@ function mergeMealsField(a, b) {
   return { meals: normMeals, mealsAt: normalizeMealsAt(mealsAt, normMeals, '') };
 }
 
+/** Merge exercise slot lists — newer musAt / day stamp wins the whole list. */
+function mergeExercisesField(a, b) {
+  const aEx = normalizeExercises(a?.exercises);
+  const bEx = normalizeExercises(b?.exercises);
+  if (!aEx.length) return bEx;
+  if (!bEx.length) return aEx;
+  const cmp = compareStamp(a?.musAt || a?.updatedAt, b?.musAt || b?.updatedAt);
+  return cmp >= 0 ? aEx : bEx;
+}
+
 /** Merge two day rows field-by-field (waist/weight/meals/mus/note independently). */
 function mergeDayFields(a, b) {
   const waist = mergeScalarField(a.waist, b.waist, a.waistAt, b.waistAt, a.updatedAt, b.updatedAt);
   const weight = mergeScalarField(a.weight, b.weight, a.weightAt, b.weightAt, a.updatedAt, b.updatedAt);
-  const mus = mergeScalarField(a.mus, b.mus, a.musAt, b.musAt, a.updatedAt, b.updatedAt);
+  const exercises = mergeExercisesField(a, b);
+  const musFromEx = sumExerciseBurn(exercises);
+  const mus = musFromEx
+    || mergeScalarField(a.mus, b.mus, a.musAt, b.musAt, a.updatedAt, b.updatedAt);
   const note = mergeScalarField(a.note, b.note, a.noteAt, b.noteAt, a.updatedAt, b.updatedAt);
   const base = mergeScalarField(a.base, b.base, a.updatedAt, b.updatedAt, a.updatedAt, b.updatedAt);
   const meals = mergeMealsField(a, b);
@@ -2170,6 +2327,7 @@ function mergeDayFields(a, b) {
     weight,
     meals: meals.meals,
     mealsAt: meals.mealsAt,
+    exercises,
     mus,
     base,
     note,
@@ -2311,6 +2469,10 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
       }
       const id = esc(row.id);
       const month = esc(row.monthKey || '');
+      const exLine = formatExerciseDisplay(row);
+      const musTitle = exLine
+        ? `${exLine}${row.mus != null ? ` · รวม ${row.mus} kcal` : ''} · ${cellTitle}`
+        : cellTitle;
       return `${sep}<tr class="cal-row cal-day-a${today}${past}" data-day-id="${id}" data-month="${month}" data-date="${esc(row.date)}">
         <td class="cal-col-date">
           <button type="button" class="cal-date-btn" data-cal-date-open="${id}" aria-label="วันที่ ${esc(row.dateDisplay)}" title="${esc(row.dateDisplay)}${isPast ? ' · วันก่อน' : ''}">${esc(row.dayDisplay)}</button>
@@ -2326,7 +2488,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}" data-cal-derived="blKg">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
       </tr>
       <tr class="cal-row cal-day-b${today}${past}" data-day-id="${id}" data-month="${month}" data-date="${esc(row.date)}">
-        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง" title="${cellTitle}"></span></td>
+        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง" title="${esc(musTitle)}"></span></td>
         <td class="cal-col-burn cal-burn-stack" title="BMR · รวมเบิร์น · %bal">
           <span class="cal-derived cal-base-auto" data-cal-derived="base">${formatBurnMusDisplay(m.base)}</span>
           <span class="cal-burn-stack-sub">
