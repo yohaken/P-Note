@@ -6900,6 +6900,23 @@ body.calorie-health-pane #dock-calorie-health-btn {
   stroke-dasharray: 3 2;
 }
 
+.chs-chart-svg .chs-chart-refline {
+  stroke: #c2410c;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 4 3;
+}
+
+.chs-chart-svg .chs-chart-refline-dot {
+  fill: #c2410c;
+}
+
+.chs-chart-scale .chs-chart-ref-legend {
+  color: #c2410c;
+  white-space: nowrap;
+}
+
 .chs-chart-svg .chs-chart-axis {
   stroke: color-mix(in srgb, var(--border-strong, #c5d4c9) 70%, #78716c);
   stroke-width: 1;

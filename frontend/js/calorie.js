@@ -907,6 +907,7 @@ export function computeTrendSeries(calorie, dayCount = 14, endKey = toDateKey())
   const weight = [];
   const cal = [];
   const prot = [];
+  const protTarget = [];
   const balance = [];
   const blKg = [];
   const mus = [];
@@ -921,6 +922,7 @@ export function computeTrendSeries(calorie, dayCount = 14, endKey = toDateKey())
     weight.push(day && Number.isFinite(day.weight) ? day.weight : null);
     cal.push(m ? m.addCal : null);
     prot.push(m ? m.prot : null);
+    protTarget.push(m?.protTarget ?? null);
     balance.push(m ? m.balance : null);
     blKg.push(m ? m.blKg : null);
     mus.push(m && (m.mus || 0) > 0 ? m.mus : day ? 0 : null);
@@ -933,6 +935,7 @@ export function computeTrendSeries(calorie, dayCount = 14, endKey = toDateKey())
     weight,
     cal,
     prot,
+    protTarget,
     balance,
     blKg,
     mus,
@@ -1149,23 +1152,30 @@ export function renderSeriesChartSvg(
     dates = null,
     xLabel = 'วัน',
     yLabel = '',
+    referenceValues = null,
+    referenceLegend = '',
   } = {},
 ) {
   const pts = [];
   (values || []).forEach((v, i) => {
     if (v != null && Number.isFinite(v)) pts.push({ i, v });
   });
+  const refPts = [];
+  (referenceValues || []).forEach((v, i) => {
+    if (v != null && Number.isFinite(v)) refPts.push({ i, v });
+  });
   const w = width;
   const h = height;
   const yAxisName = yLabel || unit || '';
-  if (pts.length < 1) {
+  if (pts.length < 1 && refPts.length < 1) {
     return `<svg class="${esc(className)}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="ยังไม่มีข้อมูลกราฟ">
       <text class="chs-chart-empty-text" x="${w / 2}" y="${h / 2}" text-anchor="middle">ไม่มีข้อมูล</text>
     </svg>`;
   }
 
-  const rawMin = Math.min(...pts.map((p) => p.v));
-  const rawMax = Math.max(...pts.map((p) => p.v));
+  const allV = [...pts.map((p) => p.v), ...refPts.map((p) => p.v)];
+  const rawMin = Math.min(...allV);
+  const rawMax = Math.max(...allV);
   const scale = niceAxisScale(rawMin, rawMax, { signed, tickTarget: 3 });
   const { min, max, ticks: yTicks } = scale;
   const span = max - min || 1;
@@ -1231,15 +1241,28 @@ export function renderSeriesChartSvg(
     const baseY = signed && min < 0 && max > 0 ? yAt(0) : padT + plotH;
     area = `<polygon class="chs-chart-area" points="${xAt(pts[0].i).toFixed(1)},${baseY.toFixed(1)} ${coords.join(' ')} ${xAt(last.i).toFixed(1)},${baseY.toFixed(1)}" />`;
   }
+  const refCoords = refPts.map((p) => `${xAt(p.i).toFixed(1)},${yAt(p.v).toFixed(1)}`);
+  const refLine =
+    refPts.length >= 2
+      ? `<polyline class="chs-chart-refline" fill="none" points="${refCoords.join(' ')}" />`
+      : refPts.length === 1
+        ? `<circle class="chs-chart-refline-dot" cx="${xAt(refPts[0].i).toFixed(1)}" cy="${yAt(refPts[0].v).toFixed(1)}" r="2.2" />`
+        : '';
   const line =
     pts.length >= 2
       ? `<polyline class="chs-chart-line" fill="none" points="${coords.join(' ')}" />`
       : '';
-  const dot = `<circle class="chs-chart-dot" cx="${xAt(last.i).toFixed(1)}" cy="${yAt(last.v).toFixed(1)}" r="2.4" />`;
+  const dot =
+    pts.length >= 1
+      ? `<circle class="chs-chart-dot" cx="${xAt(last.i).toFixed(1)}" cy="${yAt(last.v).toFixed(1)}" r="2.4" />`
+      : '';
+  const refLegendHtml = referenceLegend && refPts.length
+    ? `<span class="chs-chart-ref-legend">${esc(referenceLegend)}</span>`
+    : '';
 
   const scaleHint = `${yAxisName || 'ค่า'} ${formatAxisTick(min, digits)}–${formatAxisTick(max, digits)} · แกน X วัน`;
-  return `<svg class="${esc(className)}${signed ? ' is-signed' : ''} has-axes" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${line}${dot}${yTickLabels}${xTickLabels}</svg>
-  <p class="chs-chart-scale"><span>Y: ${esc(yAxisName || 'ค่า')} (${esc(formatAxisTick(min, digits))}–${esc(formatAxisTick(max, digits))})</span><span>X: ${esc(xLabel || 'วัน')}</span></p>`;
+  return `<svg class="${esc(className)}${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''} has-axes" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dot}${yTickLabels}${xTickLabels}</svg>
+  <p class="chs-chart-scale"><span>Y: ${esc(yAxisName || 'ค่า')} (${esc(formatAxisTick(min, digits))}–${esc(formatAxisTick(max, digits))})</span>${refLegendHtml}<span>X: ${esc(xLabel || 'วัน')}</span></p>`;
 }
 
 /** Horizontal bar list for exercise poses. */
@@ -1332,16 +1355,25 @@ function chartCardHtml(
     className = '',
     labels = null,
     dates = null,
+    referenceValues = null,
+    referenceLegend = '',
   } = {},
 ) {
   const pts = (values || []).filter((v) => v != null && Number.isFinite(v));
   const last = pts.length ? pts[pts.length - 1] : null;
-  const lastLabel =
+  const refPts = (referenceValues || []).filter((v) => v != null && Number.isFinite(v));
+  const lastRef = refPts.length ? refPts[refPts.length - 1] : null;
+  let lastLabel =
     last == null
       ? '—'
       : signed
         ? formatSigned(last, digits)
         : String(round(last, digits));
+  if (last != null && lastRef != null) {
+    const delta = round(last - lastRef, digits);
+    const deltaWord = delta === 0 ? 'พอดีเป้า' : delta > 0 ? `+${delta}` : String(delta);
+    lastLabel = `${lastLabel} · ${deltaWord}`;
+  }
   const tone =
     !signed || last == null || last === 0 ? '' : last > 0 ? 'is-pos' : 'is-neg';
   const svg = renderSeriesChartSvg(values, {
@@ -1352,6 +1384,8 @@ function chartCardHtml(
     dates,
     yLabel: unit,
     xLabel: 'วัน',
+    referenceValues,
+    referenceLegend,
   });
   const pinAttr = pinId ? ` data-pin-id="${esc(pinId)}"` : '';
   const pinClass = pinId ? ' is-pinnable' : '';
@@ -1380,7 +1414,14 @@ export function renderHomePinCardHtml(pinId, snap) {
       'chart-waist': { title: 'เอว', values: t.waist, unit: 'ซม.', digits: 1 },
       'chart-weight': { title: 'น้ำหนัก', values: t.weight, unit: 'กก.', digits: 1 },
       'chart-cal': { title: 'แคล', values: t.cal, unit: 'kcal', digits: 0 },
-      'chart-prot': { title: 'โปรตีน', values: t.prot, unit: 'ก.', digits: 1 },
+      'chart-prot': {
+        title: 'โปรตีน',
+        values: t.prot,
+        unit: 'ก.',
+        digits: 1,
+        referenceValues: t.protTarget,
+        referenceLegend: '— — เป้าโปรตีน',
+      },
       'chart-balance': { title: 'Balance แคล', values: t.balance, signed: true, unit: 'kcal', digits: 0 },
       'chart-blKg': { title: 'น้ำหนักบวกลบ', values: t.blKg, signed: true, unit: 'กก.', digits: 2 },
     };
@@ -1726,7 +1767,15 @@ export function renderHealthSheetHtml(snap) {
         ${chartCardHtml('เอว', t.waist, { unit: 'ซม.', digits: 1, pinId: 'chart-waist', labels: t.labels, dates: t.dates })}
         ${chartCardHtml('น้ำหนัก', t.weight, { unit: 'กก.', digits: 1, pinId: 'chart-weight', labels: t.labels, dates: t.dates })}
         ${chartCardHtml('แคล', t.cal, { unit: 'kcal', digits: 0, pinId: 'chart-cal', labels: t.labels, dates: t.dates })}
-        ${chartCardHtml('โปรตีน', t.prot, { unit: 'ก.', digits: 1, pinId: 'chart-prot', labels: t.labels, dates: t.dates })}
+        ${chartCardHtml('โปรตีน', t.prot, {
+          unit: 'ก.',
+          digits: 1,
+          pinId: 'chart-prot',
+          labels: t.labels,
+          dates: t.dates,
+          referenceValues: t.protTarget,
+          referenceLegend: '— — เป้าโปรตีน',
+        })}
         ${chartCardHtml('Balance แคล', t.balance, { signed: true, unit: 'kcal', digits: 0, pinId: 'chart-balance', labels: t.labels, dates: t.dates })}
         ${chartCardHtml('น้ำหนักบวกลบ', t.blKg, { signed: true, unit: 'กก.', digits: 2, pinId: 'chart-blKg', labels: t.labels, dates: t.dates })}
       </div>
