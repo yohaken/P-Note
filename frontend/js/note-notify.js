@@ -6,6 +6,7 @@
  * แจ้งเตือนซ้ำ (notifyRepeat) = nag interval until the note is done — separate.
  */
 import { notePriority, NOTE_PRIORITY } from './notes.js?v=227';
+import { appIconSrc, peekStoredAppIconId } from './app-icons.js?v=250';
 import {
   advanceNotifyFireAt,
   normalizeNotifyRepeat,
@@ -200,8 +201,8 @@ function buildOptions(note, prefs, { test = false } = {}) {
       url: './note.html',
       label: String(p.label || 'แคลโน้ต'),
     },
-    icon: './icons/icon-192.png',
-    badge: './icons/icon-192.png',
+    icon: appIconSrc(peekStoredAppIconId(), 192),
+    badge: appIconSrc(peekStoredAppIconId(), 192),
   };
   if (vibrateOn) options.vibrate = [180, 80, 180];
   return options;

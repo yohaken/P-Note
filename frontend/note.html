@@ -3,18 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="249">
-  <meta name="pnote-built" content="2026-08-28T12:25:00+07:00">
+  <meta name="pnote-build" content="250">
+  <meta name="pnote-built" content="2026-08-31T10:10:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=249"></script>
-  <link rel="manifest" href="manifest.json?v=249">
-  <link rel="icon" href="icons/icon-192.png?v=249" type="image/png">
-  <link rel="apple-touch-icon" href="icons/icon-192.png?v=249">
-  <link rel="stylesheet" href="css/pnote.css?v=249">
+  <script src="js/cache-bootstrap.js?v=250"></script>
+  <script>
+    /* Apply saved brand icon before paint (favicon + logos + install manifest). */
+    (function earlyAppIcon() {
+      var IDS = ['leaf','apple','flame','heart','drop','sun','bowl','scale','sprout','cal'];
+      var id = 'leaf';
+      try {
+        var raw = localStorage.getItem('pnote_settings');
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          var cand = String(parsed && parsed.appIconId || '').trim();
+          if (IDS.indexOf(cand) >= 0) id = cand;
+        }
+      } catch (e) {}
+      var src = 'icons/app/' + id + '-192.png?v=250';
+      var abs192 = new URL(src, location.href).href;
+      var abs512 = new URL('icons/app/' + id + '-512.png?v=250', location.href).href;
+      function setLink(rel, href, type) {
+        var el = document.querySelector('link[rel="' + rel + '"]');
+        if (!el) {
+          el = document.createElement('link');
+          el.rel = rel;
+          document.head.appendChild(el);
+        }
+        if (type) el.type = type;
+        el.href = href;
+      }
+      setLink('icon', src, 'image/png');
+      setLink('apple-touch-icon', src);
+      var manifest = {
+        id: './note.html',
+        name: 'แคลโน้ต',
+        short_name: 'แคลโน้ต',
+        description: 'บันทึกแคลอรี่ โปรตีน และน้ำหนักรายวัน',
+        start_url: new URL('./note.html', location.href).href,
+        scope: new URL('./', location.href).href,
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#e8f0ea',
+        theme_color: '#e8f0ea',
+        icons: [
+          { src: abs192, sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: abs512, sizes: '512x512', type: 'image/png', purpose: 'any' }
+        ]
+      };
+      var blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+      setLink('manifest', URL.createObjectURL(blob));
+      window.__pnoteEarlyIconId = id;
+      window.__pnoteEarlyIconSrc = src;
+      document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('img.app-logo').forEach(function (img) {
+          img.setAttribute('src', src);
+        });
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="css/pnote.css?v=250">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -132,9 +184,9 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/icon-192.png?v=249" width="16" height="16" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/app/leaf-192.png?v=250" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
-          <span class="mode-switch-ver" id="calorie-app-ver">v249</span>
+          <span class="mode-switch-ver" id="calorie-app-ver">v250</span>
           <span class="topbar-meta-sep" aria-hidden="true">·</span>
           <span id="app-built" class="app-built">อัปเดต —</span>
         </div>
@@ -532,6 +584,19 @@
       <div id="settings-backdrop" class="settings-backdrop"></div>
       <div class="settings-panel" role="dialog" aria-labelledby="settings-title">
         <h2 id="settings-title">ตั้งค่า</h2>
+
+        <details class="settings-group" id="app-icon-settings-row" open>
+          <summary class="settings-group-summary">ไอคอนแอพ</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-tight">
+              <p class="settings-hint" style="margin-top:0">
+                เลือกไอคอนสำหรับโลโก้ในแอพ · แท็บเบราว์เซอร์ · และตอนติดตั้งจาก Chrome · แตะแล้วบันทึกทันที
+              </p>
+              <div id="app-icon-grid" class="app-icon-grid" role="listbox" aria-label="เลือกไอคอนแอพ"></div>
+              <p class="settings-hint" id="app-icon-hint">ถ้าไอคอนบนหน้าจอหลักยังไม่เปลี่ยน ให้เปิดแอพอีกรอบ หรือลบแล้วติดตั้งใหม่</p>
+            </div>
+          </div>
+        </details>
 
         <!-- Body profile: rare-change fields only (weight/waist stay on today card) -->
         <details class="settings-group" id="body-settings-row" open>
@@ -942,7 +1007,7 @@
 
     <div id="auth-overlay" class="auth-overlay" hidden>
       <div class="auth-panel" role="dialog" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/icon-192.png?v=249" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=250" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">เข้าสู่ระบบ</h2>
         <p class="auth-copy">ใช้ Google บัญชี <strong>yohaken@gmail.com</strong> เท่านั้น · ข้อมูลบันทึกขึ้น Firestore ทันที</p>
         <button id="google-login-btn" class="btn btn-primary auth-login-btn" type="button">Sign in with Google</button>
@@ -1158,7 +1223,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=249"></script>
-  <script src="js/update-watch.js?v=249"></script>
+  <script type="module" src="js/boot.js?v=250"></script>
+  <script src="js/update-watch.js?v=250"></script>
 </body>
 </html>

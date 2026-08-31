@@ -6,6 +6,7 @@ import {
   normalizeRecurrenceFilter,
 } from './schedule.js?v=227';
 import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=227';
+import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=250';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -113,6 +114,8 @@ const DEFAULTS = {
   calorieTrendDays: 7,
   /** Pinned health widgets on home dash (unique ids, synced to cloud) */
   calorieHomePins: [],
+  /** Brand / PWA install icon id (see app-icons.js) */
+  appIconId: DEFAULT_APP_ICON_ID,
 };
 
 function withFixedUi(settings) {
@@ -502,6 +505,7 @@ export function loadSettings() {
         calorieTones: normalizeCalorieTones(null),
         calorieTrendDays: normalizeCalorieTrendDays(null),
         calorieHomePins: normalizeCalorieHomePins(null),
+        appIconId: DEFAULT_APP_ICON_ID,
       });
     }
     const parsed = JSON.parse(raw);
@@ -534,6 +538,7 @@ export function loadSettings() {
       calorieTones: normalizeCalorieTones(parsed.calorieTones),
       calorieTrendDays: normalizeCalorieTrendDays(parsed.calorieTrendDays),
       calorieHomePins: normalizeCalorieHomePins(parsed.calorieHomePins),
+      appIconId: normalizeAppIconId(parsed.appIconId),
     });
   } catch {
     return withFixedUi({
@@ -557,6 +562,7 @@ export function loadSettings() {
       calorieTones: normalizeCalorieTones(null),
       calorieTrendDays: normalizeCalorieTrendDays(null),
       calorieHomePins: normalizeCalorieHomePins(null),
+      appIconId: DEFAULT_APP_ICON_ID,
     });
   }
 }
@@ -591,6 +597,7 @@ export function saveSettings(settings) {
     calorieTones: normalizeCalorieTones(settings.calorieTones),
     calorieTrendDays: normalizeCalorieTrendDays(settings.calorieTrendDays),
     calorieHomePins: normalizeCalorieHomePins(settings.calorieHomePins),
+    appIconId: normalizeAppIconId(settings.appIconId),
   });
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
@@ -628,6 +635,7 @@ export function normalizeSettingsSync(raw) {
     calorieTones: normalizeCalorieTones(raw.calorieTones),
     calorieTrendDays: normalizeCalorieTrendDays(raw.calorieTrendDays),
     calorieHomePins: normalizeCalorieHomePins(raw.calorieHomePins),
+    appIconId: normalizeAppIconId(raw.appIconId),
   };
 }
 
@@ -680,6 +688,7 @@ export function mergeSettingsFromCloud(localSettings, cloudRaw) {
     calorieTones: cloud.calorieTones,
     calorieTrendDays: cloud.calorieTrendDays,
     calorieHomePins: cloud.calorieHomePins,
+    appIconId: cloud.appIconId,
     cloudUpdatedAt: cloud.updatedAt,
   });
   return merged;

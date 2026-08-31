@@ -9,6 +9,7 @@ import {
   dockScaleToCss,
   dockOffsetYToLiftPx,
 } from './settings.js?v=227';
+import { applyAppIcon } from './app-icons.js?v=250';
 
 function applyCalorieChrome() {
   document.body.classList.add('light', 'calorie-mode', 'calorie-only');
@@ -16,6 +17,9 @@ function applyCalorieChrome() {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', '#e8f0ea');
 
+  try {
+    applyAppIcon(loadSettings().appIconId);
+  } catch { /* ignore */ }
   const dock = document.getElementById('filter-dock');
   if (dock) {
     dock.style.setProperty('--dock-scale', String(dockScaleToCss(FIXED_UI.dockScale)));

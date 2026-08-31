@@ -3703,6 +3703,66 @@ body.light .priority-badge.priority-urgent {
   border-bottom: none;
 }
 
+.app-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.app-icon-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem 0.2rem 0.3rem;
+  border: 1.5px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--surface, #fff);
+  color: var(--text);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.app-icon-pick img {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+}
+
+.app-icon-pick-label {
+  font-size: 0.58rem;
+  line-height: 1.1;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.app-icon-pick.is-on {
+  border-color: #1f5c3a;
+  box-shadow: 0 0 0 1px #1f5c3a;
+  background: #eef6f0;
+}
+
+.app-icon-pick:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 380px) {
+  .app-icon-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+  .app-icon-pick img {
+    width: 34px;
+    height: 34px;
+  }
+}
+
 .settings-label {
   display: block;
   font-size: 0.85rem;

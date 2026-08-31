@@ -166,6 +166,12 @@ import {
 } from './schedule.js?v=227';
 import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=227';
 import {
+  APP_ICON_OPTIONS,
+  applyAppIcon,
+  appIconSrc,
+  normalizeAppIconId,
+} from './app-icons.js?v=250';
+import {
   allIcons,
   bestIconForLabel,
   DEFAULT_PRIORITY_ICONS,
@@ -762,6 +768,7 @@ function applySettingsFromCloudPayload(remoteRaw) {
   state.settings = merged;
   saveSettings(state.settings);
   applyTheme();
+  applyAppIcon(state.settings.appIconId);
   applyCardDensity();
   applyDockScale();
   applyFilterOrder();
@@ -1436,6 +1443,7 @@ function applyTheme() {
   if (meta) meta.setAttribute('content', '#e8f0ea');
   applyBoxColors();
   applyCalorieTones();
+  applyAppIcon(state.settings?.appIconId);
 }
 
 function applyBoxColors() {
@@ -6026,6 +6034,7 @@ function openSettings() {
   fillAiContextPreview();
   applyCameraSettingsUi();
   applyTheme();
+  renderAppIconSettings();
   applyCardDisplaySettingsUi();
   renderTagManager();
   renderPriorityIconSettings();
@@ -6033,6 +6042,35 @@ function openSettings() {
   applyBarThickness();
   refreshScheduleSelectOptions();
   syncTitlesOnlyListClass();
+}
+
+function renderAppIconSettings() {
+  const grid = document.getElementById('app-icon-grid');
+  if (!grid) return;
+  const selected = normalizeAppIconId(state.settings?.appIconId);
+  grid.innerHTML = APP_ICON_OPTIONS.map((opt) => {
+    const on = opt.id === selected ? ' is-on' : '';
+    const src = appIconSrc(opt.id, 192);
+    return `<button type="button" class="app-icon-pick${on}" role="option" aria-selected="${opt.id === selected ? 'true' : 'false'}" data-app-icon="${opt.id}" title="${escapeHtml(opt.label)}" aria-label="${escapeHtml(opt.label)}"><img src="${src}" width="40" height="40" alt="" decoding="async"><span class="app-icon-pick-label">${escapeHtml(opt.label)}</span></button>`;
+  }).join('');
+}
+
+function selectAppIcon(iconId) {
+  const id = normalizeAppIconId(iconId);
+  if (normalizeAppIconId(state.settings.appIconId) === id) {
+    applyAppIcon(id);
+    renderAppIconSettings();
+    return;
+  }
+  state.settings.appIconId = id;
+  saveSettings(state.settings);
+  applyAppIcon(id);
+  renderAppIconSettings();
+  try {
+    saveManager.scheduleSave(() => state.notesData);
+  } catch {
+    /* save manager may not be ready yet */
+  }
 }
 
 function applyCameraSettingsUi() {
@@ -8641,6 +8679,11 @@ async function init({ fromBoot = false } = {}) {
   els.dockCalorieLogBtn?.addEventListener('click', () => setCaloriePane('log'));
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
+  document.getElementById('app-icon-grid')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-app-icon]');
+    if (!btn) return;
+    selectAppIcon(btn.dataset.appIcon);
+  });
 
   els.openDrawerBtn?.addEventListener('click', toggleDrawer);
   els.drawerBackdrop.addEventListener('click', closeDrawer);
