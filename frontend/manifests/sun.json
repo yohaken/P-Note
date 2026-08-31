@@ -1,0 +1,26 @@
+{
+  "id": "../note.html",
+  "name": "แคลโน้ต",
+  "short_name": "แคลโน้ต",
+  "description": "บันทึกแคลอรี่ โปรตีน และน้ำหนักรายวัน",
+  "start_url": "../note.html",
+  "scope": "../",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e8f0ea",
+  "theme_color": "#e8f0ea",
+  "icons": [
+    {
+      "src": "../icons/app/sun-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../icons/app/sun-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

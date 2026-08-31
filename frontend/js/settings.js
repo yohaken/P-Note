@@ -6,7 +6,7 @@ import {
   normalizeRecurrenceFilter,
 } from './schedule.js?v=227';
 import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=227';
-import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=250';
+import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=251';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,

@@ -6,7 +6,7 @@
  * แจ้งเตือนซ้ำ (notifyRepeat) = nag interval until the note is done — separate.
  */
 import { notePriority, NOTE_PRIORITY } from './notes.js?v=227';
-import { appIconSrc, peekStoredAppIconId } from './app-icons.js?v=250';
+import { appIconSrc, peekStoredAppIconId } from './app-icons.js?v=251';
 import {
   advanceNotifyFireAt,
   normalizeNotifyRepeat,

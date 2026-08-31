@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="250">
+  <meta name="pnote-build" content="251">
   <meta name="pnote-built" content="2026-08-31T10:10:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=250"></script>
+  <script src="js/cache-bootstrap.js?v=251"></script>
   <script>
     /* Apply saved brand icon before paint (favicon + logos + install manifest). */
     (function earlyAppIcon() {
@@ -24,9 +24,7 @@
           if (IDS.indexOf(cand) >= 0) id = cand;
         }
       } catch (e) {}
-      var src = 'icons/app/' + id + '-192.png?v=250';
-      var abs192 = new URL(src, location.href).href;
-      var abs512 = new URL('icons/app/' + id + '-512.png?v=250', location.href).href;
+      var src = 'icons/app/' + id + '-192.png?v=251';
       function setLink(rel, href, type) {
         var el = document.querySelector('link[rel="' + rel + '"]');
         if (!el) {
@@ -39,24 +37,7 @@
       }
       setLink('icon', src, 'image/png');
       setLink('apple-touch-icon', src);
-      var manifest = {
-        id: './note.html',
-        name: 'แคลโน้ต',
-        short_name: 'แคลโน้ต',
-        description: 'บันทึกแคลอรี่ โปรตีน และน้ำหนักรายวัน',
-        start_url: new URL('./note.html', location.href).href,
-        scope: new URL('./', location.href).href,
-        display: 'standalone',
-        orientation: 'portrait',
-        background_color: '#e8f0ea',
-        theme_color: '#e8f0ea',
-        icons: [
-          { src: abs192, sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: abs512, sizes: '512x512', type: 'image/png', purpose: 'any' }
-        ]
-      };
-      var blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-      setLink('manifest', URL.createObjectURL(blob));
+      setLink('manifest', 'manifests/' + id + '.json?v=251');
       window.__pnoteEarlyIconId = id;
       window.__pnoteEarlyIconSrc = src;
       document.addEventListener('DOMContentLoaded', function () {
@@ -66,7 +47,7 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="css/pnote.css?v=250">
+  <link rel="stylesheet" href="css/pnote.css?v=251">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -184,9 +165,9 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/app/leaf-192.png?v=250" width="16" height="16" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/app/leaf-192.png?v=251" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
-          <span class="mode-switch-ver" id="calorie-app-ver">v250</span>
+          <span class="mode-switch-ver" id="calorie-app-ver">v251</span>
           <span class="topbar-meta-sep" aria-hidden="true">·</span>
           <span id="app-built" class="app-built">อัปเดต —</span>
         </div>
@@ -593,7 +574,7 @@
                 เลือกไอคอนสำหรับโลโก้ในแอพ · แท็บเบราว์เซอร์ · และตอนติดตั้งจาก Chrome · แตะแล้วบันทึกทันที
               </p>
               <div id="app-icon-grid" class="app-icon-grid" role="listbox" aria-label="เลือกไอคอนแอพ"></div>
-              <p class="settings-hint" id="app-icon-hint">ถ้าไอคอนบนหน้าจอหลักยังไม่เปลี่ยน ให้เปิดแอพอีกรอบ หรือลบแล้วติดตั้งใหม่</p>
+              <p class="settings-hint" id="app-icon-hint">แท็บเปลี่ยนทันที · ปุ่ม Open in app / ไอคอนที่ติดตั้งแล้วเป็นของ Chrome — ต้องลบแอพแล้วติดตั้งใหม่หลังเลือกไอคอน</p>
             </div>
           </div>
         </details>
@@ -1007,7 +988,7 @@
 
     <div id="auth-overlay" class="auth-overlay" hidden>
       <div class="auth-panel" role="dialog" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=250" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=251" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">เข้าสู่ระบบ</h2>
         <p class="auth-copy">ใช้ Google บัญชี <strong>yohaken@gmail.com</strong> เท่านั้น · ข้อมูลบันทึกขึ้น Firestore ทันที</p>
         <button id="google-login-btn" class="btn btn-primary auth-login-btn" type="button">Sign in with Google</button>
@@ -1223,7 +1204,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=250"></script>
-  <script src="js/update-watch.js?v=250"></script>
+  <script type="module" src="js/boot.js?v=251"></script>
+  <script src="js/update-watch.js?v=251"></script>
 </body>
 </html>

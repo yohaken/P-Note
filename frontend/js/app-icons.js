@@ -18,9 +18,7 @@ export const APP_ICON_OPTIONS = [
 const APP_ICON_IDS = new Set(APP_ICON_OPTIONS.map((o) => o.id));
 
 /** Cache-bust for icon assets — bump with pnote-build when icons change. */
-const ICON_ASSET_V = '250';
-
-let manifestObjectUrl = null;
+const ICON_ASSET_V = '251';
 
 export function normalizeAppIconId(value) {
   const id = String(value || '').trim();
@@ -33,12 +31,9 @@ export function appIconSrc(id, size = 192) {
   return `icons/app/${safe}-${dim}.png?v=${ICON_ASSET_V}`;
 }
 
-export function appIconAbsoluteUrl(id, size = 192) {
-  try {
-    return new URL(appIconSrc(id, size), location.href).href;
-  } catch {
-    return appIconSrc(id, size);
-  }
+export function appManifestHref(id) {
+  const safe = normalizeAppIconId(id);
+  return `manifests/${safe}.json?v=${ICON_ASSET_V}`;
 }
 
 function upsertLink(rel, href, attrs = {}) {
@@ -58,39 +53,13 @@ function upsertLink(rel, href, attrs = {}) {
 
 function updateManifestForIcon(iconId) {
   const id = normalizeAppIconId(iconId);
-  const icon192 = appIconAbsoluteUrl(id, 192);
-  const icon512 = appIconAbsoluteUrl(id, 512);
-  const manifest = {
-    id: './note.html',
-    name: 'แคลโน้ต',
-    short_name: 'แคลโน้ต',
-    description: 'บันทึกแคลอรี่ โปรตีน และน้ำหนักรายวัน',
-    start_url: new URL('./note.html', location.href).href,
-    scope: new URL('./', location.href).href,
-    display: 'standalone',
-    orientation: 'portrait',
-    background_color: '#e8f0ea',
-    theme_color: '#e8f0ea',
-    icons: [
-      { src: icon192, sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: icon512, sizes: '512x512', type: 'image/png', purpose: 'any' },
-    ],
-  };
-  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-  if (manifestObjectUrl) {
-    try {
-      URL.revokeObjectURL(manifestObjectUrl);
-    } catch {
-      /* ignore */
-    }
-  }
-  manifestObjectUrl = URL.createObjectURL(blob);
-  upsertLink('manifest', manifestObjectUrl);
+  // Same-origin static JSON — Chrome install / "Open in app" ignores blob: manifests.
+  upsertLink('manifest', appManifestHref(id));
 }
 
 /**
  * Apply selected brand icon to logos, favicon, apple-touch-icon, and install manifest.
- * Installed PWAs may refresh the home-screen icon on next visit; some platforms need reinstall.
+ * Already-installed PWAs keep Chrome's cached icon until uninstall + reinstall.
  */
 export function applyAppIcon(iconId) {
   const id = normalizeAppIconId(iconId);
@@ -101,7 +70,6 @@ export function applyAppIcon(iconId) {
   });
 
   upsertLink('icon', src192, { type: 'image/png' });
-  // Chrome sometimes keeps a second icon link — refresh all icon rels.
   document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]').forEach((link) => {
     link.setAttribute('href', src192);
     link.setAttribute('type', 'image/png');

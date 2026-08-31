@@ -9,7 +9,7 @@ import {
   dockScaleToCss,
   dockOffsetYToLiftPx,
 } from './settings.js?v=227';
-import { applyAppIcon } from './app-icons.js?v=250';
+import { applyAppIcon } from './app-icons.js?v=251';
 
 function applyCalorieChrome() {
   document.body.classList.add('light', 'calorie-mode', 'calorie-only');

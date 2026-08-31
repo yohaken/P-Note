@@ -170,7 +170,7 @@ import {
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=250';
+} from './app-icons.js?v=251';
 import {
   allIcons,
   bestIconForLabel,
