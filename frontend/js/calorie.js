@@ -1612,6 +1612,42 @@ function xTickIndices(n) {
   return [...new Set([0, mid, n - 1])].sort((a, b) => a - b);
 }
 
+/** Pick which data points get tiny value labels (first/last/extrema/changes). */
+function pickValueLabelPts(pts, { maxLabels = 8 } = {}) {
+  if (!pts?.length) return [];
+  if (pts.length <= 6) return pts;
+  const byI = new Map();
+  const add = (p) => {
+    if (p) byI.set(p.i, p);
+  };
+  add(pts[0]);
+  add(pts[pts.length - 1]);
+  let minP = pts[0];
+  let maxP = pts[0];
+  for (const p of pts) {
+    if (p.v < minP.v) minP = p;
+    if (p.v > maxP.v) maxP = p;
+  }
+  add(minP);
+  add(maxP);
+  for (let k = 1; k < pts.length; k += 1) {
+    if (pts[k].v !== pts[k - 1].v) add(pts[k]);
+  }
+  let picked = [...byI.values()].sort((a, b) => a.i - b.i);
+  if (picked.length <= maxLabels) return picked;
+  // Keep ends + thin the middle by index gap.
+  const keep = new Set([picked[0].i, picked[picked.length - 1].i]);
+  const mid = picked.slice(1, -1);
+  const step = Math.ceil(mid.length / Math.max(1, maxLabels - 2));
+  for (let k = 0; k < mid.length; k += step) keep.add(mid[k].i);
+  // Prefer extrema still in the thinned set.
+  keep.add(minP.i);
+  keep.add(maxP.i);
+  picked = picked.filter((p) => keep.has(p.i));
+  if (picked.length <= maxLabels) return picked;
+  return [picked[0], ...picked.slice(1, -1).slice(0, maxLabels - 2), picked[picked.length - 1]];
+}
+
 /**
  * Line / area SVG with labeled X/Y axes and a readable value scale.
  * nulls in values = gaps. X = day; Y = metric unit (กก. / ซม. / kcal / …).
@@ -1632,6 +1668,8 @@ export function renderSeriesChartSvg(
     referenceValues = null,
     referenceLegend = '',
     compact = false,
+    /** Tiny numbers above sparse data points (waist / weight). */
+    valueLabels = false,
   } = {},
 ) {
   const pts = [];
@@ -1664,7 +1702,9 @@ export function renderSeriesChartSvg(
 
   const padL = compact ? 28 : 30;
   const padR = compact ? 4 : 6;
-  const padT = compact ? 10 : 14;
+  const padT = compact
+    ? valueLabels ? 14 : 10
+    : valueLabels ? 18 : 14;
   const padB = compact ? 16 : 18;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
@@ -1733,10 +1773,30 @@ export function renderSeriesChartSvg(
       ? `<polyline class="chs-chart-line" fill="none" points="${coords.join(' ')}" />`
       : '';
   const dotR = compact ? 2 : 2.4;
-  const dot =
-    pts.length >= 1
-      ? `<circle class="chs-chart-dot" cx="${xAt(last.i).toFixed(1)}" cy="${yAt(last.v).toFixed(1)}" r="${dotR}" />`
-      : '';
+  const labeledPts = valueLabels
+    ? pickValueLabelPts(pts, { maxLabels: compact ? 5 : 8 })
+    : [];
+  const dotPts = valueLabels
+    ? labeledPts
+    : pts.length
+      ? [last]
+      : [];
+  const dots = dotPts
+    .map((p) => `<circle class="chs-chart-dot" cx="${xAt(p.i).toFixed(1)}" cy="${yAt(p.v).toFixed(1)}" r="${dotR}" />`)
+    .join('');
+  const valLabels = valueLabels
+    ? labeledPts
+      .map((p) => {
+        const x = xAt(p.i);
+        const y = yAt(p.v);
+        const text = signed ? formatSigned(p.v, digits) : String(round(p.v, digits));
+        const above = y - 5;
+        const yText = above < padT + 2 ? y + 9 : above;
+        const anchor = p.i === 0 ? 'start' : p.i === n - 1 ? 'end' : 'middle';
+        return `<text class="chs-chart-val" x="${x.toFixed(1)}" y="${yText.toFixed(1)}" text-anchor="${anchor}">${esc(text)}</text>`;
+      })
+      .join('')
+    : '';
   const refLegendHtml = !compact && referenceLegend && refPts.length
     ? `<span class="chs-chart-ref-legend">${esc(referenceLegend)}</span>`
     : '';
@@ -1746,7 +1806,7 @@ export function renderSeriesChartSvg(
     ? ''
     : `<p class="chs-chart-scale"><span>Y: ${esc(yAxisName || 'ค่า')} (${esc(formatAxisTick(min, digits))}–${esc(formatAxisTick(max, digits))})</span>${refLegendHtml}<span>X: ${esc(xLabel || 'วัน')}</span></p>`;
   const axesClass = compact ? '' : ' has-axes';
-  return `<svg class="${esc(className)}${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${compact ? ' is-compact' : axesClass}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dot}${yTickLabels}${xTickLabels}</svg>${scaleBlock}`;
+  return `<svg class="${esc(className)}${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${compact ? ' is-compact' : axesClass}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dots}${valLabels}${yTickLabels}${xTickLabels}</svg>${scaleBlock}`;
 }
 
 /** Horizontal bar list for exercise poses (count bar + cumulative kcal column). */
@@ -1885,6 +1945,8 @@ function chartCardHtml(
      * Multi-day = sum of daily (กิน − เป้า) · 1 day = that day only.
      */
     headline = 'value',
+    /** Tiny numbers on sparse points (waist / weight). */
+    valueLabels = false,
   } = {},
 ) {
   const pts = (values || []).filter((v) => v != null && Number.isFinite(v));
@@ -1946,6 +2008,7 @@ function chartCardHtml(
     referenceValues,
     referenceLegend: compact ? '' : referenceLegend,
     compact,
+    valueLabels,
   });
   const pinAttr = pinId ? ` data-pin-id="${esc(pinId)}"` : '';
   const pinClass = pinId ? ' is-pinnable' : '';
@@ -1981,8 +2044,8 @@ export function renderHomePinCardHtml(pinId, snap) {
   if (id.startsWith('chart-')) {
     const dayCount = t.dayCount || snap.trendDays || 1;
     const map = {
-      'chart-waist': { title: 'เอว', values: t.waist, unit: 'ซม.', digits: 1 },
-      'chart-weight': { title: 'น้ำหนัก', values: t.weight, unit: 'กก.', digits: 1 },
+      'chart-waist': { title: 'เอว', values: t.waist, unit: 'ซม.', digits: 1, valueLabels: true },
+      'chart-weight': { title: 'น้ำหนัก', values: t.weight, unit: 'กก.', digits: 1, valueLabels: true },
       'chart-cal': { title: 'แคล', values: t.cal, unit: 'kcal', digits: 0, cumulative: true },
       'chart-prot': {
         title: 'โปรตีน',
@@ -2315,8 +2378,8 @@ export function renderHealthSheetHtml(snap) {
         <p class="chs-section-sub">${esc(rangeLabel)} · กดค้างกล่องเพื่อส่งไปหน้าแรก</p>
       </header>
       <div class="chs-chart-grid">
-        ${chartCardHtml('เอว', t.waist, { unit: 'ซม.', digits: 1, pinId: 'chart-waist', labels: t.labels, dates: t.dates, dayCount: t.dayCount })}
-        ${chartCardHtml('น้ำหนัก', t.weight, { unit: 'กก.', digits: 1, pinId: 'chart-weight', labels: t.labels, dates: t.dates, dayCount: t.dayCount })}
+        ${chartCardHtml('เอว', t.waist, { unit: 'ซม.', digits: 1, pinId: 'chart-waist', labels: t.labels, dates: t.dates, dayCount: t.dayCount, valueLabels: true })}
+        ${chartCardHtml('น้ำหนัก', t.weight, { unit: 'กก.', digits: 1, pinId: 'chart-weight', labels: t.labels, dates: t.dates, dayCount: t.dayCount, valueLabels: true })}
         ${chartCardHtml('แคล', t.cal, { unit: 'kcal', digits: 0, pinId: 'chart-cal', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount })}
         ${chartCardHtml('โปรตีน', t.prot, {
           unit: 'ก.',

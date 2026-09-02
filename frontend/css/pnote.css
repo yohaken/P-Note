@@ -7249,6 +7249,22 @@ body.calorie-health-pane #dock-calorie-health-btn {
   fill: currentColor;
 }
 
+.chs-chart-svg .chs-chart-val {
+  font-size: 7.5px;
+  font-weight: 600;
+  fill: color-mix(in srgb, currentColor 72%, #57534e);
+  paint-order: stroke fill;
+  stroke: color-mix(in srgb, #fff 88%, transparent);
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.cd-pin-card.is-compact .chs-chart-svg .chs-chart-val {
+  font-size: 6.5px;
+  stroke-width: 2px;
+}
+
 .chs-chart-svg .chs-chart-zero {
   stroke: color-mix(in srgb, var(--border) 80%, #78716c);
   stroke-width: 1;
