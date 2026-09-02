@@ -1233,17 +1233,26 @@ function renderBurnChartNudgeHtml(ex, { compact = false } = {}) {
 function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide = false, compact = false, editTitle = '' } = {}) {
   const musPts = (ex?.mus || []).filter((v) => v != null && Number.isFinite(v) && v > 0);
   const musLast = musPts.length ? musPts[musPts.length - 1] : null;
-  const musTone = musLast == null || musLast === 0 ? '' : 'is-pos';
+  const dayCount = Math.max(1, Number(ex?.dayCount) || 1);
+  const isRange = dayCount > 1;
+  const musSum = Number.isFinite(ex?.musSum)
+    ? ex.musSum
+    : musPts.reduce((s, v) => s + v, 0);
+  /** 1 วัน = ค่าวันนี้ตามปกติ · หลายวัน = รวมเบิร์นทั้งช่วงที่เลือก */
+  const musDisplay = isRange ? (musPts.length ? musSum : null) : musLast;
+  const musTone = musDisplay == null || musDisplay === 0 ? '' : 'is-pos';
+  const unit = isRange ? 'kcal รวม' : 'kcal';
+  const compactTitle = isRange ? 'เบิร์นรวม' : 'เบิร์น';
   const wideClass = wide ? ' chs-chart-card-wide' : '';
   const pinClass = pinId ? ' is-pinnable' : '';
   const pinAttr = pinId ? ` data-pin-id="${esc(pinId)}"` : '';
   const titleAttr = editTitle ? ` title="${esc(editTitle)}"` : '';
   const compactClass = compact ? ' is-compact' : '';
   const head = compact
-    ? `<div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">เบิร์น</span><strong class="chs-compact-val">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></strong></span></div>`
+    ? `<div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">${esc(compactTitle)}</span><strong class="chs-compact-val">${esc(musDisplay ?? '—')}<span class="chs-chart-unit">${esc(unit)}</span></strong></span></div>`
     : `<div class="chs-chart-top">
       <h3>แคลอรีเบิร์น</h3>
-      <p class="chs-chart-last">${esc(musLast ?? '—')}<span class="chs-chart-unit">kcal</span></p>
+      <p class="chs-chart-last">${esc(musDisplay ?? '—')}<span class="chs-chart-unit">${esc(unit)}</span></p>
     </div>`;
   return `<article class="chs-chart-card${wideClass} ${musTone}${pinClass}${compactClass} ${esc(className)}"${pinAttr}${titleAttr}>
     ${head}
