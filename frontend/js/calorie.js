@@ -1847,6 +1847,22 @@ function sumFinite(values) {
   return n ? sum : null;
 }
 
+function sumPairedDeltas(values, referenceValues) {
+  const vals = values || [];
+  const refs = referenceValues || [];
+  const n = Math.max(vals.length, refs.length);
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < n; i += 1) {
+    const v = vals[i];
+    const r = refs[i];
+    if (v == null || !Number.isFinite(v) || r == null || !Number.isFinite(r)) continue;
+    sum += v - r;
+    count += 1;
+  }
+  return count ? sum : null;
+}
+
 function chartCardHtml(
   title,
   values,
@@ -1864,7 +1880,10 @@ function chartCardHtml(
     /** Sum the window in the headline (eat / balance / kg). Snapshots like waist stay last-value. */
     cumulative = false,
     dayCount = 1,
-    /** Protein: headline = last day's remaining vs target (+/−) only — never accumulate. */
+    /**
+     * Protein: headline = net remaining vs target (+/−).
+     * Multi-day = sum of daily (กิน − เป้า) · 1 day = that day only.
+     */
     headline = 'value',
   } = {},
 ) {
@@ -1872,19 +1891,27 @@ function chartCardHtml(
   const last = pts.length ? pts[pts.length - 1] : null;
   const refPts = (referenceValues || []).filter((v) => v != null && Number.isFinite(v));
   const lastRef = refPts.length ? refPts[refPts.length - 1] : null;
-  const rangeSum = Boolean(cumulative) && Number(dayCount) > 1 && headline !== 'delta';
+  const isRange = Number(dayCount) > 1;
+  const rangeSum = Boolean(cumulative) && isRange && headline !== 'delta';
   const display = rangeSum ? sumFinite(values) : last;
   const displayRef = rangeSum ? sumFinite(referenceValues) : lastRef;
   let lastLabel;
   let toneVal = display;
+  let deltaRange = false;
   if (headline === 'delta') {
-    if (last == null || lastRef == null) {
+    const net = isRange
+      ? sumPairedDeltas(values, referenceValues)
+      : last != null && lastRef != null
+        ? last - lastRef
+        : null;
+    if (net == null) {
       lastLabel = last == null ? '—' : String(round(last, digits));
       toneVal = null;
     } else {
-      const delta = round(last - lastRef, digits);
+      const delta = round(net, digits);
       lastLabel = delta === 0 ? 'พอดีเป้า' : formatSigned(delta, digits);
       toneVal = delta;
+      deltaRange = isRange;
     }
   } else {
     lastLabel =
@@ -1907,7 +1934,7 @@ function chartCardHtml(
           ? 'is-pos'
           : 'is-neg'
         : '';
-  const unitText = rangeSum && unit ? `${unit} รวม` : unit;
+  const unitText = (rangeSum || deltaRange) && unit ? `${unit} รวม` : unit;
   const svg = renderSeriesChartSvg(values, {
     signed,
     unit,
