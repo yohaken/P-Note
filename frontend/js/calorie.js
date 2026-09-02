@@ -1266,6 +1266,7 @@ function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide
       yLabel: 'kcal',
       xLabel: 'วัน',
       compact,
+      valueLabels: true,
     })}
   </article>`;
 }
@@ -1668,8 +1669,8 @@ export function renderSeriesChartSvg(
     referenceValues = null,
     referenceLegend = '',
     compact = false,
-    /** Tiny numbers above sparse data points (waist / weight). */
-    valueLabels = false,
+    /** Tiny numbers above sparse data points. */
+    valueLabels = true,
   } = {},
 ) {
   const pts = [];
@@ -1945,8 +1946,8 @@ function chartCardHtml(
      * Multi-day = sum of daily (กิน − เป้า) · 1 day = that day only.
      */
     headline = 'value',
-    /** Tiny numbers on sparse points (waist / weight). */
-    valueLabels = false,
+    /** Tiny numbers on sparse points — on for all trend line charts. */
+    valueLabels = true,
   } = {},
 ) {
   const pts = (values || []).filter((v) => v != null && Number.isFinite(v));
@@ -2044,8 +2045,8 @@ export function renderHomePinCardHtml(pinId, snap) {
   if (id.startsWith('chart-')) {
     const dayCount = t.dayCount || snap.trendDays || 1;
     const map = {
-      'chart-waist': { title: 'เอว', values: t.waist, unit: 'ซม.', digits: 1, valueLabels: true },
-      'chart-weight': { title: 'น้ำหนัก', values: t.weight, unit: 'กก.', digits: 1, valueLabels: true },
+      'chart-waist': { title: 'เอว', values: t.waist, unit: 'ซม.', digits: 1 },
+      'chart-weight': { title: 'น้ำหนัก', values: t.weight, unit: 'กก.', digits: 1 },
       'chart-cal': { title: 'แคล', values: t.cal, unit: 'kcal', digits: 0, cumulative: true },
       'chart-prot': {
         title: 'โปรตีน',
@@ -2378,8 +2379,8 @@ export function renderHealthSheetHtml(snap) {
         <p class="chs-section-sub">${esc(rangeLabel)} · กดค้างกล่องเพื่อส่งไปหน้าแรก</p>
       </header>
       <div class="chs-chart-grid">
-        ${chartCardHtml('เอว', t.waist, { unit: 'ซม.', digits: 1, pinId: 'chart-waist', labels: t.labels, dates: t.dates, dayCount: t.dayCount, valueLabels: true })}
-        ${chartCardHtml('น้ำหนัก', t.weight, { unit: 'กก.', digits: 1, pinId: 'chart-weight', labels: t.labels, dates: t.dates, dayCount: t.dayCount, valueLabels: true })}
+        ${chartCardHtml('เอว', t.waist, { unit: 'ซม.', digits: 1, pinId: 'chart-waist', labels: t.labels, dates: t.dates, dayCount: t.dayCount })}
+        ${chartCardHtml('น้ำหนัก', t.weight, { unit: 'กก.', digits: 1, pinId: 'chart-weight', labels: t.labels, dates: t.dates, dayCount: t.dayCount })}
         ${chartCardHtml('แคล', t.cal, { unit: 'kcal', digits: 0, pinId: 'chart-cal', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount })}
         ${chartCardHtml('โปรตีน', t.prot, {
           unit: 'ก.',
