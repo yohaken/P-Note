@@ -1835,6 +1835,18 @@ export function normalizeHomePins(raw) {
   return out;
 }
 
+function sumFinite(values) {
+  let sum = 0;
+  let n = 0;
+  (values || []).forEach((v) => {
+    if (v != null && Number.isFinite(v)) {
+      sum += v;
+      n += 1;
+    }
+  });
+  return n ? sum : null;
+}
+
 function chartCardHtml(
   title,
   values,
@@ -1849,25 +1861,32 @@ function chartCardHtml(
     referenceValues = null,
     referenceLegend = '',
     compact = false,
+    /** Sum the window in the headline (eat / protein / balance / kg). Snapshots like waist stay last-value. */
+    cumulative = false,
+    dayCount = 1,
   } = {},
 ) {
   const pts = (values || []).filter((v) => v != null && Number.isFinite(v));
   const last = pts.length ? pts[pts.length - 1] : null;
   const refPts = (referenceValues || []).filter((v) => v != null && Number.isFinite(v));
   const lastRef = refPts.length ? refPts[refPts.length - 1] : null;
+  const rangeSum = Boolean(cumulative) && Number(dayCount) > 1;
+  const display = rangeSum ? sumFinite(values) : last;
+  const displayRef = rangeSum ? sumFinite(referenceValues) : lastRef;
   let lastLabel =
-    last == null
+    display == null
       ? '—'
       : signed
-        ? formatSigned(last, digits)
-        : String(round(last, digits));
-  if (last != null && lastRef != null) {
-    const delta = round(last - lastRef, digits);
+        ? formatSigned(display, digits)
+        : String(round(display, digits));
+  if (display != null && displayRef != null) {
+    const delta = round(display - displayRef, digits);
     const deltaWord = delta === 0 ? 'พอดีเป้า' : delta > 0 ? `+${delta}` : String(delta);
     lastLabel = compact ? `${lastLabel} ${deltaWord}` : `${lastLabel} · ${deltaWord}`;
   }
   const tone =
-    !signed || last == null || last === 0 ? '' : last > 0 ? 'is-pos' : 'is-neg';
+    !signed || display == null || display === 0 ? '' : display > 0 ? 'is-pos' : 'is-neg';
+  const unitText = rangeSum && unit ? `${unit} รวม` : unit;
   const svg = renderSeriesChartSvg(values, {
     signed,
     unit,
@@ -1883,7 +1902,7 @@ function chartCardHtml(
   const pinAttr = pinId ? ` data-pin-id="${esc(pinId)}"` : '';
   const pinClass = pinId ? ' is-pinnable' : '';
   const compactClass = compact ? ' is-compact' : '';
-  const unitHtml = unit ? `<span class="chs-chart-unit">${esc(unit)}</span>` : '';
+  const unitHtml = unitText ? `<span class="chs-chart-unit">${esc(unitText)}</span>` : '';
   const head = compact
     ? `<div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">${esc(title)}</span><strong class="chs-compact-val">${esc(lastLabel)}${unitHtml}</strong></span></div>`
     : `<div class="chs-chart-top">
@@ -1912,10 +1931,11 @@ export function renderHomePinCardHtml(pinId, snap) {
   }
 
   if (id.startsWith('chart-')) {
+    const dayCount = t.dayCount || snap.trendDays || 1;
     const map = {
       'chart-waist': { title: 'เอว', values: t.waist, unit: 'ซม.', digits: 1 },
       'chart-weight': { title: 'น้ำหนัก', values: t.weight, unit: 'กก.', digits: 1 },
-      'chart-cal': { title: 'แคล', values: t.cal, unit: 'kcal', digits: 0 },
+      'chart-cal': { title: 'แคล', values: t.cal, unit: 'kcal', digits: 0, cumulative: true },
       'chart-prot': {
         title: 'โปรตีน',
         values: t.prot,
@@ -1923,9 +1943,10 @@ export function renderHomePinCardHtml(pinId, snap) {
         digits: 1,
         referenceValues: t.protTarget,
         referenceLegend: '— — เป้าโปรตีน',
+        cumulative: true,
       },
-      'chart-balance': { title: 'Balance แคล', values: t.balance, signed: true, unit: 'kcal', digits: 0 },
-      'chart-blKg': { title: 'น้ำหนักบวกลบ', values: t.blKg, signed: true, unit: 'กก.', digits: 2 },
+      'chart-balance': { title: 'Balance แคล', values: t.balance, signed: true, unit: 'kcal', digits: 0, cumulative: true },
+      'chart-blKg': { title: 'น้ำหนักบวกลบ', values: t.blKg, signed: true, unit: 'กก.', digits: 2, cumulative: true },
     };
     const cfg = map[id];
     if (!cfg) return '';
@@ -1937,6 +1958,7 @@ export function renderHomePinCardHtml(pinId, snap) {
       className: 'cd-pin-card',
       compact: true,
       referenceLegend: '',
+      dayCount,
     });
   }
   if (id === 'ex-poses') {
@@ -2245,9 +2267,9 @@ export function renderHealthSheetHtml(snap) {
         <p class="chs-section-sub">${esc(rangeLabel)} · กดค้างกล่องเพื่อส่งไปหน้าแรก</p>
       </header>
       <div class="chs-chart-grid">
-        ${chartCardHtml('เอว', t.waist, { unit: 'ซม.', digits: 1, pinId: 'chart-waist', labels: t.labels, dates: t.dates })}
-        ${chartCardHtml('น้ำหนัก', t.weight, { unit: 'กก.', digits: 1, pinId: 'chart-weight', labels: t.labels, dates: t.dates })}
-        ${chartCardHtml('แคล', t.cal, { unit: 'kcal', digits: 0, pinId: 'chart-cal', labels: t.labels, dates: t.dates })}
+        ${chartCardHtml('เอว', t.waist, { unit: 'ซม.', digits: 1, pinId: 'chart-waist', labels: t.labels, dates: t.dates, dayCount: t.dayCount })}
+        ${chartCardHtml('น้ำหนัก', t.weight, { unit: 'กก.', digits: 1, pinId: 'chart-weight', labels: t.labels, dates: t.dates, dayCount: t.dayCount })}
+        ${chartCardHtml('แคล', t.cal, { unit: 'kcal', digits: 0, pinId: 'chart-cal', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount })}
         ${chartCardHtml('โปรตีน', t.prot, {
           unit: 'ก.',
           digits: 1,
@@ -2256,9 +2278,11 @@ export function renderHealthSheetHtml(snap) {
           dates: t.dates,
           referenceValues: t.protTarget,
           referenceLegend: '— — เป้าโปรตีน',
+          cumulative: true,
+          dayCount: t.dayCount,
         })}
-        ${chartCardHtml('Balance แคล', t.balance, { signed: true, unit: 'kcal', digits: 0, pinId: 'chart-balance', labels: t.labels, dates: t.dates })}
-        ${chartCardHtml('น้ำหนักบวกลบ', t.blKg, { signed: true, unit: 'กก.', digits: 2, pinId: 'chart-blKg', labels: t.labels, dates: t.dates })}
+        ${chartCardHtml('Balance แคล', t.balance, { signed: true, unit: 'kcal', digits: 0, pinId: 'chart-balance', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount })}
+        ${chartCardHtml('น้ำหนักบวกลบ', t.blKg, { signed: true, unit: 'กก.', digits: 2, pinId: 'chart-blKg', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount })}
       </div>
     </section>`
     : '';
