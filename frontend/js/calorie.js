@@ -1861,31 +1861,52 @@ function chartCardHtml(
     referenceValues = null,
     referenceLegend = '',
     compact = false,
-    /** Sum the window in the headline (eat / protein / balance / kg). Snapshots like waist stay last-value. */
+    /** Sum the window in the headline (eat / balance / kg). Snapshots like waist stay last-value. */
     cumulative = false,
     dayCount = 1,
+    /** Protein: headline = last day's remaining vs target (+/−) only — never accumulate. */
+    headline = 'value',
   } = {},
 ) {
   const pts = (values || []).filter((v) => v != null && Number.isFinite(v));
   const last = pts.length ? pts[pts.length - 1] : null;
   const refPts = (referenceValues || []).filter((v) => v != null && Number.isFinite(v));
   const lastRef = refPts.length ? refPts[refPts.length - 1] : null;
-  const rangeSum = Boolean(cumulative) && Number(dayCount) > 1;
+  const rangeSum = Boolean(cumulative) && Number(dayCount) > 1 && headline !== 'delta';
   const display = rangeSum ? sumFinite(values) : last;
   const displayRef = rangeSum ? sumFinite(referenceValues) : lastRef;
-  let lastLabel =
-    display == null
-      ? '—'
-      : signed
-        ? formatSigned(display, digits)
-        : String(round(display, digits));
-  if (display != null && displayRef != null) {
-    const delta = round(display - displayRef, digits);
-    const deltaWord = delta === 0 ? 'พอดีเป้า' : delta > 0 ? `+${delta}` : String(delta);
-    lastLabel = compact ? `${lastLabel} ${deltaWord}` : `${lastLabel} · ${deltaWord}`;
+  let lastLabel;
+  let toneVal = display;
+  if (headline === 'delta') {
+    if (last == null || lastRef == null) {
+      lastLabel = last == null ? '—' : String(round(last, digits));
+      toneVal = null;
+    } else {
+      const delta = round(last - lastRef, digits);
+      lastLabel = delta === 0 ? 'พอดีเป้า' : formatSigned(delta, digits);
+      toneVal = delta;
+    }
+  } else {
+    lastLabel =
+      display == null
+        ? '—'
+        : signed
+          ? formatSigned(display, digits)
+          : String(round(display, digits));
+    if (display != null && displayRef != null) {
+      const delta = round(display - displayRef, digits);
+      const deltaWord = delta === 0 ? 'พอดีเป้า' : delta > 0 ? `+${delta}` : String(delta);
+      lastLabel = compact ? `${lastLabel} ${deltaWord}` : `${lastLabel} · ${deltaWord}`;
+    }
   }
   const tone =
-    !signed || display == null || display === 0 ? '' : display > 0 ? 'is-pos' : 'is-neg';
+    toneVal == null || toneVal === 0
+      ? ''
+      : signed || headline === 'delta'
+        ? toneVal > 0
+          ? 'is-pos'
+          : 'is-neg'
+        : '';
   const unitText = rangeSum && unit ? `${unit} รวม` : unit;
   const svg = renderSeriesChartSvg(values, {
     signed,
@@ -1943,7 +1964,7 @@ export function renderHomePinCardHtml(pinId, snap) {
         digits: 1,
         referenceValues: t.protTarget,
         referenceLegend: '— — เป้าโปรตีน',
-        cumulative: true,
+        headline: 'delta',
       },
       'chart-balance': { title: 'Balance แคล', values: t.balance, signed: true, unit: 'kcal', digits: 0, cumulative: true },
       'chart-blKg': { title: 'น้ำหนักบวกลบ', values: t.blKg, signed: true, unit: 'กก.', digits: 2, cumulative: true },
@@ -2278,7 +2299,7 @@ export function renderHealthSheetHtml(snap) {
           dates: t.dates,
           referenceValues: t.protTarget,
           referenceLegend: '— — เป้าโปรตีน',
-          cumulative: true,
+          headline: 'delta',
           dayCount: t.dayCount,
         })}
         ${chartCardHtml('Balance แคล', t.balance, { signed: true, unit: 'kcal', digits: 0, pinId: 'chart-balance', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount })}
