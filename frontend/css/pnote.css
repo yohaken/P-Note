@@ -8335,13 +8335,39 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .calorie-quick-freq {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.28rem;
+  flex-direction: column;
+  gap: 0.35rem;
   margin: 0;
 }
 
 .calorie-quick-freq[hidden] {
   display: none !important;
+}
+
+.cq-freq-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.cq-pose-chip {
+  background: color-mix(in srgb, var(--cal-tone-burn-wash, #e8f7ee) 80%, #fff);
+  border-color: color-mix(in srgb, var(--cal-tone-burn, #16a34a) 28%, var(--border));
+  color: var(--cal-tone-burn-ink, #1f6b3a);
+}
+
+.calorie-quick-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  min-height: 2.4rem;
+  font: inherit;
+  line-height: 1.35;
+}
+
+.calorie-quick-input.is-multiline {
+  min-height: 4.8rem;
+  white-space: pre-wrap;
 }
 
 .cq-freq-chip {

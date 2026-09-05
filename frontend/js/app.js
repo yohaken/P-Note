@@ -70,6 +70,7 @@ import {
   addDayFromLast,
   ageFromBirthDate,
   appendQuickExercise,
+  appendQuickExercises,
   appendQuickMeal,
   clearDayValues,
   clearDayExercises,
@@ -78,10 +79,12 @@ import {
   formatExerciseDisplay,
   formatExercisesForEdit,
   formatMealCell,
+  listExercisePoseNames,
   MEAL_PATTERN_HINT,
   parseExerciseList,
   parseQuickExercise,
   parseQuickMeal,
+  QUICK_EXERCISE_BATCH,
   computeTotals,
   computeHealthSnapshot,
   expandMealsForEdit,
@@ -113,7 +116,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=257';
+} from './calorie.js?v=258';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -2522,7 +2525,33 @@ async function confirmPastDayEdit(dayId) {
 function paintCalorieQuickFreq() {
   const wrap = els.calorieQuickFreq;
   if (!wrap) return;
-  const list = topFrequent(ensureCaloriePayload(), calorieQuickMode === 'mus' ? 'mus' : 'meal');
+  const sheet = ensureCaloriePayload();
+  if (calorieQuickMode === 'mus') {
+    const poses = listExercisePoseNames(sheet, 12);
+    const freq = topFrequent(sheet, 'mus');
+    if (!poses.length && !freq.length) {
+      wrap.hidden = true;
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.hidden = false;
+    const poseHtml = poses
+      .map(
+        (item) =>
+          `<button type="button" class="cq-freq-chip cq-pose-chip" data-pose-name="${escAttr(item.label)}" title="ใช้ชื่อท่านี้ · แล้วใส่แคล">${escapeHtml(item.label)}</button>`,
+      )
+      .join('');
+    const freqHtml = freq
+      .slice(0, 4)
+      .map(
+        (item) =>
+          `<button type="button" class="cq-freq-chip" data-freq-text="${escAttr(item.text)}" title="${escAttr(item.text)}">${escapeHtml(String(item.label || item.text).slice(0, 22))}</button>`,
+      )
+      .join('');
+    wrap.innerHTML = `${poseHtml ? `<div class="cq-freq-row" aria-label="ท่าที่เคยบันทึก">${poseHtml}</div>` : ''}${freqHtml ? `<div class="cq-freq-row cq-freq-row-full" aria-label="รายการล่าสุด">${freqHtml}</div>` : ''}`;
+    return;
+  }
+  const list = topFrequent(sheet, 'meal');
   if (!list.length) {
     wrap.hidden = true;
     wrap.innerHTML = '';
@@ -2533,9 +2562,54 @@ function paintCalorieQuickFreq() {
     .slice(0, 5)
     .map(
       (item) =>
-        `<button type="button" class="cq-freq-chip" data-freq-text="${String(item.text).replace(/"/g, '&quot;')}" title="${String(item.text).replace(/"/g, '&quot;')}">${String(item.label || item.text).slice(0, 22)}</button>`,
+        `<button type="button" class="cq-freq-chip" data-freq-text="${escAttr(item.text)}" title="${escAttr(item.text)}">${escapeHtml(String(item.label || item.text).slice(0, 22))}</button>`,
     )
     .join('');
+}
+
+function escAttr(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+function syncCalorieQuickInputMode() {
+  const el = els.calorieQuickInput;
+  if (!el) return;
+  const mus = calorieQuickMode === 'mus';
+  el.rows = mus ? 3 : 1;
+  el.classList.toggle('is-multiline', mus);
+  el.setAttribute('enterkeyhint', mus ? 'enter' : 'done');
+}
+
+/** Insert a known pose name into the exercise textarea (avoid typo → new pose). */
+function insertExercisePoseName(name) {
+  const el = els.calorieQuickInput;
+  const pose = String(name || '').trim();
+  if (!el || !pose) return;
+  const lines = String(el.value || '').split('\n');
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  const last = (lines[lines.length - 1] || '').trim();
+  const lastComplete = last
+    && (parseExerciseList(last).length > 0 || /,\s*\d+\s*$/.test(last) || /\d+\s*$/.test(last));
+  if (!last) {
+    lines.push(`${pose},`);
+  } else if (lastComplete) {
+    if (lines.length >= QUICK_EXERCISE_BATCH) {
+      setStatus(`บันทึกได้ทีละ ${QUICK_EXERCISE_BATCH} ท่า`, { forceToast: true, ms: 1600 });
+      return;
+    }
+    lines.push(`${pose},`);
+  } else {
+    lines[lines.length - 1] = `${pose},`;
+  }
+  el.value = lines.join('\n');
+  try {
+    el.focus();
+    const end = el.value.length;
+    el.setSelectionRange?.(end, end);
+  } catch { /* ignore */ }
 }
 
 function syncCalorieQuickChrome() {
@@ -2559,10 +2633,11 @@ function musQuickHintText() {
   const day = sheet.days.find((d) => d.date === toDateKey());
   const list = day ? formatExerciseDisplay(day) : '';
   const mus = day?.mus;
+  const base = `ท่า,แคล ได้สูงสุด ${QUICK_EXERCISE_BATCH} บรรทัด · แตะชื่อท่าเก่าเพื่อลดพิมพ์ผิด`;
   if (list) {
-    return `วันนี้: ${list}${mus != null ? ` · รวม ${mus} kcal` : ''} · กดเพิ่มแล้วบันทึกต่อได้ (ทีละกล้ามเนื้อ)`;
+    return `วันนี้: ${list}${mus != null ? ` · รวม ${mus} kcal` : ''} · ${base}`;
   }
-  return 'ท่า + แคล เช่น อก 120 · กดเพิ่มแล้วทำซ้ำได้หลายรอบต่อวัน';
+  return base;
 }
 
 function openCalorieQuick(mode) {
@@ -2581,8 +2656,11 @@ function openCalorieQuick(mode) {
   }
   if (els.calorieQuickInput) {
     els.calorieQuickInput.value = '';
-    els.calorieQuickInput.placeholder = calorieQuickMode === 'mus' ? 'ท่า + แคลที่เผา' : '130,27';
+    els.calorieQuickInput.placeholder = calorieQuickMode === 'mus'
+      ? 'อก,120\nไหล,80\nวิ่ง,200'
+      : '130,27';
   }
+  syncCalorieQuickInputMode();
   syncCalorieQuickChrome();
   paintCalorieQuickFreq();
   els.calorieQuickOverlay.hidden = false;
@@ -2663,15 +2741,16 @@ async function openCalorieCellEditor(opts) {
     }
     if (els.calorieQuickHint) {
       els.calorieQuickHint.textContent = dayHasExercise(day)
-        ? 'แก้รายการ · กด ลบ เพื่อลบทั้งวัน · บันทึกเพื่ออัปเดต'
-        : 'พิมพ์ท่า + แคล · คั่นด้วย · เช่น อก 120 · ไหล 80';
+        ? 'แก้รายการ · ท่า,แคล บรรทัดละท่า · กด ลบ เพื่อลบทั้งวัน'
+        : `พิมพ์ท่า,แคล ได้สูงสุด ${QUICK_EXERCISE_BATCH} บรรทัด · แตะชื่อท่าเก่าได้`;
     }
     if (els.calorieQuickInput) {
-      els.calorieQuickInput.placeholder = 'อก 120 · ไหล 80';
+      els.calorieQuickInput.placeholder = 'อก,120\nไหล,80\nวิ่ง,200';
       els.calorieQuickInput.value = value;
     }
   }
 
+  syncCalorieQuickInputMode();
   syncCalorieQuickChrome();
   paintCalorieQuickFreq();
   els.calorieQuickOverlay.hidden = false;
@@ -2834,7 +2913,7 @@ function submitCalorieQuick() {
           });
         } else {
           const exercises = parseExerciseList(text);
-          if (!exercises.length) throw new Error('ใส่ออกกำลัง + แคล เช่น อก 120 · ไหล 80');
+          if (!exercises.length) throw new Error('ใส่ท่า,แคล เช่น\nอก,120\nไหล,80');
           persistCalorie(patchDay(sheet, dayId, { exercises }), {
             status: `บันทึกออกกำลัง ${exercises.length} รายการแล้ว`,
             fullRender: true,
@@ -2868,17 +2947,17 @@ function submitCalorieQuick() {
 
   if (!text) {
     setStatus(
-      calorieQuickMode === 'mus' ? 'พิมพ์ท่า + แคลก่อน' : MEAL_PATTERN_HINT,
+      calorieQuickMode === 'mus' ? 'พิมพ์ท่า,แคลก่อน' : MEAL_PATTERN_HINT,
       { forceToast: true },
     );
     return;
   }
   try {
     if (calorieQuickMode === 'mus') {
-      const { sheet, parsed, mus } = appendQuickExercise(ensureCaloriePayload(), text);
+      const { sheet, added, mus } = appendQuickExercises(ensureCaloriePayload(), text);
       state.calorieActiveMonth = monthKeyFromDate(toDateKey());
       persistCalorie(sheet, {
-        status: `+${parsed.label || 'ออกกำลัง'} ${parsed.burn} kcal · รวม ${mus ?? parsed.burn}`,
+        status: `+${added} ท่า · รวม ${mus ?? 0} kcal`,
         fullRender: true,
       });
       if (els.calorieQuickInput) els.calorieQuickInput.value = '';
@@ -8737,13 +8816,16 @@ async function init({ fromBoot = false } = {}) {
   });
   els.calorieQuickOk?.addEventListener('click', submitCalorieQuick);
   els.calorieQuickInput?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      submitCalorieQuick();
-    } else if (e.key === 'Escape') {
+    if (e.key === 'Escape') {
       e.preventDefault();
       closeCalorieQuick();
+      return;
     }
+    if (e.key !== 'Enter') return;
+    // Exercise multiline: Enter = new line · Ctrl/Cmd+Enter = submit
+    if (calorieQuickMode === 'mus' && !e.metaKey && !e.ctrlKey) return;
+    e.preventDefault();
+    submitCalorieQuick();
   });
   els.calorieBodyCancel?.addEventListener('click', closeCalorieBodyQuick);
   els.calorieBodyBackdrop?.addEventListener('click', closeCalorieBodyQuick);
@@ -8791,6 +8873,12 @@ async function init({ fromBoot = false } = {}) {
     persistCalorieTonesFromUi({ reset: true });
   });
   els.calorieQuickFreq?.addEventListener('click', (e) => {
+    const pose = e.target?.closest?.('[data-pose-name]');
+    if (pose && els.calorieQuickFreq.contains(pose)) {
+      e.preventDefault();
+      insertExercisePoseName(pose.dataset.poseName || '');
+      return;
+    }
     const chip = e.target?.closest?.('[data-freq-text]');
     if (!chip || !els.calorieQuickFreq.contains(chip)) return;
     e.preventDefault();

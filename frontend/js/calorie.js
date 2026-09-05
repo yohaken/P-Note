@@ -178,33 +178,61 @@ export function renderExerciseTableHtml(day) {
   return `<div class="cal-exercise-fit${scroll}" data-cal-exercise-day="${dayId}" role="button" tabindex="-1" aria-label="แก้ท่า ${esc(full)}" title="${esc(editHint)}">${chips}</div>`;
 }
 
-/** Quick-edit sheet text from exercise slots. */
+/** Quick-edit sheet text from exercise slots (label,kcal per line). */
 export function formatExercisesForEdit(day) {
   const cells = normalizeExercises(day?.exercises);
   if (!cells.length) {
     const mus = Number.isFinite(day?.mus) && day.mus > 0 ? Math.round(day.mus) : null;
     const note = String(day?.note || '').trim();
-    if (mus && note) return `${note} ${mus}`;
+    if (mus && note) return `${note},${mus}`;
     if (mus) return String(mus);
     return '';
   }
   return cells
     .map((cell) => {
       const p = parseExerciseCell(cell);
-      return p.label ? `${p.label} ${p.burn}` : String(p.burn);
+      return p.label ? `${p.label},${p.burn}` : String(p.burn);
     })
-    .join(' · ');
+    .join('\n');
 }
 
-/** Parse "อก 120 · ไหล 80" (or single entry) into exercise cells. */
-export function parseExerciseList(text) {
+/**
+ * Parse exercise list text into stored cells.
+ * Accepts:
+ * - multiline "ท่า,แคล" (preferred)
+ * - "อก 120 · ไหล 80"
+ * - single "อก 120" / "150"
+ */
+export function parseExerciseList(text, { maxItems = MAX_EXERCISE_SLOTS } = {}) {
   const s = String(text || '').trim();
   if (!s) return [];
-  const parts = s.includes('·')
-    ? s.split(/\s*·\s*/).map((x) => x.trim()).filter(Boolean)
-    : [s];
+  let parts = s.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  if (parts.length === 1 && /·/.test(parts[0])) {
+    parts = parts[0].split(/\s*·\s*/).map((x) => x.trim()).filter(Boolean);
+  }
   const out = [];
   for (const part of parts) {
+    if (out.length >= maxItems) break;
+    // Preferred: "ท่า,แคล"
+    const labelFirst = part.match(/^(.+?)\s*,\s*(\d+)\s*$/);
+    if (labelFirst && !/^\d+$/.test(labelFirst[1].trim())) {
+      const label = labelFirst[1].trim().slice(0, 40);
+      const burn = Number(labelFirst[2]);
+      if (label && Number.isInteger(burn) && burn > 0) {
+        out.push(formatExerciseCell(burn, label));
+        continue;
+      }
+    }
+    // Storage / alt: "แคล,ท่า"
+    const burnFirst = part.match(/^(\d+)\s*,\s*(.*)$/);
+    if (burnFirst) {
+      const burn = Number(burnFirst[1]);
+      const label = String(burnFirst[2] || '').trim().slice(0, 40);
+      if (Number.isInteger(burn) && burn > 0) {
+        out.push(formatExerciseCell(burn, label || `ออกกำลัง ${burn}`));
+        continue;
+      }
+    }
     const parsed = parseQuickExercise(part);
     if (!parsed) continue;
     out.push(formatExerciseCell(parsed.burn, parsed.label));
@@ -326,31 +354,80 @@ export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date())) 
 
 /** Append one muscle-group burn slot; mus = sum of all slots (separate from meals/note). */
 export function appendQuickExercise(calorie, text, dateKey = toDateKey(new Date())) {
-  const parsed = parseQuickExercise(text);
-  if (!parsed) {
-    const err = new Error('ใส่ออกกำลัง + แคล เช่น ไหล่ 150 หรือ คาร์ดิโอ 200');
+  const { sheet, parsed, mus, exercises, dayId } = appendQuickExercises(calorie, text, dateKey);
+  return { sheet, parsed, mus, exercises, dayId };
+}
+
+/** Max poses accepted in one quick-add submit. */
+export const QUICK_EXERCISE_BATCH = 3;
+
+/**
+ * Append up to 3 poses from multiline "ท่า,แคล" (or legacy formats).
+ * @returns {{ sheet, parsed, dayId, exercises, mus, added }}
+ */
+export function appendQuickExercises(calorie, text, dateKey = toDateKey(new Date())) {
+  const cells = parseExerciseList(text, { maxItems: QUICK_EXERCISE_BATCH });
+  if (!cells.length) {
+    const err = new Error('ใส่ท่า,แคล ได้สูงสุด 3 บรรทัด เช่น\nอก,120\nไหล,80');
     err.code = 'bad_exercise';
     throw err;
   }
+  const rawParts = String(text || '').trim().split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  const sepParts = rawParts.length === 1 && /·/.test(rawParts[0])
+    ? rawParts[0].split(/\s*·\s*/).map((x) => x.trim()).filter(Boolean)
+    : rawParts;
+  if (sepParts.length > QUICK_EXERCISE_BATCH) {
+    const err = new Error(`บันทึกได้ทีละ ${QUICK_EXERCISE_BATCH} ท่า · เหลือให้เพิ่มรอบถัดไป`);
+    err.code = 'batch_full';
+    throw err;
+  }
   const { sheet, day } = ensureDay(calorie, dateKey);
-  const exercises = [...normalizeExercises(day.exercises)];
-  if (exercises.length >= MAX_EXERCISE_SLOTS) {
+  let exercises = [...normalizeExercises(day.exercises)];
+  const room = MAX_EXERCISE_SLOTS - exercises.length;
+  if (room <= 0) {
     const err = new Error(`ออกกำลังครบ ${MAX_EXERCISE_SLOTS} รายการต่อวันแล้ว`);
     err.code = 'exercises_full';
     throw err;
   }
-  exercises.push(formatExerciseCell(parsed.burn, parsed.label));
+  const toAdd = cells.slice(0, room);
+  exercises = normalizeExercises([...exercises, ...toAdd]);
   const mus = sumExerciseBurn(exercises) || null;
-  const textKey = String(text || '').trim().slice(0, 48);
   let next = patchDay(sheet, day.id, { exercises, mus });
-  next = recordFrequent(next, 'mus', textKey, parsed);
+  toAdd.forEach((cell) => {
+    const p = parseExerciseCell(cell);
+    const key = p.label || String(p.burn);
+    next = recordFrequent(next, 'mus', key, p);
+  });
+  const parsed = parseExerciseCell(toAdd[0]);
   return {
     sheet: next,
-    parsed,
+    parsed: { burn: parsed.burn, label: parsed.label },
     dayId: day.id,
     exercises,
     mus,
+    added: toAdd.length,
   };
+}
+
+/**
+ * Pose names previously logged (for suggestion chips — reduce typo → new pose).
+ * @returns {{ label: string, count: number }[]}
+ */
+export function listExercisePoseNames(calorie, limit = 12) {
+  const sheet = normalizeCalorie(calorie);
+  const counts = new Map();
+  sheet.days.forEach((day) => {
+    normalizeExercises(day.exercises).forEach((cell) => {
+      const p = parseExerciseCell(cell);
+      const label = String(p.label || '').trim().slice(0, 40);
+      if (!label || looksLikeMealFragment(label)) return;
+      counts.set(label, (counts.get(label) || 0) + 1);
+    });
+  });
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'th'))
+    .slice(0, Math.max(1, limit))
+    .map(([label, count]) => ({ label, count }));
 }
 
 /** YYYY-MM-DD in local timezone. */
