@@ -4423,6 +4423,11 @@ body.light .notify-field input[type='number'] {
   transition: opacity 0.15s ease;
 }
 
+.sync-saved-overlay.is-busy {
+  pointer-events: auto;
+  background: rgba(20, 32, 24, 0.38);
+}
+
 .sync-saved-overlay[hidden] {
   display: none !important;
   opacity: 0;

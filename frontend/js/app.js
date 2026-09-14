@@ -116,7 +116,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=259';
+} from './calorie.js?v=260';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -948,6 +948,7 @@ function startSyncRetryLoop() {
  */
 let syncToastArmed = false;
 let syncToastLastShownAt = 0;
+let syncPopupMode = null; // 'busy' | 'done' | null
 const SYNC_TOAST_COOLDOWN_MS = 2500;
 
 function armSyncToast() {
@@ -959,31 +960,56 @@ function hideSyncSavedPopup() {
     clearTimeout(syncSavedTimer);
     syncSavedTimer = null;
   }
+  syncPopupMode = null;
   if (!els.syncSavedOverlay) return;
   els.syncSavedOverlay.hidden = true;
   els.syncSavedOverlay.setAttribute('hidden', '');
+  els.syncSavedOverlay.classList.remove('is-busy');
 }
 
-/** Brief 「อัปเดตแล้ว」 — never sticky; ignores background/echo saves. */
-function showSyncSavedPopup(message = 'อัปเดตแล้ว') {
+/** Sticky sync popup while reading/writing Firestore (cloud-first). */
+function showSyncBusyPopup(message = 'กำลังซิงค์คลาวด์…') {
   if (!els.syncSavedOverlay || !els.syncSavedMsg) return;
-  if (!syncToastArmed) return;
+  if (syncSavedTimer) {
+    clearTimeout(syncSavedTimer);
+    syncSavedTimer = null;
+  }
+  syncPopupMode = 'busy';
+  els.syncSavedMsg.textContent = message;
+  els.syncSavedOverlay.classList.add('is-busy');
+  els.syncSavedOverlay.hidden = false;
+  els.syncSavedOverlay.removeAttribute('hidden');
+}
+
+/**
+ * Brief confirm after Firestore read/write.
+ * @param {{ force?: boolean }} opts force=true skips the user-gesture arm (e.g. after open sync).
+ */
+function showSyncSavedPopup(message = 'อัปเดตแล้ว', { force = false } = {}) {
+  if (!els.syncSavedOverlay || !els.syncSavedMsg) return;
+  if (!force && !syncToastArmed && syncPopupMode !== 'busy') return;
   const now = Date.now();
-  // Already visible or just shown — don't bounce again.
-  if (!els.syncSavedOverlay.hidden || now - syncToastLastShownAt < SYNC_TOAST_COOLDOWN_MS) {
+  // Cooldown only for repeated done toasts — busy→done always allowed.
+  if (
+    syncPopupMode !== 'busy'
+    && !els.syncSavedOverlay.hidden
+    && now - syncToastLastShownAt < SYNC_TOAST_COOLDOWN_MS
+  ) {
     syncToastArmed = false;
     return;
   }
   syncToastArmed = false;
+  syncPopupMode = 'done';
   syncToastLastShownAt = now;
   els.syncSavedMsg.textContent = message;
+  els.syncSavedOverlay.classList.remove('is-busy');
   els.syncSavedOverlay.hidden = false;
   els.syncSavedOverlay.removeAttribute('hidden');
   if (syncSavedTimer) clearTimeout(syncSavedTimer);
   syncSavedTimer = setTimeout(() => {
     syncSavedTimer = null;
     hideSyncSavedPopup();
-  }, 1000);
+  }, 1100);
 }
 
 /** Block user edits until cloud sync is ready; show waiting popup. */
@@ -991,17 +1017,16 @@ function requireSyncReady() {
   if (isSyncReady()) return true;
   refreshSyncGateUi();
   if (state.authUser && !spaceSyncInFlight && navigator.onLine) {
-    void ensureCloudReady({ force: true, announce: true });
+    void ensureCloudReady({ force: true, announce: true, gateAlways: true });
   }
   return false;
 }
 
 /**
- * Pull/merge cloud in the background. Unlocks edits as soon as local data
- * exists (or after first pull on an empty device). Does not block the UI
- * for routine warm syncs — transactional merge keeps multi-device safe.
+ * Cloud-first: pull/merge Firestore before unlock when online.
+ * Shows sync gate while reading; optional done popup after.
  */
-async function ensureCloudReady({ force = true, announce = true } = {}) {
+async function ensureCloudReady({ force = true, announce = true, gateAlways = false } = {}) {
   if (ensureCloudReadyInFlight) return ensureCloudReadyInFlight;
   ensureCloudReadyInFlight = (async () => {
     if (!state.authUser) {
@@ -1011,7 +1036,7 @@ async function ensureCloudReady({ force = true, announce = true } = {}) {
 
     if (!navigator.onLine) {
       state.online = false;
-      if (needsSyncGate()) {
+      if (needsSyncGate() || gateAlways) {
         setSyncReady(false);
         setSyncStatus('offline', 'รอซิงค์…');
         showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
@@ -1023,8 +1048,11 @@ async function ensureCloudReady({ force = true, announce = true } = {}) {
       return true;
     }
 
-    if (needsSyncGate()) {
-      showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
+    const showGate = needsSyncGate() || gateAlways;
+    if (showGate) {
+      // Block edits while cloud is the source of truth for this open/return.
+      if (gateAlways && state.cloudHydrated) setSyncReady(false);
+      showSyncGate('กำลังซิงค์…', 'ดึงข้อมูลจากคลาวด์');
       setSyncStatus('busy', 'กำลังซิงค์…');
     } else if (announce) {
       setSyncStatus('busy', 'กำลังซิงค์…');
@@ -1040,17 +1068,24 @@ async function ensureCloudReady({ force = true, announce = true } = {}) {
     if (state.authUser && state.cloudHydrated) {
       setSyncReady(true);
       hideSyncGate();
+      if (announce || gateAlways) {
+        showSyncSavedPopup('ซิงค์แล้ว', { force: true });
+      } else {
+        hideSyncSavedPopup();
+      }
       return true;
     }
 
     if (state.authUser && !navigator.onLine) {
       setSyncReady(true);
       hideSyncGate();
+      hideSyncSavedPopup();
       return true;
     }
 
     setSyncReady(false);
     setSyncStatus('offline', 'รอซิงค์…');
+    hideSyncSavedPopup();
     refreshSyncGateUi();
     return false;
   })();
@@ -1858,18 +1893,14 @@ function calorieProfileChanged(before, after) {
 }
 
 /**
- * Immediate local save for Settings profile/goals.
- * Shows a brief popup from local disk write (ไม่รอ Firestore) so ส่วนสูงฯ ไม่เงียบ.
+ * Save Settings profile/goals — Firestore is source of truth.
+ * Popup confirms after cloud write (onCloudSaved), not local disk alone.
  */
 function flushCalorieProfileFromUi({ status = '', force = false } = {}) {
   const sheet = ensureCaloriePayload();
   const next = readCalorieProfileFromUi(sheet);
   if (!force && !calorieProfileChanged(sheet, next)) return false;
-  const msg = status || 'บันทึกโปรไฟล์ในเครื่องแล้ว';
-  // Quiet persist — confirm via local popup below (ไม่รอ cloud).
-  persistCalorie(next, { status: '', fullRender: true, immediate: true });
-  armSyncToast();
-  showSyncSavedPopup(msg);
+  persistCalorie(next, { status: status || '', fullRender: true, immediate: true });
   return true;
 }
 
@@ -6275,7 +6306,7 @@ function closeSettings() {
   persistAiProfileFromUi();
   persistCameraSettingsFromUi();
   // Number inputs may not have fired `change` yet — flush profile before hide.
-  flushCalorieProfileFromUi({ status: 'บันทึกโปรไฟล์ในเครื่องแล้ว' });
+  flushCalorieProfileFromUi({ status: '' });
   els.settingsOverlay.hidden = true;
 }
 
@@ -8399,7 +8430,7 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
 }
 
 async function bootstrapData() {
-  // Local-first: paint from device cache immediately, then auth + Firestore.
+  // Cloud-first: paint local cache as shell, then block until Firestore sync.
   try {
     state.spaceId = getSpaceId();
     state.settings = loadSettings();
@@ -8419,27 +8450,32 @@ async function bootstrapData() {
         if (!state.authUser) {
           throw new Error('Not signed in');
         }
-        // Wait for first cloud pull when this device is empty — otherwise
-        // transactional merge is enough and edits stay unlocked.
+        // Online: never push until first cloud pull finished.
         if (navigator.onLine && !state.cloudHydrated) {
           throw new Error('Sync not ready');
         }
         return safePushRemote(data);
       },
       onCloudBatchStart: () => {
-        // Background sync — no blocking/sticky popup while the queue runs.
+        // User-armed saves show Firestore write progress.
+        if (syncToastArmed) {
+          showSyncBusyPopup('กำลังบันทึกคลาวด์…');
+        }
       },
       onCloudSaved: () => {
-        // Brief toast only when a user gesture armed it (not watch/re-push loops).
         if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว');
         else hideSyncSavedPopup();
         setDbStatusMessage('พร้อมใส่ข้อมูล');
       },
       onCloudFailed: () => {
-        hideSyncSavedPopup();
+        if (syncToastArmed || syncPopupMode === 'busy') {
+          showSyncSavedPopup('ซิงค์ไม่สำเร็จ', { force: true });
+        } else {
+          hideSyncSavedPopup();
+        }
         state.online = false;
         markCloudPending();
-        setSyncStatus('offline', 'ซิงค์ไม่สำเร็จ · บันทึกในเครื่องแล้ว');
+        setSyncStatus('offline', 'ซิงค์ไม่สำเร็จ · เก็บในเครื่องชั่วคราว');
         hideSyncGate();
         startCloudPendingRetry();
         if (state.authUser && !state.cloudHydrated) startSyncRetryLoop();
@@ -8467,7 +8503,7 @@ async function bootstrapData() {
       const first = !state.authUser;
       onSignedIn(nextUser);
       if (first) {
-        void ensureCloudReady({ force: true, announce: true });
+        void ensureCloudReady({ force: true, announce: true, gateAlways: true });
       }
     });
 
@@ -8476,7 +8512,7 @@ async function bootstrapData() {
       return;
     }
 
-    await ensureCloudReady({ force: true, announce: true });
+    await ensureCloudReady({ force: true, announce: true, gateAlways: true });
     if (isCloudPending()) startCloudPendingRetry();
   } catch (err) {
     console.warn('bootstrap failed', err);
@@ -8859,7 +8895,7 @@ async function init({ fromBoot = false } = {}) {
   els.calorieBodyWeight?.addEventListener('keydown', onBodyFieldKey);
   els.calorieBodyWaist?.addEventListener('keydown', onBodyFieldKey);
   const onCalorieProfileChange = () => {
-    flushCalorieProfileFromUi({ status: 'บันทึกโปรไฟล์ในเครื่องแล้ว' });
+    flushCalorieProfileFromUi({ status: '' });
   };
   const profileInputs = [
     els.calorieProteinFactor,
@@ -9571,28 +9607,27 @@ async function init({ fromBoot = false } = {}) {
     if (document.visibilityState !== 'visible') return;
     refreshNoteNotifications();
     if (!state.authUser) return;
-    if (needsSyncGate()) {
-      void ensureCloudReady({ force: true, announce: true });
+    // Cloud-first: every return to the app re-syncs Firestore with popup.
+    if (!navigator.onLine) {
+      setSyncStatus('offline', 'ออฟไลน์ · รอเชื่อมใหม่');
+      if (needsSyncGate()) {
+        showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
+      }
       return;
     }
-    // Update instantly on return, then keep the fast poll running.
-    void pollRemoteNow();
-    // Soft re-warm when returning (keep ready; refresh remote quietly).
-    void syncSpaceInBackground({ force: false, announce: false }).then((changed) => {
-      if (changed) setDbStatusMessage('ซิงค์ล่าสุดแล้ว');
-    });
+    void ensureCloudReady({ force: true, announce: true, gateAlways: true });
   });
   window.addEventListener('pageshow', () => refreshNoteNotifications());
   window.addEventListener('focus', () => refreshNoteNotifications());
   window.addEventListener('online', () => {
     refreshNoteNotifications();
     if (!state.authUser) return;
-    void ensureCloudReady({ force: true, announce: false });
+    void ensureCloudReady({ force: true, announce: true, gateAlways: true });
   });
   window.addEventListener('offline', () => {
     state.online = false;
-    setSyncStatus('offline', 'ออฟไลน์ · บันทึกในเครื่อง');
-    // Keep editing unlocked when local data exists.
+    setSyncStatus('offline', 'ออฟไลน์ · เก็บในเครื่องชั่วคราว');
+    // Keep editing unlocked when already hydrated; otherwise wait for cloud.
     if (needsSyncGate()) {
       setSyncReady(false);
       showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
