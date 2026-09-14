@@ -2249,14 +2249,18 @@ export function renderHomeDashHtml(snap, pins, opts = {}) {
   const grid = list.length
     ? `<div class="cd-pin-grid">${cards}</div>`
     : `<p class="cd-pin-empty">แตะกล่องในหน้าสรุป → ส่งไปหน้าแรก<br>วางได้เรื่อยๆ · แถวละ 2 กล่อง · sync คลาวด์</p>`;
+  const logged = snap?.trends?.logged;
   const rangeLabel = snap?.trends
     ? `${snap.trends.startLabel}–${snap.trends.endLabel}`
     : rangeMeta.label;
+  const loggedLabel = Number.isFinite(logged)
+    ? ` · ${logged} วันที่มีบันทึก`
+    : '';
   return `
     <div class="cd-head">
       <div class="cd-head-text">
         <span class="cd-title">แนวโน้ม</span>
-        <span class="cd-sub cd-range-sub">${esc(rangeLabel)}${list.length ? ` · ${list.length} กล่อง` : ''}</span>
+        <span class="cd-sub cd-range-sub">${esc(rangeLabel)}${esc(loggedLabel)}${list.length ? ` · ${list.length} กล่อง` : ''}</span>
       </div>
       <button type="button" class="cd-range-toggle" data-cd-range-toggle="1" aria-expanded="${rangeOpen ? 'true' : 'false'}" title="เปลี่ยนช่วงเวลา">
         ${esc(rangeMeta.label)} <span aria-hidden="true">${rangeOpen ? '▴' : '▾'}</span>
@@ -2531,10 +2535,13 @@ export function renderHealthSheetHtml(snap) {
       </div>
     </section>`;
 
+  const headLogged = t && Number.isFinite(t.logged)
+    ? ` · ข้อมูล ${t.logged}/${t.dayCount || activeDays} วัน`
+    : '';
   return `
     <header class="chs-head">
       <h2 class="chs-title">สรุปสุขภาพ</h2>
-      <p class="chs-sub">แตะท่าที่เล่น/เบิร์นเพื่อแก้วันนี้ · กดค้างกล่องเพื่อส่งหน้าแรก</p>
+      <p class="chs-sub">แตะท่าที่เล่น/เบิร์นเพื่อแก้วันนี้ · กดค้างกล่องเพื่อส่งหน้าแรก${esc(headLogged)}</p>
       <div class="chs-range" role="toolbar" aria-label="ช่วงเวลากราฟ">${rangeChips}</div>
     </header>
     ${goalBlock}
@@ -2895,14 +2902,36 @@ function mergeDayFields(a, b) {
 }
 
 /**
- * Pick sheet meta (height/sex/goals/factors) by the newer profile stamp so
+ * Pick sheet meta (height/sex/goals/factors) by the newer *profile* stamp so
  * meal/day edits on the other device can't clobber these choices.
+ *
+ * Critical: never fall back to calorie.updatedAt for this comparison — a
+ * newer meal push with empty profileAt used to win and reset height to the
+ * other side's defaults (felt like "ส่วนสูงหาย").
  */
 function pickMeta(local, remote) {
-  const lAt = new Date(local.profileAt || local.updatedAt || 0).getTime();
-  const rAt = new Date(remote.profileAt || remote.updatedAt || 0).getTime();
-  if (rAt > lAt) return remote;
-  return local;
+  const lAt = Date.parse(String(local.profileAt || '').trim()) || 0;
+  const rAt = Date.parse(String(remote.profileAt || '').trim()) || 0;
+  const profile = rAt > lAt ? remote : local;
+  // Frequent lists follow meal/exercise activity (sheet updatedAt), not profile.
+  const lUp = Date.parse(String(local.updatedAt || '').trim()) || 0;
+  const rUp = Date.parse(String(remote.updatedAt || '').trim()) || 0;
+  const freqSrc = rUp > lUp ? remote : local;
+  return {
+    ...profile,
+    proteinFactor: profile.proteinFactor,
+    kcalPerKg: profile.kcalPerKg,
+    defaultBase: profile.defaultBase,
+    heightCm: profile.heightCm,
+    birthDate: profile.birthDate,
+    age: profile.age,
+    sex: profile.sex,
+    goalWaistCm: profile.goalWaistCm,
+    goalWeightKg: profile.goalWeightKg,
+    profileAt: newerStampIso(local.profileAt, remote.profileAt) || profile.profileAt || '',
+    freqMeals: freqSrc.freqMeals,
+    freqMus: freqSrc.freqMus,
+  };
 }
 
 export function formatSigned(n, digits = 0) {

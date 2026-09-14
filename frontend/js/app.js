@@ -116,7 +116,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=258';
+} from './calorie.js?v=259';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -1818,20 +1818,26 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
   else refreshCalorieDerived();
 }
 
-/** Read body-profile / goals from Settings inputs (null = unchanged / invalid skip). */
+/** Read body-profile / goals from Settings inputs (invalid/empty = keep sheet). */
 function readCalorieProfileFromUi(sheet) {
-  const pf = Number(els.calorieProteinFactor?.value);
-  const height = Number(els.calorieHeight?.value);
+  const pfRaw = String(els.calorieProteinFactor?.value || '').trim();
+  const heightRaw = String(els.calorieHeight?.value || '').trim();
+  const pf = pfRaw === '' ? NaN : Number(pfRaw);
+  const height = heightRaw === '' ? NaN : Number(heightRaw);
   const birthDate = String(els.calorieBirthdate?.value || '').trim();
   const sex = els.calorieSex?.value === 'female' ? 'female' : 'male';
   const goalWaistRaw = String(els.calorieGoalWaist?.value || '').trim();
   const goalWeightRaw = String(els.calorieGoalWeight?.value || '').trim();
   const goalWaistCm = goalWaistRaw === '' ? null : Number(goalWaistRaw);
   const goalWeightKg = goalWeightRaw === '' ? null : Number(goalWeightRaw);
+  // Empty number inputs must not coerce to 0 and clamp back to defaults
+  // (that looked like ส่วนสูง/เป้า "หาย").
+  const heightOk = Number.isFinite(height) && height >= 100 && height <= 250;
+  const pfOk = Number.isFinite(pf) && pf >= 0.5 && pf <= 4;
   return {
     ...sheet,
-    proteinFactor: Number.isFinite(pf) ? pf : sheet.proteinFactor,
-    heightCm: Number.isFinite(height) ? height : sheet.heightCm,
+    proteinFactor: pfOk ? pf : sheet.proteinFactor,
+    heightCm: heightOk ? height : sheet.heightCm,
     birthDate: /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? birthDate : sheet.birthDate,
     sex,
     goalWaistCm: goalWaistRaw === '' || !Number.isFinite(goalWaistCm) ? null : goalWaistCm,
@@ -1851,12 +1857,19 @@ function calorieProfileChanged(before, after) {
   );
 }
 
-/** Immediate local + cloud save for Settings profile/goals. */
+/**
+ * Immediate local save for Settings profile/goals.
+ * Shows a brief popup from local disk write (ไม่รอ Firestore) so ส่วนสูงฯ ไม่เงียบ.
+ */
 function flushCalorieProfileFromUi({ status = '', force = false } = {}) {
   const sheet = ensureCaloriePayload();
   const next = readCalorieProfileFromUi(sheet);
   if (!force && !calorieProfileChanged(sheet, next)) return false;
-  persistCalorie(next, { status, fullRender: true, immediate: true });
+  const msg = status || 'บันทึกโปรไฟล์ในเครื่องแล้ว';
+  // Quiet persist — confirm via local popup below (ไม่รอ cloud).
+  persistCalorie(next, { status: '', fullRender: true, immediate: true });
+  armSyncToast();
+  showSyncSavedPopup(msg);
   return true;
 }
 
@@ -6262,7 +6275,7 @@ function closeSettings() {
   persistAiProfileFromUi();
   persistCameraSettingsFromUi();
   // Number inputs may not have fired `change` yet — flush profile before hide.
-  flushCalorieProfileFromUi({ status: '' });
+  flushCalorieProfileFromUi({ status: 'บันทึกโปรไฟล์ในเครื่องแล้ว' });
   els.settingsOverlay.hidden = true;
 }
 
@@ -8846,7 +8859,7 @@ async function init({ fromBoot = false } = {}) {
   els.calorieBodyWeight?.addEventListener('keydown', onBodyFieldKey);
   els.calorieBodyWaist?.addEventListener('keydown', onBodyFieldKey);
   const onCalorieProfileChange = () => {
-    flushCalorieProfileFromUi({ status: '' });
+    flushCalorieProfileFromUi({ status: 'บันทึกโปรไฟล์ในเครื่องแล้ว' });
   };
   const profileInputs = [
     els.calorieProteinFactor,
