@@ -116,7 +116,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=260';
+} from './calorie.js?v=261';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -715,7 +715,7 @@ function hideSyncGate() {
   document.body.classList.remove('sync-gated');
 }
 
-function showSyncGate(title = 'กำลังซิงค์…', sub = 'รอข้อมูลพร้อมก่อนใส่') {
+function showSyncGate(title = 'กำลังซิงค์…', sub = 'รอซิงค์สำเร็จก่อนใส่ข้อมูล') {
   if (els.authOverlay && !els.authOverlay.hidden) {
     hideSyncGate();
     return;
@@ -723,7 +723,10 @@ function showSyncGate(title = 'กำลังซิงค์…', sub = 'รอ
   hideSyncSavedPopup();
   if (els.syncGateTitle) els.syncGateTitle.textContent = title;
   if (els.syncGateSub) els.syncGateSub.textContent = sub;
-  if (els.syncGateOverlay) els.syncGateOverlay.hidden = false;
+  if (els.syncGateOverlay) {
+    els.syncGateOverlay.hidden = false;
+    els.syncGateOverlay.removeAttribute('hidden');
+  }
   document.body.classList.add('sync-gated');
 }
 
@@ -736,19 +739,15 @@ function refreshSyncGateUi() {
     hideSyncGate();
     return;
   }
+  // Cloud-first: anything not ready stays gated with blur + popup.
   if (isSyncReady()) {
     hideSyncGate();
     return;
   }
-  // Online first-pull blocks the UI until cloud hydrates.
-  if (needsSyncGate()) {
-    showSyncGate(
-      navigator.onLine ? 'กำลังซิงค์…' : 'รอซิงค์…',
-      navigator.onLine ? 'รอข้อมูลพร้อมก่อนใส่' : 'ไม่มีเน็ต · รอเชื่อมใหม่',
-    );
-    return;
-  }
-  hideSyncGate();
+  showSyncGate(
+    navigator.onLine ? 'กำลังซิงค์…' : 'รอซิงค์…',
+    navigator.onLine ? 'รอซิงค์สำเร็จก่อนใส่ข้อมูล' : 'ไม่มีเน็ต · รอเชื่อมใหม่',
+  );
 }
 
 let stopRemoteWatch = null;
@@ -1048,11 +1047,11 @@ async function ensureCloudReady({ force = true, announce = true, gateAlways = fa
       return true;
     }
 
-    const showGate = needsSyncGate() || gateAlways;
+    const showGate = needsSyncGate() || gateAlways || !isSyncReady();
     if (showGate) {
       // Block edits while cloud is the source of truth for this open/return.
-      if (gateAlways && state.cloudHydrated) setSyncReady(false);
-      showSyncGate('กำลังซิงค์…', 'ดึงข้อมูลจากคลาวด์');
+      setSyncReady(false);
+      showSyncGate('กำลังซิงค์…', 'รอซิงค์สำเร็จก่อนใส่ข้อมูล');
       setSyncStatus('busy', 'กำลังซิงค์…');
     } else if (announce) {
       setSyncStatus('busy', 'กำลังซิงค์…');
@@ -8401,7 +8400,7 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
     try {
       if (announce) {
         setSyncStatus('busy', 'กำลังซิงค์…');
-        if (needsSyncGate()) showSyncGate('กำลังซิงค์…', 'รอข้อมูลพร้อมก่อนใส่');
+        if (needsSyncGate()) showSyncGate('กำลังซิงค์…', 'รอซิงค์สำเร็จก่อนใส่ข้อมูล');
         else hideSyncGate();
       }
       const prevMerge = await mergePreviousDeviceSpace(state.notesData);
@@ -8486,6 +8485,8 @@ async function bootstrapData() {
     setLoading(false);
     refreshAuthAccountHint();
     setSyncReady(false);
+    // Popup immediately — blur + block until Firestore sync succeeds.
+    showSyncGate('กำลังซิงค์…', 'รอซิงค์สำเร็จก่อนใส่ข้อมูล');
 
     const user = await requireCloudAuth();
     watchAuth((nextUser) => {

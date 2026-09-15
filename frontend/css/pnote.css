@@ -4373,7 +4373,9 @@ body.light .notify-field input[type='number'] {
     max(1rem, env(safe-area-inset-right, 0px))
     max(1rem, env(safe-area-inset-bottom, 0px))
     max(1rem, env(safe-area-inset-left, 0px));
-  background: rgba(20, 32, 24, 0.42);
+  background: rgba(20, 32, 24, 0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
@@ -4461,6 +4463,8 @@ body.light .notify-field input[type='number'] {
 body.sync-gated #app {
   pointer-events: none;
   user-select: none;
+  filter: blur(4px);
+  transition: filter 0.12s ease;
 }
 
 .auth-panel {
@@ -8427,14 +8431,26 @@ body.calorie-health-pane #dock-calorie-health-btn {
 
 .calorie-quick-actions {
   display: flex;
-  gap: 0.45rem;
-  justify-content: flex-end;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
-  margin-top: 0.15rem;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0 0.1rem;
+}
+
+.calorie-quick-actions .btn {
+  min-width: 5.25rem;
+}
+
+.calorie-quick-actions .btn-primary {
+  min-width: 7.25rem;
+  padding-left: 1.15rem;
+  padding-right: 1.15rem;
 }
 
 .calorie-quick-actions #calorie-quick-clear {
-  margin-right: auto;
+  margin-right: 0;
   color: #b91c1c;
   border-color: color-mix(in srgb, #b91c1c 35%, var(--border));
 }

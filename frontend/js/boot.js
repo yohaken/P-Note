@@ -1,9 +1,21 @@
 /**
  * Calorie-first entry — paint the calorie shell ASAP, then hydrate full app.
  */
-import { paintListFromLocal } from './list-paint.js?v=260';
+import { paintListFromLocal } from './list-paint.js?v=261';
 
 document.documentElement.dataset.pnoteBoot = '1';
+
+function showBootSyncGate() {
+  document.body.classList.add('sync-gated');
+  const gate = document.getElementById('sync-gate-overlay');
+  if (!gate) return;
+  gate.hidden = false;
+  gate.removeAttribute('hidden');
+  const title = document.getElementById('sync-gate-title');
+  const sub = document.getElementById('sync-gate-sub');
+  if (title) title.textContent = 'กำลังซิงค์…';
+  if (sub) sub.textContent = 'รอซิงค์สำเร็จก่อนใส่ข้อมูล';
+}
 
 try {
   paintListFromLocal();
@@ -20,8 +32,11 @@ try {
   if (loading) loading.hidden = true;
 }
 
+// Gate ASAP so user cannot edit before cloud sync (blur + popup).
+showBootSyncGate();
+
 // Full app (interactions, sync, settings) after first paint.
-import('./app.js?v=260')
+import('./app.js?v=261')
   .then((m) => {
     if (typeof m.hydrateApp === 'function') return m.hydrateApp();
     return undefined;
