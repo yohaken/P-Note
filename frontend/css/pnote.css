@@ -8345,7 +8345,7 @@ body.calorie-health-pane #dock-calorie-health-btn {
 .calorie-quick-freq {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
   margin: 0;
 }
 
@@ -8357,6 +8357,18 @@ body.calorie-health-pane #dock-calorie-health-btn {
   display: flex;
   flex-wrap: wrap;
   gap: 0.28rem;
+}
+
+.cq-freq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+@media (min-width: 420px) {
+  .cq-freq-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .cq-pose-chip {
@@ -8382,18 +8394,20 @@ body.calorie-health-pane #dock-calorie-health-btn {
 .cq-freq-chip {
   appearance: none;
   border: 1px solid var(--border);
-  background: var(--surface-2, #f3f7f4);
+  background: #fff;
   color: var(--text);
   font: inherit;
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  line-height: 1.2;
-  padding: 0.28rem 0.45rem;
-  border-radius: 999px;
-  max-width: 100%;
+  line-height: 1.25;
+  padding: 0.48rem 0.4rem;
+  border-radius: 10px;
+  width: 100%;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;

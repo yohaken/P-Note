@@ -116,7 +116,7 @@ import {
   toDateKey,
   topFrequent,
   totalsForMonth,
-} from './calorie.js?v=261';
+} from './calorie.js?v=262';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -2569,6 +2569,9 @@ function paintCalorieQuickFreq() {
   const wrap = els.calorieQuickFreq;
   if (!wrap) return;
   const sheet = ensureCaloriePayload();
+  const freqChip = (item) =>
+    `<button type="button" class="cq-freq-chip" data-freq-text="${escAttr(item.text)}" title="${escAttr(item.text)}${item.count ? ` · ${item.count} ครั้ง` : ''}">${escapeHtml(String(item.label || item.text).slice(0, 22))}</button>`;
+
   if (calorieQuickMode === 'mus') {
     const poses = listExercisePoseNames(sheet, 12);
     const freq = topFrequent(sheet, 'mus');
@@ -2581,17 +2584,11 @@ function paintCalorieQuickFreq() {
     const poseHtml = poses
       .map(
         (item) =>
-          `<button type="button" class="cq-freq-chip cq-pose-chip" data-pose-name="${escAttr(item.label)}" title="ใช้ชื่อท่านี้ · แล้วใส่แคล">${escapeHtml(item.label)}</button>`,
+          `<button type="button" class="cq-freq-chip cq-pose-chip" data-pose-name="${escAttr(item.label)}" title="ใช้ชื่อท่านี้ · แล้วใส่แคล${item.count ? ` · ${item.count} ครั้ง` : ''}">${escapeHtml(item.label)}</button>`,
       )
       .join('');
-    const freqHtml = freq
-      .slice(0, 4)
-      .map(
-        (item) =>
-          `<button type="button" class="cq-freq-chip" data-freq-text="${escAttr(item.text)}" title="${escAttr(item.text)}">${escapeHtml(String(item.label || item.text).slice(0, 22))}</button>`,
-      )
-      .join('');
-    wrap.innerHTML = `${poseHtml ? `<div class="cq-freq-row" aria-label="ท่าที่เคยบันทึก">${poseHtml}</div>` : ''}${freqHtml ? `<div class="cq-freq-row cq-freq-row-full" aria-label="รายการล่าสุด">${freqHtml}</div>` : ''}`;
+    const freqHtml = freq.map(freqChip).join('');
+    wrap.innerHTML = `${poseHtml ? `<div class="cq-freq-grid" aria-label="ท่าที่ใช้บ่อย">${poseHtml}</div>` : ''}${freqHtml ? `<div class="cq-freq-grid" aria-label="ออกกำลังที่ใช้บ่อย">${freqHtml}</div>` : ''}`;
     return;
   }
   const list = topFrequent(sheet, 'meal');
@@ -2601,13 +2598,7 @@ function paintCalorieQuickFreq() {
     return;
   }
   wrap.hidden = false;
-  wrap.innerHTML = list
-    .slice(0, 5)
-    .map(
-      (item) =>
-        `<button type="button" class="cq-freq-chip" data-freq-text="${escAttr(item.text)}" title="${escAttr(item.text)}">${escapeHtml(String(item.label || item.text).slice(0, 22))}</button>`,
-    )
-    .join('');
+  wrap.innerHTML = `<div class="cq-freq-grid" aria-label="มื้อที่ใช้บ่อย">${list.map(freqChip).join('')}</div>`;
 }
 
 function escAttr(s) {

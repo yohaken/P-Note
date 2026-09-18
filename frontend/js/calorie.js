@@ -24,7 +24,7 @@ export const MAX_EXERCISE_SLOTS = 10;
 /** @deprecated use MIN_MEAL_SLOTS — kept for older imports */
 export const MEAL_SLOTS = MIN_MEAL_SLOTS;
 /** Compact frequent-use lists (meal / exercise). */
-export const FREQ_TOP = 5;
+export const FREQ_TOP = 12;
 
 const THAI_DAYS_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 const THAI_MONTHS_SHORT = [
@@ -483,9 +483,12 @@ function normalizeFreqList(raw) {
     const count = Math.max(1, Math.round(Number(item.count) || 1));
     const lastAt = String(item.lastAt || nowIso()).slice(0, 40);
     out.push({ text, label, count, lastAt });
-    if (out.length >= FREQ_TOP) break;
   }
-  return out;
+  out.sort((a, b) => {
+    if ((b.count || 0) !== (a.count || 0)) return (b.count || 0) - (a.count || 0);
+    return String(b.lastAt || '').localeCompare(String(a.lastAt || ''));
+  });
+  return out.slice(0, FREQ_TOP);
 }
 
 /** Record a successful quick-add; keep only top FREQ_TOP by count then recency. */
@@ -533,7 +536,12 @@ export function recordFrequent(calorie, kind, text, parsed) {
 
 export function topFrequent(calorie, kind) {
   const sheet = normalizeCalorie(calorie);
-  return kind === 'mus' ? sheet.freqMus : sheet.freqMeals;
+  const list = kind === 'mus' ? sheet.freqMus : sheet.freqMeals;
+  // Defensive re-sort: most used first (count ↓, then recency).
+  return [...(list || [])].sort((a, b) => {
+    if ((b.count || 0) !== (a.count || 0)) return (b.count || 0) - (a.count || 0);
+    return String(b.lastAt || '').localeCompare(String(a.lastAt || ''));
+  });
 }
 
 /** Compact date: D/M/YY (no leading zeros). */
