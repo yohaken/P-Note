@@ -24,7 +24,7 @@ export const MAX_EXERCISE_SLOTS = 10;
 /** @deprecated use MIN_MEAL_SLOTS — kept for older imports */
 export const MEAL_SLOTS = MIN_MEAL_SLOTS;
 /** Compact frequent-use lists (meal / exercise). */
-export const FREQ_TOP = 12;
+export const FREQ_TOP = 18;
 
 const THAI_DAYS_SHORT = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 const THAI_MONTHS_SHORT = [
@@ -428,6 +428,56 @@ export function listExercisePoseNames(calorie, limit = 12) {
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'th'))
     .slice(0, Math.max(1, limit))
     .map(([label, count]) => ({ label, count }));
+}
+
+/**
+ * Meal pairs (kcal,prot) counted across every day in the calorie sheet.
+ * Most-used first — keeps repeating menus selectable so they don't "disappear".
+ * @returns {{ text: string, label: string, count: number }[]}
+ */
+export function listMealHistoryFrequent(calorie, limit = FREQ_TOP) {
+  const sheet = normalizeCalorie(calorie);
+  const counts = new Map();
+  sheet.days.forEach((day) => {
+    const meals = Array.isArray(day?.meals) ? day.meals : [];
+    meals.forEach((cell) => {
+      const m = parseMealCell(cell);
+      if (m.empty || !(m.cal > 0)) return;
+      const text = formatMealCell(m.cal, m.prot);
+      if (!text) return;
+      const prev = counts.get(text);
+      if (prev) prev.count += 1;
+      else counts.set(text, { text, label: text, count: 1 });
+    });
+  });
+  return [...counts.values()]
+    .sort((a, b) => (b.count - a.count) || a.text.localeCompare(b.text, 'th'))
+    .slice(0, Math.max(1, limit));
+}
+
+/**
+ * Exercise entries counted from full history (preferred chip text: ท่า,แคล).
+ * @returns {{ text: string, label: string, count: number }[]}
+ */
+export function listExerciseHistoryFrequent(calorie, limit = FREQ_TOP) {
+  const sheet = normalizeCalorie(calorie);
+  const counts = new Map();
+  sheet.days.forEach((day) => {
+    normalizeExercises(day?.exercises).forEach((cell) => {
+      const p = parseExerciseCell(cell);
+      if (p.empty || !(p.burn > 0)) return;
+      const pose = String(p.label || '').trim().slice(0, 40);
+      if (pose && looksLikeMealFragment(pose)) return;
+      const text = pose ? `${pose},${p.burn}` : String(p.burn);
+      const label = text;
+      const prev = counts.get(text);
+      if (prev) prev.count += 1;
+      else counts.set(text, { text, label, count: 1 });
+    });
+  });
+  return [...counts.values()]
+    .sort((a, b) => (b.count - a.count) || a.text.localeCompare(b.text, 'th'))
+    .slice(0, Math.max(1, limit));
 }
 
 /** YYYY-MM-DD in local timezone. */
