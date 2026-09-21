@@ -4,6 +4,12 @@
  */
 
 import { nowIso, compareStamp, newerStampIso } from './clock.js?v=227';
+import {
+  mergeMuscleTreeField,
+  muscleSlotsForDate,
+  muscleTreeLabels,
+  normalizeMuscleTree,
+} from './muscle-tree.js?v=265';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -951,8 +957,37 @@ export function normalizeCalorie(raw) {
       if (stamped) return stamped;
       return pins.length ? String(src.updatedAt || '') : '';
     })(),
+    /** Hierarchical muscle log (tree × date cells). Own stamp like homePins. */
+    muscleTree: normalizeMuscleTree(src.muscleTree),
+    muscleTreeAt: (() => {
+      const stamped = String(src.muscleTreeAt || '').trim();
+      if (stamped) return stamped;
+      const tree = normalizeMuscleTree(src.muscleTree);
+      return tree.updatedAt || '';
+    })(),
     days,
   };
+}
+
+/**
+ * Rebuild a day's exercise slots from muscle leaf cells for that date,
+ * keeping freeform slots whose labels are not tree leaves.
+ */
+export function applyMuscleDayExercises(sheet, tree, dateKey) {
+  const t = normalizeMuscleTree(tree || sheet?.muscleTree);
+  const muscleSlots = muscleSlotsForDate(t, dateKey).map((s) =>
+    formatExerciseCell(s.burn, s.label),
+  );
+  const treeLabels = muscleTreeLabels(t);
+  let { sheet: next, day } = ensureDay(sheet, dateKey);
+  const kept = normalizeExercises(day.exercises).filter((cell) => {
+    const p = parseExerciseCell(cell);
+    if (p.empty) return false;
+    return !treeLabels.has(p.label);
+  });
+  const exercises = normalizeExercises([...muscleSlots, ...kept]);
+  const mus = sumExerciseBurn(exercises) || null;
+  return patchDay(next, day.id, { exercises, mus });
 }
 
 /** Per-day derived metrics (matches sheet columns). Base = auto BMR. */
@@ -2863,10 +2898,13 @@ export function mergeCalorieByUpdatedAt(localRaw, remoteRaw) {
 
   const meta = pickMeta(local, remote);
   const pinField = mergeHomePinsField(local, remote);
+  const muscleField = mergeMuscleTreeField(local, remote);
   return normalizeCalorie({
     ...meta,
     homePins: pinField.homePins,
     homePinsAt: pinField.homePinsAt,
+    muscleTree: muscleField.muscleTree,
+    muscleTreeAt: muscleField.muscleTreeAt,
     days,
     // Max of the two stamps only — never Date.now() (avoids watch-echo loops).
     updatedAt: newerStampIso(local.updatedAt, remote.updatedAt),

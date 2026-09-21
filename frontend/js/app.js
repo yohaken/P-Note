@@ -71,6 +71,7 @@ import {
   ageFromBirthDate,
   appendQuickExercise,
   appendQuickExercises,
+  applyMuscleDayExercises,
   appendQuickMeal,
   clearDayValues,
   clearDayExercises,
@@ -117,12 +118,17 @@ import {
   thaiDayName,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=263';
+} from './calorie.js?v=265';
 import {
-  filterMuscleZones,
-  getMuscleZone,
-  renderMuscleZoneCardsHtml,
-} from './muscle-zones.js?v=264';
+  addMuscleCategory,
+  addMuscleChild,
+  muscleDateKeys,
+  normalizeMuscleTree,
+  removeMuscleNode,
+  renameMuscleNode,
+  renderMuscleTableHtml,
+  setMuscleCellInTree,
+} from './muscle-tree.js?v=265';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -285,7 +291,7 @@ const state = {
   /** 'month' | 'year' */
   calendarZoom: 'month',
   calendarScrollRange: null,
-  /** Calorie sub-pane: 'log' (home) | 'health' (summary sheet) */
+  /** Calorie sub-pane: 'log' | 'muscle' | 'health' */
   caloriePane: 'log',
   /** Health trend chart window (days) — restored from settings (e.g. 90 = 3 เดือน); shared with home dash */
   calorieTrendDays: normalizeCalorieTrendDays(loadSettings().calorieTrendDays, 7),
@@ -609,7 +615,13 @@ const els = {
   calorieQuickFreq: document.getElementById('calorie-quick-freq'),
   calorieDash: document.getElementById('calorie-dash'),
   calorieHealthSheet: document.getElementById('calorie-health-sheet'),
+  calorieMuscleSheet: document.getElementById('calorie-muscle-sheet'),
+  muscleScroll: document.getElementById('muscle-scroll'),
+  muscleAddCat: document.getElementById('muscle-add-cat'),
+  muscleAddChild: document.getElementById('muscle-add-child'),
+  muscleFreeform: document.getElementById('muscle-freeform'),
   dockCalorieLogBtn: document.getElementById('dock-calorie-log-btn'),
+  dockCalorieMuscleBtn: document.getElementById('dock-calorie-muscle-btn'),
   dockCalorieHealthBtn: document.getElementById('dock-calorie-health-btn'),
   calorieTodayCard: document.getElementById('calorie-today-card'),
   calorieTodayTitle: document.getElementById('calorie-today-title'),
@@ -650,11 +662,6 @@ const els = {
   calorieBodyWaist: document.getElementById('calorie-body-waist'),
   calorieBodyCancel: document.getElementById('calorie-body-cancel'),
   calorieBodyOk: document.getElementById('calorie-body-ok'),
-  calorieMuscleOverlay: document.getElementById('calorie-muscle-overlay'),
-  calorieMuscleBack: document.getElementById('calorie-muscle-back'),
-  calorieMuscleSearch: document.getElementById('calorie-muscle-search'),
-  calorieMuscleList: document.getElementById('calorie-muscle-list'),
-  calorieMuscleSkip: document.getElementById('calorie-muscle-skip'),
   dockModeCalorie: document.getElementById('dock-mode-calorie'),
   modeMenuCalorie: document.getElementById('mode-menu-calorie'),
 };
@@ -1857,6 +1864,10 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
     paintCalorieHealthSheet(ensureCaloriePayload());
     return;
   }
+  if (state.caloriePane === 'muscle') {
+    paintMuscleSheet();
+    return;
+  }
   const nextCols = mealColumnCount(state.notesData.calorie);
   const needFull = fullRender || nextCols !== prevCols;
   if (needFull) renderCalorieSheet({ preserveScroll: true });
@@ -2253,19 +2264,31 @@ function paintCalorieHealthSheet(sheet) {
 }
 
 function setCaloriePane(pane) {
-  state.caloriePane = pane === 'health' ? 'health' : 'log';
-  document.body.classList.toggle('calorie-health-pane', state.caloriePane === 'health');
-  if (els.dockCalorieLogBtn) els.dockCalorieLogBtn.hidden = state.caloriePane !== 'health';
-  if (els.dockCalorieHealthBtn) els.dockCalorieHealthBtn.hidden = state.caloriePane === 'health';
-  if (state.caloriePane === 'health') {
+  const next = pane === 'health' ? 'health' : pane === 'muscle' ? 'muscle' : 'log';
+  state.caloriePane = next;
+  document.body.classList.toggle('calorie-health-pane', next === 'health');
+  document.body.classList.toggle('calorie-muscle-pane', next === 'muscle');
+  if (els.dockCalorieLogBtn) els.dockCalorieLogBtn.hidden = next === 'log';
+  if (els.dockCalorieMuscleBtn) els.dockCalorieMuscleBtn.hidden = next === 'muscle';
+  if (els.dockCalorieHealthBtn) els.dockCalorieHealthBtn.hidden = next === 'health';
+
+  if (els.calorieMuscleSheet) els.calorieMuscleSheet.hidden = next !== 'muscle';
+  if (els.calorieHealthSheet) els.calorieHealthSheet.hidden = next !== 'health';
+
+  if (next === 'health') {
     if (els.calorieTodayCard) els.calorieTodayCard.hidden = true;
     if (els.calorieDash) els.calorieDash.hidden = true;
     if (els.calorieScroll) els.calorieScroll.hidden = true;
     paintCalorieHealthSheet(ensureCaloriePayload());
     syncCalorieFabs();
+  } else if (next === 'muscle') {
+    if (els.calorieTodayCard) els.calorieTodayCard.hidden = true;
+    if (els.calorieDash) els.calorieDash.hidden = true;
+    if (els.calorieScroll) els.calorieScroll.hidden = true;
+    paintMuscleSheet();
+    syncCalorieFabs();
   } else {
     if (els.calorieScroll) els.calorieScroll.hidden = false;
-    if (els.calorieHealthSheet) els.calorieHealthSheet.hidden = true;
     renderCalorieSheet();
   }
   applyDockOffset();
@@ -2504,10 +2527,18 @@ function renderCalorieSheet({ preserveScroll = false } = {}) {
   applyCalorieTones();
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
   document.body.classList.toggle('calorie-health-pane', state.caloriePane === 'health');
-  if (els.calorieScroll) els.calorieScroll.hidden = state.caloriePane === 'health';
-  if (els.calorieTodayCard && state.caloriePane === 'health') els.calorieTodayCard.hidden = true;
+  document.body.classList.toggle('calorie-muscle-pane', state.caloriePane === 'muscle');
+  if (els.calorieMuscleSheet) els.calorieMuscleSheet.hidden = state.caloriePane !== 'muscle';
+  if (els.calorieHealthSheet) els.calorieHealthSheet.hidden = state.caloriePane !== 'health';
+  if (els.calorieScroll) {
+    els.calorieScroll.hidden = state.caloriePane === 'health' || state.caloriePane === 'muscle';
+  }
+  if (els.calorieTodayCard && (state.caloriePane === 'health' || state.caloriePane === 'muscle')) {
+    els.calorieTodayCard.hidden = true;
+  }
+  if (state.caloriePane === 'muscle') paintMuscleSheet();
   requestAnimationFrame(() => {
-    if (els.calorieScroll && state.caloriePane !== 'health') {
+    if (els.calorieScroll && state.caloriePane === 'log') {
       els.calorieScroll.scrollTop = preserveScroll ? prevScroll : 0;
     }
     syncCalorieMonthFromScroll();
@@ -2544,8 +2575,8 @@ function syncDockContextRail() {
 let calorieQuickMode = null; // 'meal' | 'mus'
 /** Edit existing cell: { dayId, mealIndex? } — null = append (FAB). */
 let calorieQuickEdit = null;
-/** Selected muscle zone id when adding exercise via zone picker (step 1). */
-let calorieExerciseZoneId = null;
+/** Selected muscle tree node id (for +ย่อย / rename). */
+let muscleSelectedId = null;
 /** Past days confirmed for edit this session (dayId → true). */
 const unlockedPastDayIds = new Set();
 
@@ -2588,30 +2619,19 @@ function paintCalorieQuickFreq() {
   if (calorieQuickMode === 'mus') {
     const poses = listExercisePoseNames(sheet, 12);
     const freq = listExerciseHistoryFrequent(sheet, 18);
-    const zone = getMuscleZone(calorieExerciseZoneId);
-    const zoneKeys = zone
-      ? [zone.shortLabel, zone.label, ...(zone.keywords || [])].map((x) => String(x).toLowerCase())
-      : [];
-    const rankZone = (text) => {
-      if (!zoneKeys.length) return 0;
-      const t = String(text || '').toLowerCase();
-      return zoneKeys.some((k) => k && t.includes(k)) ? 1 : 0;
-    };
-    const posesSorted = [...poses].sort((a, b) => rankZone(b.label) - rankZone(a.label) || (b.count || 0) - (a.count || 0));
-    const freqSorted = [...freq].sort((a, b) => rankZone(b.text) - rankZone(a.text) || (b.count || 0) - (a.count || 0));
-    if (!posesSorted.length && !freqSorted.length) {
+    if (!poses.length && !freq.length) {
       wrap.hidden = true;
       wrap.innerHTML = '';
       return;
     }
     wrap.hidden = false;
-    const poseHtml = posesSorted
+    const poseHtml = poses
       .map(
         (item) =>
           `<button type="button" class="cq-freq-chip cq-pose-chip" data-pose-name="${escAttr(item.label)}" title="ใช้ชื่อท่านี้ · แล้วใส่แคล · ${item.count || 0} ครั้ง">${escapeHtml(item.label)}</button>`,
       )
       .join('');
-    const freqHtml = freqSorted.map(freqChip).join('');
+    const freqHtml = freq.map(freqChip).join('');
     wrap.innerHTML = `${freqHtml ? `<div class="cq-freq-grid" aria-label="ออกกำลังที่ใช้บ่อยจากประวัติ">${freqHtml}</div>` : ''}${poseHtml ? `<div class="cq-freq-grid" aria-label="ชื่อท่าที่เคยใช้">${poseHtml}</div>` : ''}`;
     return;
   }
@@ -2691,68 +2711,206 @@ function musQuickHintText() {
   const day = sheet.days.find((d) => d.date === toDateKey());
   const list = day ? formatExerciseDisplay(day) : '';
   const mus = day?.mus;
-  const zone = getMuscleZone(calorieExerciseZoneId);
-  const zoneBit = zone ? `โซน ${zone.label} · ` : '';
-  const base = `${zoneBit}ท่า,แคล ได้สูงสุด ${QUICK_EXERCISE_BATCH} บรรทัด · แตะชื่อท่าเก่าเพื่อลดพิมพ์ผิด`;
+  const base = `ท่า,แคล ได้สูงสุด ${QUICK_EXERCISE_BATCH} บรรทัด · แตะชื่อท่าเก่าเพื่อลดพิมพ์ผิด`;
   if (list) {
     return `วันนี้: ${list}${mus != null ? ` · รวม ${mus} kcal` : ''} · ${base}`;
   }
   return base;
 }
 
-function paintMuscleZoneList(query = '') {
-  const list = els.calorieMuscleList;
-  if (!list) return;
-  list.innerHTML = renderMuscleZoneCardsHtml(filterMuscleZones(query));
+function paintMuscleSheet() {
+  const host = els.muscleScroll;
+  if (!host) return;
+  const prevLeft = host.scrollLeft;
+  const prevTop = host.scrollTop;
+  const active = document.activeElement;
+  const focusNode = active?.classList?.contains('mt-kcal') ? active.dataset.nodeId : '';
+  const focusDate = active?.classList?.contains('mt-kcal') ? active.dataset.date : '';
+  const sheet = ensureCaloriePayload();
+  const tree = normalizeMuscleTree(sheet.muscleTree);
+  const todayKey = toDateKey();
+  host.innerHTML = renderMuscleTableHtml(tree, {
+    dates: muscleDateKeys({ today: todayKey }),
+    selectedId: muscleSelectedId || '',
+    todayKey,
+  });
+  host.scrollLeft = prevLeft;
+  host.scrollTop = prevTop;
+  if (focusNode && focusDate) {
+    const next = host.querySelector(
+      `input.mt-kcal[data-node-id="${CSS.escape(focusNode)}"][data-date="${CSS.escape(focusDate)}"]`,
+    );
+    try { next?.focus({ preventScroll: true }); } catch { /* ignore */ }
+  }
 }
 
-function closeMuscleZonePicker() {
-  if (els.calorieMuscleOverlay) els.calorieMuscleOverlay.hidden = true;
-  if (els.calorieMuscleSearch) els.calorieMuscleSearch.value = '';
+function persistMuscleTree(nextTree, { touchDates = [], status = '' } = {}) {
+  const sheet = ensureCaloriePayload();
+  const tree = normalizeMuscleTree(nextTree);
+  let next = {
+    ...sheet,
+    muscleTree: tree,
+    muscleTreeAt: tree.updatedAt || nowIso(),
+  };
+  touchDates.forEach((d) => {
+    next = applyMuscleDayExercises(next, tree, d);
+  });
+  persistCalorie(next, { status, fullRender: false, immediate: true });
 }
 
-/**
- * Step 1 of add-exercise: pick a muscle zone (or skip to freeform).
- */
-function openMuscleZonePicker() {
+function openMusclePane() {
   if (!requireSyncReady()) return;
   closeCalorieQuick();
   closeCalorieBodyQuick();
-  if (!els.calorieMuscleOverlay) {
-    openCalorieQuick('mus');
-    return;
-  }
-  calorieExerciseZoneId = null;
-  paintMuscleZoneList('');
-  els.calorieMuscleOverlay.hidden = false;
-  requestAnimationFrame(() => {
-    try { els.calorieMuscleSearch?.focus({ preventScroll: true }); } catch { /* ignore */ }
-  });
+  setCaloriePane('muscle');
 }
 
-function continueExerciseAfterZone(zoneId) {
-  const zone = zoneId ? getMuscleZone(zoneId) : null;
-  calorieExerciseZoneId = zone?.id || null;
-  closeMuscleZonePicker();
-  openCalorieQuick('mus', {
-    zoneId: calorieExerciseZoneId,
-    prefill: zone ? `${zone.shortLabel},` : '',
+async function onMuscleAddCategory() {
+  if (!requireSyncReady()) return;
+  const name = window.prompt('ชื่อหมวดกล้ามเนื้อ', '');
+  if (name == null) return;
+  const sheet = ensureCaloriePayload();
+  const { tree, node } = addMuscleCategory(sheet.muscleTree, name);
+  if (!node) {
+    setStatus('ใส่ชื่อหมวดก่อน', { forceToast: true, ms: 1400 });
+    return;
+  }
+  muscleSelectedId = node.id;
+  persistMuscleTree(tree, { status: `เพิ่มหมวด ${node.name}` });
+  paintMuscleSheet();
+}
+
+async function onMuscleAddChild() {
+  if (!requireSyncReady()) return;
+  const sheet = ensureCaloriePayload();
+  const tree0 = normalizeMuscleTree(sheet.muscleTree);
+  let parentId = muscleSelectedId;
+  const selected = tree0.nodes.find((n) => n.id === parentId);
+  if (selected?.parentId) parentId = selected.parentId;
+  if (!parentId || !tree0.nodes.some((n) => n.id === parentId && !n.parentId)) {
+    setStatus('เลือกหมวดหลักก่อน แล้วกด + ย่อย', { forceToast: true, ms: 1600 });
+    return;
+  }
+  const parent = tree0.nodes.find((n) => n.id === parentId);
+  const name = window.prompt(`ชื่อรายการย่อยภายใต้「${parent?.name || ''}」`, '');
+  if (name == null) return;
+  const { tree, node } = addMuscleChild(tree0, parentId, name);
+  if (!node) {
+    setStatus('ใส่ชื่อรายการย่อยก่อน', { forceToast: true, ms: 1400 });
+    return;
+  }
+  muscleSelectedId = node.id;
+  // Parent may have lost leaf cells when becoming a group — resync dates that changed.
+  const touch = [...new Set(
+    Object.keys(normalizeMuscleTree(sheet.muscleTree).cells)
+      .filter((k) => k.startsWith(`${parentId}|`))
+      .map((k) => k.split('|')[1]),
+  )];
+  persistMuscleTree(tree, { touchDates: touch, status: `เพิ่ม ${node.name}` });
+  paintMuscleSheet();
+}
+
+function onMuscleScrollClick(e) {
+  const del = e.target?.closest?.('[data-del-node]');
+  if (del && els.muscleScroll?.contains(del)) {
+    e.preventDefault();
+    void onMuscleDeleteNode(del.dataset.delNode);
+    return;
+  }
+  const nameBtn = e.target?.closest?.('.mt-name-btn[data-node-id]');
+  if (nameBtn && els.muscleScroll?.contains(nameBtn)) {
+    e.preventDefault();
+    const id = nameBtn.dataset.nodeId;
+    if (muscleSelectedId === id) {
+      void onMuscleRenameNode(id);
+    } else {
+      muscleSelectedId = id;
+      paintMuscleSheet();
+    }
+  }
+}
+
+async function onMuscleRenameNode(nodeId) {
+  const sheet = ensureCaloriePayload();
+  const tree0 = normalizeMuscleTree(sheet.muscleTree);
+  const node = tree0.nodes.find((n) => n.id === nodeId);
+  if (!node) return;
+  const name = window.prompt('เปลี่ยนชื่อ', node.name);
+  if (name == null) return;
+  const { tree, changed } = renameMuscleNode(tree0, nodeId, name);
+  if (!changed) return;
+  const touch = [...new Set(
+    Object.keys(tree.cells)
+      .filter((k) => {
+        const id = k.split('|')[0];
+        return id === nodeId || tree.nodes.some((n) => n.parentId === nodeId && n.id === id);
+      })
+      .map((k) => k.split('|')[1]),
+  )];
+  persistMuscleTree(tree, { touchDates: touch, status: 'เปลี่ยนชื่อแล้ว' });
+  paintMuscleSheet();
+}
+
+async function onMuscleDeleteNode(nodeId) {
+  const sheet = ensureCaloriePayload();
+  const tree0 = normalizeMuscleTree(sheet.muscleTree);
+  const node = tree0.nodes.find((n) => n.id === nodeId);
+  if (!node) return;
+  const ok = await showConfirm(`ลบ「${node.name}」?\nรายการย่อยและค่าแคลที่เกี่ยวข้องจะหาย`, {
+    okLabel: 'ลบ',
+    danger: true,
   });
+  if (!ok) return;
+  const { tree, changed, touchDates } = removeMuscleNode(tree0, nodeId);
+  if (!changed) return;
+  if (muscleSelectedId === nodeId) muscleSelectedId = null;
+  persistMuscleTree(tree, { touchDates: touchDates || [], status: `ลบ ${node.name}` });
+  paintMuscleSheet();
+}
+
+async function onMuscleScrollFocusIn(e) {
+  const input = e.target?.closest?.('input.mt-kcal');
+  if (!input || !els.muscleScroll?.contains(input)) return;
+  const dateKey = input.dataset.date || '';
+  if (!dateKey || dateKey >= toDateKey()) return;
+  const unlockKey = `date:${dateKey}`;
+  if (unlockedPastDayIds.has(unlockKey)) return;
+  const label = formatDateDisplay(dateKey);
+  const ok = await showConfirm(`วันก่อน (${label})\nต้องการแก้ไขข้อมูลนี้?`, {
+    okLabel: 'แก้ไข',
+    cancelLabel: 'ปิด',
+  });
+  if (ok) unlockedPastDayIds.add(unlockKey);
+  else {
+    try { input.blur(); } catch { /* ignore */ }
+  }
+}
+
+function onMuscleScrollChange(e) {
+  const input = e.target?.closest?.('input.mt-kcal');
+  if (!input || !els.muscleScroll?.contains(input)) return;
+  const nodeId = input.dataset.nodeId;
+  const dateKey = input.dataset.date;
+  if (!nodeId || !dateKey) return;
+  const sheet = ensureCaloriePayload();
+  const { tree, changed } = setMuscleCellInTree(sheet.muscleTree, nodeId, dateKey, input.value);
+  if (!changed) {
+    paintMuscleSheet();
+    return;
+  }
+  persistMuscleTree(tree, { touchDates: [dateKey], status: '' });
+  paintMuscleSheet();
 }
 
 function openCalorieQuick(mode, opts = {}) {
   if (!requireSyncReady()) return;
   closeCalorieBodyQuick();
-  closeMuscleZonePicker();
   calorieQuickMode = mode === 'mus' ? 'mus' : 'meal';
   calorieQuickEdit = null;
-  if (calorieQuickMode !== 'mus') calorieExerciseZoneId = null;
-  else if (opts?.zoneId) calorieExerciseZoneId = opts.zoneId;
   if (!els.calorieQuickOverlay) return;
   if (els.calorieQuickTitle) {
-    const zone = getMuscleZone(calorieExerciseZoneId);
     els.calorieQuickTitle.textContent = calorieQuickMode === 'mus'
-      ? (zone ? `เพิ่มออกกำลัง · ${zone.shortLabel}` : 'เพิ่มออกกำลัง')
+      ? 'เพิ่มออกกำลัง'
       : 'เพิ่มมื้อ';
   }
   if (els.calorieQuickHint) {
@@ -2764,7 +2922,7 @@ function openCalorieQuick(mode, opts = {}) {
     const prefill = calorieQuickMode === 'mus' ? String(opts?.prefill || '') : '';
     els.calorieQuickInput.value = prefill;
     els.calorieQuickInput.placeholder = calorieQuickMode === 'mus'
-      ? 'อก,120\nไหล,80\nวิ่ง,200'
+      ? 'อกบน,120\nหน้าขา,80\nวิ่ง,200'
       : '130,27';
   }
   syncCalorieQuickInputMode();
@@ -2790,31 +2948,7 @@ function openCalorieQuick(mode, opts = {}) {
  * @param {{ mode: 'meal'|'mus', dayId: string, mealIndex?: number, value?: string }} opts
  */
 async function openTodayExerciseEditor() {
-  const cardDayId = els.calorieTodayCard?.dataset?.dayId;
-  if (cardDayId) {
-    const day = ensureCaloriePayload().days.find((d) => d.id === cardDayId);
-    if (!dayHasExercise(day)) {
-      openMuscleZonePicker();
-      return;
-    }
-    void openCalorieCellEditor({
-      mode: 'mus',
-      dayId: cardDayId,
-      value: formatExercisesForEdit(day),
-    });
-    return;
-  }
-  const { day } = ensureDay(ensureCaloriePayload(), toDateKey());
-  if (!day?.id) return;
-  if (!dayHasExercise(day)) {
-    openMuscleZonePicker();
-    return;
-  }
-  void openCalorieCellEditor({
-    mode: 'mus',
-    dayId: day.id,
-    value: formatExercisesForEdit(day),
-  });
+  openMusclePane();
 }
 
 /**
@@ -2897,7 +3031,6 @@ async function openCalorieCellEditor(opts) {
 function closeCalorieQuick() {
   calorieQuickMode = null;
   calorieQuickEdit = null;
-  calorieExerciseZoneId = null;
   if (els.calorieQuickOverlay) els.calorieQuickOverlay.hidden = true;
   syncCalorieQuickChrome();
 }
@@ -2919,7 +3052,6 @@ function parseBodyMeasure(raw, { min, max, label }) {
 function openCalorieBodyQuick() {
   if (!requireSyncReady()) return;
   closeCalorieQuick();
-  closeMuscleZonePicker();
   if (!els.calorieBodyOverlay) return;
   const { day } = ensureDay(ensureCaloriePayload(), toDateKey());
   if (els.calorieBodyWeight) {
@@ -8947,31 +9079,20 @@ async function init({ fromBoot = false } = {}) {
     }
   });
   els.calorieFabMeal?.addEventListener('click', () => openCalorieQuick('meal'));
-  els.calorieFabMus?.addEventListener('click', () => openMuscleZonePicker());
+  els.calorieFabMus?.addEventListener('click', () => openMusclePane());
   els.calorieFabBody?.addEventListener('click', () => openCalorieBodyQuick());
-  els.calorieMuscleBack?.addEventListener('click', () => closeMuscleZonePicker());
-  els.calorieMuscleSkip?.addEventListener('click', () => continueExerciseAfterZone(null));
-  els.calorieMuscleSearch?.addEventListener('input', () => {
-    paintMuscleZoneList(els.calorieMuscleSearch?.value || '');
+  els.dockCalorieMuscleBtn?.addEventListener('click', () => setCaloriePane('muscle'));
+  els.muscleAddCat?.addEventListener('click', () => {
+    void onMuscleAddCategory();
   });
-  els.calorieMuscleSearch?.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      closeMuscleZonePicker();
-    }
+  els.muscleAddChild?.addEventListener('click', () => {
+    void onMuscleAddChild();
   });
-  els.calorieMuscleList?.addEventListener('click', (e) => {
-    const card = e.target?.closest?.('[data-zone-id]');
-    if (!card || !els.calorieMuscleList.contains(card)) return;
-    continueExerciseAfterZone(card.dataset.zoneId || '');
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if (els.calorieMuscleOverlay && !els.calorieMuscleOverlay.hidden) {
-      e.preventDefault();
-      closeMuscleZonePicker();
-    }
-  });
+  els.muscleFreeform?.addEventListener('click', () => openCalorieQuick('mus'));
+  els.muscleScroll?.addEventListener('click', onMuscleScrollClick);
+  els.muscleScroll?.addEventListener('change', onMuscleScrollChange);
+  els.muscleScroll?.addEventListener('focusin', onMuscleScrollFocusIn);
+
   els.calorieQuickCancel?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickBackdrop?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickClear?.addEventListener('click', clearCalorieQuickInput);
@@ -9129,16 +9250,7 @@ async function init({ fromBoot = false } = {}) {
       const dayId = els.calorieTodayCard.dataset.dayId;
       if (!dayId) return;
       const day = ensureCaloriePayload().days.find((d) => d.id === dayId);
-      // Empty → zone picker (add flow). Already logged → edit sheet.
-      if (!dayHasExercise(day)) {
-        openMuscleZonePicker();
-        return;
-      }
-      void openCalorieCellEditor({
-        mode: 'mus',
-        dayId,
-        value: formatExercisesForEdit(day) || els.calorieTodayMus?.value || '',
-      });
+      openMusclePane();
     }
   });
   els.calorieTodayCard?.addEventListener('focusin', (e) => {
