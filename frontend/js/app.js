@@ -119,6 +119,11 @@ import {
   totalsForMonth,
 } from './calorie.js?v=263';
 import {
+  filterMuscleZones,
+  getMuscleZone,
+  renderMuscleZoneCardsHtml,
+} from './muscle-zones.js?v=264';
+import {
   applyTextPrefsToTextarea,
   clampFontSize,
   DEFAULT_TEXT_PREFS,
@@ -645,6 +650,11 @@ const els = {
   calorieBodyWaist: document.getElementById('calorie-body-waist'),
   calorieBodyCancel: document.getElementById('calorie-body-cancel'),
   calorieBodyOk: document.getElementById('calorie-body-ok'),
+  calorieMuscleOverlay: document.getElementById('calorie-muscle-overlay'),
+  calorieMuscleBack: document.getElementById('calorie-muscle-back'),
+  calorieMuscleSearch: document.getElementById('calorie-muscle-search'),
+  calorieMuscleList: document.getElementById('calorie-muscle-list'),
+  calorieMuscleSkip: document.getElementById('calorie-muscle-skip'),
   dockModeCalorie: document.getElementById('dock-mode-calorie'),
   modeMenuCalorie: document.getElementById('mode-menu-calorie'),
 };
@@ -2534,6 +2544,8 @@ function syncDockContextRail() {
 let calorieQuickMode = null; // 'meal' | 'mus'
 /** Edit existing cell: { dayId, mealIndex? } — null = append (FAB). */
 let calorieQuickEdit = null;
+/** Selected muscle zone id when adding exercise via zone picker (step 1). */
+let calorieExerciseZoneId = null;
 /** Past days confirmed for edit this session (dayId → true). */
 const unlockedPastDayIds = new Set();
 
@@ -2576,19 +2588,30 @@ function paintCalorieQuickFreq() {
   if (calorieQuickMode === 'mus') {
     const poses = listExercisePoseNames(sheet, 12);
     const freq = listExerciseHistoryFrequent(sheet, 18);
-    if (!poses.length && !freq.length) {
+    const zone = getMuscleZone(calorieExerciseZoneId);
+    const zoneKeys = zone
+      ? [zone.shortLabel, zone.label, ...(zone.keywords || [])].map((x) => String(x).toLowerCase())
+      : [];
+    const rankZone = (text) => {
+      if (!zoneKeys.length) return 0;
+      const t = String(text || '').toLowerCase();
+      return zoneKeys.some((k) => k && t.includes(k)) ? 1 : 0;
+    };
+    const posesSorted = [...poses].sort((a, b) => rankZone(b.label) - rankZone(a.label) || (b.count || 0) - (a.count || 0));
+    const freqSorted = [...freq].sort((a, b) => rankZone(b.text) - rankZone(a.text) || (b.count || 0) - (a.count || 0));
+    if (!posesSorted.length && !freqSorted.length) {
       wrap.hidden = true;
       wrap.innerHTML = '';
       return;
     }
     wrap.hidden = false;
-    const poseHtml = poses
+    const poseHtml = posesSorted
       .map(
         (item) =>
           `<button type="button" class="cq-freq-chip cq-pose-chip" data-pose-name="${escAttr(item.label)}" title="ใช้ชื่อท่านี้ · แล้วใส่แคล · ${item.count || 0} ครั้ง">${escapeHtml(item.label)}</button>`,
       )
       .join('');
-    const freqHtml = freq.map(freqChip).join('');
+    const freqHtml = freqSorted.map(freqChip).join('');
     wrap.innerHTML = `${freqHtml ? `<div class="cq-freq-grid" aria-label="ออกกำลังที่ใช้บ่อยจากประวัติ">${freqHtml}</div>` : ''}${poseHtml ? `<div class="cq-freq-grid" aria-label="ชื่อท่าที่เคยใช้">${poseHtml}</div>` : ''}`;
     return;
   }
@@ -2668,21 +2691,69 @@ function musQuickHintText() {
   const day = sheet.days.find((d) => d.date === toDateKey());
   const list = day ? formatExerciseDisplay(day) : '';
   const mus = day?.mus;
-  const base = `ท่า,แคล ได้สูงสุด ${QUICK_EXERCISE_BATCH} บรรทัด · แตะชื่อท่าเก่าเพื่อลดพิมพ์ผิด`;
+  const zone = getMuscleZone(calorieExerciseZoneId);
+  const zoneBit = zone ? `โซน ${zone.label} · ` : '';
+  const base = `${zoneBit}ท่า,แคล ได้สูงสุด ${QUICK_EXERCISE_BATCH} บรรทัด · แตะชื่อท่าเก่าเพื่อลดพิมพ์ผิด`;
   if (list) {
     return `วันนี้: ${list}${mus != null ? ` · รวม ${mus} kcal` : ''} · ${base}`;
   }
   return base;
 }
 
-function openCalorieQuick(mode) {
+function paintMuscleZoneList(query = '') {
+  const list = els.calorieMuscleList;
+  if (!list) return;
+  list.innerHTML = renderMuscleZoneCardsHtml(filterMuscleZones(query));
+}
+
+function closeMuscleZonePicker() {
+  if (els.calorieMuscleOverlay) els.calorieMuscleOverlay.hidden = true;
+  if (els.calorieMuscleSearch) els.calorieMuscleSearch.value = '';
+}
+
+/**
+ * Step 1 of add-exercise: pick a muscle zone (or skip to freeform).
+ */
+function openMuscleZonePicker() {
+  if (!requireSyncReady()) return;
+  closeCalorieQuick();
+  closeCalorieBodyQuick();
+  if (!els.calorieMuscleOverlay) {
+    openCalorieQuick('mus');
+    return;
+  }
+  calorieExerciseZoneId = null;
+  paintMuscleZoneList('');
+  els.calorieMuscleOverlay.hidden = false;
+  requestAnimationFrame(() => {
+    try { els.calorieMuscleSearch?.focus({ preventScroll: true }); } catch { /* ignore */ }
+  });
+}
+
+function continueExerciseAfterZone(zoneId) {
+  const zone = zoneId ? getMuscleZone(zoneId) : null;
+  calorieExerciseZoneId = zone?.id || null;
+  closeMuscleZonePicker();
+  openCalorieQuick('mus', {
+    zoneId: calorieExerciseZoneId,
+    prefill: zone ? `${zone.shortLabel},` : '',
+  });
+}
+
+function openCalorieQuick(mode, opts = {}) {
   if (!requireSyncReady()) return;
   closeCalorieBodyQuick();
+  closeMuscleZonePicker();
   calorieQuickMode = mode === 'mus' ? 'mus' : 'meal';
   calorieQuickEdit = null;
+  if (calorieQuickMode !== 'mus') calorieExerciseZoneId = null;
+  else if (opts?.zoneId) calorieExerciseZoneId = opts.zoneId;
   if (!els.calorieQuickOverlay) return;
   if (els.calorieQuickTitle) {
-    els.calorieQuickTitle.textContent = calorieQuickMode === 'mus' ? 'เพิ่มออกกำลัง' : 'เพิ่มมื้อ';
+    const zone = getMuscleZone(calorieExerciseZoneId);
+    els.calorieQuickTitle.textContent = calorieQuickMode === 'mus'
+      ? (zone ? `เพิ่มออกกำลัง · ${zone.shortLabel}` : 'เพิ่มออกกำลัง')
+      : 'เพิ่มมื้อ';
   }
   if (els.calorieQuickHint) {
     els.calorieQuickHint.textContent = calorieQuickMode === 'mus'
@@ -2690,7 +2761,8 @@ function openCalorieQuick(mode) {
       : 'ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27 — ไม่ถูกจะไม่บันทึก';
   }
   if (els.calorieQuickInput) {
-    els.calorieQuickInput.value = '';
+    const prefill = calorieQuickMode === 'mus' ? String(opts?.prefill || '') : '';
+    els.calorieQuickInput.value = prefill;
     els.calorieQuickInput.placeholder = calorieQuickMode === 'mus'
       ? 'อก,120\nไหล,80\nวิ่ง,200'
       : '130,27';
@@ -2700,7 +2772,15 @@ function openCalorieQuick(mode) {
   paintCalorieQuickFreq();
   els.calorieQuickOverlay.hidden = false;
   requestAnimationFrame(() => {
-    try { els.calorieQuickInput?.focus({ preventScroll: false }); } catch { /* ignore */ }
+    try {
+      const el = els.calorieQuickInput;
+      if (!el) return;
+      el.focus({ preventScroll: false });
+      if (el.value) {
+        const end = el.value.length;
+        el.setSelectionRange?.(end, end);
+      }
+    } catch { /* ignore */ }
   });
 }
 
@@ -2712,12 +2792,29 @@ function openCalorieQuick(mode) {
 async function openTodayExerciseEditor() {
   const cardDayId = els.calorieTodayCard?.dataset?.dayId;
   if (cardDayId) {
-    void openCalorieCellEditor({ mode: 'mus', dayId: cardDayId, value: '' });
+    const day = ensureCaloriePayload().days.find((d) => d.id === cardDayId);
+    if (!dayHasExercise(day)) {
+      openMuscleZonePicker();
+      return;
+    }
+    void openCalorieCellEditor({
+      mode: 'mus',
+      dayId: cardDayId,
+      value: formatExercisesForEdit(day),
+    });
     return;
   }
   const { day } = ensureDay(ensureCaloriePayload(), toDateKey());
   if (!day?.id) return;
-  void openCalorieCellEditor({ mode: 'mus', dayId: day.id, value: '' });
+  if (!dayHasExercise(day)) {
+    openMuscleZonePicker();
+    return;
+  }
+  void openCalorieCellEditor({
+    mode: 'mus',
+    dayId: day.id,
+    value: formatExercisesForEdit(day),
+  });
 }
 
 /**
@@ -2800,6 +2897,7 @@ async function openCalorieCellEditor(opts) {
 function closeCalorieQuick() {
   calorieQuickMode = null;
   calorieQuickEdit = null;
+  calorieExerciseZoneId = null;
   if (els.calorieQuickOverlay) els.calorieQuickOverlay.hidden = true;
   syncCalorieQuickChrome();
 }
@@ -2821,6 +2919,7 @@ function parseBodyMeasure(raw, { min, max, label }) {
 function openCalorieBodyQuick() {
   if (!requireSyncReady()) return;
   closeCalorieQuick();
+  closeMuscleZonePicker();
   if (!els.calorieBodyOverlay) return;
   const { day } = ensureDay(ensureCaloriePayload(), toDateKey());
   if (els.calorieBodyWeight) {
@@ -8848,8 +8947,31 @@ async function init({ fromBoot = false } = {}) {
     }
   });
   els.calorieFabMeal?.addEventListener('click', () => openCalorieQuick('meal'));
-  els.calorieFabMus?.addEventListener('click', () => openCalorieQuick('mus'));
+  els.calorieFabMus?.addEventListener('click', () => openMuscleZonePicker());
   els.calorieFabBody?.addEventListener('click', () => openCalorieBodyQuick());
+  els.calorieMuscleBack?.addEventListener('click', () => closeMuscleZonePicker());
+  els.calorieMuscleSkip?.addEventListener('click', () => continueExerciseAfterZone(null));
+  els.calorieMuscleSearch?.addEventListener('input', () => {
+    paintMuscleZoneList(els.calorieMuscleSearch?.value || '');
+  });
+  els.calorieMuscleSearch?.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeMuscleZonePicker();
+    }
+  });
+  els.calorieMuscleList?.addEventListener('click', (e) => {
+    const card = e.target?.closest?.('[data-zone-id]');
+    if (!card || !els.calorieMuscleList.contains(card)) return;
+    continueExerciseAfterZone(card.dataset.zoneId || '');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (els.calorieMuscleOverlay && !els.calorieMuscleOverlay.hidden) {
+      e.preventDefault();
+      closeMuscleZonePicker();
+    }
+  });
   els.calorieQuickCancel?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickBackdrop?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickClear?.addEventListener('click', clearCalorieQuickInput);
@@ -9006,10 +9128,16 @@ async function init({ fromBoot = false } = {}) {
       e.preventDefault();
       const dayId = els.calorieTodayCard.dataset.dayId;
       if (!dayId) return;
+      const day = ensureCaloriePayload().days.find((d) => d.id === dayId);
+      // Empty → zone picker (add flow). Already logged → edit sheet.
+      if (!dayHasExercise(day)) {
+        openMuscleZonePicker();
+        return;
+      }
       void openCalorieCellEditor({
         mode: 'mus',
         dayId,
-        value: els.calorieTodayMus?.value || '',
+        value: formatExercisesForEdit(day) || els.calorieTodayMus?.value || '',
       });
     }
   });
