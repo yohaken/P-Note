@@ -9,7 +9,7 @@ import {
   muscleSlotsForDate,
   muscleTreeLabels,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=267';
+} from './muscle-tree.js?v=268';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -723,6 +723,167 @@ export function computeBmr({ weightKg, heightCm, ageYears, sex } = {}) {
   return Math.round(10 * weightKg + 6.25 * heightCm - 5 * ageYears + offset);
 }
 
+/** Lean body mass from weight + body-fat %. */
+export function computeLbm(weightKg, bodyFatPct) {
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return null;
+  if (!Number.isFinite(bodyFatPct) || bodyFatPct < 3 || bodyFatPct > 60) return null;
+  return round(weightKg * (1 - bodyFatPct / 100), 2);
+}
+
+/**
+ * Katch–McArdle BMR from lean mass (preferred when body-fat % is known).
+ * BMR = 370 + 21.6 × LBM(kg)
+ */
+export function computeBmrKatch(lbmKg) {
+  if (!Number.isFinite(lbmKg) || lbmKg <= 0) return null;
+  return Math.round(370 + 21.6 * lbmKg);
+}
+
+export const ACTIVITY_LEVELS = {
+  sedentary: { id: 'sedentary', label: 'นั่งทำงาน · ออกน้อย', factor: 1.2 },
+  light: { id: 'light', label: 'เบา 1–3 วัน/สัปดาห์', factor: 1.375 },
+  moderate: { id: 'moderate', label: 'ปานกลาง 3–5 วัน/สัปดาห์', factor: 1.55 },
+  active: { id: 'active', label: 'หนัก 6–7 วัน/สัปดาห์', factor: 1.725 },
+  very: { id: 'very', label: 'หนักมาก / งานกายแรง', factor: 1.9 },
+};
+
+export const GOAL_MODES = {
+  classic: { id: 'classic', label: 'เดิม · ×กก. + BMR' },
+  tdee: { id: 'tdee', label: 'TDEE · จากไขมัน%' },
+  fixed: { id: 'fixed', label: 'กำหนดตายตัว' },
+};
+
+export const TDEE_BIAS = {
+  cut: { id: 'cut', label: 'ลดไขมัน (−15%)', factor: 0.85 },
+  maintain: { id: 'maintain', label: 'รักษาน้ำหนัก', factor: 1 },
+  bulk: { id: 'bulk', label: 'เพิ่มมวล (+10%)', factor: 1.1 },
+};
+
+export function normalizeGoalMode(raw) {
+  const s = String(raw || '').trim();
+  if (s === 'tdee' || s === 'fixed') return s;
+  return 'classic';
+}
+
+export function normalizeActivityLevel(raw) {
+  const s = String(raw || '').trim();
+  return ACTIVITY_LEVELS[s] ? s : 'moderate';
+}
+
+export function normalizeTdeeBias(raw) {
+  const s = String(raw || '').trim();
+  return TDEE_BIAS[s] ? s : 'maintain';
+}
+
+/**
+ * Resolve daily nutrition targets for a day.
+ * classic — protein = weight × proteinFactor; no fixed kcal goal (balance vs BMR+burn)
+ * tdee    — Katch–McArdle (or Mifflin fallback) × activity × bias → kcal; macros derived
+ * fixed   — user-set kcal / protein / carb / fat
+ */
+export function resolveNutritionGoals(sheet = {}, day = null) {
+  const mode = normalizeGoalMode(sheet.goalMode);
+  const weight = resolveDayWeight(day || {}, sheet);
+  const ageYears =
+    ageFromBirthDate(sheet?.birthDate, day?.date || toDateKey())
+    ?? (Number.isFinite(sheet?.age) ? sheet.age : null);
+  const mifflin = computeBmr({
+    weightKg: weight,
+    heightCm: sheet?.heightCm,
+    ageYears,
+    sex: sheet?.sex,
+  });
+  const bodyFatPct = normalizeOptionalGoal(sheet.bodyFatPct, 3, 60);
+  const lbm = computeLbm(weight, bodyFatPct);
+  const katch = computeBmrKatch(lbm);
+  const bmr = katch ?? mifflin;
+  const activityId = normalizeActivityLevel(sheet.activityLevel);
+  const activityFactor = ACTIVITY_LEVELS[activityId].factor;
+  const tdee = bmr != null ? Math.round(bmr * activityFactor) : null;
+  const biasId = normalizeTdeeBias(sheet.tdeeBias);
+  const biasFactor = TDEE_BIAS[biasId].factor;
+
+  const empty = {
+    mode,
+    weight,
+    bodyFatPct,
+    lbm,
+    bmr,
+    bmrSource: katch != null ? 'katch' : (mifflin != null ? 'mifflin' : null),
+    activityLevel: activityId,
+    activityFactor,
+    tdee,
+    tdeeBias: biasId,
+    goalKcal: null,
+    goalProtG: null,
+    goalCarbG: null,
+    goalFatG: null,
+    hint: '',
+  };
+
+  if (mode === 'classic') {
+    const pf = Number.isFinite(sheet.proteinFactor) ? sheet.proteinFactor : DEFAULT_PROTEIN_FACTOR;
+    const goalProtG = weight != null ? round(weight * pf, 1) : null;
+    return {
+      ...empty,
+      goalProtG,
+      hint: goalProtG != null ? `โปรตีน ${goalProtG} ก = น้ำหนัก × ${pf}` : 'ใส่น้ำหนักเพื่อคำนวณเป้าโปรตีน',
+    };
+  }
+
+  if (mode === 'fixed') {
+    const goalKcal = normalizeOptionalGoal(sheet.fixedKcal, 800, 6000);
+    const goalProtG = normalizeOptionalGoal(sheet.fixedProtG, 1, 400);
+    const goalCarbG = normalizeOptionalGoal(sheet.fixedCarbG, 0, 800);
+    const goalFatG = normalizeOptionalGoal(sheet.fixedFatG, 0, 300);
+    return {
+      ...empty,
+      goalKcal: goalKcal != null ? Math.round(goalKcal) : null,
+      goalProtG: goalProtG != null ? round(goalProtG, 1) : null,
+      goalCarbG: goalCarbG != null ? round(goalCarbG, 1) : null,
+      goalFatG: goalFatG != null ? round(goalFatG, 1) : null,
+      hint: 'เป้าตายตัวจากที่ตั้งไว้',
+    };
+  }
+
+  // tdee
+  if (tdee == null) {
+    return {
+      ...empty,
+      hint: bodyFatPct == null
+        ? 'ใส่ไขมัน% + น้ำหนัก/ส่วนสูง/วันเกิด เพื่อคำนวณ TDEE'
+        : 'ใส่น้ำหนัก/ส่วนสูง/วันเกิด เพื่อคำนวณ TDEE',
+    };
+  }
+  const goalKcal = Math.round(tdee * biasFactor);
+  // Protein from LBM when possible (2.0 g/kg LBM), else 1.8 g/kg bodyweight.
+  let goalProtG = null;
+  if (lbm != null) goalProtG = round(lbm * 2.0, 1);
+  else if (weight != null) goalProtG = round(weight * 1.8, 1);
+  const protKcal = goalProtG != null ? goalProtG * 4 : 0;
+  // Fat ≈ 25% of goal kcal
+  let goalFatG = round((goalKcal * 0.25) / 9, 1);
+  let fatKcal = goalFatG * 9;
+  let carbKcal = goalKcal - protKcal - fatKcal;
+  if (carbKcal < 0) {
+    // Scale fat down if protein alone overshoots.
+    goalFatG = round(Math.max(0, (goalKcal - protKcal) * 0.25) / 9, 1);
+    fatKcal = goalFatG * 9;
+    carbKcal = Math.max(0, goalKcal - protKcal - fatKcal);
+  }
+  const goalCarbG = round(carbKcal / 4, 1);
+  return {
+    ...empty,
+    goalKcal,
+    goalProtG,
+    goalCarbG,
+    goalFatG,
+    hint: katch != null
+      ? `TDEE ${tdee} · BMR Katch ${bmr} · ${TDEE_BIAS[biasId].label}`
+      : `TDEE ${tdee} · BMR Mifflin ${bmr} (ยังไม่มีไขมัน%) · ${TDEE_BIAS[biasId].label}`,
+  };
+}
+
 export function computeBmi(weightKg, heightCm) {
   if (!Number.isFinite(weightKg) || weightKg <= 0) return null;
   if (!Number.isFinite(heightCm) || heightCm < 100) return null;
@@ -942,6 +1103,15 @@ export function normalizeCalorie(raw) {
     sex,
     goalWaistCm: normalizeOptionalGoal(src.goalWaistCm, 40, 200),
     goalWeightKg: normalizeOptionalGoal(src.goalWeightKg, 30, 300),
+    /** Nutrition target mode: classic | tdee | fixed */
+    goalMode: normalizeGoalMode(src.goalMode),
+    bodyFatPct: normalizeOptionalGoal(src.bodyFatPct, 3, 60),
+    activityLevel: normalizeActivityLevel(src.activityLevel),
+    tdeeBias: normalizeTdeeBias(src.tdeeBias),
+    fixedKcal: normalizeOptionalGoal(src.fixedKcal, 800, 6000),
+    fixedProtG: normalizeOptionalGoal(src.fixedProtG, 1, 400),
+    fixedCarbG: normalizeOptionalGoal(src.fixedCarbG, 0, 800),
+    fixedFatG: normalizeOptionalGoal(src.fixedFatG, 0, 300),
     freqMeals: normalizeFreqList(src.freqMeals),
     freqMus: normalizeFreqList(src.freqMus),
     /** Pinned health widgets on home dash — synced via Firestore with calorie payload */
@@ -992,7 +1162,6 @@ export function applyMuscleDayExercises(sheet, tree, dateKey) {
 
 /** Per-day derived metrics (matches sheet columns). Base = auto BMR. */
 export function computeDayMetrics(day, sheet = {}) {
-  const pf = Number.isFinite(sheet.proteinFactor) ? sheet.proteinFactor : DEFAULT_PROTEIN_FACTOR;
   const kpkg = Number.isFinite(sheet.kcalPerKg) ? sheet.kcalPerKg : DEFAULT_KCAL_PER_KG;
 
   let addCal = 0;
@@ -1008,13 +1177,15 @@ export function computeDayMetrics(day, sheet = {}) {
   const mus = Number.isFinite(day?.mus) ? day.mus : 0;
   const base = resolveDayBase(day, sheet);
   const bsum = base + mus;
-  const weightForProt = resolveDayWeight(day, sheet);
-  const protTarget = weightForProt != null ? weightForProt * pf : null;
+  const goals = resolveNutritionGoals(sheet, day);
+  const protTarget = goals.goalProtG;
   const pRm = protTarget != null ? prot - protTarget : null;
+  const goalKcal = goals.goalKcal;
+  const kcalToGoal = goalKcal != null ? addCal - goalKcal : null;
   const balance = addCal - bsum;
   const blKg = kpkg ? balance / kpkg : null;
   const pctBl = bsum ? (balance / bsum) * 100 : null;
-  const bmi = computeBmi(weightForProt, sheet.heightCm);
+  const bmi = computeBmi(resolveDayWeight(day, sheet), sheet.heightCm);
 
   return {
     addCal: round(addCal, 0),
@@ -1030,6 +1201,13 @@ export function computeDayMetrics(day, sheet = {}) {
     waist,
     bmi,
     protTarget: protTarget == null ? null : round(protTarget, 1),
+    goalMode: goals.mode,
+    goalKcal: goalKcal == null ? null : Math.round(goalKcal),
+    kcalToGoal: kcalToGoal == null ? null : round(kcalToGoal, 0),
+    goalCarbG: goals.goalCarbG,
+    goalFatG: goals.goalFatG,
+    tdee: goals.tdee,
+    nutritionHint: goals.hint,
   };
 }
 
@@ -3024,6 +3202,14 @@ function pickMeta(local, remote) {
     sex: profile.sex,
     goalWaistCm: profile.goalWaistCm,
     goalWeightKg: profile.goalWeightKg,
+    goalMode: profile.goalMode,
+    bodyFatPct: profile.bodyFatPct,
+    activityLevel: profile.activityLevel,
+    tdeeBias: profile.tdeeBias,
+    fixedKcal: profile.fixedKcal,
+    fixedProtG: profile.fixedProtG,
+    fixedCarbG: profile.fixedCarbG,
+    fixedFatG: profile.fixedFatG,
     profileAt: newerStampIso(local.profileAt, remote.profileAt) || profile.profileAt || '',
     freqMeals: freqSrc.freqMeals,
     freqMus: freqSrc.freqMus,

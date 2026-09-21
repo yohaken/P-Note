@@ -114,12 +114,15 @@ import {
   renderExerciseTableHtml,
   renderHealthSheetHtml,
   renderHomeDashHtml,
+  resolveNutritionGoals,
+  normalizeGoalMode,
+  lastKnownBody,
   homePinLabel,
   normalizeHomePins,
   thaiDayName,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=267';
+} from './calorie.js?v=268';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -129,8 +132,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=267';
-import { mountDrumPicker } from './drum-picker.js?v=267';
+} from './muscle-tree.js?v=268';
+import { mountDrumPicker } from './drum-picker.js?v=268';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -608,6 +611,18 @@ const els = {
   calorieSex: document.getElementById('calorie-sex'),
   calorieGoalWaist: document.getElementById('calorie-goal-waist'),
   calorieGoalWeight: document.getElementById('calorie-goal-weight'),
+  calorieGoalMode: document.getElementById('calorie-goal-mode'),
+  calorieBodyFat: document.getElementById('calorie-body-fat'),
+  calorieActivity: document.getElementById('calorie-activity'),
+  calorieTdeeBias: document.getElementById('calorie-tdee-bias'),
+  calorieTdeePreview: document.getElementById('calorie-tdee-preview'),
+  calorieFixedKcal: document.getElementById('calorie-fixed-kcal'),
+  calorieFixedProt: document.getElementById('calorie-fixed-prot'),
+  calorieFixedCarb: document.getElementById('calorie-fixed-carb'),
+  calorieFixedFat: document.getElementById('calorie-fixed-fat'),
+  goalModeTdeeFields: document.getElementById('goal-mode-tdee-fields'),
+  goalModeFixedFields: document.getElementById('goal-mode-fixed-fields'),
+  calorieProteinFactorRow: document.getElementById('calorie-protein-factor-row'),
   calorieToneEat: document.getElementById('calorie-tone-eat'),
   calorieToneBurn: document.getElementById('calorie-tone-burn'),
   calorieToneEmpty: document.getElementById('calorie-tone-empty'),
@@ -1894,10 +1909,15 @@ function readCalorieProfileFromUi(sheet) {
   const goalWeightRaw = String(els.calorieGoalWeight?.value || '').trim();
   const goalWaistCm = goalWaistRaw === '' ? null : Number(goalWaistRaw);
   const goalWeightKg = goalWeightRaw === '' ? null : Number(goalWeightRaw);
-  // Empty number inputs must not coerce to 0 and clamp back to defaults
-  // (that looked like ส่วนสูง/เป้า "หาย").
   const heightOk = Number.isFinite(height) && height >= 100 && height <= 250;
   const pfOk = Number.isFinite(pf) && pf >= 0.5 && pf <= 4;
+  const goalMode = normalizeGoalMode(els.calorieGoalMode?.value || sheet.goalMode);
+  const bfRaw = String(els.calorieBodyFat?.value || '').trim();
+  const bodyFatPct = bfRaw === '' ? null : Number(bfRaw);
+  const fixedKcalRaw = String(els.calorieFixedKcal?.value || '').trim();
+  const fixedProtRaw = String(els.calorieFixedProt?.value || '').trim();
+  const fixedCarbRaw = String(els.calorieFixedCarb?.value || '').trim();
+  const fixedFatRaw = String(els.calorieFixedFat?.value || '').trim();
   return {
     ...sheet,
     proteinFactor: pfOk ? pf : sheet.proteinFactor,
@@ -1906,6 +1926,14 @@ function readCalorieProfileFromUi(sheet) {
     sex,
     goalWaistCm: goalWaistRaw === '' || !Number.isFinite(goalWaistCm) ? null : goalWaistCm,
     goalWeightKg: goalWeightRaw === '' || !Number.isFinite(goalWeightKg) ? null : goalWeightKg,
+    goalMode,
+    bodyFatPct: bfRaw === '' || !Number.isFinite(bodyFatPct) ? null : bodyFatPct,
+    activityLevel: els.calorieActivity?.value || sheet.activityLevel || 'moderate',
+    tdeeBias: els.calorieTdeeBias?.value || sheet.tdeeBias || 'maintain',
+    fixedKcal: fixedKcalRaw === '' || !Number.isFinite(Number(fixedKcalRaw)) ? null : Number(fixedKcalRaw),
+    fixedProtG: fixedProtRaw === '' || !Number.isFinite(Number(fixedProtRaw)) ? null : Number(fixedProtRaw),
+    fixedCarbG: fixedCarbRaw === '' || !Number.isFinite(Number(fixedCarbRaw)) ? null : Number(fixedCarbRaw),
+    fixedFatG: fixedFatRaw === '' || !Number.isFinite(Number(fixedFatRaw)) ? null : Number(fixedFatRaw),
   };
 }
 
@@ -1918,7 +1946,47 @@ function calorieProfileChanged(before, after) {
     || before.sex !== after.sex
     || before.goalWaistCm !== after.goalWaistCm
     || before.goalWeightKg !== after.goalWeightKg
+    || before.goalMode !== after.goalMode
+    || before.bodyFatPct !== after.bodyFatPct
+    || before.activityLevel !== after.activityLevel
+    || before.tdeeBias !== after.tdeeBias
+    || before.fixedKcal !== after.fixedKcal
+    || before.fixedProtG !== after.fixedProtG
+    || before.fixedCarbG !== after.fixedCarbG
+    || before.fixedFatG !== after.fixedFatG
   );
+}
+
+function syncGoalModeFields(sheet) {
+  const mode = normalizeGoalMode(sheet?.goalMode);
+  if (els.goalModeTdeeFields) els.goalModeTdeeFields.hidden = mode !== 'tdee';
+  if (els.goalModeFixedFields) els.goalModeFixedFields.hidden = mode !== 'fixed';
+  if (els.calorieProteinFactorRow) {
+    els.calorieProteinFactorRow.hidden = mode !== 'classic';
+  }
+  paintTdeePreview(sheet);
+}
+
+function paintTdeePreview(sheet) {
+  if (!els.calorieTdeePreview) return;
+  const goals = resolveNutritionGoals(sheet, { date: toDateKey(), weight: lastKnownBody(sheet).weight });
+  if (goals.mode !== 'tdee') {
+    els.calorieTdeePreview.textContent = '';
+    return;
+  }
+  if (goals.goalKcal == null) {
+    els.calorieTdeePreview.textContent = goals.hint || 'TDEE —';
+    return;
+  }
+  const bits = [
+    `BMR ${goals.bmr ?? '—'}`,
+    `TDEE ${goals.tdee}`,
+    `เป้าแคล ${goals.goalKcal}`,
+    goals.goalProtG != null ? `โปรตีน ${goals.goalProtG} ก` : null,
+    goals.goalCarbG != null ? `คาร์บ ${goals.goalCarbG} ก` : null,
+    goals.goalFatG != null ? `ไขมัน ${goals.goalFatG} ก` : null,
+  ].filter(Boolean);
+  els.calorieTdeePreview.textContent = bits.join(' · ');
 }
 
 /**
@@ -2032,6 +2100,31 @@ function syncCalorieProfileInputs(sheet) {
     els.calorieGoalWeight.value =
       sheet.goalWeightKg == null ? '' : String(sheet.goalWeightKg);
   }
+  if (els.calorieGoalMode && document.activeElement !== els.calorieGoalMode) {
+    els.calorieGoalMode.value = normalizeGoalMode(sheet.goalMode);
+  }
+  if (els.calorieBodyFat && document.activeElement !== els.calorieBodyFat) {
+    els.calorieBodyFat.value = sheet.bodyFatPct == null ? '' : String(sheet.bodyFatPct);
+  }
+  if (els.calorieActivity && document.activeElement !== els.calorieActivity) {
+    els.calorieActivity.value = sheet.activityLevel || 'moderate';
+  }
+  if (els.calorieTdeeBias && document.activeElement !== els.calorieTdeeBias) {
+    els.calorieTdeeBias.value = sheet.tdeeBias || 'maintain';
+  }
+  if (els.calorieFixedKcal && document.activeElement !== els.calorieFixedKcal) {
+    els.calorieFixedKcal.value = sheet.fixedKcal == null ? '' : String(sheet.fixedKcal);
+  }
+  if (els.calorieFixedProt && document.activeElement !== els.calorieFixedProt) {
+    els.calorieFixedProt.value = sheet.fixedProtG == null ? '' : String(sheet.fixedProtG);
+  }
+  if (els.calorieFixedCarb && document.activeElement !== els.calorieFixedCarb) {
+    els.calorieFixedCarb.value = sheet.fixedCarbG == null ? '' : String(sheet.fixedCarbG);
+  }
+  if (els.calorieFixedFat && document.activeElement !== els.calorieFixedFat) {
+    els.calorieFixedFat.value = sheet.fixedFatG == null ? '' : String(sheet.fixedFatG);
+  }
+  syncGoalModeFields(sheet);
 }
 
 function readHomePinsFromData(data = state.notesData) {
@@ -2323,24 +2416,37 @@ function paintCalorieTodayCard(rows, sheet) {
     els.calorieTodaySub.textContent = `${row.dateDisplay || formatDateDisplay(row.date)} · ${row.dayName || thaiDayName(row.date)}`;
   }
   const m = row.metrics || {};
-  if (els.calorieTodayBase) els.calorieTodayBase.textContent = `base ${m.base ?? '—'}`;
+  if (els.calorieTodayBase) {
+    const mode = m.goalMode || 'classic';
+    if (mode === 'tdee' && m.tdee != null) {
+      els.calorieTodayBase.textContent = `TDEE ${m.tdee}`;
+      els.calorieTodayBase.title = `เป้ากิน ${m.goalKcal ?? '—'} · BMR ${m.base ?? '—'}`;
+    } else if (mode === 'fixed' && m.goalKcal != null) {
+      els.calorieTodayBase.textContent = `เป้า ${m.goalKcal}`;
+      els.calorieTodayBase.title = `กำหนดตายตัว · BMR ${m.base ?? '—'}`;
+    } else {
+      els.calorieTodayBase.textContent = `base ${m.base ?? '—'}`;
+      els.calorieTodayBase.title = 'BMR อัตโนมัติ';
+    }
+  }
   if (els.calorieTodayBmi) {
     els.calorieTodayBmi.textContent = m.bmi != null ? `BMI ${m.bmi}` : 'BMI —';
   }
   if (els.calorieTodayBal && els.calorieTodayBalValue) {
-    const bal = m.balance;
+    const useGoal = (m.goalMode === 'tdee' || m.goalMode === 'fixed') && m.goalKcal != null;
+    const bal = useGoal ? m.kcalToGoal : m.balance;
     const addCal = m.addCal;
     const burn = m.bsum;
-    const blKg = m.blKg;
+    const blKg = useGoal ? null : m.blKg;
     els.calorieTodayBal.classList.remove('is-pos', 'is-neg', 'is-zero', 'is-empty');
     if (bal == null || !Number.isFinite(bal)) {
       els.calorieTodayBal.classList.add('is-empty');
       els.calorieTodayBalValue.textContent = '—';
       if (els.calorieTodayKgValue) els.calorieTodayKgValue.textContent = '';
       if (els.calorieTodayBalMeta) {
-        els.calorieTodayBalMeta.textContent = burn != null
-          ? `กิน ${addCal ?? 0} · เผา ${burn}`
-          : 'ใส่มื้อ / เบิร์นเพื่อดูดุล';
+        els.calorieTodayBalMeta.textContent = useGoal
+          ? (m.goalKcal != null ? `กิน ${addCal ?? 0} · เป้า ${m.goalKcal}` : 'ตั้งเป้าแคลในตั้งค่า')
+          : (burn != null ? `กิน ${addCal ?? 0} · เผา ${burn}` : 'ใส่มื้อ / เบิร์นเพื่อดูดุล');
       }
     } else {
       const cls = bal > 0 ? 'is-pos' : bal < 0 ? 'is-neg' : 'is-zero';
@@ -2351,8 +2457,18 @@ function paintCalorieTodayCard(rows, sheet) {
           blKg == null || !Number.isFinite(blKg) ? '' : `${formatSigned(blKg, 2)} กก`;
       }
       if (els.calorieTodayBalMeta) {
-        const word = bal > 0 ? 'เกินเผา' : bal < 0 ? 'ขาดเผา' : 'ดุล';
-        els.calorieTodayBalMeta.textContent = `${word} · กิน ${addCal ?? 0} / เผา ${burn ?? '—'}`;
+        if (useGoal) {
+          const word = bal > 0 ? 'เกินเป้า' : bal < 0 ? 'ต่ำเป้า' : 'ถึงเป้า';
+          const macro = [
+            m.goalCarbG != null ? `คาร์บ ${m.goalCarbG}` : null,
+            m.goalFatG != null ? `ไขมัน ${m.goalFatG}` : null,
+          ].filter(Boolean).join(' · ');
+          els.calorieTodayBalMeta.textContent =
+            `${word} · กิน ${addCal ?? 0} / เป้า ${m.goalKcal}${macro ? ` · ${macro}` : ''}`;
+        } else {
+          const word = bal > 0 ? 'เกินเผา' : bal < 0 ? 'ขาดเผา' : 'ดุล';
+          els.calorieTodayBalMeta.textContent = `${word} · กิน ${addCal ?? 0} / เผา ${burn ?? '—'}`;
+        }
       }
     }
   }
@@ -9297,11 +9413,23 @@ async function init({ fromBoot = false } = {}) {
     els.calorieSex,
     els.calorieGoalWaist,
     els.calorieGoalWeight,
+    els.calorieGoalMode,
+    els.calorieBodyFat,
+    els.calorieActivity,
+    els.calorieTdeeBias,
+    els.calorieFixedKcal,
+    els.calorieFixedProt,
+    els.calorieFixedCarb,
+    els.calorieFixedFat,
   ];
   profileInputs.forEach((el) => {
     el?.addEventListener('change', onCalorieProfileChange);
     // Mobile: value often commits on blur without a reliable change in some WebViews.
     el?.addEventListener('blur', onCalorieProfileChange);
+  });
+  els.calorieGoalMode?.addEventListener('change', () => {
+    const draft = readCalorieProfileFromUi(ensureCaloriePayload());
+    syncGoalModeFields(draft);
   });
   const onCalorieToneChange = () => persistCalorieTonesFromUi();
   [els.calorieToneEat, els.calorieToneBurn, els.calorieToneEmpty, els.calorieToneLine].forEach((el) => {
