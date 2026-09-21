@@ -86,6 +86,7 @@ import {
   MEAL_PATTERN_HINT,
   parseExerciseList,
   parseQuickExercise,
+  parseMealCell,
   parseQuickMeal,
   QUICK_EXERCISE_BATCH,
   computeTotals,
@@ -118,7 +119,7 @@ import {
   thaiDayName,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=265';
+} from './calorie.js?v=267';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -128,7 +129,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=265';
+} from './muscle-tree.js?v=267';
+import { mountDrumPicker } from './drum-picker.js?v=267';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -652,6 +654,12 @@ const els = {
   calorieQuickTitle: document.getElementById('calorie-quick-title'),
   calorieQuickHint: document.getElementById('calorie-quick-hint'),
   calorieQuickInput: document.getElementById('calorie-quick-input'),
+  calorieQuickLabel: document.getElementById('calorie-quick-label'),
+  calorieMealDrums: document.getElementById('calorie-meal-drums'),
+  cqDrumKcal: document.getElementById('cq-drum-kcal'),
+  cqDrumProt: document.getElementById('cq-drum-prot'),
+  cqDrumReadout: document.getElementById('cq-drum-readout'),
+  cqDrumReadoutVal: document.getElementById('cq-drum-readout-val'),
   calorieQuickClear: document.getElementById('calorie-quick-clear'),
   calorieQuickDelete: document.getElementById('calorie-quick-delete'),
   calorieQuickCancel: document.getElementById('calorie-quick-cancel'),
@@ -2577,8 +2585,110 @@ let calorieQuickMode = null; // 'meal' | 'mus'
 let calorieQuickEdit = null;
 /** Selected muscle tree node id (for +ย่อย / rename). */
 let muscleSelectedId = null;
+/** Meal drum pickers (kcal / protein) — mounted while meal sheet is open. */
+let mealDrumKcal = null;
+let mealDrumProt = null;
+/** After กดเคลียร์ in meal edit — next save deletes the meal slot. */
+let mealDrumCleared = false;
 /** Past days confirmed for edit this session (dayId → true). */
 const unlockedPastDayIds = new Set();
+
+const MEAL_DRUM_KCAL_DEFAULT = 200;
+const MEAL_DRUM_PROT_DEFAULT = 20;
+
+function syncMealDrumReadout() {
+  if (!els.cqDrumReadoutVal) return;
+  if (mealDrumCleared) {
+    els.cqDrumReadoutVal.textContent = 'ว่าง · บันทึกเพื่อลบมื้อนี้';
+    return;
+  }
+  const cal = mealDrumKcal?.getValue?.() ?? MEAL_DRUM_KCAL_DEFAULT;
+  const prot = mealDrumProt?.getValue?.() ?? MEAL_DRUM_PROT_DEFAULT;
+  els.cqDrumReadoutVal.textContent = `${cal} kcal · โปรตีน ${prot} ก`;
+}
+
+function destroyMealDrums() {
+  try { mealDrumKcal?.destroy?.(); } catch { /* ignore */ }
+  try { mealDrumProt?.destroy?.(); } catch { /* ignore */ }
+  mealDrumKcal = null;
+  mealDrumProt = null;
+}
+
+function ensureMealDrums(cal = MEAL_DRUM_KCAL_DEFAULT, prot = MEAL_DRUM_PROT_DEFAULT) {
+  if (!els.cqDrumKcal || !els.cqDrumProt) return;
+  destroyMealDrums();
+  // Snap kcal to nearest step of 10 within 10–1000.
+  let c = Math.round(Number(cal));
+  if (!Number.isFinite(c) || c <= 0) c = MEAL_DRUM_KCAL_DEFAULT;
+  c = Math.max(10, Math.min(1000, Math.round(c / 10) * 10));
+  let p = Math.round(Number(prot));
+  if (!Number.isFinite(p) || p < 0) p = MEAL_DRUM_PROT_DEFAULT;
+  p = Math.max(1, Math.min(500, p || 1));
+
+  mealDrumKcal = mountDrumPicker(els.cqDrumKcal, {
+    min: 10,
+    max: 1000,
+    step: 10,
+    value: c,
+    ariaLabel: 'แคลอรี่',
+    flickGain: 2.2,
+    onChange: () => {
+      mealDrumCleared = false;
+      if (els.calorieMealDrums) delete els.calorieMealDrums.dataset.cleared;
+      syncMealDrumReadout();
+    },
+  });
+  mealDrumProt = mountDrumPicker(els.cqDrumProt, {
+    min: 1,
+    max: 500,
+    step: 1,
+    value: p,
+    unit: 'ก',
+    ariaLabel: 'โปรตีนกรัม',
+    flickGain: 1.85,
+    onChange: () => {
+      mealDrumCleared = false;
+      if (els.calorieMealDrums) delete els.calorieMealDrums.dataset.cleared;
+      syncMealDrumReadout();
+    },
+  });
+  mealDrumCleared = false;
+  if (els.calorieMealDrums) delete els.calorieMealDrums.dataset.cleared;
+  syncMealDrumReadout();
+}
+
+function setMealQuickChrome(visible) {
+  const sheet = els.calorieQuickOverlay?.querySelector?.('.calorie-quick-sheet');
+  sheet?.classList.toggle('is-meal-drums', Boolean(visible));
+  if (els.calorieMealDrums) els.calorieMealDrums.hidden = !visible;
+  if (els.cqDrumReadout) els.cqDrumReadout.hidden = !visible;
+  if (els.calorieQuickLabel) els.calorieQuickLabel.hidden = !visible;
+  if (els.calorieQuickInput) els.calorieQuickInput.hidden = Boolean(visible);
+}
+
+function applyMealTextToDrums(text) {
+  const parsed = parseQuickMeal(String(text || '').trim())
+    || (() => {
+      const m = parseMealCell(text);
+      if (m.empty) return null;
+      return { cal: m.cal, prot: m.prot, label: '' };
+    })();
+  if (!parsed) return false;
+  ensureMealDrums(parsed.cal, parsed.prot || 1);
+  if (els.calorieQuickLabel) {
+    els.calorieQuickLabel.value = parsed.label || '';
+  }
+  return true;
+}
+
+function mealDrumPayloadText() {
+  const cal = mealDrumKcal?.getValue?.();
+  const prot = mealDrumProt?.getValue?.();
+  if (!(cal > 0)) return '';
+  const label = String(els.calorieQuickLabel?.value || '').trim();
+  const pair = `${cal},${prot > 0 ? prot : 0}`;
+  return label ? `${label} ${pair}` : pair;
+}
 
 function calorieDayDate(dayId) {
   const id = String(dayId || '');
@@ -2913,17 +3023,25 @@ function openCalorieQuick(mode, opts = {}) {
       ? 'เพิ่มออกกำลัง'
       : 'เพิ่มมื้อ';
   }
-  if (els.calorieQuickHint) {
-    els.calorieQuickHint.textContent = calorieQuickMode === 'mus'
-      ? musQuickHintText()
-      : 'ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27 — ไม่ถูกจะไม่บันทึก';
-  }
-  if (els.calorieQuickInput) {
-    const prefill = calorieQuickMode === 'mus' ? String(opts?.prefill || '') : '';
-    els.calorieQuickInput.value = prefill;
-    els.calorieQuickInput.placeholder = calorieQuickMode === 'mus'
-      ? 'อกบน,120\nหน้าขา,80\nวิ่ง,200'
-      : '130,27';
+  if (calorieQuickMode === 'meal') {
+    if (els.calorieQuickHint) {
+      els.calorieQuickHint.textContent = 'เลื่อนลูกกลิ้งแคล (ทีละ 10) และโปรตีน (ทีละ 1) · ปัดเร็วเพื่อกระโดดไกล';
+    }
+    setMealQuickChrome(true);
+    ensureMealDrums(MEAL_DRUM_KCAL_DEFAULT, MEAL_DRUM_PROT_DEFAULT);
+    if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
+  } else {
+    destroyMealDrums();
+    setMealQuickChrome(false);
+    if (els.calorieQuickHint) {
+      els.calorieQuickHint.textContent = musQuickHintText();
+    }
+    if (els.calorieQuickInput) {
+      const prefill = String(opts?.prefill || '');
+      els.calorieQuickInput.value = prefill;
+      els.calorieQuickInput.placeholder = 'อกบน,120\nหน้าขา,80\nวิ่ง,200';
+      els.calorieQuickInput.hidden = false;
+    }
   }
   syncCalorieQuickInputMode();
   syncCalorieQuickChrome();
@@ -2931,6 +3049,10 @@ function openCalorieQuick(mode, opts = {}) {
   els.calorieQuickOverlay.hidden = false;
   requestAnimationFrame(() => {
     try {
+      if (calorieQuickMode === 'meal') {
+        els.calorieQuickLabel?.focus?.({ preventScroll: true });
+        return;
+      }
       const el = els.calorieQuickInput;
       if (!el) return;
       el.focus({ preventScroll: false });
@@ -2993,13 +3115,20 @@ async function openCalorieCellEditor(opts) {
       els.calorieQuickTitle.textContent = value ? `แก้มื้อ ${mealIndex + 1}` : `มื้อ ${mealIndex + 1}`;
     }
     if (els.calorieQuickHint) {
-      els.calorieQuickHint.textContent = 'ต้องเป็นจำนวนเต็มคั่นด้วยคอมมา เช่น 130,27 · เคลียร์แล้วบันทึกเพื่อลบ';
+      els.calorieQuickHint.textContent = 'เลื่อนลูกกลิ้งเพื่อแก้ · เคลียร์แล้วบันทึกเพื่อลบมื้อนี้';
     }
-    if (els.calorieQuickInput) {
-      els.calorieQuickInput.placeholder = '130,27';
-      els.calorieQuickInput.value = value;
+    setMealQuickChrome(true);
+    const cell = parseMealCell(value);
+    if (!cell.empty) {
+      ensureMealDrums(cell.cal, cell.prot > 0 ? cell.prot : 1);
+      if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
+    } else {
+      ensureMealDrums(MEAL_DRUM_KCAL_DEFAULT, MEAL_DRUM_PROT_DEFAULT);
+      if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
     }
   } else {
+    destroyMealDrums();
+    setMealQuickChrome(false);
     if (!value) value = formatExercisesForEdit(day);
     calorieQuickEdit = { dayId, mealIndex: null };
     if (els.calorieQuickTitle) {
@@ -3013,6 +3142,7 @@ async function openCalorieCellEditor(opts) {
     if (els.calorieQuickInput) {
       els.calorieQuickInput.placeholder = 'อก,120\nไหล,80\nวิ่ง,200';
       els.calorieQuickInput.value = value;
+      els.calorieQuickInput.hidden = false;
     }
   }
 
@@ -3022,6 +3152,7 @@ async function openCalorieCellEditor(opts) {
   els.calorieQuickOverlay.hidden = false;
   requestAnimationFrame(() => {
     try {
+      if (mode === 'meal') return;
       els.calorieQuickInput?.focus({ preventScroll: false });
       els.calorieQuickInput?.select?.();
     } catch { /* ignore */ }
@@ -3031,6 +3162,10 @@ async function openCalorieCellEditor(opts) {
 function closeCalorieQuick() {
   calorieQuickMode = null;
   calorieQuickEdit = null;
+  mealDrumCleared = false;
+  destroyMealDrums();
+  setMealQuickChrome(false);
+  if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
   if (els.calorieQuickOverlay) els.calorieQuickOverlay.hidden = true;
   syncCalorieQuickChrome();
 }
@@ -3118,6 +3253,17 @@ function submitCalorieBodyQuick() {
 }
 
 function clearCalorieQuickInput() {
+  if (calorieQuickMode === 'meal') {
+    mealDrumCleared = Boolean(calorieQuickEdit);
+    if (mealDrumCleared) {
+      syncMealDrumReadout();
+      setStatus('ว่างแล้ว · กดบันทึกเพื่อลบมื้อ', { forceToast: true, ms: 1600 });
+    } else {
+      ensureMealDrums(MEAL_DRUM_KCAL_DEFAULT, MEAL_DRUM_PROT_DEFAULT);
+      if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
+    }
+    return;
+  }
   if (!els.calorieQuickInput) return;
   els.calorieQuickInput.value = '';
   try {
@@ -3158,8 +3304,10 @@ async function onCalorieQuickDelete() {
 
 function submitCalorieQuick() {
   if (!requireSyncReady()) return;
-  const text = String(els.calorieQuickInput?.value || '').trim();
   const editing = Boolean(calorieQuickEdit);
+  const text = calorieQuickMode === 'meal'
+    ? (mealDrumCleared ? '' : mealDrumPayloadText())
+    : String(els.calorieQuickInput?.value || '').trim();
 
   // Edit path: เคลียร์แล้วกดบันทึก = ลบค่าในช่องนั้น · พิมพ์ใหม่แล้วบันทึก = อัปเดต
   if (editing) {
@@ -3213,7 +3361,7 @@ function submitCalorieQuick() {
 
   if (!text) {
     setStatus(
-      calorieQuickMode === 'mus' ? 'พิมพ์ท่า,แคลก่อน' : MEAL_PATTERN_HINT,
+      calorieQuickMode === 'mus' ? 'พิมพ์ท่า,แคลก่อน' : 'เลื่อนลูกกลิ้งแคล/โปรตีนก่อน',
       { forceToast: true },
     );
     return;
@@ -3239,13 +3387,22 @@ function submitCalorieQuick() {
         setStatus(MEAL_PATTERN_HINT, { forceToast: true, ms: 4200 });
         return;
       }
-      const { sheet, slot } = appendQuickMeal(ensureCaloriePayload(), text);
-      state.calorieActiveMonth = monthKeyFromDate(toDateKey());
-      persistCalorie(sheet, {
-        status: `มื้อ ${slot}: ${parsed.cal},${parsed.prot}`,
-        fullRender: true,
-      });
+      // Continue with existing appendQuickMeal path below — fall through by not duplicating
+      // (original code continues in next branch)
     }
+  } catch (err) {
+    setStatus(err?.message || 'เพิ่มไม่ได้', { forceToast: true, ms: 4200 });
+    return;
+  }
+
+  // Meal append (non-edit)
+  try {
+    const { sheet, slot } = appendQuickMeal(ensureCaloriePayload(), text);
+    state.calorieActiveMonth = monthKeyFromDate(toDateKey());
+    persistCalorie(sheet, {
+      status: `เพิ่มมื้อ ${slot + 1} แล้ว`,
+      fullRender: true,
+    });
     closeCalorieQuick();
     requestAnimationFrame(() => {
       if (els.calorieScroll) els.calorieScroll.scrollTop = 0;
@@ -9167,8 +9324,13 @@ async function init({ fromBoot = false } = {}) {
     const chip = e.target?.closest?.('[data-freq-text]');
     if (!chip || !els.calorieQuickFreq.contains(chip)) return;
     e.preventDefault();
+    const freqText = chip.dataset.freqText || '';
+    if (calorieQuickMode === 'meal') {
+      applyMealTextToDrums(freqText);
+      return;
+    }
     if (els.calorieQuickInput) {
-      els.calorieQuickInput.value = chip.dataset.freqText || '';
+      els.calorieQuickInput.value = freqText;
       try { els.calorieQuickInput.focus(); } catch { /* ignore */ }
     }
   });

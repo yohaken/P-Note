@@ -364,7 +364,28 @@ export function weekdayShortTh(dateKey) {
 }
 
 /**
+ * Session count = number of days with kcal > 0 for that leaf (all stored cells).
+ * Parent = sum of children’s session counts.
+ */
+export function countMuscleSessions(tree, nodeId) {
+  const t = normalizeMuscleTree(tree);
+  const node = t.nodes.find((n) => n.id === nodeId);
+  if (!node) return 0;
+  const kids = t.nodes.filter((n) => n.parentId === nodeId);
+  if (kids.length) {
+    return kids.reduce((sum, k) => sum + countMuscleSessions(t, k.id), 0);
+  }
+  let n = 0;
+  Object.keys(t.cells).forEach((k) => {
+    if (!k.startsWith(`${nodeId}|`)) return;
+    if (t.cells[k] > 0) n += 1;
+  });
+  return n;
+}
+
+/**
  * Compact sticky muscle matrix HTML.
+ * Columns: name | ครั้ง (sticky) | dates newest→oldest
  * @param {object} tree
  * @param {{ dates?: string[], selectedId?: string, todayKey?: string }} opts
  */
@@ -390,12 +411,16 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       const sel = r.id === selectedId ? ' is-selected' : '';
       const depthCls = r.depth ? ' is-child' : ' is-parent';
       const leafCls = r.leaf ? ' is-leaf' : ' is-group';
+      const sessions = countMuscleSessions(t, r.id);
       const nameCell = `<th class="mt-row-name${depthCls}${leafCls}${sel}" scope="row" data-node-id="${esc(r.id)}">
         <button type="button" class="mt-name-btn" data-node-id="${esc(r.id)}" title="เลือก / แก้ชื่อ">
           <span class="mt-name-text">${esc(r.name)}</span>
         </button>
         <button type="button" class="mt-del-btn" data-del-node="${esc(r.id)}" title="ลบ" aria-label="ลบ ${esc(r.name)}">×</button>
       </th>`;
+      const countCell = `<td class="mt-col-count${depthCls}${leafCls}${sessions ? ' is-filled' : ''}" data-node-id="${esc(r.id)}" title="เล่นไป ${sessions} ครั้ง">
+        <span class="mt-count-val">${sessions ? sessions : ''}</span>
+      </td>`;
 
       const cells = dates
         .map((dk) => {
@@ -422,7 +447,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
         })
         .join('');
 
-      return `<tr class="mt-row${depthCls}${leafCls}${sel}" data-node-id="${esc(r.id)}">${nameCell}${cells}</tr>`;
+      return `<tr class="mt-row${depthCls}${leafCls}${sel}" data-node-id="${esc(r.id)}">${nameCell}${countCell}${cells}</tr>`;
     })
     .join('');
 
@@ -430,6 +455,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
     <thead>
       <tr>
         <th class="mt-corner" scope="col">กล้ามเนื้อ</th>
+        <th class="mt-col-count-head" scope="col" title="จำนวนครั้งที่เล่น (วันที่มีแคล)">ครั้ง</th>
         ${headDates}
       </tr>
     </thead>
