@@ -129,6 +129,7 @@ import {
   muscleDateKeys,
   normalizeMuscleTree,
   removeMuscleNode,
+  moveMuscleNode,
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
@@ -636,6 +637,9 @@ const els = {
   muscleScroll: document.getElementById('muscle-scroll'),
   muscleAddCat: document.getElementById('muscle-add-cat'),
   muscleAddChild: document.getElementById('muscle-add-child'),
+  muscleExpandAllBtn: document.getElementById('muscle-expand-all'),
+  muscleMoveUp: document.getElementById('muscle-move-up'),
+  muscleMoveDown: document.getElementById('muscle-move-down'),
   muscleFreeform: document.getElementById('muscle-freeform'),
   dockCalorieLogBtn: document.getElementById('dock-calorie-log-btn'),
   dockCalorieMuscleBtn: document.getElementById('dock-calorie-muscle-btn'),
@@ -2701,6 +2705,9 @@ let calorieQuickMode = null; // 'meal' | 'mus'
 let calorieQuickEdit = null;
 /** Selected muscle tree node id (for +ย่อย / rename). */
 let muscleSelectedId = null;
+/** Muscle table starts collapsed (category rows only). */
+let muscleExpandAll = false;
+const muscleExpandedIds = new Set();
 /** Meal drum pickers (kcal / protein) — mounted while meal sheet is open. */
 let mealDrumKcal = null;
 let mealDrumProt = null;
@@ -2959,7 +2966,11 @@ function paintMuscleSheet() {
     dates: muscleDateKeys({ today: todayKey }),
     selectedId: muscleSelectedId || '',
     todayKey,
+    expandAll: muscleExpandAll,
+    expandedIds: muscleExpandedIds,
   });
+  fitMuscleNameColumn(host);
+  syncMuscleExpandBtn();
   host.scrollLeft = prevLeft;
   host.scrollTop = prevTop;
   if (focusNode && focusDate) {
@@ -2968,6 +2979,69 @@ function paintMuscleSheet() {
     );
     try { next?.focus({ preventScroll: true }); } catch { /* ignore */ }
   }
+}
+
+/** Widen sticky name column so full labels fit (no ellipsis clip). */
+function fitMuscleNameColumn(host) {
+  const table = host?.querySelector?.('.muscle-table');
+  if (!table) return;
+  let max = 0;
+  table.querySelectorAll('.mt-name-text').forEach((el) => {
+    max = Math.max(max, el.scrollWidth || 0);
+  });
+  // toggle + padding + delete affordance
+  const px = Math.max(120, Math.min(220, Math.ceil(max + 36)));
+  table.style.setProperty('--mt-name-w', `${px}px`);
+}
+
+function syncMuscleExpandBtn() {
+  if (!els.muscleExpandAllBtn) return;
+  els.muscleExpandAllBtn.textContent = muscleExpandAll ? 'หุบทั้งหมด' : 'ขยายทั้งหมด';
+  els.muscleExpandAllBtn.title = muscleExpandAll
+    ? 'หุบเหลือแค่หมวดกลุ่ม'
+    : 'ขยายรายการย่อยทุกหมวด';
+}
+
+function onMuscleToggleExpandAll() {
+  muscleExpandAll = !muscleExpandAll;
+  if (muscleExpandAll) muscleExpandedIds.clear();
+  paintMuscleSheet();
+}
+
+function onMuscleToggleGroup(nodeId) {
+  const id = String(nodeId || '');
+  if (!id) return;
+  if (muscleExpandAll) {
+    // Leaving expand-all: keep all open except this one closed.
+    const sheet = ensureCaloriePayload();
+    const tree = normalizeMuscleTree(sheet.muscleTree);
+    muscleExpandAll = false;
+    muscleExpandedIds.clear();
+    tree.nodes.filter((n) => !n.parentId).forEach((n) => {
+      if (n.id !== id) muscleExpandedIds.add(n.id);
+    });
+  } else if (muscleExpandedIds.has(id)) {
+    muscleExpandedIds.delete(id);
+  } else {
+    muscleExpandedIds.add(id);
+  }
+  paintMuscleSheet();
+}
+
+function onMuscleMove(direction) {
+  if (!requireSyncReady()) return;
+  if (!muscleSelectedId) {
+    setStatus('เลือกแถวก่อน แล้วกด ↑↓', { forceToast: true, ms: 1400 });
+    return;
+  }
+  const sheet = ensureCaloriePayload();
+  const { tree, changed } = moveMuscleNode(sheet.muscleTree, muscleSelectedId, direction);
+  if (!changed) {
+    setStatus('เลื่อนต่อไม่ได้', { forceToast: true, ms: 1200 });
+    return;
+  }
+  persistMuscleTree(tree, { status: 'จัดลำดับแล้ว' });
+  paintMuscleSheet();
 }
 
 function persistMuscleTree(nextTree, { touchDates = [], status = '' } = {}) {
@@ -3026,6 +3100,8 @@ async function onMuscleAddChild() {
     return;
   }
   muscleSelectedId = node.id;
+  // Show the new child under its parent.
+  if (!muscleExpandAll) muscleExpandedIds.add(parentId);
   // Parent may have lost leaf cells when becoming a group — resync dates that changed.
   const touch = [...new Set(
     Object.keys(normalizeMuscleTree(sheet.muscleTree).cells)
@@ -3037,6 +3113,12 @@ async function onMuscleAddChild() {
 }
 
 function onMuscleScrollClick(e) {
+  const toggle = e.target?.closest?.('[data-toggle-node]');
+  if (toggle && els.muscleScroll?.contains(toggle)) {
+    e.preventDefault();
+    onMuscleToggleGroup(toggle.dataset.toggleNode);
+    return;
+  }
   const del = e.target?.closest?.('[data-del-node]');
   if (del && els.muscleScroll?.contains(del)) {
     e.preventDefault();
@@ -9361,6 +9443,9 @@ async function init({ fromBoot = false } = {}) {
   els.muscleAddChild?.addEventListener('click', () => {
     void onMuscleAddChild();
   });
+  els.muscleExpandAllBtn?.addEventListener('click', () => onMuscleToggleExpandAll());
+  els.muscleMoveUp?.addEventListener('click', () => onMuscleMove(-1));
+  els.muscleMoveDown?.addEventListener('click', () => onMuscleMove(1));
   els.muscleFreeform?.addEventListener('click', () => openCalorieQuick('mus'));
   els.muscleScroll?.addEventListener('click', onMuscleScrollClick);
   els.muscleScroll?.addEventListener('change', onMuscleScrollChange);

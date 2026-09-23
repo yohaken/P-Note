@@ -342,6 +342,39 @@ export function removeMuscleNode(tree, nodeId) {
   return { tree: next, changed: true, touchDates: [...touchDates] };
 }
 
+/**
+ * Move a category or leaf among its siblings (−1 = up, +1 = down).
+ * Persists via node.order after normalizeMuscleTree.
+ */
+export function moveMuscleNode(tree, nodeId, direction) {
+  const dir = direction < 0 ? -1 : 1;
+  const t = normalizeMuscleTree(tree);
+  const node = t.nodes.find((n) => n.id === nodeId);
+  if (!node) return { tree: t, changed: false };
+  const parentKey = node.parentId || null;
+  const siblings = t.nodes
+    .filter((n) => (n.parentId || null) === parentKey)
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'th'));
+  const idx = siblings.findIndex((n) => n.id === nodeId);
+  const swapIdx = idx + dir;
+  if (idx < 0 || swapIdx < 0 || swapIdx >= siblings.length) {
+    return { tree: t, changed: false };
+  }
+  const a = siblings[idx];
+  const b = siblings[swapIdx];
+  const orderA = a.order;
+  const orderB = b.order;
+  const nodes = t.nodes.map((n) => {
+    if (n.id === a.id) return { ...n, order: orderB };
+    if (n.id === b.id) return { ...n, order: orderA };
+    return n;
+  });
+  return {
+    tree: normalizeMuscleTree({ ...t, nodes, updatedAt: nowIsoLocal() }),
+    changed: true,
+  };
+}
+
 function esc(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -386,8 +419,15 @@ export function countMuscleSessions(tree, nodeId) {
 /**
  * Compact sticky muscle matrix HTML.
  * Columns: name | ครั้ง (sticky) | dates newest→oldest
+ * Collapsed by default: groups only; pass expandAll or expandedIds for children.
  * @param {object} tree
- * @param {{ dates?: string[], selectedId?: string, todayKey?: string }} opts
+ * @param {{
+ *   dates?: string[],
+ *   selectedId?: string,
+ *   todayKey?: string,
+ *   expandAll?: boolean,
+ *   expandedIds?: string[]|Set<string>,
+ * }} opts
  */
 export function renderMuscleTableHtml(tree, opts = {}) {
   const t = normalizeMuscleTree(tree);
@@ -395,6 +435,10 @@ export function renderMuscleTableHtml(tree, opts = {}) {
   const dates = opts.dates || muscleDateKeys({ today: todayKey });
   const rows = flattenMuscleRows(t);
   const selectedId = opts.selectedId || '';
+  const expandAll = Boolean(opts.expandAll);
+  const expanded = opts.expandedIds instanceof Set
+    ? opts.expandedIds
+    : new Set(Array.isArray(opts.expandedIds) ? opts.expandedIds : []);
 
   const headDates = dates
     .map((dk) => {
@@ -408,15 +452,28 @@ export function renderMuscleTableHtml(tree, opts = {}) {
 
   const body = rows
     .map((r) => {
+      const isGroup = !r.leaf && (r.childIds || []).length > 0;
+      const isChild = r.depth > 0;
+      if (isChild) {
+        const open = expandAll || expanded.has(r.parentId);
+        if (!open) return '';
+      }
+      const openGroup = isGroup && (expandAll || expanded.has(r.id));
       const sel = r.id === selectedId ? ' is-selected' : '';
       const depthCls = r.depth ? ' is-child' : ' is-parent';
       const leafCls = r.leaf ? ' is-leaf' : ' is-group';
       const sessions = countMuscleSessions(t, r.id);
+      const toggleBtn = isGroup
+        ? `<button type="button" class="mt-toggle" data-toggle-node="${esc(r.id)}" aria-expanded="${openGroup ? 'true' : 'false'}" title="${openGroup ? 'หุบ' : 'ขยาย'}" aria-label="${openGroup ? 'หุบ' : 'ขยาย'} ${esc(r.name)}">${openGroup ? '▾' : '▸'}</button>`
+        : (isChild ? `<span class="mt-toggle-spacer" aria-hidden="true"></span>` : `<span class="mt-toggle-spacer" aria-hidden="true"></span>`);
       const nameCell = `<th class="mt-row-name${depthCls}${leafCls}${sel}" scope="row" data-node-id="${esc(r.id)}">
-        <button type="button" class="mt-name-btn" data-node-id="${esc(r.id)}" title="เลือก / แก้ชื่อ">
-          <span class="mt-name-text">${esc(r.name)}</span>
-        </button>
-        <button type="button" class="mt-del-btn" data-del-node="${esc(r.id)}" title="ลบ" aria-label="ลบ ${esc(r.name)}">×</button>
+        <div class="mt-name-row">
+          ${toggleBtn}
+          <button type="button" class="mt-name-btn" data-node-id="${esc(r.id)}" title="เลือก / แก้ชื่อ">
+            <span class="mt-name-text">${esc(r.name)}</span>
+          </button>
+          <button type="button" class="mt-del-btn" data-del-node="${esc(r.id)}" title="ลบ" aria-label="ลบ ${esc(r.name)}">×</button>
+        </div>
       </th>`;
       const countCell = `<td class="mt-col-count${depthCls}${leafCls}${sessions ? ' is-filled' : ''}" data-node-id="${esc(r.id)}" title="เล่นไป ${sessions} ครั้ง">
         <span class="mt-count-val">${sessions ? sessions : ''}</span>
@@ -447,7 +504,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
         })
         .join('');
 
-      return `<tr class="mt-row${depthCls}${leafCls}${sel}" data-node-id="${esc(r.id)}">${nameCell}${countCell}${cells}</tr>`;
+      return `<tr class="mt-row${depthCls}${leafCls}${sel}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${cells}</tr>`;
     })
     .join('');
 

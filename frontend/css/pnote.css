@@ -8724,6 +8724,7 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
 }
 
 .muscle-table {
+  --mt-name-w: 9.75rem;
   border-collapse: separate;
   border-spacing: 0;
   width: max-content;
@@ -8756,9 +8757,9 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
 .muscle-table .mt-corner {
   left: 0;
   z-index: 5;
-  min-width: 5.6rem;
-  width: 5.6rem;
-  max-width: 5.6rem;
+  min-width: var(--mt-name-w);
+  width: var(--mt-name-w);
+  max-width: none;
   padding: 0.2rem 0.35rem;
   text-align: left;
   font-size: 0.62rem;
@@ -8769,7 +8770,7 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
 .muscle-table .mt-col-count-head,
 .muscle-table .mt-col-count {
   position: sticky;
-  left: 5.6rem;
+  left: var(--mt-name-w);
   z-index: 2;
   min-width: 2.1rem;
   width: 2.1rem;
@@ -8835,9 +8836,9 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   position: sticky;
   left: 0;
   z-index: 2;
-  min-width: 5.6rem;
-  width: 5.6rem;
-  max-width: 5.6rem;
+  min-width: var(--mt-name-w);
+  width: var(--mt-name-w);
+  max-width: none;
   background: var(--surface);
   box-shadow: none;
   text-align: left;
@@ -8854,7 +8855,6 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
 }
 
 .muscle-table .mt-row-name.is-child .mt-name-text {
-  padding-left: 0.55rem;
   font-weight: 600;
   color: var(--text);
 }
@@ -8865,14 +8865,51 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   outline-offset: -1.5px;
 }
 
+.mt-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  min-height: 1.7rem;
+  padding-right: 1.05rem;
+  box-sizing: border-box;
+}
+
+.mt-toggle,
+.mt-toggle-spacer {
+  flex: 0 0 1.05rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mt-toggle {
+  appearance: none;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mt-toggle:active {
+  background: color-mix(in srgb, var(--border) 40%, transparent);
+  color: var(--text);
+}
+
 .mt-name-btn {
   appearance: none;
   display: flex;
   align-items: center;
-  gap: 0.15rem;
-  width: calc(100% - 1.1rem);
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
-  padding: 0.28rem 0.2rem 0.28rem 0.35rem;
+  padding: 0.28rem 0.1rem 0.28rem 0.05rem;
   border: 0;
   background: transparent;
   color: inherit;
@@ -8883,9 +8920,13 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
 }
 
 .mt-name-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: block;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.25;
+  font-size: 0.72rem;
 }
 
 .mt-del-btn {
