@@ -9,10 +9,12 @@ import {
   muscleSlotsForDate,
   muscleTreeLabels,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=274';
+} from './muscle-tree.js?v=275';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
+/** g protein per kg LBM (or per kg bodyweight if no body-fat%) in TDEE mode. */
+export const DEFAULT_TDEE_PROTEIN_FACTOR = 2;
 export const DEFAULT_KCAL_PER_KG = 7700;
 /** Fallback base when profile (สูง/วันเกิด) or weight is incomplete. */
 export const DEFAULT_BASE_KCAL = 1784;
@@ -856,10 +858,17 @@ export function resolveNutritionGoals(sheet = {}, day = null) {
     };
   }
   const goalKcal = Math.round(tdee * biasFactor);
-  // Protein from LBM when possible (2.0 g/kg LBM), else 1.8 g/kg bodyweight.
+  // Protein: user factor × LBM when possible, else × bodyweight (default 2.0 g/kg).
+  const tdeePf = clampNum(sheet.tdeeProteinFactor, 0.5, 4, DEFAULT_TDEE_PROTEIN_FACTOR);
   let goalProtG = null;
-  if (lbm != null) goalProtG = round(lbm * 2.0, 1);
-  else if (weight != null) goalProtG = round(weight * 1.8, 1);
+  let protBase = null;
+  if (lbm != null) {
+    goalProtG = round(lbm * tdeePf, 1);
+    protBase = 'LBM';
+  } else if (weight != null) {
+    goalProtG = round(weight * tdeePf, 1);
+    protBase = 'กก.';
+  }
   const protKcal = goalProtG != null ? goalProtG * 4 : 0;
   // Fat ≈ 25% of goal kcal
   let goalFatG = round((goalKcal * 0.25) / 9, 1);
@@ -872,15 +881,22 @@ export function resolveNutritionGoals(sheet = {}, day = null) {
     carbKcal = Math.max(0, goalKcal - protKcal - fatKcal);
   }
   const goalCarbG = round(carbKcal / 4, 1);
+  const protHint = goalProtG != null
+    ? `โปรตีน ${goalProtG} ก = ${tdeePf}×${protBase}`
+    : null;
   return {
     ...empty,
     goalKcal,
     goalProtG,
     goalCarbG,
     goalFatG,
-    hint: katch != null
-      ? `TDEE ${tdee} · BMR Katch ${bmr} · ${TDEE_BIAS[biasId].label}`
-      : `TDEE ${tdee} · BMR Mifflin ${bmr} (ยังไม่มีไขมัน%) · ${TDEE_BIAS[biasId].label}`,
+    tdeeProteinFactor: tdeePf,
+    hint: [
+      katch != null
+        ? `TDEE ${tdee} · BMR Katch ${bmr} · ${TDEE_BIAS[biasId].label}`
+        : `TDEE ${tdee} · BMR Mifflin ${bmr} (ยังไม่มีไขมัน%) · ${TDEE_BIAS[biasId].label}`,
+      protHint,
+    ].filter(Boolean).join(' · '),
   };
 }
 
@@ -1072,6 +1088,7 @@ export function normalizeDayRow(raw, fallbackBase = DEFAULT_BASE_KCAL) {
 export function normalizeCalorie(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const proteinFactor = clampNum(src.proteinFactor, 0.5, 4, DEFAULT_PROTEIN_FACTOR);
+  const tdeeProteinFactor = clampNum(src.tdeeProteinFactor, 0.5, 4, DEFAULT_TDEE_PROTEIN_FACTOR);
   const kcalPerKg = clampNum(src.kcalPerKg, 1000, 20000, DEFAULT_KCAL_PER_KG);
   const defaultBase = clampNum(src.defaultBase, 800, 5000, DEFAULT_BASE_KCAL);
   const heightCm = clampNum(src.heightCm, 100, 250, DEFAULT_HEIGHT_CM);
@@ -1095,6 +1112,7 @@ export function normalizeCalorie(raw) {
     // device cannot clobber height/sex/goals (and vice versa).
     profileAt: src.profileAt || '',
     proteinFactor: round(proteinFactor, 2),
+    tdeeProteinFactor: round(tdeeProteinFactor, 2),
     kcalPerKg: Math.round(kcalPerKg),
     defaultBase: Math.round(defaultBase),
     heightCm: Math.round(heightCm),
@@ -3194,6 +3212,7 @@ function pickMeta(local, remote) {
   return {
     ...profile,
     proteinFactor: profile.proteinFactor,
+    tdeeProteinFactor: profile.tdeeProteinFactor,
     kcalPerKg: profile.kcalPerKg,
     defaultBase: profile.defaultBase,
     heightCm: profile.heightCm,

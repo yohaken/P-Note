@@ -122,7 +122,7 @@ import {
   thaiDayName,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=274';
+} from './calorie.js?v=275';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -134,8 +134,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=274';
-import { mountDrumPicker } from './drum-picker.js?v=274';
+} from './muscle-tree.js?v=275';
+import { mountDrumPicker } from './drum-picker.js?v=275';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -617,6 +617,7 @@ const els = {
   calorieBodyFat: document.getElementById('calorie-body-fat'),
   calorieActivity: document.getElementById('calorie-activity'),
   calorieTdeeBias: document.getElementById('calorie-tdee-bias'),
+  calorieTdeeProtein: document.getElementById('calorie-tdee-protein'),
   calorieTdeePreview: document.getElementById('calorie-tdee-preview'),
   calorieFixedKcal: document.getElementById('calorie-fixed-kcal'),
   calorieFixedProt: document.getElementById('calorie-fixed-prot'),
@@ -1924,6 +1925,9 @@ function readCalorieProfileFromUi(sheet) {
   const goalMode = normalizeGoalMode(els.calorieGoalMode?.value || sheet.goalMode);
   const bfRaw = String(els.calorieBodyFat?.value || '').trim();
   const bodyFatPct = bfRaw === '' ? null : Number(bfRaw);
+  const tdeePfRaw = String(els.calorieTdeeProtein?.value || '').trim();
+  const tdeePf = tdeePfRaw === '' ? NaN : Number(tdeePfRaw);
+  const tdeePfOk = Number.isFinite(tdeePf) && tdeePf >= 0.5 && tdeePf <= 4;
   const fixedKcalRaw = String(els.calorieFixedKcal?.value || '').trim();
   const fixedProtRaw = String(els.calorieFixedProt?.value || '').trim();
   const fixedCarbRaw = String(els.calorieFixedCarb?.value || '').trim();
@@ -1940,6 +1944,7 @@ function readCalorieProfileFromUi(sheet) {
     bodyFatPct: bfRaw === '' || !Number.isFinite(bodyFatPct) ? null : bodyFatPct,
     activityLevel: els.calorieActivity?.value || sheet.activityLevel || 'moderate',
     tdeeBias: els.calorieTdeeBias?.value || sheet.tdeeBias || 'maintain',
+    tdeeProteinFactor: tdeePfOk ? tdeePf : sheet.tdeeProteinFactor,
     fixedKcal: fixedKcalRaw === '' || !Number.isFinite(Number(fixedKcalRaw)) ? null : Number(fixedKcalRaw),
     fixedProtG: fixedProtRaw === '' || !Number.isFinite(Number(fixedProtRaw)) ? null : Number(fixedProtRaw),
     fixedCarbG: fixedCarbRaw === '' || !Number.isFinite(Number(fixedCarbRaw)) ? null : Number(fixedCarbRaw),
@@ -1960,6 +1965,7 @@ function calorieProfileChanged(before, after) {
     || before.bodyFatPct !== after.bodyFatPct
     || before.activityLevel !== after.activityLevel
     || before.tdeeBias !== after.tdeeBias
+    || before.tdeeProteinFactor !== after.tdeeProteinFactor
     || before.fixedKcal !== after.fixedKcal
     || before.fixedProtG !== after.fixedProtG
     || before.fixedCarbG !== after.fixedCarbG
@@ -1992,7 +1998,9 @@ function paintTdeePreview(sheet) {
     `BMR ${goals.bmr ?? '—'}`,
     `TDEE ${goals.tdee}`,
     `เป้าแคล ${goals.goalKcal}`,
-    goals.goalProtG != null ? `โปรตีน ${goals.goalProtG} ก` : null,
+    goals.goalProtG != null
+      ? `โปรตีน ${goals.goalProtG} ก (×${goals.tdeeProteinFactor ?? '—'})`
+      : null,
     goals.goalCarbG != null ? `คาร์บ ${goals.goalCarbG} ก` : null,
     goals.goalFatG != null ? `ไขมัน ${goals.goalFatG} ก` : null,
   ].filter(Boolean);
@@ -2121,6 +2129,10 @@ function syncCalorieProfileInputs(sheet) {
   }
   if (els.calorieTdeeBias && document.activeElement !== els.calorieTdeeBias) {
     els.calorieTdeeBias.value = sheet.tdeeBias || 'maintain';
+  }
+  if (els.calorieTdeeProtein && document.activeElement !== els.calorieTdeeProtein) {
+    const pf = Number.isFinite(sheet.tdeeProteinFactor) ? sheet.tdeeProteinFactor : 2;
+    els.calorieTdeeProtein.value = String(pf);
   }
   if (els.calorieFixedKcal && document.activeElement !== els.calorieFixedKcal) {
     els.calorieFixedKcal.value = sheet.fixedKcal == null ? '' : String(sheet.fixedKcal);
@@ -9578,6 +9590,7 @@ async function init({ fromBoot = false } = {}) {
     els.calorieBodyFat,
     els.calorieActivity,
     els.calorieTdeeBias,
+    els.calorieTdeeProtein,
     els.calorieFixedKcal,
     els.calorieFixedProt,
     els.calorieFixedCarb,
