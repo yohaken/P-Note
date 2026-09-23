@@ -122,10 +122,11 @@ import {
   thaiDayName,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=268';
+} from './calorie.js?v=273';
 import {
   addMuscleCategory,
   addMuscleChild,
+  flattenMuscleRows,
   muscleDateKeys,
   normalizeMuscleTree,
   removeMuscleNode,
@@ -133,8 +134,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=268';
-import { mountDrumPicker } from './drum-picker.js?v=268';
+} from './muscle-tree.js?v=273';
+import { mountDrumPicker } from './drum-picker.js?v=273';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -641,6 +642,11 @@ const els = {
   muscleMoveUp: document.getElementById('muscle-move-up'),
   muscleMoveDown: document.getElementById('muscle-move-down'),
   muscleFreeform: document.getElementById('muscle-freeform'),
+  muscleSettingsList: document.getElementById('muscle-settings-list'),
+  muscleManageBtn: document.getElementById('muscle-manage-btn'),
+  muscleManageOverlay: document.getElementById('muscle-manage-overlay'),
+  muscleManageBackdrop: document.getElementById('muscle-manage-backdrop'),
+  muscleManageClose: document.getElementById('muscle-manage-close'),
   dockCalorieLogBtn: document.getElementById('dock-calorie-log-btn'),
   dockCalorieMuscleBtn: document.getElementById('dock-calorie-muscle-btn'),
   dockCalorieHealthBtn: document.getElementById('dock-calorie-health-btn'),
@@ -2979,6 +2985,9 @@ function paintMuscleSheet() {
     );
     try { next?.focus({ preventScroll: true }); } catch { /* ignore */ }
   }
+  if (els.muscleManageOverlay && !els.muscleManageOverlay.hidden) {
+    paintMuscleSettingsList();
+  }
 }
 
 /** Widen sticky name column so full labels fit (no ellipsis clip). */
@@ -3078,6 +3087,7 @@ async function onMuscleAddCategory() {
   muscleSelectedId = node.id;
   persistMuscleTree(tree, { status: `เพิ่มหมวด ${node.name}` });
   paintMuscleSheet();
+  paintMuscleSettingsList();
 }
 
 async function onMuscleAddChild() {
@@ -3110,31 +3120,22 @@ async function onMuscleAddChild() {
   )];
   persistMuscleTree(tree, { touchDates: touch, status: `เพิ่ม ${node.name}` });
   paintMuscleSheet();
+  paintMuscleSettingsList();
 }
 
 function onMuscleScrollClick(e) {
-  const toggle = e.target?.closest?.('[data-toggle-node]');
-  if (toggle && els.muscleScroll?.contains(toggle)) {
-    e.preventDefault();
-    onMuscleToggleGroup(toggle.dataset.toggleNode);
-    return;
-  }
-  const del = e.target?.closest?.('[data-del-node]');
-  if (del && els.muscleScroll?.contains(del)) {
-    e.preventDefault();
-    void onMuscleDeleteNode(del.dataset.delNode);
-    return;
-  }
   const nameBtn = e.target?.closest?.('.mt-name-btn[data-node-id]');
   if (nameBtn && els.muscleScroll?.contains(nameBtn)) {
     e.preventDefault();
     const id = nameBtn.dataset.nodeId;
-    if (muscleSelectedId === id) {
-      void onMuscleRenameNode(id);
-    } else {
+    // Group name tap → expand / collapse. Rename/delete only in Settings.
+    if (nameBtn.dataset.groupToggle === '1') {
       muscleSelectedId = id;
-      paintMuscleSheet();
+      onMuscleToggleGroup(id);
+      return;
     }
+    muscleSelectedId = id;
+    paintMuscleSheet();
   }
 }
 
@@ -3157,6 +3158,7 @@ async function onMuscleRenameNode(nodeId) {
   )];
   persistMuscleTree(tree, { touchDates: touch, status: 'เปลี่ยนชื่อแล้ว' });
   paintMuscleSheet();
+  paintMuscleSettingsList();
 }
 
 async function onMuscleDeleteNode(nodeId) {
@@ -3174,6 +3176,50 @@ async function onMuscleDeleteNode(nodeId) {
   if (muscleSelectedId === nodeId) muscleSelectedId = null;
   persistMuscleTree(tree, { touchDates: touchDates || [], status: `ลบ ${node.name}` });
   paintMuscleSheet();
+  paintMuscleSettingsList();
+}
+
+function paintMuscleSettingsList() {
+  const list = els.muscleSettingsList;
+  if (!list) return;
+  let sheet;
+  try {
+    sheet = ensureCaloriePayload();
+  } catch {
+    list.innerHTML = '<p class="settings-hint">ยังไม่มีข้อมูล</p>';
+    return;
+  }
+  const rows = flattenMuscleRows(sheet.muscleTree);
+  if (!rows.length) {
+    list.innerHTML = '<p class="settings-hint">ยังไม่มีหมวด — กด + หมวด</p>';
+    return;
+  }
+  list.innerHTML = rows
+    .map((r) => {
+      const depthCls = r.depth ? ' is-child' : ' is-parent';
+      const sel = r.id === muscleSelectedId ? ' is-selected' : '';
+      const kind = r.leaf && r.depth ? 'ย่อย' : 'หมวด';
+      return `<div class="muscle-settings-row${depthCls}${sel}" data-node-id="${escapeHtml(r.id)}">
+        <button type="button" class="muscle-settings-pick" data-muscle-pick="${escapeHtml(r.id)}" title="เลือก">
+          <span class="muscle-settings-kind">${kind}</span>
+          <span class="muscle-settings-name">${escapeHtml(r.name)}</span>
+        </button>
+        <button type="button" class="btn btn-secondary muscle-settings-rename" data-muscle-rename="${escapeHtml(r.id)}" title="แก้ชื่อ">แก้ชื่อ</button>
+        <button type="button" class="btn btn-secondary muscle-settings-del" data-muscle-del="${escapeHtml(r.id)}" title="ลบ">ลบ</button>
+      </div>`;
+    })
+    .join('');
+}
+
+function openMuscleManage() {
+  if (!requireSyncReady()) return;
+  if (!els.muscleManageOverlay) return;
+  paintMuscleSettingsList();
+  els.muscleManageOverlay.hidden = false;
+}
+
+function closeMuscleManage() {
+  if (els.muscleManageOverlay) els.muscleManageOverlay.hidden = true;
 }
 
 async function onMuscleScrollFocusIn(e) {
@@ -9442,6 +9488,34 @@ async function init({ fromBoot = false } = {}) {
   });
   els.muscleAddChild?.addEventListener('click', () => {
     void onMuscleAddChild();
+  });
+  els.muscleManageBtn?.addEventListener('click', () => openMuscleManage());
+  els.muscleManageClose?.addEventListener('click', () => closeMuscleManage());
+  els.muscleManageBackdrop?.addEventListener('click', () => closeMuscleManage());
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (els.muscleManageOverlay && !els.muscleManageOverlay.hidden) {
+      e.preventDefault();
+      closeMuscleManage();
+    }
+  });
+  els.muscleSettingsList?.addEventListener('click', (e) => {
+    const pick = e.target?.closest?.('[data-muscle-pick]');
+    if (pick) {
+      muscleSelectedId = pick.getAttribute('data-muscle-pick');
+      paintMuscleSettingsList();
+      paintMuscleSheet();
+      return;
+    }
+    const rename = e.target?.closest?.('[data-muscle-rename]');
+    if (rename) {
+      void onMuscleRenameNode(rename.getAttribute('data-muscle-rename'));
+      return;
+    }
+    const del = e.target?.closest?.('[data-muscle-del]');
+    if (del) {
+      void onMuscleDeleteNode(del.getAttribute('data-muscle-del'));
+    }
   });
   els.muscleExpandAllBtn?.addEventListener('click', () => onMuscleToggleExpandAll());
   els.muscleMoveUp?.addEventListener('click', () => onMuscleMove(-1));

@@ -36,7 +36,7 @@ try {
 showBootSyncGate();
 
 // Full app (interactions, sync, settings) after first paint.
-import('./app.js?v=264')
+import('./app.js?v=273')
   .then((m) => {
     if (typeof m.hydrateApp === 'function') return m.hydrateApp();
     return undefined;

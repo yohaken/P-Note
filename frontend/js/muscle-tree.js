@@ -463,16 +463,14 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       const depthCls = r.depth ? ' is-child' : ' is-parent';
       const leafCls = r.leaf ? ' is-leaf' : ' is-group';
       const sessions = countMuscleSessions(t, r.id);
-      const toggleBtn = isGroup
-        ? `<button type="button" class="mt-toggle" data-toggle-node="${esc(r.id)}" aria-expanded="${openGroup ? 'true' : 'false'}" title="${openGroup ? 'หุบ' : 'ขยาย'}" aria-label="${openGroup ? 'หุบ' : 'ขยาย'} ${esc(r.name)}">${openGroup ? '▾' : '▸'}</button>`
-        : (isChild ? `<span class="mt-toggle-spacer" aria-hidden="true"></span>` : `<span class="mt-toggle-spacer" aria-hidden="true"></span>`);
-      const nameCell = `<th class="mt-row-name${depthCls}${leafCls}${sel}" scope="row" data-node-id="${esc(r.id)}">
+      const nameTitle = isGroup
+        ? (openGroup ? 'แตะเพื่อหุบ' : 'แตะเพื่อขยาย')
+        : 'เลือกแถว';
+      const nameCell = `<th class="mt-row-name${depthCls}${leafCls}${sel}${openGroup ? ' is-open' : ''}" scope="row" data-node-id="${esc(r.id)}">
         <div class="mt-name-row">
-          ${toggleBtn}
-          <button type="button" class="mt-name-btn" data-node-id="${esc(r.id)}" title="เลือก / แก้ชื่อ">
+          <button type="button" class="mt-name-btn${isGroup ? ' is-group-toggle' : ''}" data-node-id="${esc(r.id)}"${isGroup ? ' data-group-toggle="1"' : ''} title="${esc(nameTitle)}">
             <span class="mt-name-text">${esc(r.name)}</span>
           </button>
-          <button type="button" class="mt-del-btn" data-del-node="${esc(r.id)}" title="ลบ" aria-label="ลบ ${esc(r.name)}">×</button>
         </div>
       </th>`;
       const countCell = `<td class="mt-col-count${depthCls}${leafCls}${sessions ? ' is-filled' : ''}" data-node-id="${esc(r.id)}" title="เล่นไป ${sessions} ครั้ง">

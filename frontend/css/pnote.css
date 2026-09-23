@@ -8684,6 +8684,69 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   display: none !important;
 }
 
+.muscle-manage-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+.muscle-manage-overlay[hidden] {
+  display: none !important;
+}
+
+.muscle-manage-backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, #0f172a 38%, transparent);
+}
+
+.muscle-manage-sheet {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 28rem);
+  max-height: min(78vh, 36rem);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.75rem 0.8rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  border-radius: 16px 16px 0 0;
+  background: var(--surface, var(--bg));
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  box-shadow: 0 -8px 28px color-mix(in srgb, #0f172a 18%, transparent);
+}
+
+.muscle-manage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.muscle-manage-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.muscle-manage-actions {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.muscle-manage-sheet .muscle-settings-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+}
+
 .muscle-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -8870,8 +8933,81 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   align-items: center;
   gap: 0.1rem;
   min-height: 1.7rem;
-  padding-right: 1.05rem;
+  padding-right: 0.15rem;
   box-sizing: border-box;
+}
+
+.muscle-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0.55rem;
+  max-height: min(42vh, 22rem);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.muscle-settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.muscle-settings-row.is-child {
+  padding-left: 0.85rem;
+}
+
+.muscle-settings-row.is-selected .muscle-settings-pick {
+  outline: 1.5px solid color-mix(in srgb, #16a34a 55%, var(--border));
+  outline-offset: -1.5px;
+}
+
+.muscle-settings-pick {
+  appearance: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  padding: 0.4rem 0.55rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muscle-settings-kind {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.muscle-settings-name {
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.muscle-settings-rename,
+.muscle-settings-del {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.muscle-settings-del {
+  color: #b91c1c;
+}
+
+.muscle-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .mt-toggle,
