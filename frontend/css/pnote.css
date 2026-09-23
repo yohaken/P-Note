@@ -8677,11 +8677,24 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   flex-direction: column;
   gap: 0.35rem;
   min-height: 0;
-  padding: 0.2rem 0 0.6rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.2rem 0.55rem 0.6rem;
+  overflow-x: hidden;
 }
 
 .calorie-muscle-sheet[hidden] {
   display: none !important;
+}
+
+/* Muscle pane: lock page to viewport — only .muscle-scroll pans dates L/R */
+body.calorie-muscle-pane {
+  overflow-x: hidden;
+}
+body.calorie-muscle-pane #app,
+body.calorie-muscle-pane #calorie-view {
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 .muscle-manage-overlay {
@@ -8778,11 +8791,18 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
 }
 
 .muscle-scroll {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 100%;
   max-height: calc(100dvh - 9.5rem);
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: contain;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
+  border-radius: 8px;
   background: var(--surface);
 }
 
@@ -8822,7 +8842,7 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   z-index: 5;
   min-width: var(--mt-name-w);
   width: var(--mt-name-w);
-  max-width: none;
+  max-width: var(--mt-name-w);
   padding: 0.2rem 0.35rem;
   text-align: left;
   font-size: 0.62rem;
@@ -8901,7 +8921,7 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   z-index: 2;
   min-width: var(--mt-name-w);
   width: var(--mt-name-w);
-  max-width: none;
+  max-width: var(--mt-name-w);
   background: var(--surface);
   box-shadow: none;
   text-align: left;

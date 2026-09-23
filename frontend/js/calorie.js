@@ -9,7 +9,7 @@ import {
   muscleSlotsForDate,
   muscleTreeLabels,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=273';
+} from './muscle-tree.js?v=274';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;

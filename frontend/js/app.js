@@ -122,7 +122,7 @@ import {
   thaiDayName,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=273';
+} from './calorie.js?v=274';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -134,8 +134,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=273';
-import { mountDrumPicker } from './drum-picker.js?v=273';
+} from './muscle-tree.js?v=274';
+import { mountDrumPicker } from './drum-picker.js?v=274';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -2990,7 +2990,7 @@ function paintMuscleSheet() {
   }
 }
 
-/** Widen sticky name column so full labels fit (no ellipsis clip). */
+/** Size sticky name column to labels, capped so the page never needs L/R scroll. */
 function fitMuscleNameColumn(host) {
   const table = host?.querySelector?.('.muscle-table');
   if (!table) return;
@@ -2998,8 +2998,10 @@ function fitMuscleNameColumn(host) {
   table.querySelectorAll('.mt-name-text').forEach((el) => {
     max = Math.max(max, el.scrollWidth || 0);
   });
-  // toggle + padding + delete affordance
-  const px = Math.max(120, Math.min(220, Math.ceil(max + 36)));
+  const hostW = host.clientWidth || 320;
+  // Keep count col (~34px) + at least ~2 date cols visible inside the scrollport.
+  const roomCap = Math.max(96, hostW - 34 - 108);
+  const px = Math.max(96, Math.min(200, roomCap, Math.ceil(max + 28)));
   table.style.setProperty('--mt-name-w', `${px}px`);
 }
 
