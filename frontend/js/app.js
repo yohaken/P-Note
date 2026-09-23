@@ -122,7 +122,8 @@ import {
   thaiDayName,
   toDateKey,
   totalsForMonth,
-} from './calorie.js?v=275';
+  DEFAULT_TDEE_PROTEIN_FACTOR,
+} from './calorie.js?v=276';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -1994,13 +1995,21 @@ function paintTdeePreview(sheet) {
     els.calorieTdeePreview.textContent = goals.hint || 'TDEE —';
     return;
   }
+  const pf = Number(goals.tdeeProteinFactor);
+  const std = DEFAULT_TDEE_PROTEIN_FACTOR;
+  let protBit = null;
+  if (goals.goalProtG != null && Number.isFinite(pf)) {
+    const delta = Math.round((pf - std) * 100) / 100;
+    const deltaTxt = delta === 0
+      ? 'มาตรฐาน'
+      : (delta > 0 ? `+${delta} จากมาตรฐาน` : `${delta} จากมาตรฐาน`);
+    protBit = `โปรตีน ${goals.goalProtG} ก (×${pf} · ${deltaTxt})`;
+  }
   const bits = [
     `BMR ${goals.bmr ?? '—'}`,
     `TDEE ${goals.tdee}`,
     `เป้าแคล ${goals.goalKcal}`,
-    goals.goalProtG != null
-      ? `โปรตีน ${goals.goalProtG} ก (×${goals.tdeeProteinFactor ?? '—'})`
-      : null,
+    protBit,
     goals.goalCarbG != null ? `คาร์บ ${goals.goalCarbG} ก` : null,
     goals.goalFatG != null ? `ไขมัน ${goals.goalFatG} ก` : null,
   ].filter(Boolean);

@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="275">
-  <meta name="pnote-built" content="2026-09-23T18:15:00+07:00">
+  <meta name="pnote-build" content="276">
+  <meta name="pnote-built" content="2026-09-23T18:42:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=275"></script>
+  <script src="js/cache-bootstrap.js?v=276"></script>
   <script>
     /* Apply saved brand icon before paint (favicon + logos + install manifest). */
     (function earlyAppIcon() {
@@ -24,7 +24,7 @@
           if (IDS.indexOf(cand) >= 0) id = cand;
         }
       } catch (e) {}
-      var src = 'icons/app/' + id + '-192.png?v=275';
+      var src = 'icons/app/' + id + '-192.png?v=276';
       function setLink(rel, href, type) {
         var el = document.querySelector('link[rel="' + rel + '"]');
         if (!el) {
@@ -37,7 +37,7 @@
       }
       setLink('icon', src, 'image/png');
       setLink('apple-touch-icon', src);
-      setLink('manifest', 'manifests/' + id + '.json?v=275');
+      setLink('manifest', 'manifests/' + id + '.json?v=276');
       window.__pnoteEarlyIconId = id;
       window.__pnoteEarlyIconSrc = src;
       document.addEventListener('DOMContentLoaded', function () {
@@ -47,7 +47,7 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="css/pnote.css?v=275">
+  <link rel="stylesheet" href="css/pnote.css?v=276">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -165,7 +165,7 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/app/leaf-192.png?v=275" width="16" height="16" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/app/leaf-192.png?v=276" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
           <span class="mode-switch-ver" id="calorie-app-ver">v257</span>
           <span class="topbar-meta-sep" aria-hidden="true">·</span>
@@ -697,10 +697,12 @@
                   </select>
                 </label>
                 <label class="notify-field" for="calorie-tdee-protein" style="margin-top:0.45rem">
-                  <span>โปรตีน × กก. (กำหนดเอง)</span>
-                  <input id="calorie-tdee-protein" class="notify-select" type="number" min="0.5" max="4" step="0.05" inputmode="decimal" value="2" aria-label="ตัวคูณโปรตีนต่อกก. ในโหมด TDEE">
+                  <span>โปรตีน × กก. · มาตรฐาน 2.0</span>
+                  <input id="calorie-tdee-protein" class="notify-select" type="number" min="0.5" max="4" step="0.05" inputmode="decimal" value="2" placeholder="2.0" aria-label="ตัวคูณโปรตีนต่อกก. ในโหมด TDEE มาตรฐาน 2.0">
                 </label>
-                <p class="settings-hint" style="margin-top:0.25rem">มีไขมัน% → คูณมวลไร้ไขมัน · ไม่มี → คูณน้ำหนักตัว · ค่าเริ่ม 2.0 (เช่น 1.5 หรือ 2.2 ได้)</p>
+                <p class="settings-hint" style="margin-top:0.25rem">
+                  ไม่ตั้ง = <strong>2.0</strong> ตามมาตรฐาน (ก./กก. มวลไร้ไขมัน ถ้ามีไขมัน% · ไม่มีไขมัน% ใช้ ×น้ำหนัก) · ปรับขึ้นเช่น 2.2 = +0.2 จากมาตรฐาน
+                </p>
                 <p class="settings-hint" id="calorie-tdee-preview" style="margin-top:0.35rem">TDEE —</p>
                 <p class="settings-hint">ไขมัน ≈ 25% ของเป้าแคล · คาร์บ = ส่วนที่เหลือ</p>
               </div>
@@ -1103,7 +1105,7 @@
 
     <div id="auth-overlay" class="auth-overlay" hidden>
       <div class="auth-panel" role="dialog" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=275" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=276" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">เข้าสู่ระบบ</h2>
         <p class="auth-copy">ใช้ Google บัญชี <strong>yohaken@gmail.com</strong> เท่านั้น · ข้อมูลบันทึกขึ้น Firestore ทันที</p>
         <button id="google-login-btn" class="btn btn-primary auth-login-btn" type="button">Sign in with Google</button>
@@ -1320,7 +1322,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=275"></script>
-  <script src="js/update-watch.js?v=275"></script>
+  <script type="module" src="js/boot.js?v=276"></script>
+  <script src="js/update-watch.js?v=276"></script>
 </body>
 </html>
