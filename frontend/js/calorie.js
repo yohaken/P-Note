@@ -9,7 +9,7 @@ import {
   muscleSlotsForDate,
   muscleTreeLabels,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=281';
+} from './muscle-tree.js?v=282';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -3301,7 +3301,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
               <col class="cal-cg-tail">
             </colgroup>
             <tr class="cal-head-a">
-              <th class="cal-col-date" scope="col">วันที่</th>
+              <th class="cal-col-date" rowspan="2" scope="col">วันที่</th>
               <th class="cal-col-day" scope="col">ว</th>
               <th class="cal-col-body" scope="col">เอว</th>
               <th class="cal-col-body" scope="col">กก</th>
@@ -3314,7 +3314,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
             <tr class="cal-head-b">
               <th class="cal-col-burn" scope="col">mus</th>
               <th class="cal-col-burn" scope="col" title="base · Σ · %">เบิร์น</th>
-              <th class="cal-col-meals" colspan="5" scope="col" title="${n > 7 ? 'ปัดซ้ายในแถบมื้อเพื่อดูมื้อที่ซ่อน' : ''}">มื้อ 1–${n}${n > 7 ? ' · ปัด→' : ''}</th>
+              <th class="cal-col-meals" colspan="4" scope="col" title="${n > 7 ? 'ปัดซ้ายในแถบมื้อเพื่อดูมื้อที่ซ่อน' : ''}">มื้อ 1–${n}${n > 7 ? ' · ปัด→' : ''}</th>
               <th class="cal-col-note" colspan="2" scope="col">หลัก</th>
             </tr>`;
 }
@@ -3350,7 +3350,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         ? `${exLine}${row.mus != null ? ` · รวม ${row.mus} kcal` : ''} · ${cellTitle}`
         : cellTitle;
       return `<tr class="cal-row cal-day-a${today}${past}" data-day-id="${id}" data-month="${month}" data-date="${esc(row.date)}">
-        <td class="cal-col-date">
+        <td class="cal-col-date" rowspan="2">
           <button type="button" class="cal-date-btn" data-cal-date-open="${id}" aria-label="วันที่ ${esc(row.dateDisplay)}" title="${esc(row.dateDisplay)}${isPast ? ' · วันก่อน' : ''}">${esc(dateLabel)}</button>
           <input class="cal-date-picker" type="date" data-cal-field="date" data-day-id="${id}" value="${esc(row.date)}" tabindex="-1" aria-hidden="true"${pastLock}>
         </td>
@@ -3372,7 +3372,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
             <span class="cal-derived ${toneClass(m.pctBl)}" data-cal-derived="pctBl">${formatBurnMusDisplay(m.pctBl, { percent: true })}</span>
           </span>
         </td>
-        <td class="cal-col-meals" colspan="5"><div class="cal-meals-fit${cols > 7 ? ' is-scrollable' : ''}" style="--cal-meal-n:${cols}" title="${cols > 7 ? 'ปัดซ้ายเพื่อดูมื้อเพิ่ม' : ''}">${mealInputs.join('')}</div></td>
+        <td class="cal-col-meals" colspan="4"><div class="cal-meals-fit${cols > 7 ? ' is-scrollable' : ''}" style="--cal-meal-n:${cols}" title="${cols > 7 ? 'ปัดซ้ายเพื่อดูมื้อเพิ่ม' : ''}">${mealInputs.join('')}</div></td>
         <td class="cal-col-note" colspan="2">${renderExerciseTableHtml(row)}<input class="cal-cell cal-cell-note" data-cal-field="note" data-day-id="${id}" value="${esc(row.note)}" autocomplete="off" aria-label="หลัก"${pastLock}${pastTitle}></td>
       </tr>`;
     })

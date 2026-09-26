@@ -8075,8 +8075,12 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   pointer-events: none;
 }
 
-.calorie-table td.cal-col-date {
+.calorie-table td.cal-col-date,
+.calorie-table th.cal-col-date {
   position: relative;
+  vertical-align: middle;
+  text-align: center;
+  overflow: visible;
 }
 
 .calorie-table input.cal-cell-meal {
@@ -8114,43 +8118,56 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   letter-spacing: -0.02em;
 }
 
-.calorie-table .cal-col-body input.cal-cell,
+.calorie-table .cal-col-body input.cal-cell {
+  color: var(--text);
+}
+
+/* Mus burn (3): compact black, not green */
 .calorie-table .cal-col-burn input.cal-cell,
 .calorie-table .cal-col-burn .cal-input-wrap.has-value::before,
 .calorie-table .cal-col-burn .cal-input-wrap.has-value::after {
-  color: var(--cal-tone-burn-ink, #1f6b3a);
+  color: var(--text);
 }
 
 .calorie-table .cal-col-burn .cal-input-wrap.has-value {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0;
+  width: auto;
   max-width: 100%;
-  padding: 0 0.04rem;
+  padding: 0;
   box-sizing: border-box;
 }
 
 .calorie-table .cal-col-burn .cal-input-wrap.has-value::before {
   content: '(';
-  font-size: 0.62rem;
+  font-size: 0.45rem;
   font-weight: 600;
   line-height: 1;
   flex: 0 0 auto;
+  letter-spacing: 0;
 }
 
 .calorie-table .cal-col-burn .cal-input-wrap.has-value::after {
   content: ')';
-  font-size: 0.62rem;
+  font-size: 0.45rem;
   font-weight: 600;
   line-height: 1;
   flex: 0 0 auto;
+  letter-spacing: 0;
 }
 
 .calorie-table .cal-col-burn .cal-input-wrap.has-value input.cal-cell {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
-  width: auto;
-  max-width: 2.2rem;
+  width: 1.15em;
+  max-width: 1.35rem;
+  font-size: 0.45rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  padding: 0 !important;
+  text-align: center;
 }
 .calorie-table .cal-col-sum {
   font-size: 0.52rem;
