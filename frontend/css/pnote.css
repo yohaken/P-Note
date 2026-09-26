@@ -8128,10 +8128,8 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   color: var(--text);
 }
 
-/* Mus burn (3): compact black, not green */
-.calorie-table .cal-col-burn input.cal-cell,
-.calorie-table .cal-col-burn .cal-input-wrap.has-value::before,
-.calorie-table .cal-col-burn .cal-input-wrap.has-value::after {
+/* Mus burn: plain number, no parentheses — keep readable */
+.calorie-table .cal-col-burn input.cal-cell {
   color: var(--text);
 }
 
@@ -8139,41 +8137,28 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
   width: auto;
   max-width: 100%;
   padding: 0;
   box-sizing: border-box;
 }
 
-.calorie-table .cal-col-burn .cal-input-wrap.has-value::before {
-  content: '(';
-  font-size: 0.45rem;
-  font-weight: 600;
-  line-height: 1;
-  flex: 0 0 auto;
-  letter-spacing: 0;
-}
-
+.calorie-table .cal-col-burn .cal-input-wrap.has-value::before,
 .calorie-table .cal-col-burn .cal-input-wrap.has-value::after {
-  content: ')';
-  font-size: 0.45rem;
-  font-weight: 600;
-  line-height: 1;
-  flex: 0 0 auto;
-  letter-spacing: 0;
+  content: none;
 }
 
 .calorie-table .cal-col-burn .cal-input-wrap.has-value input.cal-cell {
   flex: 0 0 auto;
-  min-width: 0;
-  width: 1.15em;
-  max-width: 1.35rem;
-  font-size: 0.45rem;
-  font-weight: 650;
-  letter-spacing: -0.03em;
+  min-width: 1.1rem;
+  width: auto;
+  max-width: 2rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   padding: 0 !important;
   text-align: center;
+  color: var(--text);
 }
 .calorie-table .cal-col-sum {
   font-size: 0.52rem;
