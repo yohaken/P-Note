@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=279';
+} from './auth.js?v=280';
 import {
   addTag,
   addNotepad,
@@ -124,7 +124,7 @@ import {
   toDateKey,
   totalsForMonth,
   DEFAULT_TDEE_PROTEIN_FACTOR,
-} from './calorie.js?v=279';
+} from './calorie.js?v=280';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -136,8 +136,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=279';
-import { mountDrumPicker } from './drum-picker.js?v=279';
+} from './muscle-tree.js?v=280';
+import { mountDrumPicker } from './drum-picker.js?v=280';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,

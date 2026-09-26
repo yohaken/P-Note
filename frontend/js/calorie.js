@@ -9,7 +9,7 @@ import {
   muscleSlotsForDate,
   muscleTreeLabels,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=279';
+} from './muscle-tree.js?v=280';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -657,13 +657,10 @@ export function sliceRowsByMonthCount(rows, monthCount) {
   };
 }
 
-/** Table date cell: day only within month; D/M when month changes (no month header rows). */
-export function formatDateTableCell(dateKey, prevDateKey = '') {
+/** Table date cell: always D/M (e.g. 24/9). */
+export function formatDateTableCell(dateKey, _prevDateKey = '') {
   const d = parseDateKey(dateKey);
   if (!d) return String(dateKey || '');
-  const curMonth = monthKeyFromDate(dateKey);
-  const prevMonth = prevDateKey ? monthKeyFromDate(prevDateKey) : '';
-  if (prevMonth && prevMonth === curMonth) return String(d.getDate());
   return `${d.getDate()}/${d.getMonth() + 1}`;
 }
 
