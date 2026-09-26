@@ -8172,33 +8172,34 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
 }
 
 .calorie-table tr.cal-day-a td {
-  background: var(--cal-tone-empty);
-  border-bottom-color: color-mix(in srgb, var(--border) 35%, transparent);
+  background: var(--cal-tone-empty, #fff);
+  border-bottom-color: color-mix(in srgb, var(--border) 28%, transparent);
 }
 
-/* One flat wash across the whole B row — thin day guide under each day pair */
+/* Same white as row A — day break is the thicker line under B */
 .calorie-table tr.cal-day-b td {
   height: auto;
   min-height: 1.25rem;
-  background: var(--cal-tone-burn-wash);
-  border-bottom: 1px solid var(--cal-tone-row-line);
+  background: var(--cal-tone-empty, #fff);
+  border-bottom: 2px solid color-mix(in srgb, var(--text) 22%, var(--border));
 }
 
 .calorie-table tr.cal-day-b td.cal-col-meals {
-  background: var(--cal-tone-burn-wash);
+  background: var(--cal-tone-empty, #fff);
 }
 
 .calorie-table tr.cal-day-b td.cal-col-note {
   text-align: left;
-  background: var(--cal-tone-burn-wash);
+  background: var(--cal-tone-empty, #fff);
 }
 
 .calorie-table tr.cal-row-today td {
-  background: color-mix(in srgb, var(--accent) 6%, var(--cal-tone-empty));
+  background: var(--cal-tone-empty, #fff);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
 .calorie-table tr.cal-row-today.cal-day-b td {
-  background: color-mix(in srgb, var(--accent) 8%, var(--cal-tone-burn-wash));
+  background: var(--cal-tone-empty, #fff);
 }
 
 .calorie-table tr.cal-row-past td {
