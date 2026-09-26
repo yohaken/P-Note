@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=287';
+} from './auth.js?v=289';
 import {
   addTag,
   addNotepad,
@@ -124,7 +124,7 @@ import {
   toDateKey,
   totalsForMonth,
   DEFAULT_TDEE_PROTEIN_FACTOR,
-} from './calorie.js?v=287';
+} from './calorie.js?v=289';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -136,8 +136,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=287';
-import { mountDrumPicker } from './drum-picker.js?v=287';
+} from './muscle-tree.js?v=289';
+import { mountDrumPicker } from './drum-picker.js?v=289';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -188,7 +188,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=227';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=287';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=289';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
@@ -10157,14 +10157,23 @@ async function init({ fromBoot = false } = {}) {
       danger: true,
     });
     if (!ok) return;
-    await signOut();
+    // Stop cloud work before tearing down auth (settings sits above old PIN z-index).
     state.authUser = null;
     state.online = false;
     state.cloudHydrated = false;
     setSyncReady(false);
+    clearSyncRetryLoop();
+    clearCloudPendingRetry();
+    stopSpaceRemoteWatch();
+    stopSpacePolling();
+    try { closeSettings(); } catch { /* ignore */ }
+    hideSyncGate();
+    hideSyncSavedPopup();
+    await signOut();
     refreshAuthAccountHint();
     setAuthOverlayVisible(true);
     setSyncStatus('offline', 'ออกจากระบบแล้ว');
+    if (els.authPinInput) els.authPinInput.value = '';
     try { els.authPinInput?.focus(); } catch { /* ignore */ }
   });
   els.exportNotesBtn?.addEventListener('click', exportNotesBackup);
@@ -10355,13 +10364,19 @@ async function init({ fromBoot = false } = {}) {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     refreshNoteNotifications();
-    if (!state.authUser) return;
-    // Cloud-first: every return to the app re-syncs Firestore with popup.
+    if (!state.authUser || !isPinUnlocked()) return;
+    // Cloud-first: every return to the app re-syncs Firestore.
+    // Already ready → quiet background pull (no gate / no popup).
+    // First hydrate still uses the existing sync gate + done popup.
     if (!navigator.onLine) {
       setSyncStatus('offline', 'ออฟไลน์ · รอเชื่อมใหม่');
       if (needsSyncGate()) {
         showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
       }
+      return;
+    }
+    if (isSyncReady() && state.cloudHydrated) {
+      void syncSpaceInBackground({ force: true, announce: false });
       return;
     }
     void ensureCloudReady({ force: true, announce: true, gateAlways: true });
@@ -10370,7 +10385,11 @@ async function init({ fromBoot = false } = {}) {
   window.addEventListener('focus', () => refreshNoteNotifications());
   window.addEventListener('online', () => {
     refreshNoteNotifications();
-    if (!state.authUser) return;
+    if (!state.authUser || !isPinUnlocked()) return;
+    if (isSyncReady() && state.cloudHydrated) {
+      void syncSpaceInBackground({ force: true, announce: false });
+      return;
+    }
     void ensureCloudReady({ force: true, announce: true, gateAlways: true });
   });
   window.addEventListener('offline', () => {

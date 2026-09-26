@@ -8,12 +8,31 @@ import {
 /** App entry PIN — shown before the app; remembered in localStorage. */
 export const APP_PIN = '0884818817';
 const GATE_KEY = 'pnote_gate';
+/** sessionStorage — survives reload for one paint so earlyPinGate stays locked */
+export const JUST_LOCKED_KEY = 'pnote_just_locked';
+
+/** While true, watchAuth never recreates an anonymous session. */
+let authSuppressed = false;
 
 function gateToken() {
   return `v1:${APP_PIN}`;
 }
 
+export function isAuthSuppressed() {
+  return authSuppressed;
+}
+
+export function setAuthSuppressed(value) {
+  authSuppressed = Boolean(value);
+}
+
 export function isPinUnlocked() {
+  if (authSuppressed) return false;
+  try {
+    if (sessionStorage.getItem(JUST_LOCKED_KEY) === '1') return false;
+  } catch {
+    /* ignore */
+  }
   try {
     return localStorage.getItem(GATE_KEY) === gateToken();
   } catch {
@@ -24,6 +43,12 @@ export function isPinUnlocked() {
 export function unlockWithPin(raw) {
   const pin = String(raw ?? '').trim();
   if (pin !== APP_PIN) return false;
+  authSuppressed = false;
+  try {
+    sessionStorage.removeItem(JUST_LOCKED_KEY);
+  } catch {
+    /* ignore */
+  }
   try {
     localStorage.setItem(GATE_KEY, gateToken());
   } catch {
@@ -82,6 +107,7 @@ export async function startLogin(pin) {
     } else if (!isPinUnlocked()) {
       throw new Error('ใส่รหัสก่อน');
     }
+    authSuppressed = false;
     return ensureCloudSession();
   } catch (error) {
     if (error?.message === 'รหัสไม่ถูกต้อง' || error?.message === 'ใส่รหัสก่อน') throw error;
@@ -91,7 +117,7 @@ export async function startLogin(pin) {
 
 /** Returns current session user only when PIN gate is unlocked. */
 export async function getAllowedUser() {
-  if (!isPinUnlocked()) return null;
+  if (!isPinUnlocked() || authSuppressed) return null;
   try {
     return await ensureCloudSession();
   } catch (error) {
@@ -102,13 +128,17 @@ export async function getAllowedUser() {
 
 export function watchAuth(callback) {
   return onAuthStateChanged(auth, async (user) => {
-    if (!isPinUnlocked()) {
+    if (authSuppressed || !isPinUnlocked()) {
       callback(null);
       return;
     }
     if (!user) {
       try {
         const next = await ensureCloudSession();
+        if (authSuppressed || !isPinUnlocked()) {
+          callback(null);
+          return;
+        }
         callback(next);
       } catch {
         callback(null);
@@ -119,8 +149,18 @@ export function watchAuth(callback) {
   });
 }
 
+/**
+ * Forget device PIN + Firebase session.
+ * Callers should close settings and show the PIN overlay (z-index above settings).
+ */
 export async function signOut() {
+  authSuppressed = true;
   clearPinUnlock();
+  try {
+    sessionStorage.setItem(JUST_LOCKED_KEY, '1');
+  } catch {
+    /* ignore */
+  }
   await initFirebase();
   try {
     await firebaseSignOut(auth);

@@ -4169,11 +4169,11 @@ body.light .notify-field input[type='number'] {
   color: #fff;
 }
 
-/* Context menu + confirm — true viewport center */
+/* Context menu + confirm — above settings (13000) so dialogs aren't trapped under it */
 .note-center-overlay {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 15000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4343,11 +4343,11 @@ body.light .notify-field input[type='number'] {
   display: none !important;
 }
 
-/* Google auth gate — single-owner cloud sync */
+/* PIN gate must sit above settings (13000) or sign-out looks like a no-op */
 .auth-overlay {
   position: fixed;
   inset: 0;
-  z-index: 260;
+  z-index: 14000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4361,11 +4361,11 @@ body.light .notify-field input[type='number'] {
   display: none !important;
 }
 
-/* Sync readiness gate — block all input until cloud is ready */
+/* Sync readiness gate — above settings so lock/sync can't hide under it */
 .sync-gate-overlay {
   position: fixed;
   inset: 0;
-  z-index: 250;
+  z-index: 13500;
   display: flex;
   align-items: center;
   justify-content: center;
