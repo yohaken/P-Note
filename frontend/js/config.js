@@ -6,7 +6,7 @@ export const CONFIG = {
   EDITOR_SYNC_DELAY_MS: 450,
   UPDATE_CHECK_MS: 20000,
 
-  /** Only this Google account may use cloud sync (also enforced in firestore.rules). */
+  /** Legacy — app now uses a local PIN gate (see auth.js). */
   ALLOWED_EMAILS: ['yohaken@gmail.com'],
 
   // File attachments still use Cloud Run signed URLs when present.

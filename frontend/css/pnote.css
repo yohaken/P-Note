@@ -4515,6 +4515,22 @@ body.sync-gated #app {
   color: var(--text-muted);
 }
 
+.auth-pin-field {
+  display: block;
+  margin-top: 0.85rem;
+  width: 100%;
+}
+
+.auth-pin-input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 1.15rem !important;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  min-height: 2.75rem;
+}
+
 .auth-login-btn {
   margin-top: 1.15rem;
   min-width: 12rem;

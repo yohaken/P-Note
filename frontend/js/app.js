@@ -10,7 +10,8 @@ import {
   startLogin,
   signOut,
   watchAuth,
-} from './auth.js?v=227';
+  isPinUnlocked,
+} from './auth.js?v=277';
 import {
   addTag,
   addNotepad,
@@ -123,7 +124,7 @@ import {
   toDateKey,
   totalsForMonth,
   DEFAULT_TDEE_PROTEIN_FACTOR,
-} from './calorie.js?v=276';
+} from './calorie.js?v=277';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -135,8 +136,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=275';
-import { mountDrumPicker } from './drum-picker.js?v=275';
+} from './muscle-tree.js?v=277';
+import { mountDrumPicker } from './drum-picker.js?v=277';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -581,7 +582,9 @@ const els = {
   noteConfirmOk: document.getElementById('note-confirm-ok'),
   loadingOverlay: document.getElementById('loading-overlay'),
   authOverlay: document.getElementById('auth-overlay'),
-  googleLoginBtn: document.getElementById('google-login-btn'),
+  googleLoginBtn: document.getElementById('pin-login-btn'),
+  pinLoginBtn: document.getElementById('pin-login-btn'),
+  authPinInput: document.getElementById('auth-pin-input'),
   authError: document.getElementById('auth-error'),
   syncGateOverlay: document.getElementById('sync-gate-overlay'),
   syncGateTitle: document.getElementById('sync-gate-title'),
@@ -1156,12 +1159,12 @@ function setAuthError(message = '') {
 
 function refreshAuthAccountHint() {
   if (!els.authAccountHint) return;
-  if (state.authUser?.email) {
-    els.authAccountHint.textContent = `เข้าสู่ระบบ: ${state.authUser.email}`;
+  if (state.authUser && isPinUnlocked()) {
+    els.authAccountHint.textContent = 'ปลดล็อกแล้ว · ซิงค์คลาวด์เปิดอยู่';
   } else {
-    els.authAccountHint.textContent = 'ยังไม่ได้เข้าสู่ระบบ — คลาวด์จะบันทึกหลังล็อกอิน';
+    els.authAccountHint.textContent = 'ยังไม่ได้ใส่รหัส — คลาวด์จะซิงค์หลังเข้า';
   }
-  if (els.signOutBtn) els.signOutBtn.hidden = !state.authUser;
+  if (els.signOutBtn) els.signOutBtn.hidden = !(state.authUser && isPinUnlocked());
 }
 
 function onSignedIn(user) {
@@ -1177,6 +1180,13 @@ async function requireCloudAuth() {
   } catch (err) {
     setAuthError(err?.message || 'ล็อกอินไม่สำเร็จ');
   }
+  if (!isPinUnlocked()) {
+    state.authUser = null;
+    refreshAuthAccountHint();
+    setAuthOverlayVisible(true);
+    try { els.authPinInput?.focus(); } catch { /* ignore */ }
+    return null;
+  }
   const user = await getAllowedUser();
   if (user) {
     onSignedIn(user);
@@ -1185,25 +1195,31 @@ async function requireCloudAuth() {
   state.authUser = null;
   refreshAuthAccountHint();
   setAuthOverlayVisible(true);
+  try { els.authPinInput?.focus(); } catch { /* ignore */ }
   return null;
 }
 
-async function handleGoogleLoginClick() {
+async function handlePinLoginClick() {
   setAuthError('');
-  if (els.googleLoginBtn) els.googleLoginBtn.disabled = true;
+  const pin = String(els.authPinInput?.value || '');
+  if (els.pinLoginBtn) els.pinLoginBtn.disabled = true;
   try {
-    const user = await startLogin();
+    const user = await startLogin(pin);
     if (!user) {
-      // Redirect flow — page will reload after Google.
-      setAuthError('กำลังพาไปหน้า Google…');
+      setAuthError('เข้าไม่สำเร็จ');
       return;
     }
     onSignedIn(user);
-    void ensureCloudReady({ force: true, announce: true });
+    if (els.authPinInput) els.authPinInput.value = '';
+    await ensureCloudReady({ force: true, announce: true, gateAlways: true });
   } catch (err) {
-    setAuthError(err?.message || 'ล็อกอินไม่สำเร็จ');
+    setAuthError(err?.message || 'รหัสไม่ถูกต้อง');
+    try {
+      els.authPinInput?.focus();
+      els.authPinInput?.select?.();
+    } catch { /* ignore */ }
   } finally {
-    if (els.googleLoginBtn) els.googleLoginBtn.disabled = false;
+    if (els.pinLoginBtn) els.pinLoginBtn.disabled = false;
   }
 }
 
@@ -10106,11 +10122,17 @@ async function init({ fromBoot = false } = {}) {
 
   initAiScheduleControls();
   bindAiFormDirtyWatchers();
-  els.googleLoginBtn?.addEventListener('click', () => {
-    void handleGoogleLoginClick();
+  els.pinLoginBtn?.addEventListener('click', () => {
+    void handlePinLoginClick();
+  });
+  els.authPinInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void handlePinLoginClick();
+    }
   });
   els.signOutBtn?.addEventListener('click', async () => {
-    const ok = await showConfirm('ออกจากระบบ? ข้อมูลในเครื่องยังอยู่ — คลาวด์จะหยุดซิงค์', {
+    const ok = await showConfirm('ออกจากระบบ? ต้องใส่รหัสใหม่เมื่อเปิดแอพ · ข้อมูลในเครื่องยังอยู่', {
       okLabel: 'ออกจากระบบ',
       danger: true,
     });
@@ -10123,6 +10145,7 @@ async function init({ fromBoot = false } = {}) {
     refreshAuthAccountHint();
     setAuthOverlayVisible(true);
     setSyncStatus('offline', 'ออกจากระบบแล้ว');
+    try { els.authPinInput?.focus(); } catch { /* ignore */ }
   });
   els.exportNotesBtn?.addEventListener('click', exportNotesBackup);
   els.importNotesBtn?.addEventListener('click', () => els.importNotesFile?.click());

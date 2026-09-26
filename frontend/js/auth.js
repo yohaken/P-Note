@@ -1,182 +1,118 @@
-import { CONFIG } from './config.js?v=227';
 import { auth, initFirebase } from './firebase.js?v=227';
 import {
-  GoogleAuthProvider,
-  getRedirectResult,
   onAuthStateChanged,
-  signInWithPopup,
-  signInWithRedirect,
+  signInAnonymously,
   signOut as firebaseSignOut,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
 
-const AUTH_REDIRECT_FLAG = 'pnote_auth_redirect';
+/** App entry PIN — shown before the app; remembered in localStorage. */
+export const APP_PIN = '0884818817';
+const GATE_KEY = 'pnote_gate';
 
-function markRedirectPending() {
-  sessionStorage.setItem(AUTH_REDIRECT_FLAG, '1');
+function gateToken() {
+  return `v1:${APP_PIN}`;
 }
 
-export function isAuthRedirectPending() {
-  return sessionStorage.getItem(AUTH_REDIRECT_FLAG) === '1';
-}
-
-function clearRedirectPending() {
-  sessionStorage.removeItem(AUTH_REDIRECT_FLAG);
-}
-
-function googleProvider() {
-  const provider = new GoogleAuthProvider();
-  provider.addScope('email');
-  provider.setCustomParameters({ prompt: 'select_account' });
-  return provider;
-}
-
-/** Popups are unreliable on phones/tablets and installed PWAs — use redirect. */
-export function shouldPreferRedirectAuth() {
-  const host = window.location.hostname;
-  if (host === 'localhost' || host === '127.0.0.1') {
+export function isPinUnlocked() {
+  try {
+    return localStorage.getItem(GATE_KEY) === gateToken();
+  } catch {
     return false;
   }
-  const ua = navigator.userAgent || '';
-  if (/iPhone|iPad|iPod|Android/i.test(ua)) {
-    return true;
+}
+
+export function unlockWithPin(raw) {
+  const pin = String(raw ?? '').trim();
+  if (pin !== APP_PIN) return false;
+  try {
+    localStorage.setItem(GATE_KEY, gateToken());
+  } catch {
+    /* ignore quota */
   }
-  if (window.matchMedia?.('(display-mode: standalone)').matches) {
-    return true;
+  return true;
+}
+
+export function clearPinUnlock() {
+  try {
+    localStorage.removeItem(GATE_KEY);
+  } catch {
+    /* ignore */
   }
-  return false;
 }
 
 function mapAuthError(error) {
   const code = error?.code || '';
   const msg = String(error?.message || '');
-  if (code === 'auth/popup-closed-by-user' || code === 'auth/redirect-cancelled-by-user') {
-    return new Error('การล็อกอินถูกยกเลิก');
+  if (code === 'auth/admin-restricted-operation' || code === 'auth/operation-not-allowed') {
+    return new Error('ยังไม่ได้เปิด Anonymous Sign-In ใน Firebase');
   }
-  if (code === 'auth/popup-blocked') {
-    return new Error('เปิดหน้าต่างล็อกอินไม่ได้ — กำลังลองวิธีอื่น...');
+  if (code === 'auth/network-request-failed') {
+    return new Error('เน็ตมีปัญหา · ลองใหม่');
   }
-  if (code === 'auth/configuration-not-found' || code === 'auth/operation-not-allowed') {
-    return new Error('ยังไม่ได้เปิด Google Sign-In ใน Firebase Console');
-  }
-  if (/redirect_uri_mismatch/i.test(msg) || /invalid.request/i.test(msg)) {
-    return new Error(
-      'OAuth redirect_uri_mismatch — ต้องเพิ่ม https://mynote-f1bbc.firebaseapp.com/__/auth/handler ใน Google Cloud Credentials',
-    );
-  }
-  return new Error(msg || 'การล็อกอินล้มเหลว');
+  return new Error(msg || 'เข้าสู่ระบบไม่สำเร็จ');
 }
 
-export function allowedEmails() {
-  return (CONFIG.ALLOWED_EMAILS || []).map((e) => String(e).toLowerCase());
+async function ensureCloudSession() {
+  await initFirebase();
+  if (auth.currentUser) return auth.currentUser;
+  const result = await signInAnonymously(auth);
+  return result.user;
 }
 
-export function isAllowedEmail(email) {
-  return allowedEmails().includes(String(email || '').toLowerCase());
+/** No Google redirect flow anymore — kept so boot/app imports stay stable. */
+export function isAuthRedirectPending() {
+  return false;
 }
 
-async function verifyEmail(email) {
-  if (!isAllowedEmail(email)) {
-    await signOut();
-    throw new Error('Access Denied: ใช้ได้เฉพาะ yohaken@gmail.com');
-  }
-  return String(email).toLowerCase();
-}
-
-function waitForAuthUser() {
-  return new Promise((resolve) => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      unsub();
-      resolve(user);
-    });
-  });
-}
-
-async function finalizeSignIn(user) {
-  if (!user?.email) {
-    throw new Error('ไม่พบอีเมลจาก Google');
-  }
-  await verifyEmail(user.email);
-  clearRedirectPending();
-  return user;
-}
-
-async function signInWithRedirectFlow() {
-  markRedirectPending();
-  await signInWithRedirect(auth, googleProvider());
+export async function handleAuthRedirect() {
+  await initFirebase();
   return null;
 }
 
-async function signInInteractive() {
-  const provider = googleProvider();
+/**
+ * Unlock with PIN then ensure a Firebase session (anonymous) for Firestore.
+ * @param {string} [pin] — if omitted, uses already-unlocked gate from localStorage
+ */
+export async function startLogin(pin) {
   try {
-    const result = await signInWithPopup(auth, provider);
-    return finalizeSignIn(result.user);
+    if (pin != null && String(pin).length) {
+      if (!unlockWithPin(pin)) {
+        throw new Error('รหัสไม่ถูกต้อง');
+      }
+    } else if (!isPinUnlocked()) {
+      throw new Error('ใส่รหัสก่อน');
+    }
+    return ensureCloudSession();
   } catch (error) {
-    const code = error?.code || '';
-    if (code === 'auth/popup-closed-by-user' || code === 'auth/redirect-cancelled-by-user') {
-      throw error;
-    }
-    if (
-      shouldPreferRedirectAuth()
-      || code === 'auth/popup-blocked'
-      || code === 'auth/cancelled-popup-request'
-    ) {
-      return signInWithRedirectFlow();
-    }
-    throw error;
-  }
-}
-
-/** Call once on page load — completes mobile redirect sign-in. */
-export async function handleAuthRedirect() {
-  await initFirebase();
-  try {
-    const result = await getRedirectResult(auth);
-    if (!result?.user) {
-      if (isAuthRedirectPending()) clearRedirectPending();
-      return null;
-    }
-    return finalizeSignIn(result.user);
-  } catch (error) {
-    clearRedirectPending();
+    if (error?.message === 'รหัสไม่ถูกต้อง' || error?.message === 'ใส่รหัสก่อน') throw error;
     throw mapAuthError(error);
   }
 }
 
-export async function startLogin() {
-  try {
-    await initFirebase();
-    return signInInteractive();
-  } catch (error) {
-    clearRedirectPending();
-    throw mapAuthError(error);
-  }
-}
-
-/** Returns current allowed user, or null if signed out / wrong account. */
+/** Returns current session user only when PIN gate is unlocked. */
 export async function getAllowedUser() {
-  await initFirebase();
-  let user = auth.currentUser;
-  if (!user) {
-    user = await waitForAuthUser();
-  }
-  if (!user?.email) return null;
-  if (!isAllowedEmail(user.email)) {
-    await signOut();
+  if (!isPinUnlocked()) return null;
+  try {
+    return await ensureCloudSession();
+  } catch (error) {
+    console.warn('getAllowedUser session failed', error);
     return null;
   }
-  return user;
 }
 
 export function watchAuth(callback) {
   return onAuthStateChanged(auth, async (user) => {
-    if (!user) {
+    if (!isPinUnlocked()) {
       callback(null);
       return;
     }
-    if (!isAllowedEmail(user.email)) {
-      await signOut();
-      callback(null);
+    if (!user) {
+      try {
+        const next = await ensureCloudSession();
+        callback(next);
+      } catch {
+        callback(null);
+      }
       return;
     }
     callback(user);
@@ -184,13 +120,11 @@ export function watchAuth(callback) {
 }
 
 export async function signOut() {
+  clearPinUnlock();
+  await initFirebase();
   try {
-    await initFirebase();
-    if (auth.currentUser) {
-      await firebaseSignOut(auth);
-    }
+    await firebaseSignOut(auth);
   } catch {
-    // Best-effort sign out.
+    /* ignore */
   }
-  clearRedirectPending();
 }

@@ -1,20 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwner() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email == 'yohaken@gmail.com';
+    // App gate is a local PIN; cloud sync uses Firebase Auth (anonymous or Google).
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     // Personal notes payload (client SDK writes here directly).
     match /spaces/{spaceId} {
-      allow read, write: if isOwner();
+      allow read, write: if isSignedIn();
     }
 
-    // TellTea login tickets (existing helper page) — owner only.
+    // TellTea login tickets (existing helper page) — signed-in only.
     match /loginTickets/{ticketId} {
-      allow read, write: if isOwner();
+      allow read, write: if isSignedIn();
     }
 
     match /{document=**} {
