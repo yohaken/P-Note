@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=277';
+} from './auth.js?v=278';
 import {
   addTag,
   addNotepad,
@@ -124,7 +124,7 @@ import {
   toDateKey,
   totalsForMonth,
   DEFAULT_TDEE_PROTEIN_FACTOR,
-} from './calorie.js?v=277';
+} from './calorie.js?v=278';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -136,8 +136,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=277';
-import { mountDrumPicker } from './drum-picker.js?v=277';
+} from './muscle-tree.js?v=278';
+import { mountDrumPicker } from './drum-picker.js?v=278';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -9148,8 +9148,15 @@ async function bootstrapData() {
     setLoading(false);
     refreshAuthAccountHint();
     setSyncReady(false);
-    // Popup immediately — blur + block until Firestore sync succeeds.
-    showSyncGate('กำลังซิงค์…', 'รอซิงค์สำเร็จก่อนใส่ข้อมูล');
+
+    // Show PIN first — never flash the sync gate before unlock.
+    if (!isPinUnlocked()) {
+      hideSyncGate();
+      setAuthOverlayVisible(true);
+      try { els.authPinInput?.focus(); } catch { /* ignore */ }
+    } else {
+      showSyncGate('กำลังซิงค์…', 'รอซิงค์สำเร็จก่อนใส่ข้อมูล');
+    }
 
     const user = await requireCloudAuth();
     watchAuth((nextUser) => {
@@ -9160,8 +9167,12 @@ async function bootstrapData() {
         state.cloudHydrated = false;
         setSyncReady(false);
         refreshAuthAccountHint();
-        setAuthOverlayVisible(true);
+        if (!isPinUnlocked()) setAuthOverlayVisible(true);
         if (wasSignedIn) setSyncStatus('offline', 'ออกจากระบบแล้ว');
+        return;
+      }
+      if (!isPinUnlocked()) {
+        // Firebase session without PIN — keep app locked.
         return;
       }
       const first = !state.authUser;
@@ -9172,7 +9183,7 @@ async function bootstrapData() {
     });
 
     if (!user) {
-      setSyncStatus('offline', 'รอเข้าสู่ระบบ');
+      setSyncStatus('offline', 'รอใส่รหัส');
       return;
     }
 
