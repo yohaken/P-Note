@@ -7891,7 +7891,7 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
 
 /* colgroup — #/วันที่แคบ; คอลัมน์ 3–8 กว้าง (ใต้แถบมื้อ colspan6) */
 .calorie-table .cal-cg-n { width: 3%; }
-.calorie-table .cal-cg-date { width: 7%; }
+.calorie-table .cal-cg-date { width: 8.5%; }
 .calorie-table .cal-cg-mealband { width: 10.75%; }
 .calorie-table .cal-cg-tail { width: 5.5%; }
 
@@ -8054,9 +8054,9 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 0.5rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
   padding: 0;
   cursor: pointer;
   line-height: 1.15rem;
@@ -8064,6 +8064,7 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .calorie-table .cal-date-picker {
