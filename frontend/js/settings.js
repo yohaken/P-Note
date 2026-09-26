@@ -151,16 +151,37 @@ export const DEFAULT_DUE_COLORS = {
   overdue: '#e23b2e',
 };
 
-/** Calorie table / today-card tones (eat = caution, burn = green, empty = white, line = day guide). */
+/** Calorie table tones — Matcha Desk (eat warm · burn sage · line sage-gray). */
 export const DEFAULT_CALORIE_TONES = {
+  eat: '#b45309',
+  burn: '#3d5a4c',
+  empty: '#ffffff',
+  line: '#c5cec2',
+};
+
+/** Pre–Matcha defaults — migrate so existing installs pick up the new palette. */
+const LEGACY_CALORIE_TONES = {
   eat: '#ea580c',
   burn: '#16a34a',
   empty: '#ffffff',
   line: '#d9d2c5',
 };
 
+function isLegacyCalorieTones(raw) {
+  if (!raw || typeof raw !== 'object') return false;
+  return (
+    safeHexColor(raw.eat, '') === LEGACY_CALORIE_TONES.eat &&
+    safeHexColor(raw.burn, '') === LEGACY_CALORIE_TONES.burn &&
+    safeHexColor(raw.empty, '') === LEGACY_CALORIE_TONES.empty &&
+    safeHexColor(raw.line, '') === LEGACY_CALORIE_TONES.line
+  );
+}
+
 export function normalizeCalorieTones(raw) {
-  const src = raw && typeof raw === 'object' ? raw : {};
+  if (raw == null || isLegacyCalorieTones(raw)) {
+    return { ...DEFAULT_CALORIE_TONES };
+  }
+  const src = typeof raw === 'object' ? raw : {};
   return {
     eat: safeHexColor(src.eat, DEFAULT_CALORIE_TONES.eat),
     burn: safeHexColor(src.burn, DEFAULT_CALORIE_TONES.burn),
@@ -259,20 +280,21 @@ export function mixHex(fg, bg, amount) {
  */
 export function calorieToneCssVars(raw) {
   const t = normalizeCalorieTones(raw);
-  const ink = '#333333';
+  const ink = '#243028';
   return {
     '--cal-tone-eat': t.eat,
     '--cal-tone-burn': t.burn,
     '--cal-tone-empty': t.empty,
-    '--cal-tone-eat-wash': mixHex(t.eat, t.empty, 0.1),
-    '--cal-tone-burn-wash': mixHex(t.burn, t.empty, 0.12),
-    '--cal-tone-eat-head': mixHex(t.eat, t.empty, 0.16),
-    '--cal-tone-burn-head': mixHex(t.burn, t.empty, 0.14),
-    '--cal-tone-eat-ink': mixHex(t.eat, ink, 0.62),
-    '--cal-tone-burn-ink': mixHex(t.burn, ink, 0.55),
-    '--cal-tone-pos-ink': mixHex(t.burn, ink, 0.7),
-    '--cal-tone-neg-ink': mixHex(t.eat, ink, 0.75),
+    '--cal-tone-eat-wash': mixHex(t.eat, t.empty, 0.12),
+    '--cal-tone-burn-wash': mixHex(t.burn, t.empty, 0.14),
+    '--cal-tone-eat-head': mixHex(t.eat, t.empty, 0.18),
+    '--cal-tone-burn-head': mixHex(t.burn, t.empty, 0.2),
+    '--cal-tone-eat-ink': mixHex(t.eat, ink, 0.55),
+    '--cal-tone-burn-ink': mixHex(t.burn, ink, 0.45),
+    '--cal-tone-pos-ink': mixHex(t.burn, ink, 0.62),
+    '--cal-tone-neg-ink': mixHex(t.eat, ink, 0.7),
     '--cal-tone-row-line': t.line,
+    '--cal-tone-paper': mixHex(t.burn, t.empty, 0.04),
   };
 }
 

@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=282';
+} from './auth.js?v=286';
 import {
   addTag,
   addNotepad,
@@ -124,7 +124,7 @@ import {
   toDateKey,
   totalsForMonth,
   DEFAULT_TDEE_PROTEIN_FACTOR,
-} from './calorie.js?v=282';
+} from './calorie.js?v=286';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -136,8 +136,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=282';
-import { mountDrumPicker } from './drum-picker.js?v=282';
+} from './muscle-tree.js?v=286';
+import { mountDrumPicker } from './drum-picker.js?v=286';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -188,7 +188,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=227';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=227';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=286';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
@@ -1580,8 +1580,17 @@ function calorieToneTargets() {
 }
 
 function applyCalorieTones() {
-  const tones = normalizeCalorieTones(state.settings?.calorieTones);
-  if (state.settings) state.settings.calorieTones = tones;
+  const prev = state.settings?.calorieTones;
+  const tones = normalizeCalorieTones(prev);
+  if (state.settings) {
+    const dirty = !prev
+      || prev.eat !== tones.eat
+      || prev.burn !== tones.burn
+      || prev.empty !== tones.empty
+      || prev.line !== tones.line;
+    state.settings.calorieTones = tones;
+    if (dirty) saveSettings(state.settings);
+  }
   const vars = calorieToneCssVars(tones);
   calorieToneTargets().forEach((el) => {
     Object.entries(vars).forEach(([key, value]) => {

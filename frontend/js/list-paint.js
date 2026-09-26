@@ -8,7 +8,7 @@ import {
   calorieToneCssVars,
   dockScaleToCss,
   dockOffsetYToLiftPx,
-} from './settings.js?v=227';
+} from './settings.js?v=286';
 import { applyAppIcon } from './app-icons.js?v=251';
 
 function applyCalorieChrome() {
