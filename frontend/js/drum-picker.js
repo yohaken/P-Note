@@ -15,7 +15,8 @@ const ITEM_H = 40;
  *   unit?: string,
  *   ariaLabel?: string,
  *   flickGain?: number,
- *   onChange?: (value: number) => void,
+ *   items?: { value: number|string, label?: string }[],
+ *   onChange?: (value: number|string) => void,
  * }} opts
  */
 export function mountDrumPicker(root, opts) {
@@ -25,10 +26,26 @@ export function mountDrumPicker(root, opts) {
   const unit = String(opts.unit || '');
   const flickGain = Number(opts.flickGain) > 0 ? Number(opts.flickGain) : 1.6;
   const onChange = typeof opts.onChange === 'function' ? opts.onChange : null;
+  const textItems = Array.isArray(opts.items) && opts.items.some((it) => typeof it.value !== 'number');
 
   const values = [];
-  for (let v = min; v <= max; v += step) values.push(v);
-  if (!values.length) values.push(min);
+  const labels = [];
+  if (Array.isArray(opts.items) && opts.items.length) {
+    opts.items.forEach((it) => {
+      values.push(it.value);
+      labels.push(String(it.label ?? it.value));
+    });
+  } else {
+    for (let v = min; v <= max; v += step) {
+      values.push(v);
+      labels.push(String(v));
+    }
+  }
+  if (!values.length) {
+    values.push(Number.isFinite(min) ? min : 0);
+    labels.push(String(values[0]));
+  }
+  let silent = false;
 
   let index = nearestIndex(opts.value ?? values[0]);
   let offset = -index * ITEM_H; // list translateY
@@ -40,6 +57,7 @@ export function mountDrumPicker(root, opts) {
   let pointerId = null;
 
   root.classList.add('drum-picker');
+  root.classList.toggle('drum-picker--text', textItems);
   root.innerHTML = `
     <div class="drum-window" tabindex="0" role="listbox" aria-label="${escapeAttr(opts.ariaLabel || 'ตัวเลือก')}">
       <div class="drum-fade drum-fade-top" aria-hidden="true"></div>
@@ -47,7 +65,7 @@ export function mountDrumPicker(root, opts) {
       <div class="drum-fade drum-fade-bot" aria-hidden="true"></div>
       <ul class="drum-list">
         ${values.map((v, i) =>
-          `<li class="drum-item" data-i="${i}" data-v="${v}" role="option">${v}${unit ? `<span class="drum-unit">${escapeHtml(unit)}</span>` : ''}</li>`).join('')}
+          `<li class="drum-item" data-i="${i}" data-v="${escapeAttr(v)}" role="option" title="${escapeAttr(labels[i])}">${escapeHtml(labels[i])}${unit ? `<span class="drum-unit">${escapeHtml(unit)}</span>` : ''}</li>`).join('')}
       </ul>
     </div>
   `;
@@ -56,6 +74,9 @@ export function mountDrumPicker(root, opts) {
   const list = root.querySelector('.drum-list');
 
   function nearestIndex(raw) {
+    const exact = values.indexOf(raw);
+    if (exact >= 0) return exact;
+    if (textItems) return 0;
     const n = Number(raw);
     if (!Number.isFinite(n)) return 0;
     let best = 0;
@@ -94,7 +115,7 @@ export function mountDrumPicker(root, opts) {
   function emit() {
     const i = indexFromOffset(offset);
     index = i;
-    if (onChange) onChange(values[i]);
+    if (onChange && !silent) onChange(values[i]);
   }
 
   function snapTo(i, animate = true) {
@@ -208,13 +229,22 @@ export function mountDrumPicker(root, opts) {
   // Center padding via CSS; initial paint
   offset = -index * ITEM_H;
   paint();
+  silent = true;
   emit();
+  silent = false;
 
   return {
     getValue() {
       return values[indexFromOffset(offset)];
     },
-    setValue(v, { animate = false } = {}) {
+    setValue(v, { animate = false, quiet = false } = {}) {
+      if (quiet) {
+        cancelAnimationFrame(raf);
+        silent = true;
+        snapTo(nearestIndex(v), false);
+        silent = false;
+        return;
+      }
       snapTo(nearestIndex(v), animate);
     },
     destroy() {
@@ -231,7 +261,7 @@ export function mountDrumPicker(root, opts) {
 }
 
 function escapeHtml(s) {
-  return String(s || '')
+  return String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');

@@ -5,11 +5,15 @@
 
 import { nowIso, compareStamp, newerStampIso } from './clock.js?v=227';
 import {
+  cellKey,
+  flattenMuscleRows,
+  leafLabelPath,
   mergeMuscleTreeField,
   muscleSlotsForDate,
   muscleTreeLabels,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=292';
+  setMuscleCellInTree,
+} from './muscle-tree.js?v=293';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -28,7 +32,7 @@ export const MIN_MEAL_SLOTS = 7;
 export const MAX_MEAL_SLOTS = 14;
 /** Exercise burn slots per day (label + kcal each); mus = sum of slots. */
 export const MIN_EXERCISE_SLOTS = 3;
-export const MAX_EXERCISE_SLOTS = 10;
+export const MAX_EXERCISE_SLOTS = 30;
 /** @deprecated use MIN_MEAL_SLOTS — kept for older imports */
 export const MEAL_SLOTS = MIN_MEAL_SLOTS;
 /** Compact frequent-use lists (meal / exercise). */
@@ -1193,6 +1197,103 @@ export function applyMuscleDayExercises(sheet, tree, dateKey) {
     return !treeLabels.has(p.label);
   });
   const exercises = normalizeExercises([...muscleSlots, ...kept]);
+  const mus = sumExerciseBurn(exercises) || null;
+  return patchDay(next, day.id, { exercises, mus });
+}
+
+/** Burn values offered by the exercise wheel (fine at the low end, then coarser). */
+export const EXERCISE_BURN_STEPS = (() => {
+  const out = [];
+  for (let v = 1; v < 10; v += 1) out.push(v);
+  for (let v = 10; v < 100; v += 5) out.push(v);
+  for (let v = 100; v <= 1000; v += 10) out.push(v);
+  return out;
+})();
+
+/**
+ * Every loggable move from the muscle tree, grouped for the picker wheels.
+ * A category without children is itself the move.
+ * @returns {{ id: string, name: string, moves: { id: string, name: string, label: string }[] }[]}
+ */
+export function exercisePickerCatalog(tree) {
+  const t = normalizeMuscleTree(tree);
+  const rows = flattenMuscleRows(t);
+  const groups = [];
+  rows.forEach((r) => {
+    if (r.depth !== 0) return;
+    const kids = rows.filter((c) => c.depth === 1 && c.parentId === r.id);
+    const moves = kids.length
+      ? kids.map((c) => ({ id: c.id, name: c.name, label: leafLabelPath(t, c.id) }))
+      : [{ id: r.id, name: r.name, label: r.name }];
+    groups.push({ id: r.id, name: r.name, moves });
+  });
+  return groups;
+}
+
+/**
+ * A day's exercises as editable entries: tree moves carry nodeId, freeform
+ * labels (not in the tree) keep nodeId null.
+ * @returns {{ nodeId: string|null, label: string, burn: number }[]}
+ */
+export function dayExerciseEntries(calorie, day) {
+  const t = normalizeMuscleTree(calorie?.muscleTree);
+  const byLabel = new Map();
+  exercisePickerCatalog(t).forEach((g) => g.moves.forEach((m) => {
+    byLabel.set(m.label, m.id);
+    if (!byLabel.has(m.name) && g.moves.length === 1) byLabel.set(m.name, m.id);
+  }));
+  const out = [];
+  const seen = new Set();
+  normalizeExercises(day?.exercises).forEach((cell) => {
+    const p = parseExerciseCell(cell);
+    if (p.empty) return;
+    const nodeId = byLabel.get(p.label) || null;
+    if (nodeId) {
+      if (seen.has(nodeId)) return;
+      seen.add(nodeId);
+    }
+    out.push({ nodeId, label: p.label || `ออกกำลัง ${p.burn}`, burn: p.burn });
+  });
+  const dateKey = day?.date;
+  if (dateKey) {
+    exercisePickerCatalog(t).forEach((g) => g.moves.forEach((m) => {
+      const burn = t.cells[cellKey(m.id, dateKey)];
+      if (!(burn > 0) || seen.has(m.id)) return;
+      seen.add(m.id);
+      out.push({ nodeId: m.id, label: m.label, burn });
+    }));
+  }
+  return out;
+}
+
+/**
+ * Replace a day's exercises with the picker entries — writes tree cells for
+ * tree moves (so the muscle table stays in step) and keeps freeform entries.
+ */
+export function setDayExerciseEntries(calorie, dateKey, entries) {
+  const { sheet, day } = ensureDay(calorie, dateKey);
+  let tree = normalizeMuscleTree(sheet.muscleTree);
+  const want = new Map();
+  const freeform = [];
+  (entries || []).forEach((e) => {
+    const burn = Math.round(Number(e?.burn));
+    if (!(burn > 0)) return;
+    if (e.nodeId) want.set(e.nodeId, burn);
+    else if (String(e.label || '').trim()) freeform.push(formatExerciseCell(burn, e.label));
+  });
+  let treeChanged = false;
+  exercisePickerCatalog(tree).forEach((g) => g.moves.forEach((m) => {
+    const res = setMuscleCellInTree(tree, m.id, dateKey, want.get(m.id) ?? null);
+    if (res.changed) {
+      tree = res.tree;
+      treeChanged = true;
+    }
+  }));
+  const next = treeChanged
+    ? { ...sheet, muscleTree: tree, muscleTreeAt: nowIso() }
+    : sheet;
+  const slots = muscleSlotsForDate(tree, dateKey).map((s) => formatExerciseCell(s.burn, s.label));
+  const exercises = normalizeExercises([...slots, ...freeform]);
   const mus = sumExerciseBurn(exercises) || null;
   return patchDay(next, day.id, { exercises, mus });
 }

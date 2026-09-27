@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="292">
-  <meta name="pnote-built" content="2026-09-27T15:35:00+07:00">
+  <meta name="pnote-build" content="293">
+  <meta name="pnote-built" content="2026-09-27T20:10:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=292"></script>
+  <script src="js/cache-bootstrap.js?v=293"></script>
   <script>
     /* Apply saved brand icon before paint (favicon + logos + install manifest). */
     (function earlyAppIcon() {
@@ -24,7 +24,7 @@
           if (IDS.indexOf(cand) >= 0) id = cand;
         }
       } catch (e) {}
-      var src = 'icons/app/' + id + '-192.png?v=292';
+      var src = 'icons/app/' + id + '-192.png?v=293';
       function setLink(rel, href, type) {
         var el = document.querySelector('link[rel="' + rel + '"]');
         if (!el) {
@@ -37,7 +37,7 @@
       }
       setLink('icon', src, 'image/png');
       setLink('apple-touch-icon', src);
-      setLink('manifest', 'manifests/' + id + '.json?v=292');
+      setLink('manifest', 'manifests/' + id + '.json?v=293');
       window.__pnoteEarlyIconId = id;
       window.__pnoteEarlyIconSrc = src;
       document.addEventListener('DOMContentLoaded', function () {
@@ -47,7 +47,7 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="css/pnote.css?v=292">
+  <link rel="stylesheet" href="css/pnote.css?v=293">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -165,7 +165,7 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/app/leaf-192.png?v=292" width="16" height="16" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/app/leaf-192.png?v=293" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
           <span class="mode-switch-ver" id="calorie-app-ver">v257</span>
           <span class="topbar-meta-sep" aria-hidden="true">·</span>
@@ -413,6 +413,25 @@
         <div id="cq-drum-readout" class="cq-drum-readout" hidden aria-live="polite">
           <strong id="cq-drum-readout-val">—</strong>
         </div>
+        <div id="calorie-ex-drums" class="cq-drums cq-drums-ex" hidden>
+          <div class="cq-drum-col">
+            <span class="cq-drum-label">หมวด</span>
+            <div id="cq-drum-group" class="cq-drum-host" aria-label="หมวดกล้ามเนื้อ"></div>
+          </div>
+          <div class="cq-drum-col">
+            <span class="cq-drum-label">ท่า</span>
+            <div id="cq-drum-move" class="cq-drum-host" aria-label="ท่า"></div>
+          </div>
+          <div class="cq-drum-col">
+            <span class="cq-drum-label">แคล</span>
+            <div id="cq-drum-burn" class="cq-drum-host" aria-label="แคลที่เบิร์น"></div>
+          </div>
+        </div>
+        <div id="cq-ex-bar" class="cq-ex-bar" hidden>
+          <strong id="cq-ex-readout" class="cq-ex-readout" aria-live="polite">—</strong>
+          <button type="button" class="btn btn-secondary cq-ex-add" id="cq-ex-add">+ เพิ่มท่านี้</button>
+        </div>
+        <div id="cq-ex-list" class="cq-ex-list" hidden aria-label="ท่าของวันนี้"></div>
         <input id="calorie-quick-label" class="calorie-quick-label" type="text" maxlength="80" placeholder="ชื่อมื้อ (ไม่บังคับ)" autocomplete="off" enterkeyhint="done" hidden aria-label="ชื่อมื้อ">
         <textarea id="calorie-quick-input" class="calorie-quick-input" rows="1" autocomplete="off" enterkeyhint="done"></textarea>
         <div class="calorie-quick-actions">
@@ -1105,7 +1124,7 @@
 
     <div id="auth-overlay" class="auth-overlay">
       <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=292" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=293" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">ใส่รหัสเข้า</h2>
         <p class="auth-copy">ใส่รหัสผ่านเพื่อเปิดแอพ · จำไว้ในเครื่องนี้จนกว่าจะกดออกจากระบบ</p>
         <label class="notify-field auth-pin-field" for="auth-pin-input">
@@ -1351,7 +1370,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=292"></script>
-  <script src="js/update-watch.js?v=292"></script>
+  <script type="module" src="js/boot.js?v=293"></script>
+  <script src="js/update-watch.js?v=293"></script>
 </body>
 </html>
