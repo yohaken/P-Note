@@ -9,7 +9,7 @@ import {
   muscleSlotsForDate,
   muscleTreeLabels,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=291';
+} from './muscle-tree.js?v=292';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -3191,7 +3191,11 @@ function mergeMealsField(a, b) {
     // Only fall back to the day stamp when that side's slot has content.
     const aStamp = aAt[i] || (ac ? (a?.updatedAt || '') : '');
     const bStamp = bAt[i] || (bc ? (b?.updatedAt || '') : '');
-    if (!ac && !bc) { meals.push(''); mealsAt.push(''); continue; }
+    if (!ac && !bc) {
+      meals.push('');
+      mealsAt.push(compareStamp(aStamp, bStamp) >= 0 ? aStamp : bStamp);
+      continue;
+    }
     const cmp = compareStamp(aStamp, bStamp);
     // Newer side wins outright — a stamped empty slot is an intentional clear.
     if (cmp > 0) { meals.push(ac); mealsAt.push(aStamp); }

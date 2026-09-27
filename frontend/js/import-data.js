@@ -1,5 +1,5 @@
 import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=227';
-import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=291';
+import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=292';
 import { compareStamp, newerStampIso } from './clock.js?v=227';
 import {
   applyDeletionFilter,
