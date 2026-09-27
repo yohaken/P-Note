@@ -8971,6 +8971,13 @@ body.calorie-muscle-pane #calorie-view {
   gap: 0.28rem;
 }
 
+.muscle-range {
+  margin-left: auto;
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .muscle-tool-btn {
   padding: 0.28rem 0.55rem !important;
   font-size: 0.72rem !important;
@@ -9350,5 +9357,123 @@ body.calorie-muscle-pane #calorie-view {
 .muscle-table .mt-kcal:focus {
   background: color-mix(in srgb, #2563eb 12%, var(--surface));
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #2563eb 50%, transparent);
+}
+
+/* Compact fit: short rows, narrow cols, slim group headers */
+.muscle-table thead th {
+  height: 1.7rem;
+}
+.muscle-table .mt-col-date,
+.muscle-table .mt-cell {
+  min-width: 1.85rem;
+  width: 1.85rem;
+}
+.muscle-table .mt-col-date {
+  padding: 0.05rem 0;
+}
+.muscle-table .mt-col-wd {
+  font-size: 0.5rem;
+  line-height: 1;
+}
+.muscle-table .mt-col-dm {
+  font-size: 0.62rem;
+  line-height: 1.1;
+}
+.muscle-table .mt-col-count-head,
+.muscle-table .mt-col-count {
+  min-width: 1.6rem;
+  width: 1.6rem;
+  max-width: 1.6rem;
+}
+.muscle-table .mt-cell,
+.muscle-table .mt-kcal {
+  height: 1.3rem;
+  min-height: 1.3rem;
+}
+.muscle-table .mt-kcal {
+  padding: 0;
+  font-size: 0.66rem;
+}
+.muscle-table .mt-count-val {
+  font-size: 0.66rem;
+  line-height: 1.3rem;
+}
+.muscle-table .mt-name-row {
+  min-height: 1.3rem;
+}
+.muscle-table .mt-name-btn {
+  padding: 0.1rem 0.1rem 0.1rem 0.05rem;
+}
+.muscle-table .mt-name-text {
+  font-size: 0.68rem;
+  line-height: 1.15;
+}
+.muscle-table .mt-row-name.is-child .mt-name-btn {
+  padding-left: 0.45rem;
+}
+.muscle-table tr.is-group .mt-cell,
+.muscle-table tr.is-group .mt-name-row {
+  height: 1.05rem;
+  min-height: 1.05rem;
+}
+.muscle-table tr.is-group .mt-count-val {
+  line-height: 1.05rem;
+}
+.muscle-table tr.is-group .mt-name-text {
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+/* Cardio = real kcal burned → cuts the day's calorie balance (orange burn tone) */
+.muscle-table tr.is-cardio .mt-row-name,
+.muscle-table tr.is-cardio .mt-col-count {
+  background: color-mix(in srgb, #ea580c 10%, var(--surface));
+}
+.muscle-table tr.is-cardio .mt-name-text {
+  color: #c2410c;
+  font-weight: 750;
+}
+.muscle-table .mt-cell.is-cardio {
+  background: color-mix(in srgb, #ea580c 5%, var(--surface));
+}
+.muscle-table .mt-cell.is-cardio.is-filled {
+  background: color-mix(in srgb, #ea580c 20%, var(--surface));
+}
+.muscle-table .mt-cell.is-cardio .mt-kcal {
+  color: #c2410c;
+}
+.muscle-table .mt-cell.is-cardio .mt-kcal:focus {
+  background: color-mix(in srgb, #ea580c 14%, var(--surface));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #ea580c 55%, transparent);
+}
+.muscle-table .mt-cardio-tag {
+  margin-left: 0.3rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  font-size: 0.52rem;
+  font-weight: 750;
+  line-height: 1.35;
+  white-space: nowrap;
+  color: #fff;
+  background: #ea580c;
+}
+.muscle-table .mt-cardio-cut {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1.05rem;
+  color: #c2410c;
+  font-variant-numeric: tabular-nums;
+}
+.cq-ex-readout.is-cardio {
+  color: #c2410c;
+}
+.cq-ex-row.is-cardio .cq-ex-kcal {
+  color: #c2410c;
+  font-weight: 800;
+}
+.cal-exercise-chip.is-burn {
+  color: #c2410c;
 }
 

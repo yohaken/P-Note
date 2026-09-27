@@ -6,14 +6,16 @@
 import { nowIso, compareStamp, newerStampIso } from './clock.js?v=227';
 import {
   cellKey,
+  CARDIO_NAME_RE,
   flattenMuscleRows,
+  isCardioNode,
   leafLabelPath,
   mergeMuscleTreeField,
   muscleSlotsForDate,
   muscleTreeLabels,
   normalizeMuscleTree,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=293';
+} from './muscle-tree.js?v=302';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -122,22 +124,27 @@ export function parseQuickExercise(text) {
   return { burn, label: label || `ออกกำลัง ${burn}` };
 }
 
-/** Stored exercise cell: "burn,label" (label optional). */
+/**
+ * Stored exercise cell: "burn,label" (label optional).
+ * "0,label" = strength mark (logged move, burns no kcal).
+ */
 export function parseExerciseCell(raw) {
   const s = String(raw || '').trim();
   if (!s) return { burn: 0, label: '', empty: true };
   const m = s.match(/^(\d+)(?:,([^,]*))?$/);
   if (!m) return { burn: 0, label: '', empty: true };
   const burn = Number(m[1]);
-  if (!Number.isInteger(burn) || burn <= 0) return { burn: 0, label: '', empty: true };
   const label = String(m[2] || '').trim().slice(0, 40);
+  if (!Number.isInteger(burn) || burn < 0 || (burn === 0 && !label)) {
+    return { burn: 0, label: '', empty: true };
+  }
   return { burn, label, empty: false };
 }
 
 export function formatExerciseCell(burn, label = '') {
   const b = Math.round(Number(burn));
-  if (!Number.isFinite(b) || b <= 0) return '';
   const lab = String(label || '').trim().slice(0, 40);
+  if (!Number.isFinite(b) || b < 0 || (b === 0 && !lab)) return '';
   return lab ? `${b},${lab}` : `${b},`;
 }
 
@@ -180,8 +187,9 @@ export function renderExerciseTableHtml(day) {
   const chips = cells
     .map((cell) => {
       const p = parseExerciseCell(cell);
+      if (p.burn === 0) return `<span class="cal-exercise-chip is-mark">${esc(p.label)}</span>`;
       const text = p.label ? `${p.label} ${p.burn}` : String(p.burn);
-      return `<span class="cal-exercise-chip">${esc(text)}</span>`;
+      return `<span class="cal-exercise-chip is-burn">${esc(text)}</span>`;
     })
     .join('');
   const scroll = cells.length > 2 ? ' is-scrollable' : '';
@@ -230,7 +238,7 @@ export function parseExerciseList(text, { maxItems = MAX_EXERCISE_SLOTS } = {}) 
     if (labelFirst && !/^\d+$/.test(labelFirst[1].trim())) {
       const label = labelFirst[1].trim().slice(0, 40);
       const burn = Number(labelFirst[2]);
-      if (label && Number.isInteger(burn) && burn > 0) {
+      if (label && Number.isInteger(burn) && burn >= 0) {
         out.push(formatExerciseCell(burn, label));
         continue;
       }
@@ -268,8 +276,7 @@ function distributeInt(total, n) {
 function migrateLegacyExercises(row) {
   const existing = normalizeExercises(row.exercises);
   if (existing.length) {
-    const mus = sumExerciseBurn(existing) || row.mus;
-    return { ...row, exercises: existing, mus: mus || null };
+    return { ...row, exercises: existing, mus: sumExerciseBurn(existing) || null };
   }
   const mus = Number.isFinite(row.mus) && row.mus > 0 ? Math.round(row.mus) : null;
   if (!mus) return { ...row, exercises: [] };
@@ -477,7 +484,7 @@ export function listExerciseHistoryFrequent(calorie, limit = FREQ_TOP) {
   sheet.days.forEach((day) => {
     normalizeExercises(day?.exercises).forEach((cell) => {
       const p = parseExerciseCell(cell);
-      if (p.empty || !(p.burn > 0)) return;
+      if (p.empty) return;
       const pose = String(p.label || '').trim().slice(0, 40);
       if (pose && looksLikeMealFragment(pose)) return;
       const text = pose ? `${pose},${p.burn}` : String(p.burn);
@@ -1120,9 +1127,11 @@ export function normalizeCalorie(raw) {
     ageFromBirthDate(birthDate, new Date())
     ?? clampNum(src.age, 10, 100, DEFAULT_AGE);
   const sex = src.sex === 'female' ? 'female' : 'male';
+  const muscleTree = normalizeMuscleTree(src.muscleTree);
+  const moveIndex = treeMoveIndex(muscleTree);
   const days = (Array.isArray(src.days) ? src.days : [])
     .filter((d) => d && typeof d === 'object')
-    .map((d) => normalizeDayRow(d, defaultBase))
+    .map((d) => reconcileTreeExercises(normalizeDayRow(d, defaultBase), muscleTree, moveIndex))
     // Newest first — easier to log today at the top.
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .slice(0, 400);
@@ -1169,15 +1178,52 @@ export function normalizeCalorie(raw) {
       return pins.length ? String(src.updatedAt || '') : '';
     })(),
     /** Hierarchical muscle log (tree × date cells). Own stamp like homePins. */
-    muscleTree: normalizeMuscleTree(src.muscleTree),
-    muscleTreeAt: (() => {
-      const stamped = String(src.muscleTreeAt || '').trim();
-      if (stamped) return stamped;
-      const tree = normalizeMuscleTree(src.muscleTree);
-      return tree.updatedAt || '';
-    })(),
+    muscleTree,
+    muscleTreeAt: String(src.muscleTreeAt || '').trim() || muscleTree.updatedAt || '',
     days,
   };
+}
+
+/** Tree move label (path and bare name) → { id, cardio }. */
+function treeMoveIndex(tree) {
+  const rows = flattenMuscleRows(tree);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const out = new Map();
+  rows.forEach((r) => {
+    if (!r.leaf) return;
+    const parent = r.parentId ? byId.get(r.parentId) : null;
+    const cardio = CARDIO_NAME_RE.test(r.name) || Boolean(parent && CARDIO_NAME_RE.test(parent.name));
+    const info = { id: r.id, cardio };
+    out.set(parent ? `${parent.name} · ${r.name}` : r.name, info);
+    if (!out.has(r.name)) out.set(r.name, info);
+  });
+  return out;
+}
+
+/**
+ * Tree-backed entries: strength marks burn 0 kcal, cardio takes the cell kcal.
+ * Pure (no stamps) so every device derives the same row.
+ */
+function reconcileTreeExercises(day, tree, moveIndex) {
+  if (!day?.date || !moveIndex.size) return day;
+  const list = normalizeExercises(day.exercises);
+  const slots = muscleSlotsForDate(tree, day.date);
+  let exercises;
+  if (slots.length) {
+    // The table is the source of truth for dates it has marks on.
+    const kept = list.filter((cell) => !moveIndex.has(parseExerciseCell(cell).label));
+    exercises = normalizeExercises([...slots.map((s) => formatExerciseCell(s.burn, s.label)), ...kept]);
+  } else {
+    if (!list.length) return day;
+    exercises = list.map((cell) => {
+      const p = parseExerciseCell(cell);
+      const move = moveIndex.get(p.label);
+      return move && !move.cardio ? formatExerciseCell(0, p.label) : cell;
+    });
+  }
+  const mus = sumExerciseBurn(exercises) || null;
+  if (JSON.stringify(exercises) === JSON.stringify(list) && mus === (day.mus ?? null)) return day;
+  return { ...day, exercises, mus };
 }
 
 /**
@@ -1223,8 +1269,8 @@ export function exercisePickerCatalog(tree) {
     if (r.depth !== 0) return;
     const kids = rows.filter((c) => c.depth === 1 && c.parentId === r.id);
     const moves = kids.length
-      ? kids.map((c) => ({ id: c.id, name: c.name, label: leafLabelPath(t, c.id) }))
-      : [{ id: r.id, name: r.name, label: r.name }];
+      ? kids.map((c) => ({ id: c.id, name: c.name, label: leafLabelPath(t, c.id), cardio: isCardioNode(t, c.id) }))
+      : [{ id: r.id, name: r.name, label: r.name, cardio: isCardioNode(t, r.id) }];
     groups.push({ id: r.id, name: r.name, moves });
   });
   return groups;
@@ -1237,30 +1283,36 @@ export function exercisePickerCatalog(tree) {
  */
 export function dayExerciseEntries(calorie, day) {
   const t = normalizeMuscleTree(calorie?.muscleTree);
+  const catalog = exercisePickerCatalog(t);
   const byLabel = new Map();
-  exercisePickerCatalog(t).forEach((g) => g.moves.forEach((m) => {
-    byLabel.set(m.label, m.id);
-    if (!byLabel.has(m.name) && g.moves.length === 1) byLabel.set(m.name, m.id);
+  catalog.forEach((g) => g.moves.forEach((m) => {
+    byLabel.set(m.label, m);
+    if (!byLabel.has(m.name) && g.moves.length === 1) byLabel.set(m.name, m);
   }));
+  const dateKey = day?.date;
   const out = [];
   const seen = new Set();
   normalizeExercises(day?.exercises).forEach((cell) => {
     const p = parseExerciseCell(cell);
     if (p.empty) return;
-    const nodeId = byLabel.get(p.label) || null;
-    if (nodeId) {
-      if (seen.has(nodeId)) return;
-      seen.add(nodeId);
+    const move = byLabel.get(p.label) || null;
+    if (move) {
+      if (seen.has(move.id)) return;
+      seen.add(move.id);
+      // Strength rows store the mark in the table cell; the day row holds 0 kcal.
+      const value = dateKey ? t.cells[cellKey(move.id, dateKey)] : null;
+      const burn = value > 0 ? value : (p.burn > 0 ? p.burn : 1);
+      out.push({ nodeId: move.id, label: move.label, burn, cardio: move.cardio });
+      return;
     }
-    out.push({ nodeId, label: p.label || `ออกกำลัง ${p.burn}`, burn: p.burn });
+    out.push({ nodeId: null, label: p.label || `ออกกำลัง ${p.burn}`, burn: p.burn, cardio: false });
   });
-  const dateKey = day?.date;
   if (dateKey) {
-    exercisePickerCatalog(t).forEach((g) => g.moves.forEach((m) => {
+    catalog.forEach((g) => g.moves.forEach((m) => {
       const burn = t.cells[cellKey(m.id, dateKey)];
       if (!(burn > 0) || seen.has(m.id)) return;
       seen.add(m.id);
-      out.push({ nodeId: m.id, label: m.label, burn });
+      out.push({ nodeId: m.id, label: m.label, burn, cardio: m.cardio });
     }));
   }
   return out;
@@ -1277,9 +1329,12 @@ export function setDayExerciseEntries(calorie, dateKey, entries) {
   const freeform = [];
   (entries || []).forEach((e) => {
     const burn = Math.round(Number(e?.burn));
-    if (!(burn > 0)) return;
-    if (e.nodeId) want.set(e.nodeId, burn);
-    else if (String(e.label || '').trim()) freeform.push(formatExerciseCell(burn, e.label));
+    if (e?.nodeId) {
+      if (burn > 0) want.set(e.nodeId, burn);
+      return;
+    }
+    const cell = formatExerciseCell(burn, e?.label);
+    if (cell) freeform.push(cell);
   });
   let treeChanged = false;
   exercisePickerCatalog(tree).forEach((g) => g.moves.forEach((m) => {
@@ -1737,7 +1792,7 @@ function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide
   const head = compact
     ? `<div class="chs-chart-top is-compact"><span class="chs-compact-head"><span class="chs-compact-title">${esc(compactTitle)}</span><strong class="chs-compact-val">${esc(musDisplay ?? '—')}<span class="chs-chart-unit">${esc(unit)}</span></strong></span></div>`
     : `<div class="chs-chart-top">
-      <h3>แคลอรีเบิร์น</h3>
+      <h3>เบิร์นคาดิโอ</h3>
       <p class="chs-chart-last">${esc(musDisplay ?? '—')}<span class="chs-chart-unit">${esc(unit)}</span></p>
     </div>`;
   return `<article class="chs-chart-card${wideClass} ${musTone}${pinClass}${compactClass} ${esc(className)}"${pinAttr}${titleAttr}>
@@ -1974,11 +2029,10 @@ function renderMealTimeChartHtml(stats) {
   return renderMealTimeChartCardHtml(stats, { wide: true });
 }
 
-/** Drop freqMus chips when no day still has burn logged. */
+/** Drop freqMus chips when no day still has any exercise logged. */
 export function pruneFrequentMus(calorie) {
   const sheet = normalizeCalorie(calorie);
-  const hasMus = sheet.days.some((d) => Number.isFinite(d.mus) && d.mus > 0);
-  if (hasMus) return sheet;
+  if (sheet.days.some(dayHasExercise)) return sheet;
   if (!(sheet.freqMus || []).length) return sheet;
   return { ...sheet, freqMus: [], updatedAt: nowIso() };
 }
@@ -2361,7 +2415,7 @@ const HOME_PIN_LABELS = {
   'chart-blKg': 'น้ำหนักบวกลบ',
   'chart-mealTime': 'รอบเวลากิน',
   'ex-poses': 'ท่าที่เล่น',
-  'ex-mus': 'แคลอรีเบิร์น',
+  'ex-mus': 'เบิร์นคาดิโอ',
 };
 
 export function homePinLabel(id) {
@@ -2901,7 +2955,7 @@ export function renderHealthSheetHtml(snap) {
     ? `<section class="chs-section">
       <header class="chs-section-head">
         <h3 class="chs-section-title">กลุ่มออกกำลังกาย</h3>
-        <p class="chs-section-sub">เบิร์นรวม ${esc(ex.musSum || 0)} kcal · ${esc(ex.startLabel)}–${esc(ex.endLabel)}</p>
+        <p class="chs-section-sub">คาดิโอหักดุลรวม ${esc(ex.musSum || 0)} kcal · ท่ากล้ามนับเป็นครั้ง · ${esc(ex.startLabel)}–${esc(ex.endLabel)}</p>
       </header>
       <article class="chs-chart-card chs-chart-card-wide is-pinnable is-editable-ex" data-pin-id="ex-poses" title="แตะแก้ออกกำลังวันนี้ · กดค้างส่งหน้าแรก">
         <div class="chs-chart-top">
@@ -3508,7 +3562,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
       const month = esc(row.monthKey || '');
       const exLine = formatExerciseDisplay(row);
       const musTitle = exLine
-        ? `${exLine}${row.mus != null ? ` · รวม ${row.mus} kcal` : ''} · ${cellTitle}`
+        ? `${exLine}${row.mus != null ? ` · เบิร์น −${row.mus} kcal` : ''} · ${cellTitle}`
         : cellTitle;
       return `<tr class="cal-row cal-day-a${today}${past}" data-day-id="${id}" data-month="${month}" data-date="${esc(row.date)}">
         <td class="cal-col-date">

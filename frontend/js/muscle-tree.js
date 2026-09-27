@@ -4,7 +4,7 @@
  * Day.exercises sync is applied by the caller (calorie helpers).
  */
 
-export const MUSCLE_DATE_COLS = 21;
+export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
 
 /** Seed tree matching the preferred Thai grouping. */
@@ -196,6 +196,16 @@ export function muscleDateKeys({ count = MUSCLE_DATE_COLS, today = muscleToDateK
   return out;
 }
 
+/** Oldest date with any stored cell ('' when the table is empty). */
+export function oldestMuscleDate(tree) {
+  let oldest = '';
+  Object.keys(normalizeMuscleTree(tree).cells).forEach((k) => {
+    const dk = k.split('|')[1] || '';
+    if (dk && (!oldest || dk < oldest)) oldest = dk;
+  });
+  return oldest;
+}
+
 export function getMuscleCell(tree, nodeId, dateKey) {
   const cells = normalizeMuscleTree(tree).cells;
   return cells[cellKey(nodeId, dateKey)] ?? null;
@@ -210,6 +220,21 @@ export function leafLabelPath(tree, nodeId) {
   return parent ? `${parent.name} · ${node.name}` : node.name;
 }
 
+/**
+ * Cardio rows log real kcal burned (feeds the calorie balance).
+ * Every other row is a strength mark: counts sessions, burns 0 kcal.
+ */
+export const CARDIO_NAME_RE = /คาดิโอ|คาร์ดิโอ|cardio/i;
+
+export function isCardioNode(tree, nodeId) {
+  const t = normalizeMuscleTree(tree);
+  const node = t.nodes.find((n) => n.id === nodeId);
+  if (!node) return false;
+  if (CARDIO_NAME_RE.test(node.name)) return true;
+  const parent = node.parentId ? t.nodes.find((n) => n.id === node.parentId) : null;
+  return Boolean(parent && CARDIO_NAME_RE.test(parent.name));
+}
+
 /** Labels that belong to the current tree (used to rebuild day.exercises). */
 export function muscleTreeLabels(tree) {
   const rows = flattenMuscleRows(tree);
@@ -222,16 +247,20 @@ export function muscleTreeLabels(tree) {
   return labels;
 }
 
-/** Leaf exercise slots for one date: [{ burn, label }]. */
+/**
+ * Leaf exercise slots for one date: [{ burn, label, cardio, value }].
+ * Strength marks burn 0 kcal; only cardio cells carry burn.
+ */
 export function muscleSlotsForDate(tree, dateKey) {
   const t = normalizeMuscleTree(tree);
   const rows = flattenMuscleRows(t).filter((r) => r.leaf);
   const out = [];
   rows.forEach((r) => {
-    const kcal = t.cells[cellKey(r.id, dateKey)];
-    if (!(kcal > 0)) return;
+    const value = t.cells[cellKey(r.id, dateKey)];
+    if (!(value > 0)) return;
     const label = r.depth === 1 ? leafLabelPath(t, r.id) : r.name;
-    out.push({ burn: kcal, label });
+    const cardio = isCardioNode(t, r.id);
+    out.push({ burn: cardio ? value : 0, label, cardio, value });
   });
   return out;
 }
@@ -453,6 +482,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
   const body = rows
     .map((r) => {
       const isGroup = !r.leaf && (r.childIds || []).length > 0;
+      const collapsible = isGroup && !expandAll;
       const isChild = r.depth > 0;
       if (isChild) {
         const open = expandAll || expanded.has(r.parentId);
@@ -462,47 +492,51 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       const sel = r.id === selectedId ? ' is-selected' : '';
       const depthCls = r.depth ? ' is-child' : ' is-parent';
       const leafCls = r.leaf ? ' is-leaf' : ' is-group';
-      const sessions = countMuscleSessions(t, r.id);
-      const nameTitle = isGroup
+      const sessions = isGroup ? 0 : countMuscleSessions(t, r.id);
+      const cardio = isCardioNode(t, r.id);
+      const cardioCls = cardio ? ' is-cardio' : '';
+      const nameTitle = collapsible
         ? (openGroup ? 'แตะเพื่อหุบ' : 'แตะเพื่อขยาย')
-        : 'เลือกแถว';
-      const nameCell = `<th class="mt-row-name${depthCls}${leafCls}${sel}${openGroup ? ' is-open' : ''}" scope="row" data-node-id="${esc(r.id)}">
+        : cardio
+          ? 'คาดิโอ · ใส่ kcal ที่เบิร์นจริง · หักออกจากดุลแคลวันนั้น'
+          : 'ท่ากล้าม · ใส่ 1 = เล่นวันนั้น · ไม่นับแคล';
+      const cardioTag = cardio && r.depth === 0 ? '<span class="mt-cardio-tag">kcal · หักดุล</span>' : '';
+      const nameCell = `<th class="mt-row-name${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" scope="row" data-node-id="${esc(r.id)}">
         <div class="mt-name-row">
-          <button type="button" class="mt-name-btn${isGroup ? ' is-group-toggle' : ''}" data-node-id="${esc(r.id)}"${isGroup ? ' data-group-toggle="1"' : ''} title="${esc(nameTitle)}">
-            <span class="mt-name-text">${esc(r.name)}</span>
+          <button type="button" class="mt-name-btn${collapsible ? ' is-group-toggle' : ''}" data-node-id="${esc(r.id)}"${collapsible ? ' data-group-toggle="1"' : ''} title="${esc(nameTitle)}">
+            <span class="mt-name-text">${esc(r.name)}</span>${cardioTag}
           </button>
         </div>
       </th>`;
-      const countCell = `<td class="mt-col-count${depthCls}${leafCls}${sessions ? ' is-filled' : ''}" data-node-id="${esc(r.id)}" title="เล่นไป ${sessions} ครั้ง">
+      const countCell = `<td class="mt-col-count${depthCls}${leafCls}${sessions ? ' is-filled' : ''}" data-node-id="${esc(r.id)}"${isGroup ? '' : ` title="เล่นไป ${sessions} ครั้ง"`}>
         <span class="mt-count-val">${sessions ? sessions : ''}</span>
       </td>`;
 
       const cells = dates
         .map((dk) => {
           if (!r.leaf) {
-            let sum = 0;
-            (r.childIds || []).forEach((cid) => {
-              const v = t.cells[cellKey(cid, dk)];
-              if (v > 0) sum += v;
-            });
-            if (!(r.childIds || []).length) {
-              const own = t.cells[cellKey(r.id, dk)];
-              if (own > 0) sum = own;
-            }
-            const shown = sum > 0 ? String(sum) : '';
-            return `<td class="mt-cell is-sum${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}">${shown}</td>`;
+            // Cardio group shows the day's kcal cut; strength groups stay blank.
+            const cut = cardio
+              ? (r.childIds || []).reduce((s, id) => s + (t.cells[cellKey(id, dk)] || 0), 0)
+              : 0;
+            const cutHtml = cut > 0 ? `<span class="mt-cardio-cut" title="คาดิโอวันนี้ −${cut} kcal จากดุลแคล">−${cut}</span>` : '';
+            return `<td class="mt-cell is-sum${cardioCls}${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}">${cutHtml}</td>`;
           }
           const val = t.cells[cellKey(r.id, dk)];
           const filled = val > 0 ? ' is-filled' : '';
-          return `<td class="mt-cell is-input${filled}${dk === todayKey ? ' is-today' : ''}" data-node-id="${esc(r.id)}" data-date="${esc(dk)}">
+          const aria = cardio ? `${r.name} ${dk} kcal ที่เบิร์น` : `${r.name} ${dk} เล่น`;
+          const tip = cardio
+            ? (val > 0 ? `เบิร์น ${val} kcal · หักออกจากดุลแคลวันนั้น` : 'ใส่ kcal ที่เบิร์นจริง')
+            : 'ใส่ 1 = เล่นวันนั้น · ไม่นับแคล';
+          return `<td class="mt-cell is-input${filled}${cardioCls}${dk === todayKey ? ' is-today' : ''}" data-node-id="${esc(r.id)}" data-date="${esc(dk)}" title="${esc(tip)}">
             <input class="mt-kcal" type="number" inputmode="numeric" min="0" max="5000" step="1"
-              value="${val > 0 ? val : ''}" placeholder="" aria-label="${esc(r.name)} ${esc(dk)}"
+              value="${val > 0 ? val : ''}" placeholder="" aria-label="${esc(aria)}"
               data-node-id="${esc(r.id)}" data-date="${esc(dk)}">
           </td>`;
         })
         .join('');
 
-      return `<tr class="mt-row${depthCls}${leafCls}${sel}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${cells}</tr>`;
+      return `<tr class="mt-row${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${cells}</tr>`;
     })
     .join('');
 
