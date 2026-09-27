@@ -9,7 +9,7 @@ import {
   muscleSlotsForDate,
   muscleTreeLabels,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=289';
+} from './muscle-tree.js?v=291';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -938,13 +938,21 @@ export function lastKnownBody(calorie) {
   const sheet = normalizeCalorie(calorie);
   let waist = null;
   let weight = null;
+  let waistAt = '';
+  let weightAt = '';
   for (const d of sheet.days) {
-    if (waist == null && Number.isFinite(d.waist)) waist = d.waist;
-    if (weight == null && Number.isFinite(d.weight)) weight = d.weight;
+    if (waist == null && Number.isFinite(d.waist)) {
+      waist = d.waist;
+      waistAt = d.waistAt || d.updatedAt || '';
+    }
+    if (weight == null && Number.isFinite(d.weight)) {
+      weight = d.weight;
+      weightAt = d.weightAt || d.updatedAt || '';
+    }
     if (waist != null && weight != null) break;
   }
   const base = resolveDayBase({ weight, waist, date: toDateKey() }, sheet);
-  return { waist, weight, base };
+  return { waist, weight, base, waistAt, weightAt };
 }
 
 export function createEmptyCalorie(overrides = {}) {
@@ -1011,6 +1019,19 @@ export function normalizeMeals(raw) {
   return out;
 }
 
+/**
+ * Keep trailing empty slots that carry a clear stamp — trimming them would
+ * drop the stamp and let the other device's older value come back.
+ */
+function padMealsToStamps(meals, mealsAt) {
+  const at = Array.isArray(mealsAt) ? mealsAt : [];
+  let last = -1;
+  at.forEach((s, i) => { if (s) last = i; });
+  const out = [...meals];
+  while (out.length <= last && out.length < MAX_MEAL_SLOTS) out.push('');
+  return out;
+}
+
 /** Ensure editable length with one empty slot when possible. */
 export function expandMealsForEdit(raw) {
   const meals = normalizeMeals(raw);
@@ -1034,9 +1055,10 @@ export function mealColumnCount(calorie) {
 export function createDayRow(partial = {}) {
   const date = partial.date ? toDateKey(partial.date) : toDateKey(new Date());
   const updatedAt = partial.updatedAt || '';
-  const meals = normalizeMeals(partial.meals);
+  const meals = padMealsToStamps(normalizeMeals(partial.meals), partial.mealsAt);
   return {
-    id: String(partial.id || crypto.randomUUID()),
+    // Date-derived id: two devices that each auto-create the same day agree on it.
+    id: String(partial.id || `day-${date}`),
     date,
     waist: partial.waist == null || partial.waist === '' ? null : Number(partial.waist),
     weight: partial.weight == null || partial.weight === '' ? null : Number(partial.weight),
@@ -2993,12 +3015,14 @@ export function patchDay(calorie, dayId, patch) {
 function stampMealsAt(prev, nextMeals, now) {
   const prevAt = Array.isArray(prev?.mealsAt) ? prev.mealsAt : [];
   const prevMeals = Array.isArray(prev?.meals) ? prev.meals : [];
-  return nextMeals.map((cell, i) => {
-    const cur = String(cell || '').trim();
+  const len = Math.max(nextMeals.length, prevMeals.length, prevAt.length);
+  return Array.from({ length: len }, (_, i) => {
+    const cur = String(nextMeals[i] || '').trim();
     const prevCell = String(prevMeals[i] || '').trim();
     if (!cur) {
-      // Cleared slot → stamp the clear so it can win over older content.
-      return prevCell ? now : '';
+      // Cleared slot → stamp the clear so it can win over older content;
+      // an already-empty slot keeps its earlier clear stamp.
+      return prevCell ? now : String(prevAt[i] || '').slice(0, 40);
     }
     const prevStamp = prevAt[i] || prev?.updatedAt || '';
     if (prevCell === cur && prevStamp) return String(prevStamp).slice(0, 40);
@@ -3038,10 +3062,15 @@ export function addDayFromLast(calorie, dateKey = toDateKey(new Date())) {
   const existing = sheet.days.find((d) => d.date === dateKey);
   if (existing) return { sheet, day: existing, created: false };
   const known = lastKnownBody(sheet);
+  // Copied body values keep the stamp of when they were really entered, so an
+  // auto-created day on a second device never beats today's real entry.
+  const inheritedAt = '1970-01-01T00:00:00.001Z';
   const day = createDayRow({
     date: dateKey,
     waist: known.waist,
     weight: known.weight,
+    waistAt: known.waist != null ? (known.waistAt || inheritedAt) : '',
+    weightAt: known.weight != null ? (known.weightAt || inheritedAt) : '',
     meals: [],
     exercises: [],
     mus: null,
@@ -3123,9 +3152,28 @@ function mergeScalarField(aVal, bVal, aAt, bAt, aDayAt, bDayAt) {
   const cmp = compareStamp(aStamp, bStamp);
   if (cmp > 0) return aVal;
   if (cmp < 0) return bVal;
+  if (aHas && bHas) return pickStable(aVal, bVal);
   if (aHas) return aVal;
   if (bHas) return bVal;
   return aVal;
+}
+
+/**
+ * Side-independent tie-break so merge(local, remote) === merge(remote, local).
+ * Without it each device keeps its own copy on equal stamps and never converges.
+ */
+function pickStable(a, b) {
+  const sa = typeof a === 'string' ? a : JSON.stringify(a ?? null);
+  const sb = typeof b === 'string' ? b : JSON.stringify(b ?? null);
+  return sa >= sb ? a : b;
+}
+
+/** Stable content fingerprint of one day row (ids excluded). */
+export function calorieDayFingerprint(day) {
+  const d = normalizeDayRow(day);
+  return JSON.stringify([
+    d.date, d.waist, d.weight, normalizeMeals(d.meals), d.exercises, d.mus, d.base, d.note,
+  ]);
 }
 
 /** Merge two meal slot arrays slot-by-slot, keeping per-slot edit times. */
@@ -3134,7 +3182,7 @@ function mergeMealsField(a, b) {
   const bMeals = Array.isArray(b?.meals) ? b.meals : [];
   const aAt = Array.isArray(a?.mealsAt) ? a.mealsAt : [];
   const bAt = Array.isArray(b?.mealsAt) ? b.mealsAt : [];
-  const len = Math.max(aMeals.length, bMeals.length);
+  const len = Math.max(aMeals.length, bMeals.length, aAt.length, bAt.length);
   const meals = [];
   const mealsAt = [];
   for (let i = 0; i < len; i += 1) {
@@ -3145,11 +3193,12 @@ function mergeMealsField(a, b) {
     const bStamp = bAt[i] || (bc ? (b?.updatedAt || '') : '');
     if (!ac && !bc) { meals.push(''); mealsAt.push(''); continue; }
     const cmp = compareStamp(aStamp, bStamp);
-    if (cmp > 0) { meals.push(ac || bc); mealsAt.push(aStamp); }
-    else if (cmp < 0) { meals.push(bc || ac); mealsAt.push(bStamp); }
-    else { meals.push(ac || bc); mealsAt.push(aStamp || bStamp); }
+    // Newer side wins outright — a stamped empty slot is an intentional clear.
+    if (cmp > 0) { meals.push(ac); mealsAt.push(aStamp); }
+    else if (cmp < 0) { meals.push(bc); mealsAt.push(bStamp); }
+    else { meals.push(ac && bc ? pickStable(ac, bc) : (ac || bc)); mealsAt.push(aStamp || bStamp); }
   }
-  const normMeals = normalizeMeals(meals);
+  const normMeals = padMealsToStamps(normalizeMeals(meals), mealsAt);
   return { meals: normMeals, mealsAt: normalizeMealsAt(mealsAt, normMeals, '') };
 }
 
@@ -3157,8 +3206,15 @@ function mergeMealsField(a, b) {
 function mergeExercisesField(a, b) {
   const aEx = normalizeExercises(a?.exercises);
   const bEx = normalizeExercises(b?.exercises);
-  const cmp = compareStamp(a?.musAt || a?.updatedAt, b?.musAt || b?.updatedAt);
-  return cmp >= 0 ? aEx : bEx;
+  // Day stamp only counts for a side that actually has exercises, so a blank
+  // auto-created day can't look newer than real logged sets.
+  const aStamp = a?.musAt || (aEx.length ? a?.updatedAt : '') || '';
+  const bStamp = b?.musAt || (bEx.length ? b?.updatedAt : '') || '';
+  const cmp = compareStamp(aStamp, bStamp);
+  if (cmp > 0) return aEx;
+  if (cmp < 0) return bEx;
+  if (aEx.length && bEx.length) return pickStable(aEx, bEx);
+  return aEx.length ? aEx : bEx;
 }
 
 /** Merge two day rows field-by-field (waist/weight/meals/mus/note independently). */
@@ -3172,7 +3228,7 @@ function mergeDayFields(a, b) {
   const base = mergeScalarField(a.base, b.base, a.updatedAt, b.updatedAt, a.updatedAt, b.updatedAt);
   const meals = mergeMealsField(a, b);
   return normalizeDayRow({
-    id: a.id || b.id,
+    id: a.id && b.id ? (a.id <= b.id ? a.id : b.id) : (a.id || b.id),
     date: a.date || b.date,
     waist,
     weight,

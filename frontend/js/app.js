@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=289';
+} from './auth.js?v=291';
 import {
   addTag,
   addNotepad,
@@ -69,6 +69,7 @@ import {
 } from './sheet.js?v=227';
 import {
   addDayFromLast,
+  calorieDayFingerprint,
   ageFromBirthDate,
   appendQuickExercise,
   appendQuickExercises,
@@ -124,7 +125,7 @@ import {
   toDateKey,
   totalsForMonth,
   DEFAULT_TDEE_PROTEIN_FACTOR,
-} from './calorie.js?v=289';
+} from './calorie.js?v=291';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -136,8 +137,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=289';
-import { mountDrumPicker } from './drum-picker.js?v=289';
+} from './muscle-tree.js?v=291';
+import { mountDrumPicker } from './drum-picker.js?v=291';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -188,7 +189,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=227';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=289';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=291';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
@@ -852,6 +853,7 @@ function applyRemotePayload(remoteRaw) {
   const afterKey = notesContentKey(merged);
   const contentChanged = afterKey !== beforeKey;
   const pinsChanged = pinsAfter !== pinsBefore;
+  maybeHealRemote(merged, remote);
   if (!contentChanged && !pinsChanged) return false;
 
   state.notesData = merged;
@@ -871,6 +873,25 @@ function applyRemotePayload(remoteRaw) {
   }
   if (pinsChanged) setDbStatusMessage('ซิงค์กล่องแล้ว');
   return true;
+}
+
+/**
+ * When this device's merged copy holds content the cloud lacks (e.g. an
+ * earlier push was lost), push it back — throttled so it can never loop.
+ */
+let healInFlight = false;
+let lastHealAt = 0;
+const HEAL_MIN_INTERVAL_MS = 15_000;
+
+function maybeHealRemote(merged, remote) {
+  if (healInFlight || !state.cloudHydrated || !navigator.onLine) return;
+  if (Date.now() - lastHealAt < HEAL_MIN_INTERVAL_MS) return;
+  if (!localNeedsRemotePush(merged, remote)) return;
+  healInFlight = true;
+  lastHealAt = Date.now();
+  void safePushRemote(merged)
+    .catch(() => { /* next poll retries */ })
+    .finally(() => { healInFlight = false; });
 }
 
 async function startSpaceRemoteWatch() {
@@ -2464,6 +2485,7 @@ function paintCalorieTodayCard(rows, sheet) {
   }
   card.hidden = false;
   card.dataset.dayId = row.id;
+  card.dataset.dayDate = row.date || '';
   const isToday = row.date === todayKey;
   if (els.calorieTodayTitle) {
     els.calorieTodayTitle.textContent = isToday ? 'วันนี้' : 'วันล่าสุด';
@@ -3402,7 +3424,7 @@ async function openCalorieCellEditor(opts) {
     }
     while (meals.length <= mealIndex) meals.push('');
     if (!value) value = String(meals[mealIndex] || '').trim();
-    calorieQuickEdit = { dayId, mealIndex };
+    calorieQuickEdit = { dayId, mealIndex, date: day.date };
     if (els.calorieQuickTitle) {
       els.calorieQuickTitle.textContent = value ? `แก้มื้อ ${mealIndex + 1}` : `มื้อ ${mealIndex + 1}`;
     }
@@ -3422,7 +3444,7 @@ async function openCalorieCellEditor(opts) {
     destroyMealDrums();
     setMealQuickChrome(false);
     if (!value) value = formatExercisesForEdit(day);
-    calorieQuickEdit = { dayId, mealIndex: null };
+    calorieQuickEdit = { dayId, mealIndex: null, date: day.date };
     if (els.calorieQuickTitle) {
       els.calorieQuickTitle.textContent = value ? 'แก้ออกกำลังวันนี้' : 'ออกกำลัง';
     }
@@ -3589,9 +3611,21 @@ async function deleteCalorieExercise(dayId) {
 }
 
 async function onCalorieQuickDelete() {
-  const dayId = calorieQuickEdit?.dayId;
-  if (!dayId || calorieQuickMode !== 'mus') return;
-  await deleteCalorieExercise(dayId);
+  if (!calorieQuickEdit || calorieQuickMode !== 'mus') return;
+  const day = findCalorieDay(ensureCaloriePayload(), calorieQuickEdit.dayId, calorieQuickEdit.date);
+  if (!day) return;
+  await deleteCalorieExercise(day.id);
+}
+
+/**
+ * Look up a day by id, falling back to its date — a background sync can
+ * converge two devices' ids for the same day while an editor is open.
+ */
+function findCalorieDay(sheet, dayId, dateKey = '') {
+  const days = sheet?.days || [];
+  return days.find((d) => d.id === dayId)
+    || (dateKey ? days.find((d) => d.date === dateKey) : null)
+    || null;
 }
 
 function submitCalorieQuick() {
@@ -3603,13 +3637,14 @@ function submitCalorieQuick() {
 
   // Edit path: เคลียร์แล้วกดบันทึก = ลบค่าในช่องนั้น · พิมพ์ใหม่แล้วบันทึก = อัปเดต
   if (editing) {
-    const { dayId, mealIndex } = calorieQuickEdit;
+    const { mealIndex } = calorieQuickEdit;
     const sheet = ensureCaloriePayload();
-    const day = sheet.days.find((d) => d.id === dayId);
+    const day = findCalorieDay(sheet, calorieQuickEdit.dayId, calorieQuickEdit.date);
     if (!day) {
       setStatus('ไม่พบวัน');
       return;
     }
+    const dayId = day.id;
     try {
       if (calorieQuickMode === 'mus') {
         if (!text) {
@@ -7567,12 +7602,13 @@ async function safePushRemote(data) {
     state.syncBaseUpdatedAt = saved?.updatedAt || liveNow.updatedAt;
     return saved;
   }
-  // Real local edits landed mid-push — quiet background retry (no toast).
-  if (localNeedsRemotePush(liveNow, saved)) {
+  // Adopt the committed union first; only edits that landed mid-push remain
+  // "newer" and get a quiet background retry (no toast, no re-push loop).
+  const adopted = mergeNotesByUpdatedAt(liveNow, saved);
+  state.notesData = adopted;
+  saveNotes(state.notesData);
+  if (localNeedsRemotePush(adopted, saved)) {
     saveManager.scheduleSave(() => state.notesData);
-  } else {
-    state.notesData = normalizeNotesData(saved);
-    saveNotes(state.notesData);
   }
   state.syncBaseUpdatedAt = saved?.updatedAt || liveNow.updatedAt;
   return saved;
@@ -8949,7 +8985,7 @@ function notesContentKey(data) {
     .join(',');
   const calDays = Array.isArray(data?.calorie?.days) ? data.calorie.days : [];
   const calPart = `${data?.calorie?.updatedAt || ''}:${calDays
-    .map((d) => `${d.id}:${d.updatedAt || ''}`)
+    .map((d) => `${d.id}:${d.updatedAt || ''}:${calorieDayFingerprint(d)}`)
     .sort()
     .join(',')}`;
   const pinPart = homePinsFingerprint(data);
@@ -9491,6 +9527,15 @@ async function init({ fromBoot = false } = {}) {
   els.dockCalorieLogBtn?.addEventListener('click', () => setCaloriePane('log'));
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsBackdrop.addEventListener('click', closeSettings);
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || els.settingsOverlay.hidden) return;
+    // Dialogs stacked above settings (confirm / PIN / camera) close first.
+    if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) return;
+    if (inAppCameraCtl?.isOpen?.()) return;
+    if (document.getElementById('auth-overlay')?.hidden === false) return;
+    e.preventDefault();
+    closeSettings();
+  });
   document.getElementById('app-icon-grid')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-app-icon]');
     if (!btn) return;
@@ -9683,13 +9728,19 @@ async function init({ fromBoot = false } = {}) {
   });
 
   const applyTodayCardField = (input) => {
-    const dayId = els.calorieTodayCard?.dataset?.dayId;
-    if (!dayId || !input) return;
+    if (!input) return;
     const sheet = ensureCaloriePayload();
+    const cardDay = findCalorieDay(
+      sheet,
+      els.calorieTodayCard?.dataset?.dayId,
+      els.calorieTodayCard?.dataset?.dayDate,
+    );
+    if (!cardDay) return;
+    const dayId = cardDay.id;
     if (input.hasAttribute('data-ctc-meal')) {
       const idx = Number(input.getAttribute('data-ctc-meal'));
-      const day = sheet.days.find((d) => d.id === dayId);
-      if (!day || !Number.isFinite(idx)) return;
+      const day = cardDay;
+      if (!Number.isFinite(idx)) return;
       const meals = expandMealsForEdit(day.meals);
       while (meals.length <= idx) meals.push('');
       meals[idx] = String(input.value || '').trim().slice(0, 32);
@@ -9857,9 +9908,15 @@ async function init({ fromBoot = false } = {}) {
   }, { passive: true });
   const applyCalorieField = (input) => {
     if (!input || !els.calorieTbody?.contains(input)) return;
-    const dayId = input.dataset.dayId;
     const field = input.dataset.calField;
-    if (!dayId || !field || field === 'base') return;
+    if (!input.dataset.dayId || !field || field === 'base') return;
+    const rowDay = findCalorieDay(
+      ensureCaloriePayload(),
+      input.dataset.dayId,
+      input.closest('tr')?.dataset?.date,
+    );
+    if (!rowDay) return;
+    const dayId = rowDay.id;
     if (isPastCalorieDay(dayId) && !unlockedPastDayIds.has(dayId)) {
       if (field === 'waist' || field === 'weight' || field === 'note' || field === 'date') {
         try { input.blur(); } catch { /* ignore */ }

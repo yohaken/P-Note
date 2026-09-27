@@ -1,5 +1,5 @@
 import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=227';
-import { mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=243';
+import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=291';
 import { compareStamp, newerStampIso } from './clock.js?v=227';
 import {
   applyDeletionFilter,
@@ -168,6 +168,23 @@ function entityNeedsPush(localList, remoteList) {
   return false;
 }
 
+/**
+ * Days are keyed by calendar date (ids can differ per device). Push when a
+ * day is missing remotely, carries a newer stamp, or its merged content
+ * differs from the cloud copy — otherwise equal-stamp differences never heal.
+ */
+function calorieDaysNeedPush(localDays, remoteDays) {
+  const remoteByDate = new Map(remoteDays.map((d) => [d.date, d]));
+  for (const d of localDays) {
+    const r = remoteByDate.get(d.date);
+    if (!r) return true;
+    if (compareStamp(d.updatedAt, r.updatedAt) > 0) return true;
+    if (d.id !== r.id) return true;
+    if (calorieDayFingerprint(d) !== calorieDayFingerprint(r)) return true;
+  }
+  return false;
+}
+
 /** True if local has notes/notepads missing on remote or newer than remote's copy. */
 export function localNeedsRemotePush(localRaw, remoteRaw) {
   const local = normalizeNotesData(localRaw);
@@ -178,7 +195,7 @@ export function localNeedsRemotePush(localRaw, remoteRaw) {
   if (!remoteHas) return true;
   if (entityNeedsPush(local.notes, remote.notes)) return true;
   if (entityNeedsPush(local.notepads, remote.notepads)) return true;
-  if (entityNeedsPush(local.calorie?.days || [], remote.calorie?.days || [])) return true;
+  if (calorieDaysNeedPush(local.calorie?.days || [], remote.calorie?.days || [])) return true;
   if (compareStamp(local.calorie?.updatedAt, remote.calorie?.updatedAt) > 0) return true;
   const ld = normalizeDeletions(local.deletions);
   const rd = normalizeDeletions(remote.deletions);
