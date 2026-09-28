@@ -136,6 +136,8 @@ export function normalizeMuscleTree(raw) {
 /** Rest scale: index = days since last trained (last slot = that many days or more). */
 export const REST_SCALE_DAYS = 8;
 export const REST_LABEL_MAX = 16;
+/** Past the last slot the badge drifts to gray over this many more days. */
+export const REST_FADE_DAYS = 7;
 export const REST_TONES = ['red', 'orange', 'amber', 'yellow', 'lime', 'green', 'teal', 'sky', 'violet', 'slate'];
 
 export function defaultRestScale() {
@@ -147,7 +149,7 @@ export function defaultRestScale() {
     { label: 'พร้อม', tone: 'lime' },
     { label: 'พร้อมมาก', tone: 'green' },
     { label: 'พร้อมเต็มที่', tone: 'teal' },
-    { label: 'ห่างนาน', tone: 'slate' },
+    { label: 'ห่างนาน', tone: 'sky' },
   ];
 }
 
@@ -177,16 +179,29 @@ export function restDayLabel(i) {
   return i >= REST_SCALE_DAYS - 1 ? `${i}+ วัน` : `${i} วัน`;
 }
 
+/** Step for a rest count; past the last slot `fade` (0–1) blends its color toward gray. */
 export function restStep(scale, days) {
   if (days == null) return null;
   const s = normalizeRestScale(scale);
-  return s[Math.min(Math.max(days, 0), REST_SCALE_DAYS - 1)];
+  const last = REST_SCALE_DAYS - 1;
+  const i = Math.min(Math.max(days, 0), last);
+  if (i < last) return { ...s[i], fade: 0 };
+  const tone = s[last].tone === 'slate' ? s[last - 1].tone : s[last].tone;
+  const fade = Math.min(1, Math.max(0, (days - last) / REST_FADE_DAYS));
+  return { ...s[last], tone, fade };
+}
+
+function fadeToneOf(s) {
+  const last = REST_SCALE_DAYS - 1;
+  return s[last].tone === 'slate' ? s[last - 1].tone : s[last].tone;
 }
 
 export function renderRestLegendHtml(scale) {
   const s = normalizeRestScale(scale);
   const chips = s
-    .map((st, i) => `<span class="mrl-chip rest-tone-${esc(st.tone)}"><b>${i === REST_SCALE_DAYS - 1 ? `${i}+` : i}</b> ${esc(st.label)}</span>`)
+    .map((st, i) => i === REST_SCALE_DAYS - 1
+      ? `<span class="mrl-chip rest-tone-${esc(fadeToneOf(s))} is-fade" title="ค่อยๆ จางเป็นเทาภายใน ${REST_SCALE_DAYS - 1 + REST_FADE_DAYS} วัน"><b>${i}+</b> ${esc(st.label)} → เทา</span>`
+      : `<span class="mrl-chip rest-tone-${esc(st.tone)}"><b>${i === REST_SCALE_DAYS - 1 ? `${i}+` : i}</b> ${esc(st.label)}</span>`)
     .join('');
   return `<span class="mrl-title">พัก (วัน)</span>${chips}`;
 }
@@ -198,7 +213,7 @@ export function renderRestScaleEditorHtml(scale) {
       <span class="rest-edit-day">${esc(restDayLabel(i))}</span>
       <input class="rest-edit-label" type="text" maxlength="${REST_LABEL_MAX}" value="${esc(st.label)}"
         data-rest-idx="${i}" aria-label="ชื่อระดับ ${esc(restDayLabel(i))}">
-      <button type="button" class="rest-edit-tone rest-tone-${esc(st.tone)}" data-rest-tone="${i}"
+      <button type="button" class="rest-edit-tone rest-tone-${esc(st.tone)}${i === REST_SCALE_DAYS - 1 ? ' is-fade' : ''}" data-rest-tone="${i}"
         title="แตะเพื่อเปลี่ยนสี" aria-label="เปลี่ยนสี ${esc(restDayLabel(i))}">${i === REST_SCALE_DAYS - 1 ? `${i}+` : i}</button>
     </div>`)
     .join('');
@@ -552,7 +567,9 @@ function restCellHtml(t, r, todayKey, cardio, depthCls, leafCls) {
   const tip = days === 0
     ? `เล่นวันนี้ · ${step.label}`
     : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${step.label}`;
-  return `<td class="${base} rest-tone-${esc(step.tone)}" data-node-id="${esc(r.id)}" title="${esc(tip)}">
+  const fadeCls = step.fade > 0 ? ' is-fading' : '';
+  const fadeStyle = step.fade > 0 ? ` style="--rest-fade:${Math.round(step.fade * 100)}%"` : '';
+  return `<td class="${base} rest-tone-${esc(step.tone)}${fadeCls}"${fadeStyle} data-node-id="${esc(r.id)}" title="${esc(tip)}">
     <span class="mt-rest-val${days === 0 ? ' is-today' : ''}">${esc(label)}</span>
   </td>`;
 }

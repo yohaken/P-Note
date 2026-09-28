@@ -9512,6 +9512,15 @@ body.calorie-muscle-pane #calorie-view {
   line-height: 0.9rem;
   font-size: 0.6rem;
 }
+/* 7+: blend the tone toward gray as rest days pile up */
+.muscle-table .mt-col-rest.is-fading .mt-rest-val {
+  background: color-mix(in srgb, #64748b var(--rest-fade), var(--mt-rest-bg));
+  color: color-mix(in srgb, #fff var(--rest-fade), var(--mt-rest-fg));
+}
+.muscle-rest-legend .mrl-chip.is-fade,
+.rest-edit-tone.is-fade {
+  background: linear-gradient(90deg, var(--mt-rest-bg) 35%, #64748b);
+}
 .muscle-table .mt-col-rest.is-none .mt-rest-val {
   opacity: 0.45;
   font-weight: 600;
