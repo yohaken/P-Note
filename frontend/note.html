@@ -368,7 +368,7 @@
       <div id="calorie-muscle-sheet" class="calorie-muscle-sheet" hidden aria-label="ตารางกล้ามเนื้อ">
         <div class="muscle-toolbar">
           <div class="muscle-toolbar-actions">
-            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-btn" title="เพิ่มกลุ่ม/กล้ามเอง · แก้ชื่อกลุ่ม · จัดการท่าคาร์ดิโอ">จัดการ</button>
+            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-btn" title="จัดการทุกแถว: เพิ่ม · แก้ชื่อ · ลบ/ซ่อน · จัดลำดับ">จัดการ</button>
             <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-rest-btn" title="ตั้งชื่อและสีของแต่ละวันพัก">วันพัก</button>
             <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-expand-all" title="ขยายหรือหุบทุกรายการย่อย" hidden>ขยายทั้งหมด</button>
             <button type="button" class="btn btn-primary muscle-tool-btn" id="muscle-add-exercise" title="ดูท่าจากคลังพร้อมรูป · กดเล่นวันนี้แล้วติ๊กกล้ามให้เอง">ท่าไกด์</button>
@@ -400,11 +400,10 @@
           <h3 id="muscle-manage-title" class="muscle-manage-title">จัดการกลุ่ม · คาร์ดิโอ</h3>
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-close" aria-label="ปิด">ปิด</button>
         </div>
-        <p class="rest-edit-hint">กลุ่มตั้งต้นแก้ชื่อได้ · เพิ่มกลุ่มกล้ามเองแล้วใส่กล้ามข้างใน (ติ๊ก ● หลัก / • รอง) · คาร์ดิโอใส่ kcal ที่เบิร์น</p>
-        <div id="muscle-settings-list" class="muscle-settings-list" aria-label="รายการท่าคาร์ดิโอ"></div>
+        <p class="rest-edit-hint">แตะแถวเพื่อเลือกแล้วกด ↑↓ · + ในกลุ่ม = เพิ่มกล้าม · แถวตั้งต้นลบไม่ได้แต่ซ่อนได้</p>
+        <div id="muscle-settings-list" class="muscle-settings-list" aria-label="รายการแถวในตารางกล้าม"></div>
         <div class="muscle-toolbar-actions muscle-manage-actions">
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-add-group">+ กลุ่มกล้าม</button>
-          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-add-custom">+ กล้าม</button>
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-add-child">+ ท่าคาร์ดิโอ</button>
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-move-up" title="เลื่อนรายการที่เลือกขึ้น">↑</button>
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-move-down" title="เลื่อนรายการที่เลือกลง">↓</button>

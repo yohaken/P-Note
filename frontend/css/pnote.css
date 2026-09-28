@@ -9290,21 +9290,20 @@ body.calorie-muscle-pane #calorie-view {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Named areas so missing buttons (no +, no move select) just leave their cell empty. */
 .muscle-settings-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto;
-  gap: 0.3rem;
+  grid-template-areas: "pick add ren del" "move move move move";
+  gap: 0.25rem;
   align-items: center;
 }
-
-/* 3rd slot = "move to group" select: its own line under the name so the name keeps its width. */
-.muscle-settings-row > :nth-child(3) {
-  grid-column: 1 / -1;
-  grid-row: 2;
-}
-.muscle-settings-row.is-parent > :nth-child(3) {
-  display: none;
-}
+.muscle-settings-row > .muscle-settings-pick { grid-area: pick; }
+.muscle-settings-row > .muscle-settings-add { grid-area: add; }
+.muscle-settings-row > .muscle-settings-rename { grid-area: ren; }
+.muscle-settings-row > .muscle-settings-del,
+.muscle-settings-row > .muscle-settings-hide { grid-area: del; }
+.muscle-settings-row > .muscle-settings-move { grid-area: move; }
 
 .muscle-settings-move {
   justify-self: start;
@@ -9320,19 +9319,66 @@ body.calorie-muscle-pane #calorie-view {
 }
 
 .muscle-settings-row.is-child {
-  padding-left: 0.85rem;
+  padding-left: 1.1rem;
+  position: relative;
+}
+.muscle-settings-row.is-child::before {
+  content: '';
+  position: absolute;
+  left: 0.45rem;
+  top: 0;
+  bottom: 0;
+  border-left: 1.5px solid var(--border);
 }
 
 .muscle-settings-row.is-selected .muscle-settings-pick {
   outline: 1.5px solid color-mix(in srgb, #16a34a 55%, var(--border));
   outline-offset: -1.5px;
+  background: color-mix(in srgb, #16a34a 8%, var(--surface, var(--bg)));
+}
+
+.muscle-settings-row.is-parent .muscle-settings-name {
+  font-weight: 700;
+}
+
+.muscle-settings-row.is-hidden .muscle-settings-pick {
+  border-style: dashed;
+  color: var(--text-muted);
+}
+.muscle-settings-row.is-hidden .muscle-settings-name {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent);
+}
+
+.muscle-settings-chev {
+  flex: 0 0 auto;
+  width: 0.7rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.muscle-settings-count {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+
+.muscle-settings-hidden-tag {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 0.64rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .muscle-settings-pick {
   appearance: none;
   display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.35rem;
   min-width: 0;
   width: 100%;
   text-align: left;
@@ -9352,21 +9398,48 @@ body.calorie-muscle-pane #calorie-view {
 }
 
 .muscle-settings-name {
+  flex: 0 1 auto;
   min-width: 0;
   font-size: 0.82rem;
   font-weight: 600;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.muscle-settings-add,
 .muscle-settings-rename,
-.muscle-settings-del {
-  padding: 0.35rem 0.55rem;
-  font-size: 0.75rem;
+.muscle-settings-del,
+.muscle-settings-hide {
+  min-height: 2rem;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.72rem;
   white-space: nowrap;
+}
+
+.muscle-settings-add {
+  min-width: 2rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .muscle-settings-del {
   color: #b91c1c;
+}
+
+.muscle-settings-hide[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (max-width: 420px) {
+  .muscle-settings-kind {
+    font-size: 0.62rem;
+  }
+  .muscle-settings-pick {
+    padding: 0.35rem 0.45rem;
+  }
 }
 
 .muscle-settings-actions {
