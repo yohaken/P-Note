@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=305';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=305';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=305';
-import { CONFIG } from './config.js?v=305';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=305';
-import { nowIso } from './clock.js?v=305';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=306';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=306';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=306';
+import { CONFIG } from './config.js?v=306';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=306';
+import { nowIso } from './clock.js?v=306';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=305';
+} from './auth.js?v=306';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=305';
+} from './notes.js?v=306';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=305';
+} from './sheet.js?v=306';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -132,7 +132,7 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
-} from './calorie.js?v=305';
+} from './calorie.js?v=306';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -146,8 +146,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=305';
-import { mountDrumPicker } from './drum-picker.js?v=305';
+} from './muscle-tree.js?v=306';
+import { mountDrumPicker } from './drum-picker.js?v=306';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -155,8 +155,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=305';
-import { bindComposableInput } from './text-input.js?v=305';
+} from './note-text.js?v=306';
+import { bindComposableInput } from './text-input.js?v=306';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -197,14 +197,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=305';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=305';
+} from './schedule.js?v=306';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=306';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=305';
+} from './app-icons.js?v=306';
 import {
   allIcons,
   bestIconForLabel,
@@ -213,7 +213,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=305';
+} from './icons.js?v=306';
 import {
   notificationPermission,
   notificationSupported,
@@ -222,27 +222,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=305';
+} from './note-notify.js?v=306';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=305';
+} from './files.js?v=306';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=305');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=306');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=305');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=306');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=305');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=306');
   return userContextModPromise;
 }
 
@@ -266,7 +266,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=305';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=306';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -275,11 +275,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=305';
-import { normalizeNotesData } from './notes.js?v=305';
-import { SaveManager } from './sync.js?v=305';
-import { emptyDeletions } from './deletions.js?v=305';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=305';
+} from './remote.js?v=306';
+import { normalizeNotesData } from './notes.js?v=306';
+import { SaveManager } from './sync.js?v=306';
+import { emptyDeletions } from './deletions.js?v=306';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=306';
 
 const state = {
   notesData: {
@@ -2821,9 +2821,21 @@ function syncMealDrumReadout() {
     els.cqDrumReadoutVal.textContent = 'ว่าง · บันทึกเพื่อลบมื้อนี้';
     return;
   }
-  const cal = mealDrumKcal?.getValue?.() ?? MEAL_DRUM_KCAL_DEFAULT;
-  const prot = mealDrumProt?.getValue?.() ?? MEAL_DRUM_PROT_DEFAULT;
+  const cal = mealDrumCal();
+  const prot = mealDrumProtG();
   els.cqDrumReadoutVal.textContent = `${cal} kcal · โปรตีน ${prot} ก`;
+}
+
+/** Exact kcal/protein from a chip or saved meal, kept until the wheel is turned (wheels snap to steps). */
+let mealDrumExactCal = null;
+let mealDrumExactProt = null;
+
+function mealDrumCal() {
+  return mealDrumExactCal ?? mealDrumKcal?.getValue?.() ?? MEAL_DRUM_KCAL_DEFAULT;
+}
+
+function mealDrumProtG() {
+  return mealDrumExactProt ?? mealDrumProt?.getValue?.() ?? MEAL_DRUM_PROT_DEFAULT;
 }
 
 function destroyMealDrums() {
@@ -2837,12 +2849,14 @@ function ensureMealDrums(cal = MEAL_DRUM_KCAL_DEFAULT, prot = MEAL_DRUM_PROT_DEF
   if (!els.cqDrumKcal || !els.cqDrumProt) return;
   destroyMealDrums();
   // Snap kcal to nearest step of 10 within 10–1000.
-  let c = Math.round(Number(cal));
-  if (!Number.isFinite(c) || c <= 0) c = MEAL_DRUM_KCAL_DEFAULT;
-  c = Math.max(10, Math.min(1000, Math.round(c / 10) * 10));
-  let p = Math.round(Number(prot));
-  if (!Number.isFinite(p) || p < 0) p = MEAL_DRUM_PROT_DEFAULT;
-  p = Math.max(1, Math.min(500, p || 1));
+  let rawCal = Math.round(Number(cal));
+  if (!Number.isFinite(rawCal) || rawCal <= 0) rawCal = MEAL_DRUM_KCAL_DEFAULT;
+  const c = Math.max(10, Math.min(1000, Math.round(rawCal / 10) * 10));
+  let rawProt = Math.round(Number(prot));
+  if (!Number.isFinite(rawProt) || rawProt < 0) rawProt = MEAL_DRUM_PROT_DEFAULT;
+  const p = Math.max(0, Math.min(500, rawProt));
+  mealDrumExactCal = rawCal !== c ? rawCal : null;
+  mealDrumExactProt = rawProt !== p ? rawProt : null;
 
   mealDrumKcal = mountDrumPicker(els.cqDrumKcal, {
     min: 10,
@@ -2851,21 +2865,23 @@ function ensureMealDrums(cal = MEAL_DRUM_KCAL_DEFAULT, prot = MEAL_DRUM_PROT_DEF
     value: c,
     ariaLabel: 'แคลอรี่',
     flickGain: 2.2,
-    onChange: () => {
+    onChange: (v) => {
+      if (v !== c) mealDrumExactCal = null;
       mealDrumCleared = false;
       if (els.calorieMealDrums) delete els.calorieMealDrums.dataset.cleared;
       syncMealDrumReadout();
     },
   });
   mealDrumProt = mountDrumPicker(els.cqDrumProt, {
-    min: 1,
+    min: 0,
     max: 500,
     step: 1,
     value: p,
     unit: 'ก',
     ariaLabel: 'โปรตีนกรัม',
     flickGain: 1.85,
-    onChange: () => {
+    onChange: (v) => {
+      if (v !== p) mealDrumExactProt = null;
       mealDrumCleared = false;
       if (els.calorieMealDrums) delete els.calorieMealDrums.dataset.cleared;
       syncMealDrumReadout();
@@ -2893,7 +2909,7 @@ function applyMealTextToDrums(text) {
       return { cal: m.cal, prot: m.prot, label: '' };
     })();
   if (!parsed) return false;
-  ensureMealDrums(parsed.cal, parsed.prot || 1);
+  ensureMealDrums(parsed.cal, parsed.prot);
   if (els.calorieQuickLabel) {
     els.calorieQuickLabel.value = parsed.label || '';
   }
@@ -3139,8 +3155,9 @@ function submitExerciseWheels() {
 }
 
 function mealDrumPayloadText() {
-  const cal = mealDrumKcal?.getValue?.();
-  const prot = mealDrumProt?.getValue?.();
+  if (!mealDrumKcal) return '';
+  const cal = mealDrumCal();
+  const prot = mealDrumProtG();
   if (!(cal > 0)) return '';
   const label = String(els.calorieQuickLabel?.value || '').trim();
   const pair = `${cal},${prot > 0 ? prot : 0}`;
@@ -3712,7 +3729,7 @@ async function openCalorieCellEditor(opts) {
     setMealQuickChrome(true);
     const cell = parseMealCell(value);
     if (!cell.empty) {
-      ensureMealDrums(cell.cal, cell.prot > 0 ? cell.prot : 1);
+      ensureMealDrums(cell.cal, cell.prot > 0 ? cell.prot : 0);
       if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
     } else {
       ensureMealDrums(MEAL_DRUM_KCAL_DEFAULT, MEAL_DRUM_PROT_DEFAULT);
@@ -3787,6 +3804,15 @@ function openCalorieBodyQuick() {
 
 function submitCalorieBodyQuick() {
   if (!requireSyncReady()) return;
+  const badField = [
+    [els.calorieBodyWeight, 'น้ำหนัก'],
+    [els.calorieBodyWaist, 'รอบเอว'],
+    [els.calorieBodyFatDay, 'ไขมัน %'],
+  ].find(([input]) => input?.validity?.badInput);
+  if (badField) {
+    setStatus(`${badField[1]}ต้องเป็นตัวเลข`, { forceToast: true });
+    return;
+  }
   const weightParsed = parseBodyMeasure(els.calorieBodyWeight?.value, {
     min: 20,
     max: 300,
@@ -4011,7 +4037,7 @@ function submitCalorieQuick() {
     const { sheet, slot } = appendQuickMeal(ensureCaloriePayload(), text);
     state.calorieActiveMonth = monthKeyFromDate(toDateKey());
     persistCalorie(sheet, {
-      status: `เพิ่มมื้อ ${slot + 1} แล้ว`,
+      status: `เพิ่มมื้อ ${slot} แล้ว`,
       fullRender: true,
     });
     closeCalorieQuick();

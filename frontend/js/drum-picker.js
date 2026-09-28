@@ -50,6 +50,7 @@ export function mountDrumPicker(root, opts) {
   let index = nearestIndex(opts.value ?? values[0]);
   let offset = -index * ITEM_H; // list translateY
   let dragging = false;
+  let downY = 0;
   let lastY = 0;
   let lastT = 0;
   let velocity = 0; // px/ms
@@ -183,6 +184,7 @@ export function mountDrumPicker(root, opts) {
     cancelAnimationFrame(raf);
     dragging = true;
     pointerId = e.pointerId;
+    downY = e.clientY;
     lastY = e.clientY;
     lastT = performance.now();
     velocity = 0;
@@ -208,6 +210,13 @@ export function mountDrumPicker(root, opts) {
     if (!dragging || (pointerId != null && e.pointerId !== pointerId)) return;
     dragging = false;
     pointerId = null;
+    if (Math.abs(e.clientY - downY) < 6) {
+      const item = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.drum-item');
+      if (item && list.contains(item)) {
+        snapTo(Number(item.dataset.i), true);
+        return;
+      }
+    }
     coast();
   }
 

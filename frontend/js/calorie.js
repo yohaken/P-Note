@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=305';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=306';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -15,7 +15,7 @@ import {
   muscleTreeLabels,
   normalizeMuscleTree,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=305';
+} from './muscle-tree.js?v=306';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -1123,6 +1123,7 @@ export function createDayRow(partial = {}) {
     bodyFat: partial.bodyFat == null || partial.bodyFat === '' ? null : Number(partial.bodyFat),
     meals,
     mealsAt: normalizeMealsAt(partial.mealsAt, meals, updatedAt),
+    mealsPrev: normalizeMealsPrev(partial.mealsPrev, meals),
     mus: partial.mus == null || partial.mus === '' ? null : Number(partial.mus),
     exercises: normalizeExercises(partial.exercises),
     base: partial.base == null || partial.base === '' ? null : Number(partial.base),
@@ -1150,6 +1151,16 @@ function normalizeMealsAt(mealsAt, meals, fallbackAt) {
     if (!String(cell || '').trim()) return '';
     return fallbackAt ? String(fallbackAt).slice(0, 40) : '';
   });
+}
+
+/**
+ * Per-slot origin of the current meal: '+' = typed into an empty slot,
+ * otherwise the stamp of the value it replaced ('' = unknown / legacy).
+ * Lets a merge tell two devices' concurrent adds apart from a real edit.
+ */
+function normalizeMealsPrev(mealsPrev, meals) {
+  const prev = Array.isArray(mealsPrev) ? mealsPrev : [];
+  return meals.map((_, i) => String(prev[i] || '').slice(0, 40));
 }
 
 export function normalizeDayRow(raw, fallbackBase = DEFAULT_BASE_KCAL) {
@@ -3201,6 +3212,7 @@ export function patchDay(calorie, dayId, patch) {
         exercises,
         mus,
         mealsAt: stampMealsAt(d, meals, now),
+        mealsPrev: stampMealsPrev(d, meals),
         waistAt: patch.waist !== undefined ? now : (d.waistAt || ''),
         weightAt: patch.weight !== undefined ? now : (d.weightAt || ''),
         bodyFatAt: patch.bodyFat !== undefined ? now : (d.bodyFatAt || ''),
@@ -3234,6 +3246,19 @@ function stampMealsAt(prev, nextMeals, now) {
     const prevStamp = prevAt[i] || prev?.updatedAt || '';
     if (prevCell === cur && prevStamp) return String(prevStamp).slice(0, 40);
     return now;
+  });
+}
+
+function stampMealsPrev(prev, nextMeals) {
+  const prevAt = Array.isArray(prev?.mealsAt) ? prev.mealsAt : [];
+  const prevMeals = Array.isArray(prev?.meals) ? prev.meals : [];
+  const prevOrigin = Array.isArray(prev?.mealsPrev) ? prev.mealsPrev : [];
+  return nextMeals.map((cell, i) => {
+    const cur = String(cell || '').trim();
+    const prevCell = String(prevMeals[i] || '').trim();
+    if (cur === prevCell) return String(prevOrigin[i] || '').slice(0, 40);
+    if (!prevCell) return '+';
+    return String(prevAt[i] || '').slice(0, 40);
   });
 }
 
@@ -3390,9 +3415,13 @@ function mergeMealsField(a, b) {
   const bMeals = Array.isArray(b?.meals) ? b.meals : [];
   const aAt = Array.isArray(a?.mealsAt) ? a.mealsAt : [];
   const bAt = Array.isArray(b?.mealsAt) ? b.mealsAt : [];
+  const aPrev = Array.isArray(a?.mealsPrev) ? a.mealsPrev : [];
+  const bPrev = Array.isArray(b?.mealsPrev) ? b.mealsPrev : [];
   const len = Math.max(aMeals.length, bMeals.length, aAt.length, bAt.length);
   const meals = [];
   const mealsAt = [];
+  const mealsPrev = [];
+  const displaced = [];
   for (let i = 0; i < len; i += 1) {
     const ac = String(aMeals[i] || '').trim();
     const bc = String(bMeals[i] || '').trim();
@@ -3400,18 +3429,45 @@ function mergeMealsField(a, b) {
     const aStamp = aAt[i] || (ac ? (a?.updatedAt || '') : '');
     const bStamp = bAt[i] || (bc ? (b?.updatedAt || '') : '');
     if (!ac && !bc) {
+      const aNewer = compareStamp(aStamp, bStamp) >= 0;
       meals.push('');
-      mealsAt.push(compareStamp(aStamp, bStamp) >= 0 ? aStamp : bStamp);
+      mealsAt.push(aNewer ? aStamp : bStamp);
+      mealsPrev.push(String((aNewer ? aPrev[i] : bPrev[i]) || ''));
       continue;
     }
     const cmp = compareStamp(aStamp, bStamp);
     // Newer side wins outright — a stamped empty slot is an intentional clear.
-    if (cmp > 0) { meals.push(ac); mealsAt.push(aStamp); }
-    else if (cmp < 0) { meals.push(bc); mealsAt.push(bStamp); }
-    else { meals.push(ac && bc ? pickStable(ac, bc) : (ac || bc)); mealsAt.push(aStamp || bStamp); }
+    const aWins = cmp > 0 || (cmp === 0 && (ac && bc ? pickStable(ac, bc) === ac : Boolean(ac)));
+    const [win, winAt, winPrev] = aWins ? [ac, aStamp, aPrev[i]] : [bc, bStamp, bPrev[i]];
+    const [lose, loseAt, losePrev] = aWins ? [bc, bStamp, bPrev[i]] : [ac, aStamp, aPrev[i]];
+    meals.push(win);
+    mealsAt.push(winAt);
+    mealsPrev.push(String(winPrev || ''));
+    // Both devices typed into the same empty slot → two real meals, keep both.
+    if (win && lose && win !== lose && winPrev === '+' && losePrev === '+') {
+      displaced.push({ cell: lose, at: loseAt });
+    }
   }
+  // A value either side knowingly edited over or cleared must not come back.
+  const replaced = new Set([...aPrev, ...bPrev].filter((s) => s && s !== '+'));
+  displaced.forEach(({ cell, at }) => {
+    if (replaced.has(at)) return;
+    if (meals.some((c, j) => c === cell && mealsAt[j] === at)) return;
+    let j = meals.findIndex((c, k) => !c && compareStamp(mealsAt[k], at) <= 0);
+    if (j < 0) {
+      if (meals.length >= MAX_MEAL_SLOTS) return;
+      j = meals.length;
+    }
+    meals[j] = cell;
+    mealsAt[j] = at;
+    mealsPrev[j] = '+';
+  });
   const normMeals = padMealsToStamps(normalizeMeals(meals), mealsAt);
-  return { meals: normMeals, mealsAt: normalizeMealsAt(mealsAt, normMeals, '') };
+  return {
+    meals: normMeals,
+    mealsAt: normalizeMealsAt(mealsAt, normMeals, ''),
+    mealsPrev: normalizeMealsPrev(mealsPrev, normMeals),
+  };
 }
 
 /** Merge exercise slot lists — newer musAt / day stamp wins the whole list (empty = cleared). */
@@ -3448,6 +3504,7 @@ function mergeDayFields(a, b) {
     bodyFat,
     meals: meals.meals,
     mealsAt: meals.mealsAt,
+    mealsPrev: meals.mealsPrev,
     exercises,
     mus,
     base,

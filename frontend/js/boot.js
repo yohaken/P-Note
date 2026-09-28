@@ -1,7 +1,7 @@
 /**
  * Calorie-first entry — paint the calorie shell ASAP, then hydrate full app.
  */
-import { paintListFromLocal } from './list-paint.js?v=305';
+import { paintListFromLocal } from './list-paint.js?v=306';
 
 document.documentElement.dataset.pnoteBoot = '1';
 
@@ -36,16 +36,32 @@ try {
 showBootSyncGate();
 
 // Full app (interactions, sync, settings) after first paint.
-import('./app.js?v=305')
+import('./app.js?v=306')
   .then((m) => {
     if (typeof m.hydrateApp === 'function') return m.hydrateApp();
     return undefined;
   })
   .catch((err) => {
     console.error('app hydrate failed', err);
+    // A failed module fetch stays failed for this page — only a reload retries it.
+    const retryKey = 'pnote_boot_retry_at';
+    let lastRetry = 0;
+    try { lastRetry = Number(sessionStorage.getItem(retryKey)) || 0; } catch { /* ignore */ }
+    if (Date.now() - lastRetry > 30000) {
+      try { sessionStorage.setItem(retryKey, String(Date.now())); } catch { /* ignore */ }
+      location.reload();
+      return;
+    }
     const loading = document.getElementById('loading-overlay');
     if (loading) loading.hidden = true;
     const gate = document.getElementById('sync-gate-overlay');
-    if (gate) gate.hidden = true;
-    document.body.classList.remove('sync-gated');
+    const title = document.getElementById('sync-gate-title');
+    const sub = document.getElementById('sync-gate-sub');
+    if (title) title.textContent = 'โหลดแอปไม่สำเร็จ';
+    if (sub) sub.textContent = 'เช็คเน็ตแล้วแตะเพื่อลองใหม่';
+    if (gate) {
+      gate.hidden = false;
+      gate.style.cursor = 'pointer';
+      gate.addEventListener('click', () => location.reload(), { once: true });
+    }
   });
