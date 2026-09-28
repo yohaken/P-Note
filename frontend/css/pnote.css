@@ -9703,6 +9703,44 @@ body.calorie-muscle-pane #calorie-view {
   font-weight: 700;
   color: var(--text-muted);
 }
+.mbc-collapse {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 36px;
+  margin: -0.2rem 0;
+  padding: 0 0.2rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mbc-chev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--surface-2, rgba(0, 0, 0, 0.06));
+  color: var(--text);
+  font-size: 0.8rem;
+  transition: transform 0.15s ease;
+}
+.muscle-body-card.is-collapsed .mbc-chev {
+  transform: rotate(-90deg);
+}
+.muscle-body-card.is-collapsed .mbc-head {
+  margin-bottom: 0;
+}
+.muscle-body-card.is-collapsed #muscle-body-stats,
+.muscle-body-card.is-collapsed #muscle-body-map,
+.muscle-body-card.is-collapsed #muscle-body-fat-note,
+.muscle-body-card.is-collapsed .mbc-fat-toggle {
+  display: none !important;
+}
 .bm-pair {
   display: flex;
   justify-content: center;

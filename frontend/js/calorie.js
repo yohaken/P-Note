@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=320';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=321';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -16,7 +16,7 @@ import {
   muscleTreeLabels,
   normalizeMuscleTree,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=320';
+} from './muscle-tree.js?v=321';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -1285,10 +1285,10 @@ function reconcileTreeExercises(day, tree, moveIndex) {
     exercises = normalizeExercises([...slots.map((s) => formatExerciseCell(s.burn, s.label)), ...kept]);
   } else {
     if (!orig.length) return day;
-    exercises = list.map((cell) => {
-      const p = parseExerciseCell(cell);
-      const move = moveIndex.get(p.label);
-      return move && !move.cardio ? formatExerciseCell(0, p.label) : cell;
+    // No table marks this date: a strength move listed here was never logged.
+    exercises = list.filter((cell) => {
+      const move = moveIndex.get(parseExerciseCell(cell).label);
+      return !move || move.cardio;
     });
   }
   const mus = sumExerciseBurn(exercises) || null;
@@ -1368,9 +1368,10 @@ export function dayExerciseEntries(calorie, day) {
     const move = byLabel.get(p.label) || null;
     if (move) {
       if (seen.has(move.id)) return;
-      seen.add(move.id);
       // Strength rows store the mark in the table cell; the day row holds 0 kcal.
       const value = dateKey ? t.cells[cellKey(move.id, dateKey)] : null;
+      if (!move.cardio && !(value > 0) && !(p.burn > 0)) return;
+      seen.add(move.id);
       const burn = value > 0 ? value : (p.burn > 0 ? p.burn : 1);
       out.push({ nodeId: move.id, label: move.label, burn, cardio: move.cardio });
       return;

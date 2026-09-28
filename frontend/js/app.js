@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=320';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=320';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=320';
-import { CONFIG } from './config.js?v=320';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=320';
-import { nowIso } from './clock.js?v=320';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=321';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=321';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=321';
+import { CONFIG } from './config.js?v=321';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=321';
+import { nowIso } from './clock.js?v=321';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=320';
+} from './auth.js?v=321';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=320';
+} from './notes.js?v=321';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=320';
+} from './sheet.js?v=321';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -135,7 +135,7 @@ import {
   dayExerciseEntries,
   setDayExerciseEntries,
   parseExerciseCell,
-} from './calorie.js?v=320';
+} from './calorie.js?v=321';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -172,7 +172,7 @@ import {
   legacyRowPlans,
   convertLegacyRows,
   resolveTreeMove,
-} from './muscle-tree.js?v=320';
+} from './muscle-tree.js?v=321';
 import {
   EQUIPMENT_TH,
   beginnerGroupOfRegion,
@@ -191,9 +191,9 @@ import {
   renderBodyStatsHtml,
   ALL_EXERCISES,
   exerciseImages,
-} from './muscle-map.js?v=320';
-import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=320';
-import { mountDrumPicker } from './drum-picker.js?v=320';
+} from './muscle-map.js?v=321';
+import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=321';
+import { mountDrumPicker } from './drum-picker.js?v=321';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -201,8 +201,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=320';
-import { bindComposableInput } from './text-input.js?v=320';
+} from './note-text.js?v=321';
+import { bindComposableInput } from './text-input.js?v=321';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -243,14 +243,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=320';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=320';
+} from './schedule.js?v=321';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=321';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=320';
+} from './app-icons.js?v=321';
 import {
   allIcons,
   bestIconForLabel,
@@ -259,7 +259,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=320';
+} from './icons.js?v=321';
 import {
   notificationPermission,
   notificationSupported,
@@ -268,27 +268,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=320';
+} from './note-notify.js?v=321';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=320';
+} from './files.js?v=321';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=320');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=321');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=320');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=321');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=320');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=321');
   return userContextModPromise;
 }
 
@@ -312,7 +312,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=320';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=321';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -321,11 +321,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=320';
-import { normalizeNotesData } from './notes.js?v=320';
-import { SaveManager } from './sync.js?v=320';
-import { emptyDeletions } from './deletions.js?v=320';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=320';
+} from './remote.js?v=321';
+import { normalizeNotesData } from './notes.js?v=321';
+import { SaveManager } from './sync.js?v=321';
+import { emptyDeletions } from './deletions.js?v=321';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=321';
 
 const state = {
   notesData: {
@@ -727,6 +727,7 @@ const els = {
   muscleRestReset: document.getElementById('muscle-rest-reset'),
   muscleRestLegend: document.getElementById('muscle-rest-legend'),
   muscleBodyCard: document.getElementById('muscle-body-card'),
+  muscleBodyCollapse: document.getElementById('muscle-body-collapse'),
   muscleBodyMap: document.getElementById('muscle-body-map'),
   muscleBodyStats: document.getElementById('muscle-body-stats'),
   muscleBodyFatNote: document.getElementById('muscle-body-fat-note'),
@@ -3988,6 +3989,24 @@ function muscleBodySnapshot(todayKey) {
   };
 }
 
+const MUSCLE_BODY_COLLAPSED_KEY = 'pnote_muscle_body_collapsed';
+
+function syncMuscleBodyCollapsed() {
+  const collapsed = localStorage.getItem(MUSCLE_BODY_COLLAPSED_KEY) === '1';
+  els.muscleBodyCard?.classList.toggle('is-collapsed', collapsed);
+  if (els.muscleBodyCollapse) {
+    els.muscleBodyCollapse.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    const title = els.muscleBodyCollapse.querySelector('.mbc-title');
+    if (title) title.textContent = collapsed ? 'รูปกล้าม · แตะเพื่อแสดง' : 'รูปกล้าม · แตะกล้ามเพื่อดูท่าและตั้งวันพัก';
+  }
+}
+
+function toggleMuscleBodyCollapsed() {
+  const collapsed = localStorage.getItem(MUSCLE_BODY_COLLAPSED_KEY) === '1';
+  try { localStorage.setItem(MUSCLE_BODY_COLLAPSED_KEY, collapsed ? '0' : '1'); } catch { /* ignore */ }
+  syncMuscleBodyCollapsed();
+}
+
 function paintMuscleBodyMap(tree, todayKey) {
   if (!els.muscleBodyMap) return;
   lastBodyMapArgs = [tree, todayKey];
@@ -4572,7 +4591,7 @@ function submitCalorieBodyQuick() {
   }
 }
 
-function clearCalorieQuickInput() {
+async function clearCalorieQuickInput() {
   if (calorieQuickMode === 'meal') {
     mealDrumCleared = Boolean(calorieQuickEdit);
     if (mealDrumCleared) {
@@ -4585,11 +4604,25 @@ function clearCalorieQuickInput() {
     return;
   }
   if (calorieQuickMode === 'mus') {
+    const dateKey = calorieQuickEdit?.date || toDateKey();
+    const sheet = ensureCaloriePayload();
+    const day = calorieQuickEdit
+      ? findCalorieDay(sheet, calorieQuickEdit.dayId, dateKey)
+      : sheet.days.find((d) => d.date === dateKey);
+    const saved = day ? dayExerciseEntries(sheet, day) : [];
+    if (saved.length) {
+      const label = dateKey === toDateKey() ? 'วันนี้' : formatDateDisplay(dateKey);
+      const ok = await showConfirm(`ลบท่าทั้งหมดของ${label}?`, { okLabel: 'ลบ', cancelLabel: 'ยกเลิก', danger: true });
+      if (!ok) return;
+    }
     exEntries = [];
     exDrumDirty = false;
+    if (saved.length) {
+      submitExerciseWheels();
+      return;
+    }
     paintExerciseList();
     syncExerciseBar();
-    setStatus('ว่างแล้ว · กดบันทึกเพื่อลบท่าทั้งหมดของวันนี้', { forceToast: true, ms: 1800 });
   }
 }
 
@@ -10623,6 +10656,8 @@ async function init({ fromBoot = false } = {}) {
     if (part) openMuscleRegion(part.getAttribute('data-region'));
   });
   els.muscleBodyFatToggle?.addEventListener('click', toggleBodyFatOverlay);
+  els.muscleBodyCollapse?.addEventListener('click', toggleMuscleBodyCollapsed);
+  syncMuscleBodyCollapsed();
   els.muscleRegionBody?.addEventListener('click', (e) => {
     const step = e.target?.closest?.('[data-region-rest]');
     if (step) {
