@@ -177,7 +177,7 @@ import {
   resolveTreeMove,
   stampMuscleTreeChanges,
   recordMuscleLabelAliases,
-  reparentMuscleNode,
+  placeMuscleRow,
   canReparentMuscleNode,
   muscleLeafIndex,
   manageRows,
@@ -2892,6 +2892,8 @@ const muscleExpandAll = true;
 const muscleExpandedIds = new Set();
 /** Groups open in the manage sheet (sheet-local; reset on open). */
 const muscleManageOpen = new Set();
+/** Live drag in the manage list (row, pointer, drop target) — null when idle. */
+let muscleDrag = null;
 /** Meal drum pickers (kcal / protein) — mounted while meal sheet is open. */
 let mealDrumKcal = null;
 let mealDrumProt = null;
@@ -3526,11 +3528,8 @@ function paintMuscleSheet() {
   const restored = state.cloudHydrated && navigator.onLine
     ? restoreMusclePins(normalizeMuscleTree(ensureCaloriePayload().muscleTree))
     : null;
-  if (restored && isSyncReady()) {
-    persistMuscleTree(restored, { status: '' });
-    return;
-  }
-  if (ensureMuscleLayout().saved) return;
+  if (restored && isSyncReady()) persistMuscleTree(restored, { status: '' });
+  ensureMuscleLayout();
   const prevLeft = host.scrollLeft;
   const prevTop = host.scrollTop;
   const active = document.activeElement;
@@ -3868,13 +3867,11 @@ function onMuscleScrollClick(e) {
   if (hit && els.muscleScroll?.contains(hit)) {
     const dk = hit.dataset.date;
     const gid = hit.dataset.mvGroup;
-    const g = BEGINNER_GROUPS.find((x) => x.id === gid);
     const view = muscleLayoutView();
     const d = muscleDaySummary(view, dk);
-    const names = new Set([
-      ...(g ? g.regions.map((rid) => regionLabel(view, rid)) : []),
-      ...view.nodes.filter((n) => n.parentId === gid && !regionOfLeaf(n.id)).map((n) => n.name),
-    ]);
+    const names = new Set(view.nodes
+      .filter((n) => n.parentId === gid)
+      .map((n) => (regionOfLeaf(n.id) ? regionLabel(view, regionOfLeaf(n.id)) : n.name)));
     const list = [
       ...d.main.filter((n) => names.has(n)),
       ...d.secondary.filter((n) => names.has(n)).map((n) => `${n} (รอง)`),
@@ -3974,7 +3971,13 @@ async function onMuscleDeleteNode(nodeId) {
   if (!tree0) return;
   const node = tree0.nodes.find((n) => n.id === nodeId);
   if (!node) return;
-  const ok = await showConfirm(`ลบ「${node.name}」?\nรายการย่อยและค่าที่บันทึกไว้ในแถวนี้จะหาย`, {
+  const kids = tree0.nodes.filter((n) => n.parentId === nodeId);
+  const homing = kids.filter((n) => regionOfLeaf(n.id)).length;
+  const lost = kids.length - homing;
+  const detail = !kids.length
+    ? 'ค่าที่บันทึกไว้ในแถวนี้จะหาย'
+    : `${lost ? `${lost} รายการในกลุ่มนี้และค่าที่บันทึกไว้จะหาย` : ''}${lost && homing ? '\n' : ''}${homing ? `กล้ามตั้งต้น ${homing} แถวจะกลับกลุ่มเดิม (ค่ายังอยู่)` : ''}`;
+  const ok = await showConfirm(`ลบ「${node.name}」?\n${detail}`, {
     okLabel: 'ลบ',
     danger: true,
   });
@@ -3993,6 +3996,7 @@ async function onMuscleDeleteNode(nodeId) {
 function paintMuscleSettingsList() {
   const list = els.muscleSettingsList;
   if (!list) return;
+  if (muscleDrag) endMuscleDrag();
   let tree;
   let rows;
   try {
@@ -4013,12 +4017,12 @@ function paintMuscleSettingsList() {
   rows.forEach((r) => {
     if (r.parentId) childCount.set(r.parentId, (childCount.get(r.parentId) || 0) + 1);
   });
-  const movable = (r) => isCustomMuscleId(r.id) || r.kind === 'cardioMove';
-  const groupOptions = (r) => groups
-    .filter((g) => g.id === r.parentId || canReparentMuscleNode(tree, r.id, g.id))
-    .map((g) => (g.id === r.parentId
-      ? `<option value="${escapeHtml(g.id)}" selected>อยู่กลุ่ม ${escapeHtml(g.name)} · แตะเพื่อย้าย</option>`
-      : `<option value="${escapeHtml(g.id)}">ย้ายไป ${escapeHtml(g.name)}</option>`));
+  const movable = (r) => r.depth > 0;
+  const groupOptions = (r) => {
+    const targets = groups.filter((g) => g.id !== r.parentId && canReparentMuscleNode(tree, r.id, g.id));
+    if (!targets.length) return [];
+    return ['<option value="" selected>ย้าย</option>', ...targets.map((g) => `<option value="${escapeHtml(g.id)}">ไป ${escapeHtml(g.name)}</option>`)];
+  };
   list.innerHTML = rows
     .filter((r) => !r.depth || muscleManageOpen.has(r.parentId))
     .map((r) => {
@@ -4052,7 +4056,11 @@ function paintMuscleSettingsList() {
       } else {
         del = `<button type="button" class="btn btn-secondary muscle-settings-hide" data-muscle-hide="${id}" title="${r.hidden ? 'แสดงในตารางอีกครั้ง' : 'ซ่อนจากตาราง · ค่าที่บันทึกยังอยู่'}">${r.hidden ? 'แสดง' : 'ซ่อน'}</button>`;
       }
-      return `<div class="${cls}" data-node-id="${id}">
+      const grip = r.movable === false
+        ? '<span class="muscle-settings-grip" aria-hidden="true"></span>'
+        : `<button type="button" class="muscle-settings-grip" data-drag-handle="${id}" aria-label="ลากเพื่อย้าย" title="ลากเพื่อย้าย">⋮⋮</button>`;
+      return `<div class="${cls}" data-node-id="${id}" data-parent-id="${escapeHtml(r.parentId || '')}" data-kind="${escapeHtml(r.kind)}">
+        ${grip}
         <button type="button" class="muscle-settings-pick" data-muscle-pick="${id}"${r.depth ? '' : ` aria-expanded="${open}"`} title="${r.depth ? 'เลือก' : 'เลือก · เปิด/ปิดกลุ่ม'}">
           ${chev}<span class="muscle-settings-kind">${KIND[r.kind] || ''}</span>
           <span class="muscle-settings-name">${name}</span>${count}
@@ -4082,22 +4090,27 @@ function onMuscleManagePick(id) {
   paintMuscleSheet();
 }
 
-async function onMuscleReparent(nodeId, parentId) {
+function onMuscleReparent(nodeId, parentId) {
+  return onMusclePlaceRow(nodeId, parentId, null);
+}
+
+/** Put a row into `parentId` before `beforeId` (null = end); `parentId` null reorders a root. Shared by drag-drop and the move select. */
+async function onMusclePlaceRow(nodeId, parentId, beforeId) {
   if (!requireSyncReady()) return;
   const before = muscleLayoutForEdit();
   if (!before) {
     paintMuscleSettingsList();
     return;
   }
+  const rows = manageRows(before);
+  const label = (id) => rows.find((r) => r.id === id)?.name || before.nodes.find((n) => n.id === id)?.name || '';
   const fromId = before.nodes.find((n) => n.id === nodeId)?.parentId || '';
-  let { tree, changed } = reparentMuscleNode(before, nodeId, parentId);
+  let { tree, changed } = placeMuscleRow(before, nodeId, parentId || null, beforeId || null);
   if (!changed) {
     paintMuscleSettingsList();
     return;
   }
-  const node = tree.nodes.find((n) => n.id === nodeId);
-  const parent = tree.nodes.find((n) => n.id === parentId);
-  const from = tree.nodes.find((n) => n.id === fromId);
+  const from = fromId && fromId !== parentId ? tree.nodes.find((n) => n.id === fromId) : null;
   // An emptied group would turn into a loggable move of its own.
   if (from && !BEGINNER_GROUPS.some((g) => g.id === from.id) && !isCustomGroupId(from.id) && !tree.nodes.some((n) => n.parentId === from.id)) {
     const drop = await showConfirm(`「${from.name}」ไม่มีท่าเหลือแล้ว\nลบกลุ่มนี้ด้วยไหม?`, {
@@ -4111,7 +4124,7 @@ async function onMuscleReparent(nodeId, parentId) {
     }
     const fresh = muscleLayoutForEdit();
     if (!fresh) return;
-    ({ tree, changed } = reparentMuscleNode(fresh, nodeId, parentId));
+    ({ tree, changed } = placeMuscleRow(fresh, nodeId, parentId || null, beforeId || null));
     if (!changed) {
       paintMuscleSettingsList();
       return;
@@ -4120,13 +4133,245 @@ async function onMuscleReparent(nodeId, parentId) {
     muscleExpandedIds.delete(from.id);
     muscleManageOpen.delete(from.id);
   }
-  const touchDates = Object.keys(before.cells).filter((k) => k.startsWith(`${nodeId}|`)).map((k) => k.split('|')[1]);
+  const moved = new Set([nodeId]);
+  if (!fromId) before.nodes.forEach((n) => { if (n.parentId === nodeId) moved.add(n.id); });
+  const touchDates = [...new Set(Object.keys(before.cells)
+    .filter((k) => moved.has(k.split('|')[0]))
+    .map((k) => k.split('|')[1]))];
+  let where;
+  if (parentId) where = label(parentId);
+  else where = beforeId ? `ก่อน ${label(beforeId)}` : 'ท้ายสุด';
   muscleSelectedId = nodeId;
-  muscleManageOpen.add(parentId);
-  if (!muscleExpandAll) muscleExpandedIds.add(parentId);
-  persistMuscleTree(tree, { touchDates, status: `ย้าย ${node?.name || ''} ไป ${parent?.name || ''}` });
+  if (parentId) {
+    muscleManageOpen.add(parentId);
+    if (!muscleExpandAll) muscleExpandedIds.add(parentId);
+  }
+  persistMuscleTree(tree, { touchDates, status: `ย้าย ${label(nodeId)} ไป ${where}` });
   paintMuscleSheet();
   paintMuscleSettingsList();
+}
+
+/** Nearest ancestor (or the list itself) with vertical overflow scrolling; never the page behind the sheet. */
+function muscleScrollParent(el) {
+  for (let n = el; n && n !== document.body; n = n.parentElement) {
+    const oy = getComputedStyle(n).overflowY;
+    if (oy === 'auto' || oy === 'scroll') return n;
+  }
+  return null;
+}
+
+function onMuscleDragStart(e) {
+  const handle = e.target?.closest?.('[data-drag-handle]');
+  if (!handle || muscleDrag || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  const list = els.muscleSettingsList;
+  const row = handle.closest('.muscle-settings-row');
+  if (!list || !row || !list.contains(row)) return;
+  e.preventDefault();
+  let rows;
+  let tree;
+  try {
+    tree = muscleLayoutView();
+    rows = manageRows(tree);
+  } catch {
+    return;
+  }
+  const src = rows.find((r) => r.id === row.dataset.nodeId);
+  if (!src) return;
+  const isGroup = !src.depth;
+  const scroller = muscleScrollParent(list);
+  if (isGroup) {
+    // Groups reorder among roots only: fold children away and keep the grabbed row under the finger.
+    const top0 = row.getBoundingClientRect().top;
+    list.classList.add('is-dragging-group');
+    if (scroller) scroller.scrollTop += row.getBoundingClientRect().top - top0;
+  }
+  const indicator = document.createElement('div');
+  indicator.className = 'muscle-drop-line';
+  indicator.hidden = true;
+  list.appendChild(indicator);
+  const listRect = list.getBoundingClientRect();
+  const rowRect = row.getBoundingClientRect();
+  const rowTop = rowRect.top - listRect.top + list.scrollTop;
+  muscleDrag = {
+    id: src.id,
+    src,
+    isGroup,
+    tree,
+    rows,
+    allowed: new Map(),
+    pointerId: e.pointerId,
+    handle,
+    row,
+    list,
+    scroller,
+    indicator,
+    startY: e.clientY,
+    startScroll: scroller?.scrollTop || 0,
+    minDy: -rowTop,
+    maxDy: Math.max(0, list.scrollHeight - rowTop - rowRect.height),
+    x: e.clientX,
+    y: e.clientY,
+    moved: false,
+    target: null,
+    intoRow: null,
+    raf: 0,
+  };
+  try { handle.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  handle.addEventListener('pointermove', onMuscleDragMove);
+  handle.addEventListener('pointerup', onMuscleDragUp);
+  handle.addEventListener('pointercancel', onMuscleDragCancel);
+  handle.addEventListener('lostpointercapture', onMuscleDragCancel);
+  window.addEventListener('keydown', onMuscleDragKey, true);
+  document.addEventListener('selectstart', preventMuscleDragSelect, true);
+  document.body.classList.add('muscle-dragging');
+  row.classList.add('is-dragging');
+  muscleDrag.raf = requestAnimationFrame(muscleDragTick);
+}
+
+function preventMuscleDragSelect(e) {
+  e.preventDefault();
+}
+
+function onMuscleDragMove(e) {
+  const d = muscleDrag;
+  if (!d || e.pointerId !== d.pointerId) return;
+  e.preventDefault();
+  d.x = e.clientX;
+  d.y = e.clientY;
+  if (!d.moved && Math.abs(d.y - d.startY) > 4) d.moved = true;
+  updateMuscleDrag();
+}
+
+function onMuscleDragKey(e) {
+  if (!muscleDrag || e.key !== 'Escape') return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  endMuscleDrag();
+}
+
+function onMuscleDragCancel(e) {
+  if (!muscleDrag || (e.pointerId != null && e.pointerId !== muscleDrag.pointerId)) return;
+  endMuscleDrag();
+}
+
+function onMuscleDragUp(e) {
+  const d = muscleDrag;
+  if (!d || e.pointerId !== d.pointerId) return;
+  e.preventDefault();
+  d.x = e.clientX;
+  d.y = e.clientY;
+  if (d.moved) updateMuscleDrag();
+  const target = d.moved ? d.target : null;
+  endMuscleDrag();
+  if (target) void onMusclePlaceRow(d.id, target.parentId, target.beforeId);
+}
+
+/** Auto-scroll near the scroller's top/bottom edge while the finger rests there. */
+function muscleDragTick() {
+  const d = muscleDrag;
+  if (!d) return;
+  if (d.moved && d.scroller) {
+    const sc = d.scroller;
+    const { top, bottom } = sc.getBoundingClientRect();
+    const edge = Math.min(44, (bottom - top) / 4);
+    let step = 0;
+    if (d.y < top + edge) step = -Math.ceil(((top + edge - d.y) / edge) * 12);
+    else if (d.y > bottom - edge) step = Math.ceil(((d.y - (bottom - edge)) / edge) * 12);
+    if (step) {
+      const prev = sc.scrollTop;
+      sc.scrollTop = prev + step;
+      if (sc.scrollTop !== prev) updateMuscleDrag();
+    }
+  }
+  d.raf = requestAnimationFrame(muscleDragTick);
+}
+
+/** Move the lifted row with the finger and work out where it would land. */
+function updateMuscleDrag() {
+  const d = muscleDrag;
+  if (!d) return;
+  const dy = Math.min(d.maxDy, Math.max(d.minDy, d.y - d.startY + ((d.scroller?.scrollTop || 0) - d.startScroll)));
+  d.row.style.transform = `translateY(${dy}px)`;
+  const target = d.moved ? muscleDropTarget(d) : null;
+  d.target = target;
+  if (d.intoRow && d.intoRow !== target?.intoRow) d.intoRow.classList.remove('is-drop-into');
+  d.intoRow = target?.intoRow || null;
+  d.intoRow?.classList.add('is-drop-into');
+  const line = d.indicator;
+  if (!target?.lineRow) {
+    line.hidden = true;
+    return;
+  }
+  const listRect = d.list.getBoundingClientRect();
+  const r = target.lineRow.getBoundingClientRect();
+  const pick = target.lineRow.querySelector('.muscle-settings-pick') || target.lineRow;
+  const y = (target.after ? r.bottom : r.top) - listRect.top + d.list.scrollTop;
+  line.style.top = `${Math.round(y - 1.5)}px`;
+  line.style.left = `${Math.round(pick.getBoundingClientRect().left - listRect.left + d.list.scrollLeft)}px`;
+  line.hidden = false;
+}
+
+/** `{ parentId, beforeId, lineRow?, after?, intoRow? }` for the row under the pointer, or null when the drop isn't allowed. */
+function muscleDropTarget(d) {
+  const over = document.elementsFromPoint(d.x, d.y)
+    .map((el) => el.closest?.('.muscle-settings-row'))
+    .find((el) => el && el !== d.row && d.list.contains(el));
+  if (!over) return null;
+  const hit = d.rows.find((r) => r.id === over.dataset.nodeId);
+  if (!hit) return null;
+  const rect = over.getBoundingClientRect();
+  const after = d.y > rect.top + rect.height / 2;
+  const nextOf = (peers, id) => {
+    const i = peers.findIndex((r) => r.id === id);
+    return peers.slice(i + 1).find((r) => r.id !== d.id)?.id || null;
+  };
+  // Landing right where the row already sits is a no-op: show nothing.
+  const place = (parentId, peers) => {
+    const beforeId = after ? nextOf(peers, hit.id) : hit.id;
+    if ((parentId || null) === (d.src.parentId || null) && beforeId === nextOf(peers, d.id)) return null;
+    return { parentId, beforeId, lineRow: over, after };
+  };
+  if (d.isGroup) {
+    if (hit.depth || hit.kind !== d.src.kind) return null;
+    return place(null, d.rows.filter((r) => !r.depth && r.kind === d.src.kind));
+  }
+  const allowed = (gid) => {
+    if (gid === d.src.parentId) return true;
+    if (!d.allowed.has(gid)) d.allowed.set(gid, canReparentMuscleNode(d.tree, d.id, gid));
+    return d.allowed.get(gid);
+  };
+  if (!hit.depth) {
+    if (!hit.canAddChild || !allowed(hit.id)) return null;
+    if (hit.id === d.src.parentId && !nextOf(d.rows.filter((r) => r.parentId === hit.id), d.id)) return null;
+    return { parentId: hit.id, beforeId: null, intoRow: over };
+  }
+  if (!allowed(hit.parentId)) return null;
+  return place(hit.parentId, d.rows.filter((r) => r.parentId === hit.parentId));
+}
+
+/** Drop the lifted state without saving (also used after a drop, before the save repaints). */
+function endMuscleDrag() {
+  const d = muscleDrag;
+  if (!d) return;
+  muscleDrag = null;
+  cancelAnimationFrame(d.raf);
+  d.handle.removeEventListener('pointermove', onMuscleDragMove);
+  d.handle.removeEventListener('pointerup', onMuscleDragUp);
+  d.handle.removeEventListener('pointercancel', onMuscleDragCancel);
+  d.handle.removeEventListener('lostpointercapture', onMuscleDragCancel);
+  window.removeEventListener('keydown', onMuscleDragKey, true);
+  document.removeEventListener('selectstart', preventMuscleDragSelect, true);
+  try { d.handle.releasePointerCapture(d.pointerId); } catch { /* ignore */ }
+  document.body.classList.remove('muscle-dragging');
+  d.row.classList.remove('is-dragging');
+  d.row.style.transform = '';
+  d.intoRow?.classList.remove('is-drop-into');
+  d.indicator.remove();
+  if (d.isGroup) {
+    const top0 = d.row.getBoundingClientRect().top;
+    d.list.classList.remove('is-dragging-group');
+    if (d.scroller) d.scroller.scrollTop += d.row.getBoundingClientRect().top - top0;
+  }
 }
 
 function openMuscleManage() {
@@ -4140,6 +4385,7 @@ function openMuscleManage() {
 }
 
 function closeMuscleManage() {
+  endMuscleDrag();
   if (els.muscleManageOverlay) els.muscleManageOverlay.hidden = true;
 }
 
@@ -4331,7 +4577,7 @@ function paintMuscleRegionSheet() {
   if (els.muscleRegionTitle) els.muscleRegionTitle.textContent = label;
   const scrollTop = els.muscleRegionBody.scrollTop;
   els.muscleRegionBody.innerHTML = `
-    <p class="mr-sci">${label !== region.name ? `ชื่อมาตรฐาน ${escapeHtml(region.name)} · ` : ''}${escapeHtml(region.sci)} · กลุ่ม${escapeHtml(beginnerGroupOfRegion(region.id)?.name || '')}
+    <p class="mr-sci">${label !== region.name ? `ชื่อมาตรฐาน ${escapeHtml(region.name)} · ` : ''}${escapeHtml(region.sci)} · กลุ่ม${escapeHtml(groupLabel(tree, tree.nodes.find((n) => n.id === regionLeafId(region.id))?.parentId || beginnerGroupOfRegion(region.id)?.id || ''))}
       <button type="button" class="btn btn-secondary mr-step mr-rename" data-region-rename="1" title="ตั้งชื่อแถวกล้ามนี้เอง · ว่าง = กลับชื่อมาตรฐาน">แก้ชื่อ</button></p>
     <div class="mr-today" role="group" aria-label="วันนี้">
       <span class="mr-rest-label">วันนี้</span>
@@ -10910,9 +11156,10 @@ async function init({ fromBoot = false } = {}) {
       closeMuscleManage();
     }
   });
+  els.muscleSettingsList?.addEventListener('pointerdown', onMuscleDragStart);
   els.muscleSettingsList?.addEventListener('change', (e) => {
     const sel = e.target?.closest?.('select[data-muscle-reparent]');
-    if (sel) onMuscleReparent(sel.dataset.muscleReparent, sel.value);
+    if (sel?.value) onMuscleReparent(sel.dataset.muscleReparent, sel.value);
   });
   els.muscleSettingsList?.addEventListener('click', (e) => {
     const pick = e.target?.closest?.('[data-muscle-pick]');

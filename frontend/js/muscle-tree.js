@@ -47,13 +47,18 @@ export function regionOfLeaf(nodeId) {
   return s.startsWith(REGION_LEAF) && regionById(s.slice(REGION_LEAF.length)) ? s.slice(REGION_LEAF.length) : '';
 }
 
-/** Fixed rows: the 10 beginner groups, each with its small muscles. */
-function layoutNodes() {
+/**
+ * Fixed rows: the 10 beginner groups, each with its small muscles. `parentOf(rid)` = the group a
+ * muscle row sits in (a moved row goes after that group's own rows unless orderMap says otherwise).
+ */
+function layoutNodes(parentOf = (rid) => groupOfRegion(rid).id) {
   const out = [];
   BEGINNER_GROUPS.forEach((g, i) => {
     out.push({ id: g.id, name: g.name, parentId: null, order: i });
     g.regions.forEach((rid, j) => {
-      out.push({ id: regionLeafId(rid), name: clampName(regionById(rid).name), parentId: g.id, order: j, p: [rid], s: [] });
+      const parentId = parentOf(rid) || g.id;
+      const order = parentId === g.id ? j : 100 + j;
+      out.push({ id: regionLeafId(rid), name: clampName(regionById(rid).name), parentId, order, p: [rid], s: [] });
     });
   });
   return out;
@@ -213,6 +218,13 @@ function normalizeMuscleTreeFresh(raw) {
       : fixed ? clampName(groupNames?.[n.id]?.name || fixed.name) : n.name;
     return name && name !== n.name ? { ...n, name } : n;
   });
+  const parentMap = normalizeParentMap(src.parentMap);
+  const rootIds = new Set(nodes.filter((n) => !n.parentId).map((n) => n.id));
+  nodes = nodes.map((n) => {
+    if (!n.parentId || !regionOfLeaf(n.id)) return n;
+    const parentId = fixedRowParent(parentMap, n.id, rootIds, n.parentId);
+    return parentId !== n.parentId ? { ...n, parentId } : n;
+  });
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
   nodes = nodes.filter((n) => {
@@ -270,7 +282,32 @@ function normalizeMuscleTreeFresh(raw) {
   const hidden = normalizeHidden(src.hidden);
   if (hidden) out.hidden = hidden;
   if (orderMap) out.orderMap = orderMap;
+  if (parentMap) out.parentMap = parentMap;
   return out;
+}
+
+/** Fixed muscle rows moved to another muscle group: { 'r-<regionId>': { parent, at } }. */
+function normalizeParentMap(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  Object.keys(raw).sort().forEach((id) => {
+    const parent = String(raw[id]?.parent || '').trim();
+    const at = stampMs(raw[id]?.at);
+    if (!regionOfLeaf(id) || !isMuscleGroupId(parent) || !at) return;
+    out[id] = { parent, at };
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * Group a fixed muscle row sits in: the moved-to group (or `cur`) while it exists, else its
+ * standard group; `cur` when neither is in `rootIds` (a tree not laid out yet).
+ */
+function fixedRowParent(parentMap, id, rootIds, cur = null) {
+  const want = parentMap?.[id]?.parent || cur;
+  if (want && isMuscleGroupId(want) && rootIds.has(want)) return want;
+  const std = groupOfRegion(regionOfLeaf(id))?.id;
+  return std && rootIds.has(std) ? std : cur;
 }
 
 const ROOT_KEY = '_root';
@@ -281,7 +318,7 @@ function isFixedGroupId(id) {
 }
 
 /** Fixed or user-added muscle group (not cardio). */
-function isMuscleGroupId(id) {
+export function isMuscleGroupId(id) {
   return isFixedGroupId(id) || isCustomGroupId(id);
 }
 
@@ -333,14 +370,15 @@ function normalizeHidden(raw) {
 
 const groupOfRegion = (rid) => BEGINNER_GROUPS.find((g) => g.regions.includes(rid)) || null;
 
-/** Hidden fixed row, or any row inside a hidden fixed group. */
+/** Hidden fixed row, or any row inside a hidden fixed group (the group it sits in now). */
 export function isRowHidden(tree, id) {
   const t = normalizeMuscleTree(tree);
   const on = (k) => t.hidden?.[k]?.on === true;
   if (isFixedGroupId(id)) return on(id);
   const rid = regionOfLeaf(id);
-  if (rid) return on(id) || on(groupOfRegion(rid)?.id);
-  const parentId = t.nodes.find((n) => n.id === id)?.parentId;
+  const node = t.nodes.find((n) => n.id === id);
+  const parentId = node ? node.parentId : rid ? groupOfRegion(rid)?.id : null;
+  if (rid && on(id)) return true;
   return Boolean(parentId && isFixedGroupId(parentId) && on(parentId));
 }
 
@@ -394,9 +432,9 @@ export function customMuscleGroups(tree) {
 /**
  * Every row for the manage sheet in display order (muscle groups with their rows, then cardio
  * groups with their moves), hidden rows included. `ownHidden` = the row's own hide flag
- * (`hidden` is also true inside a hidden group).
+ * (`hidden` is also true inside a hidden group). `movable`: roots reorder, children move (placeMuscleRow).
  * @returns {{ id, name, depth: 0|1, parentId: string|null, kind: 'group'|'muscle'|'cardioGroup'|'cardioMove',
- *   fixed: boolean, hidden: boolean, ownHidden: boolean, stdName: string, canAddChild: boolean }[]}
+ *   fixed: boolean, hidden: boolean, ownHidden: boolean, stdName: string, canAddChild: boolean, movable: boolean }[]}
  */
 export function manageRows(tree) {
   const t = toMuscleLayout(tree).tree;
@@ -413,6 +451,7 @@ export function manageRows(tree) {
     ownHidden: t.hidden?.[n.id]?.on === true,
     stdName: '',
     canAddChild: false,
+    movable: true,
     ...extra,
   });
   const out = [];
@@ -660,14 +699,18 @@ const cellsOf = (cells, id) => Object.keys(cells).filter((k) => k.startsWith(`${
 export function toMuscleLayout(tree, nowMs = clockNowMs()) {
   const t = normalizeMuscleTree(tree);
   const byId = new Map(t.nodes.map((n) => [n.id, n]));
-  const want = layoutNodes();
+  const customIds = new Set(t.nodes.filter((n) => !n.parentId && isCustomGroupId(n.id)).map((n) => n.id));
+  const groupIds = new Set([...BEGINNER_GROUPS.map((g) => g.id), ...customIds]);
+  const want = layoutNodes((rid) => {
+    const id = regionLeafId(rid);
+    return fixedRowParent(t.parentMap, id, groupIds, byId.get(id)?.parentId || null);
+  });
   const wantIds = new Set(want.map((n) => n.id));
   const cells = { ...t.cells };
   const touch = new Set();
   const logged = new Map();
   const hasKids = (id) => t.nodes.some((c) => c.parentId === id);
 
-  const customIds = new Set(t.nodes.filter((n) => !n.parentId && isCustomGroupId(n.id)).map((n) => n.id));
   const cardioRoots = t.nodes.filter((n) => !n.parentId && !wantIds.has(n.id) && !customIds.has(n.id) && isCardioName(n.name));
   const cardioRootIds = new Set(cardioRoots.map((r) => r.id));
   const customNodes = t.nodes
@@ -841,6 +884,7 @@ function treeContentKey(tree) {
     t.groupNames || null,
     t.hidden || null,
     t.orderMap || null,
+    t.parentMap || null,
   ]);
 }
 
@@ -851,7 +895,7 @@ export function muscleTreeNeedsPush(localCalorie, remoteCalorie) {
   return treeContentKey(merged) !== treeContentKey(remoteCalorie?.muscleTree);
 }
 
-const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.regionNames || t.groupNames || t.hidden || t.orderMap || t.nodes.some((n) => n.at));
+const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.regionNames || t.groupNames || t.hidden || t.orderMap || t.parentMap || t.nodes.some((n) => n.at));
 
 /**
  * A tree from a build before stamps (it strips them) that was saved last: every row and cell
@@ -932,7 +976,9 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   Object.entries(a.hidden || {}).forEach(([k, v]) => { if (!hidden[k] || hidden[k].at <= v.at) hidden[k] = v; });
   const orderMap = { ...(b.orderMap || {}) };
   Object.entries(a.orderMap || {}).forEach(([k, v]) => { if (!orderMap[k] || orderMap[k].at <= v.at) orderMap[k] = v; });
-  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, regionNames, groupNames, hidden, orderMap });
+  const parentMap = { ...(b.parentMap || {}) };
+  Object.entries(a.parentMap || {}).forEach(([k, v]) => { if (!parentMap[k] || parentMap[k].at <= v.at) parentMap[k] = v; });
+  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, regionNames, groupNames, hidden, orderMap, parentMap });
 }
 
 export function isLeafNode(node, nodes) {
@@ -947,7 +993,8 @@ export function flattenMuscleRows(tree) {
   const rows = [];
   roots.forEach((root) => {
     const kids = t.nodes.filter((n) => n.parentId === root.id);
-    rows.push({ ...root, depth: 0, leaf: kids.length === 0, childIds: kids.map((k) => k.id) });
+    // An emptied muscle group stays a group; only cardio roots can be moves themselves.
+    rows.push({ ...root, depth: 0, leaf: kids.length === 0 && !isMuscleGroupId(root.id), childIds: kids.map((k) => k.id) });
     kids.forEach((c) => {
       rows.push({ ...c, depth: 1, leaf: true, childIds: [] });
     });
@@ -1194,50 +1241,111 @@ export function canReparentMuscleNode(tree, nodeId, parentId) {
   if (!t.nodes.some((n) => n.parentId === parentId) && Object.keys(t.cells).some((k) => k.startsWith(`${parentId}|`))) {
     return false;
   }
-  // User muscles go between muscle groups (fixed or user-added) only; fixed muscle rows stay put.
-  if (regionOfLeaf(nodeId)) return false;
-  if (isCustomMuscleId(nodeId) || isMuscleGroupId(parentId)) return isCustomMuscleId(nodeId) && isMuscleGroupId(parentId);
+  // Muscle rows (fixed or user-added) go between muscle groups only.
+  const muscle = Boolean(regionOfLeaf(nodeId)) || isCustomMuscleId(nodeId);
+  if (muscle || isMuscleGroupId(parentId)) return muscle && isMuscleGroupId(parentId);
   // Cardio cells hold kcal and strength cells hold marks, so a move can't cross between them.
   const from = t.nodes.find((n) => n.id === node.parentId);
   return isCardioMove(node.name, from?.name) === isCardioMove(node.name, parent.name);
 }
 
+/** Move a leaf to the end of another group. */
 export function reparentMuscleNode(tree, nodeId, parentId, nowMs = clockNowMs()) {
   const t = normalizeMuscleTree(tree);
   if (!canReparentMuscleNode(t, nodeId, parentId)) return { tree: t, changed: false };
-  const oldParent = t.nodes.find((n) => n.id === nodeId).parentId;
-  const order = t.nodes.filter((n) => n.parentId === parentId).length;
-  const nodes = t.nodes.map((n) => (n.id === nodeId ? { ...n, parentId, order } : n));
-  let orderMap = t.orderMap;
-  if (orderMap?.[oldParent]?.ids.includes(nodeId)) {
-    orderMap = { ...orderMap, [oldParent]: { ids: orderMap[oldParent].ids.filter((id) => id !== nodeId), at: nowMs } };
-  }
-  return { tree: normalizeMuscleTree({ ...t, nodes, orderMap, updatedAt: nowIsoLocal() }), changed: true };
+  return placeMuscleRow(t, nodeId, parentId, null, nowMs);
 }
 
-export function removeMuscleNode(tree, nodeId) {
+/**
+ * Put a row right before `beforeId` (null = at the end): a root among roots of its own kind
+ * (`parentId` null; muscle groups vs cardio groups), or a child into `parentId` (same group or
+ * one canReparentMuscleNode allows). Order is saved in orderMap for every parent touched, a fixed
+ * muscle row's group in parentMap.
+ * @returns {{ tree: object, changed: boolean }}
+ */
+export function placeMuscleRow(tree, nodeId, parentId, beforeId = null, nowMs = clockNowMs()) {
+  const t = normalizeMuscleTree(tree);
+  const none = { tree: t, changed: false };
+  const node = t.nodes.find((n) => n.id === nodeId);
+  if (!node || beforeId === nodeId) return none;
+  const pid = parentId || null;
+  if (!pid) {
+    if (node.parentId) return none;
+    const roots = t.nodes.filter((n) => !n.parentId);
+    const kind = (n) => isMuscleGroupId(n.id);
+    const before = beforeId == null ? null : roots.find((n) => n.id === beforeId);
+    if (beforeId != null && (!before || kind(before) !== kind(node))) return none;
+    const peers = roots.filter((n) => kind(n) === kind(node) && n.id !== nodeId);
+    peers.splice(before ? peers.indexOf(before) : peers.length, 0, node);
+    const ids = [];
+    let k = 0;
+    roots.forEach((n) => { ids.push(kind(n) === kind(node) ? peers[k++].id : n.id); });
+    if (ids.every((id, i) => id === roots[i].id)) return none;
+    const pos = new Map(ids.map((id, i) => [id, i]));
+    const nodes = t.nodes.map((n) => (pos.has(n.id) ? { ...n, order: pos.get(n.id) } : n));
+    const orderMap = { ...(t.orderMap || {}), [ROOT_KEY]: { ids, at: nowMs } };
+    return { tree: normalizeMuscleTree({ ...t, nodes, orderMap, updatedAt: nowIsoLocal() }), changed: true };
+  }
+  if (!node.parentId || !t.nodes.some((n) => n.id === pid && !n.parentId)) return none;
+  const from = node.parentId;
+  if (from !== pid && !canReparentMuscleNode(t, nodeId, pid)) return none;
+  const kids = t.nodes.filter((n) => n.parentId === pid && n.id !== nodeId);
+  const before = beforeId == null ? null : kids.find((n) => n.id === beforeId);
+  if (beforeId != null && !before) return none;
+  kids.splice(before ? kids.indexOf(before) : kids.length, 0, node);
+  const ids = kids.map((n) => n.id);
+  const oldIds = t.nodes.filter((n) => n.parentId === from && n.id !== nodeId).map((n) => n.id);
+  if (from === pid && ids.every((id, i) => id === t.nodes.filter((n) => n.parentId === pid)[i]?.id)) return none;
+  const pos = new Map([...oldIds.map((id, i) => [id, i]), ...ids.map((id, i) => [id, i])]);
+  const nodes = t.nodes.map((n) => {
+    if (n.id === nodeId) return { ...n, parentId: pid, order: pos.get(n.id), at: nowMs };
+    return pos.has(n.id) ? { ...n, order: pos.get(n.id) } : n;
+  });
+  const orderMap = { ...(t.orderMap || {}), [pid]: { ids, at: nowMs } };
+  if (from !== pid) orderMap[from] = { ids: oldIds, at: nowMs };
+  let parentMap = t.parentMap;
+  if (regionOfLeaf(nodeId) && from !== pid) parentMap = { ...(parentMap || {}), [nodeId]: { parent: pid, at: nowMs } };
+  return { tree: normalizeMuscleTree({ ...t, nodes, orderMap, parentMap, updatedAt: nowIsoLocal() }), changed: true };
+}
+
+/**
+ * Delete a row (a group takes its rows along). Fixed muscle rows and their cells are never
+ * deleted: ones moved into a deleted group go back to their standard group.
+ */
+export function removeMuscleNode(tree, nodeId, nowMs = clockNowMs()) {
   const t = normalizeMuscleTree(tree);
   const target = t.nodes.find((n) => n.id === nodeId);
   if (!target) return { tree: t, changed: false, touchDates: [] };
   const dropIds = new Set([nodeId]);
+  const homing = [];
   t.nodes.forEach((n) => {
-    if (n.parentId === nodeId) dropIds.add(n.id);
+    if (n.parentId !== nodeId) return;
+    if (regionOfLeaf(n.id) && isCustomGroupId(nodeId)) homing.push(n.id);
+    else dropIds.add(n.id);
   });
   const touchDates = new Set();
   Object.keys(t.cells).forEach((k) => {
     const [id, date] = k.split('|');
-    if (dropIds.has(id)) touchDates.add(date);
+    if (dropIds.has(id) || homing.includes(id)) touchDates.add(date);
   });
-  const nodes = t.nodes.filter((n) => !dropIds.has(n.id));
+  const nodes = t.nodes
+    .filter((n) => !dropIds.has(n.id))
+    .map((n) => (homing.includes(n.id) ? { ...n, parentId: groupOfRegion(regionOfLeaf(n.id)).id, order: 1000 + n.order } : n));
   const cells = { ...t.cells };
   Object.keys(cells).forEach((k) => {
     const id = k.split('|')[0];
     if (dropIds.has(id)) delete cells[k];
   });
+  let parentMap = t.parentMap;
+  if (homing.length) {
+    parentMap = { ...(parentMap || {}) };
+    homing.forEach((id) => { parentMap[id] = { parent: groupOfRegion(regionOfLeaf(id)).id, at: nowMs }; });
+  }
   const next = normalizeMuscleTree({
     ...t,
     nodes: nodes.length ? nodes : defaultMuscleNodes(),
     cells: nodes.length ? cells : {},
+    parentMap,
     updatedAt: nowIsoLocal(),
   });
   return { tree: next, changed: true, touchDates: [...touchDates] };
@@ -1535,24 +1643,27 @@ const keyRowId = (key) => (isCustomMuscleId(key) ? key : regionLeafId(key));
  */
 function tableGroups(t) {
   const rootIdx = new Map(t.nodes.filter((n) => !n.parentId).map((n, i) => [n.id, i]));
-  const custom = new Map(customMuscleGroups(t).map((g) => [g.id, g]));
+  const custom = new Map(t.nodes.filter((n) => !n.parentId && isCustomGroupId(n.id)).map((n) => [n.id, n]));
   const at = (id) => (rootIdx.has(id) ? rootIdx.get(id) : -1000 + BEGINNER_GROUPS.findIndex((g) => g.id === id));
+  const kidKeys = (id) => t.nodes
+    .filter((n) => n.parentId === id)
+    .map((n) => (isCustomMuscleId(n.id) ? n.id : regionOfLeaf(n.id)))
+    .filter(Boolean);
+  const placed = new Set(t.nodes.filter((n) => n.parentId && regionOfLeaf(n.id)).map((n) => regionOfLeaf(n.id)));
   const out = [];
   [...BEGINNER_GROUPS.map((g) => g.id), ...custom.keys()]
     .sort((a, b) => at(a) - at(b))
     .forEach((id) => {
       if (custom.has(id)) {
-        const g = custom.get(id);
-        out.push({ id, name: g.name, keys: g.muscles.map((m) => m.id), fixed: false, solo: false });
+        const keys = kidKeys(id).filter((k) => !isRowHidden(t, keyRowId(k)));
+        out.push({ id, name: custom.get(id).name, keys, fixed: false, solo: false });
         return;
       }
       if (isRowHidden(t, id)) return;
       const group = BEGINNER_GROUPS.find((g) => g.id === id);
-      const kids = t.nodes
-        .filter((n) => n.parentId === id)
-        .map((n) => (isCustomMuscleId(n.id) ? n.id : group.regions.includes(regionOfLeaf(n.id)) ? regionOfLeaf(n.id) : ''))
-        .filter(Boolean);
-      const keys = [...kids, ...group.regions.filter((rid) => !kids.includes(rid))]
+      const kids = kidKeys(id);
+      // Rows of a tree not laid out yet still show under their standard group.
+      const keys = [...kids, ...group.regions.filter((rid) => !kids.includes(rid) && !placed.has(rid))]
         .filter((k) => !isRowHidden(t, keyRowId(k)));
       if (!keys.length) return;
       out.push({ id, name: groupLabel(t, id), keys, fixed: true, solo: keys.length === 1 && !isCustomMuscleId(keys[0]) });

@@ -9281,6 +9281,7 @@ body.calorie-muscle-pane #calorie-view {
 }
 
 .muscle-settings-list {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -9290,32 +9291,37 @@ body.calorie-muscle-pane #calorie-view {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Named areas so missing buttons (no +, no move select) just leave their cell empty. */
+/* Named areas so missing buttons just leave their cell empty; child rows put ย้าย where groups have +. */
 .muscle-settings-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  grid-template-areas: "pick add ren del" "move move move move";
+  grid-template-columns: 1.75rem minmax(0, 1fr) 2.6rem 2.9rem 2.6rem;
+  grid-template-areas: "grip pick add ren del";
   gap: 0.25rem;
   align-items: center;
 }
+.muscle-settings-row > .muscle-settings-grip { grid-area: grip; }
 .muscle-settings-row > .muscle-settings-pick { grid-area: pick; }
 .muscle-settings-row > .muscle-settings-add { grid-area: add; }
 .muscle-settings-row > .muscle-settings-rename { grid-area: ren; }
 .muscle-settings-row > .muscle-settings-del,
 .muscle-settings-row > .muscle-settings-hide { grid-area: del; }
-.muscle-settings-row > .muscle-settings-move { grid-area: move; }
+.muscle-settings-row > .muscle-settings-move { grid-area: add; }
 
 .muscle-settings-move {
-  justify-self: start;
-  width: min(100%, 14rem);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
   min-height: 2rem;
   font: inherit;
   font-size: 0.72rem;
+  text-align: center;
+  text-align-last: center;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface, var(--bg));
   color: var(--text);
-  padding: 0 0.3rem;
+  padding: 0 0.15rem;
+  cursor: pointer;
 }
 
 .muscle-settings-row.is-child {
@@ -9411,13 +9417,15 @@ body.calorie-muscle-pane #calorie-view {
 .muscle-settings-rename,
 .muscle-settings-del,
 .muscle-settings-hide {
+  width: 100%;
   min-height: 2rem;
-  padding: 0.3rem 0.45rem;
+  padding: 0.3rem 0.2rem;
   font-size: 0.72rem;
   white-space: nowrap;
 }
 
 .muscle-settings-add {
+  width: 100%;
   min-width: 2rem;
   font-size: 0.95rem;
   font-weight: 700;
@@ -9431,6 +9439,78 @@ body.calorie-muscle-pane #calorie-view {
 .muscle-settings-hide[disabled] {
   opacity: 0.45;
   cursor: default;
+}
+
+/* Drag handle: touch-action none so a finger drag moves the row instead of scrolling the list. */
+.muscle-settings-grip {
+  appearance: none;
+  width: 1.75rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  letter-spacing: -0.12em;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+button.muscle-settings-grip:hover,
+.muscle-settings-row.is-dragging .muscle-settings-grip {
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: var(--text);
+}
+
+body.muscle-dragging,
+body.muscle-dragging * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  cursor: grabbing !important;
+}
+
+.muscle-settings-row.is-dragging {
+  position: relative;
+  z-index: 3;
+  pointer-events: none;
+  background: var(--surface, var(--bg));
+  border-radius: 10px;
+  box-shadow: 0 8px 22px color-mix(in srgb, #0f172a 24%, transparent);
+}
+.muscle-settings-row.is-dragging > .muscle-settings-grip {
+  pointer-events: auto;
+}
+.muscle-settings-row.is-dragging .muscle-settings-pick {
+  box-shadow: 0 6px 18px color-mix(in srgb, #0f172a 22%, transparent);
+  background: color-mix(in srgb, #16a34a 10%, var(--surface, var(--bg)));
+}
+
+.muscle-settings-list.is-dragging-group .muscle-settings-row.is-child {
+  display: none;
+}
+
+.muscle-settings-row.is-drop-into .muscle-settings-pick {
+  outline: 2px dashed #16a34a;
+  outline-offset: -2px;
+  background: color-mix(in srgb, #16a34a 12%, var(--surface, var(--bg)));
+}
+
+.muscle-drop-line {
+  position: absolute;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: #16a34a;
+  pointer-events: none;
+  z-index: 4;
+}
+.muscle-drop-line[hidden] {
+  display: none;
 }
 
 @media (max-width: 420px) {
