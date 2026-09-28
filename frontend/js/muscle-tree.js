@@ -563,14 +563,13 @@ function restCellHtml(t, r, todayKey, cardio, depthCls, leafCls) {
   if (!step) {
     return `<td class="${base} is-none" data-node-id="${esc(r.id)}" title="ยังไม่เคยเล่น"><span class="mt-rest-val">–</span></td>`;
   }
-  const label = days === 0 ? 'วันนี้' : String(days);
   const tip = days === 0
     ? `เล่นวันนี้ · ${step.label}`
     : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${step.label}`;
   const fadeCls = step.fade > 0 ? ' is-fading' : '';
   const fadeStyle = step.fade > 0 ? ` style="--rest-fade:${Math.round(step.fade * 100)}%"` : '';
   return `<td class="${base} rest-tone-${esc(step.tone)}${fadeCls}"${fadeStyle} data-node-id="${esc(r.id)}" title="${esc(tip)}">
-    <span class="mt-rest-val${days === 0 ? ' is-today' : ''}">${esc(label)}</span>
+    <span class="mt-rest-val"><b class="mt-rest-n">${days}</b><span class="mt-rest-lb">${esc(step.label)}</span></span>
   </td>`;
 }
 

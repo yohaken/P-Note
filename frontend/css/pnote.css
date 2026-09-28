@@ -9046,7 +9046,7 @@ body.calorie-muscle-pane #calorie-view {
 }
 
 .muscle-table {
-  --mt-name-w: 9.75rem;
+  --mt-name-w: 7.25rem;
   border-collapse: separate;
   border-spacing: 0;
   width: max-content;
@@ -9474,9 +9474,9 @@ body.calorie-muscle-pane #calorie-view {
   position: sticky;
   left: calc(var(--mt-name-w) + 1.6rem);
   z-index: 2;
-  min-width: 2.2rem;
-  width: 2.2rem;
-  max-width: 2.2rem;
+  min-width: 4.9rem;
+  width: 4.9rem;
+  max-width: 4.9rem;
   padding: 0 0.12rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -9503,9 +9503,28 @@ body.calorie-muscle-pane #calorie-view {
   color: var(--mt-rest-fg, var(--text-muted));
   background: var(--mt-rest-bg, transparent);
 }
-.muscle-table .mt-rest-val.is-today {
-  font-size: 0.52rem;
-  letter-spacing: -0.01em;
+.muscle-table .mt-col-rest .mt-rest-val {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  padding: 0 0.35rem;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.muscle-table .mt-rest-n {
+  flex: 0 0 auto;
+  font-weight: 850;
+}
+.muscle-table .mt-rest-lb {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.56rem;
+  font-weight: 700;
+}
+.muscle-table .mt-col-rest.is-none .mt-rest-val {
+  justify-content: center;
 }
 .muscle-table tr.is-group .mt-rest-val {
   margin: 0.05rem 0;
