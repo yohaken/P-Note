@@ -224,7 +224,7 @@ export function leafLabelPath(tree, nodeId) {
  * Cardio rows log real kcal burned (feeds the calorie balance).
  * Every other row is a strength mark: counts sessions, burns 0 kcal.
  */
-export const CARDIO_NAME_RE = /คาดิโอ|คาร์ดิโอ|cardio/i;
+export const CARDIO_NAME_RE = /คาดิโอ|คาร์ดิโอ|cardio|วิ่ง|เดิน|ปั่น|จักรยาน|ว่ายน้ำ|กระโดดเชือก/i;
 
 export function isCardioNode(tree, nodeId) {
   const t = normalizeMuscleTree(tree);

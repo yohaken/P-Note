@@ -15,7 +15,7 @@ import {
   muscleTreeLabels,
   normalizeMuscleTree,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=303';
+} from './muscle-tree.js?v=304';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -148,6 +148,12 @@ export function formatExerciseCell(burn, label = '') {
   return lab ? `${b},${lab}` : `${b},`;
 }
 
+/** Only cardio burns kcal · a bare number ("150" → "ออกกำลัง 150") is legacy cardio kcal. */
+export function isCardioLabel(label) {
+  const s = String(label || '').trim();
+  return !s || /^ออกกำลัง \d+$/.test(s) || CARDIO_NAME_RE.test(s);
+}
+
 export function normalizeExercises(raw) {
   const list = Array.isArray(raw) ? raw : [];
   const out = [];
@@ -156,7 +162,7 @@ export function normalizeExercises(raw) {
     if (!cell) continue;
     const p = parseExerciseCell(cell);
     if (p.empty) continue;
-    out.push(formatExerciseCell(p.burn, p.label));
+    out.push(formatExerciseCell(isCardioLabel(p.label) ? p.burn : 0, p.label));
     if (out.length >= MAX_EXERCISE_SLOTS) break;
   }
   return out;
@@ -416,7 +422,7 @@ export const QUICK_EXERCISE_BATCH = 3;
 export function appendQuickExercises(calorie, text, dateKey = toDateKey(new Date())) {
   const cells = parseExerciseList(text, { maxItems: QUICK_EXERCISE_BATCH });
   if (!cells.length) {
-    const err = new Error('ใส่ท่า,แคล ได้สูงสุด 3 บรรทัด เช่น\nอก,120\nไหล,80');
+    const err = new Error('ใส่ท่า,1 หรือ คาดิโอ,แคล ได้สูงสุด 3 บรรทัด เช่น\nอก,1\nคาดิโอ,200');
     err.code = 'bad_exercise';
     throw err;
   }
@@ -1334,7 +1340,7 @@ export function dayExerciseEntries(calorie, day) {
       out.push({ nodeId: move.id, label: move.label, burn, cardio: move.cardio });
       return;
     }
-    out.push({ nodeId: null, label: p.label || `ออกกำลัง ${p.burn}`, burn: p.burn, cardio: false });
+    out.push({ nodeId: null, label: p.label || `ออกกำลัง ${p.burn}`, burn: p.burn, cardio: isCardioLabel(p.label) });
   });
   if (dateKey) {
     catalog.forEach((g) => g.moves.forEach((m) => {

@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=303';
+} from './auth.js?v=304';
 import {
   addTag,
   addNotepad,
@@ -131,7 +131,7 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
-} from './calorie.js?v=303';
+} from './calorie.js?v=304';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -145,8 +145,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=303';
-import { mountDrumPicker } from './drum-picker.js?v=303';
+} from './muscle-tree.js?v=304';
+import { mountDrumPicker } from './drum-picker.js?v=304';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -197,7 +197,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=227';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=303';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=304';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
@@ -3017,14 +3017,14 @@ function paintExerciseList(flashId = '') {
     host.innerHTML = `<p class="cq-ex-empty">ยังไม่มีท่า · หมุนเลือกแล้วกดบันทึก หรือกด + เพื่อใส่หลายท่า</p>${EX_MANAGE_BTN}`;
     return;
   }
-  const burnsKcal = (e) => !e.nodeId || e.cardio;
+  const burnsKcal = (e) => e.cardio;
   const total = exEntries.reduce((s, e) => s + (burnsKcal(e) ? Number(e.burn) || 0 : 0), 0);
   const rows = exEntries.map((e, i) => {
     const tree = Boolean(e.nodeId);
     const kcal = burnsKcal(e);
     const cls = `cq-ex-row${tree && e.nodeId === flashId ? ' is-flash' : ''}${tree ? '' : ' is-free'}${e.cardio ? ' is-cardio' : ''}`;
     const tip = !tree
-      ? 'ท่าพิมพ์เอง (ไม่อยู่ในตารางกล้ามเนื้อ) · นับแคล · ลบได้'
+      ? `ท่าพิมพ์เอง (ไม่อยู่ในตารางกล้ามเนื้อ) · ${e.cardio ? 'คาดิโอ · หักดุลแคล' : 'ไม่นับแคล'} · ลบได้`
       : e.cardio ? 'คาดิโอ · หักดุลแคล · แตะเพื่อแก้' : 'ท่ากล้าม · ไม่นับแคล · แตะเพื่อแก้';
     const val = kcal ? (e.burn > 0 ? `−${e.burn}` : '0') : '✓';
     return `<div class="${cls}"><button type="button" class="cq-ex-pick" data-ex-pick="${i}" title="${escAttr(tip)}"${tree ? '' : ' disabled'}><span class="cq-ex-name">${escapeHtml(e.label)}</span><span class="cq-ex-kcal">${val}</span></button><button type="button" class="cq-ex-del" data-ex-del="${i}" aria-label="ลบ ${escAttr(e.label)}">×</button></div>`;
@@ -3280,7 +3280,7 @@ function musQuickHintText() {
   const day = sheet.days.find((d) => d.date === toDateKey());
   const list = day ? formatExerciseDisplay(day) : '';
   const mus = day?.mus;
-  const base = `ท่า,แคล ได้สูงสุด ${QUICK_EXERCISE_BATCH} บรรทัด · แตะชื่อท่าเก่าเพื่อลดพิมพ์ผิด`;
+  const base = `ท่า,1 · มีแค่คาดิโอที่นับแคล · ได้สูงสุด ${QUICK_EXERCISE_BATCH} บรรทัด · แตะชื่อท่าเก่าเพื่อลดพิมพ์ผิด`;
   if (list) {
     return `วันนี้: ${list}${mus != null ? ` · รวม ${mus} kcal` : ''} · ${base}`;
   }
@@ -3919,7 +3919,7 @@ function submitCalorieQuick() {
           });
         } else {
           const exercises = parseExerciseList(text);
-          if (!exercises.length) throw new Error('ใส่ท่า,แคล เช่น\nอก,120\nไหล,80');
+          if (!exercises.length) throw new Error('ใส่ท่า,1 หรือ คาดิโอ,แคล เช่น\nอก,1\nคาดิโอ,200');
           persistCalorie(patchDay(sheet, dayId, { exercises }), {
             status: `บันทึกออกกำลัง ${exercises.length} รายการแล้ว`,
             fullRender: true,
