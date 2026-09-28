@@ -3,7 +3,7 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=315';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=316';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },
@@ -187,6 +187,8 @@ const GUESS_RULES = [
   [/ท้อง\s*ข้าง|ข้าง\s*ท้อง|เอวข้าง|oblique/i, ['obliques'], ['abs']],
   [/ก้น\s*ข้าง|glute med/i, ['glute-med']],
   [/ก้น|glute/i, ['glutes'], ['hamstrings']],
+  [/ขาท่อนล่าง|ขาล่าง|lower leg/i, ['calves'], ['tibialis']],
+  [/ขาท่อนบน|ขาบน|thigh/i, ['quads', 'hamstrings'], ['adductors', 'glutes']],
   [/น่อง|calf|calves/i, ['calves']],
   [/หน้าแข้ง|tibialis/i, ['tibialis']],
   [/บ่า|trap|shrug|ยักไหล่/i, ['traps-upper']],

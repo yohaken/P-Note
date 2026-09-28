@@ -14,7 +14,7 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=315';
+} from './muscle-map.js?v=316';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -304,6 +304,53 @@ export function applyBeginnerLayout(tree) {
     tree: normalizeMuscleTree({ ...t, nodes, cells, updatedAt: nowIsoLocal() }),
     touchDates: [...touch].sort(),
   };
+}
+
+const LEG_ROOT_RE = /^(ขา|legs?)$/i;
+const LOWER_LEG_REGIONS = new Set(['calves', 'tibialis']);
+const GLUTE_REGIONS = new Set(['glutes', 'glute-med']);
+export const LEG_SPLIT_NAMES = ['ก้น', 'ขาท่อนบน', 'ขาท่อนล่าง'];
+
+/**
+ * Split a whole-leg group into ก้น (gluteal) · ขาท่อนบน (thigh) · ขาท่อนล่าง (leg/crus)
+ * by each move's primary muscles. Cells stay keyed by move id, so history moves along.
+ * @returns {{ tree: object, moved: number }}
+ */
+export function splitLegGroups(tree) {
+  const t = normalizeMuscleTree(tree);
+  let nodes = t.nodes.map((n) => ({ ...n }));
+  const legRoots = nodes.filter((n) => !n.parentId && LEG_ROOT_RE.test(n.name.trim()));
+  if (!legRoots.length) return { tree: t, moved: 0 };
+  const hasOwnCells = (id) => Object.keys(t.cells).some((k) => k.startsWith(`${id}|`) && t.cells[k] > 0);
+  const order = Math.min(...legRoots.map((r) => r.order));
+  const targets = LEG_SPLIT_NAMES.map((name, i) => {
+    let root = nodes.find((n) => !n.parentId && n.name.trim() === name);
+    if (!root) {
+      root = { id: newId('m'), name, parentId: null, order: order + i * 0.01 };
+      nodes.push(root);
+    }
+    return root;
+  });
+  const [glute, upper, lower] = targets;
+  let moved = 0;
+  legRoots.forEach((root) => {
+    nodes.filter((n) => n.parentId === root.id).forEach((child) => {
+      const m = resolveMoveMuscles(child, root.name);
+      const p = m.p;
+      let dest = upper;
+      if (p.length && p.every((x) => LOWER_LEG_REGIONS.has(x))) dest = lower;
+      else if (p.length && p.every((x) => GLUTE_REGIONS.has(x))) dest = glute;
+      const kids = nodes.filter((n) => n.parentId === dest.id);
+      child.parentId = dest.id;
+      child.order = kids.length ? Math.max(...kids.map((k) => k.order)) + 1 : 0;
+      moved += 1;
+    });
+  });
+  const legIds = new Set(legRoots.map((r) => r.id));
+  nodes = nodes.filter((n) => !legIds.has(n.id) || hasOwnCells(n.id) || nodes.some((c) => c.parentId === n.id));
+  const roots = nodes.filter((n) => !n.parentId).sort((a, b) => a.order - b.order);
+  roots.forEach((r, i) => { r.order = i; });
+  return { tree: normalizeMuscleTree({ ...t, nodes, updatedAt: nowIsoLocal() }), moved };
 }
 
 export function nextRestTone(tone) {
@@ -733,11 +780,12 @@ function moveRestDays(t, move) {
 
 export const SECONDARY_DOSE = 0.5;
 
-/** Regions a strength group stands for: its moves' primaries, else a guess from the group name. */
+/** Regions a strength group stands for: what its name implies, else its moves' primaries. */
 function groupRegions(t, r, moves) {
+  const named = resolveMoveMuscles({ name: r.name }, '').p;
+  if (named.length) return new Set(named);
   const set = new Set();
   (r.childIds || []).forEach((id) => moves.get(id)?.p.forEach((x) => set.add(x)));
-  if (!set.size) resolveMoveMuscles({ name: r.name }, '').p.forEach((x) => set.add(x));
   return set;
 }
 

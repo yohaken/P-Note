@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=315';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=315';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=315';
-import { CONFIG } from './config.js?v=315';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=315';
-import { nowIso } from './clock.js?v=315';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=316';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=316';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=316';
+import { CONFIG } from './config.js?v=316';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=316';
+import { nowIso } from './clock.js?v=316';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=315';
+} from './auth.js?v=316';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=315';
+} from './notes.js?v=316';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=315';
+} from './sheet.js?v=316';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -134,7 +134,7 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
-} from './calorie.js?v=315';
+} from './calorie.js?v=316';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -161,7 +161,8 @@ import {
   setNodeMuscles,
   setRestProfile,
   applyBeginnerLayout,
-} from './muscle-tree.js?v=315';
+  splitLegGroups,
+} from './muscle-tree.js?v=316';
 import {
   EQUIPMENT_TH,
   beginnerGroupOfRegion,
@@ -178,8 +179,8 @@ import {
   bodyFatHaloModel,
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
-} from './muscle-map.js?v=315';
-import { mountDrumPicker } from './drum-picker.js?v=315';
+} from './muscle-map.js?v=316';
+import { mountDrumPicker } from './drum-picker.js?v=316';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -187,8 +188,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=315';
-import { bindComposableInput } from './text-input.js?v=315';
+} from './note-text.js?v=316';
+import { bindComposableInput } from './text-input.js?v=316';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -229,14 +230,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=315';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=315';
+} from './schedule.js?v=316';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=316';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=315';
+} from './app-icons.js?v=316';
 import {
   allIcons,
   bestIconForLabel,
@@ -245,7 +246,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=315';
+} from './icons.js?v=316';
 import {
   notificationPermission,
   notificationSupported,
@@ -254,27 +255,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=315';
+} from './note-notify.js?v=316';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=315';
+} from './files.js?v=316';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=315');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=316');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=315');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=316');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=315');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=316');
   return userContextModPromise;
 }
 
@@ -298,7 +299,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=315';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=316';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -307,11 +308,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=315';
-import { normalizeNotesData } from './notes.js?v=315';
-import { SaveManager } from './sync.js?v=315';
-import { emptyDeletions } from './deletions.js?v=315';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=315';
+} from './remote.js?v=316';
+import { normalizeNotesData } from './notes.js?v=316';
+import { SaveManager } from './sync.js?v=316';
+import { emptyDeletions } from './deletions.js?v=316';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=316';
 
 const state = {
   notesData: {
@@ -697,6 +698,7 @@ const els = {
   muscleManageBackdrop: document.getElementById('muscle-manage-backdrop'),
   muscleManageClose: document.getElementById('muscle-manage-close'),
   muscleBeginnerLayout: document.getElementById('muscle-beginner-layout'),
+  muscleLegSplit: document.getElementById('muscle-leg-split'),
   muscleRestBtn: document.getElementById('muscle-rest-btn'),
   muscleRestOverlay: document.getElementById('muscle-rest-overlay'),
   muscleRestBackdrop: document.getElementById('muscle-rest-backdrop'),
@@ -3925,6 +3927,27 @@ function onMuscleBeginnerLayout() {
   const { tree, touchDates } = applyBeginnerLayout(ensureCaloriePayload().muscleTree);
   muscleSelectedId = null;
   persistMuscleTree(tree, { touchDates, status: 'จัดเป็น 10 กลุ่มหลักแล้ว' });
+  paintMuscleSheet();
+  paintMuscleSettingsList();
+}
+
+function onMuscleLegSplit() {
+  if (!requireSyncReady()) return;
+  const preview = splitLegGroups(ensureCaloriePayload().muscleTree);
+  if (!preview.moved) {
+    window.alert('ไม่พบหมวดชื่อ "ขา" ที่ต้องแยก');
+    return;
+  }
+  const ok = window.confirm(
+    `แยกหมวด "ขา" (${preview.moved} ท่า) ตามกายวิภาค?\n\n`
+    + '• ก้น — ท่าที่ใช้ก้นเป็นหลัก (เช่น ข้างขา)\n'
+    + '• ขาท่อนบน — ต้นขาหน้า/หลัง/ด้านใน\n'
+    + '• ขาท่อนล่าง — น่อง/หน้าแข้ง\n\n'
+    + 'ชื่อท่าและวันที่บันทึกไว้อยู่ครบ',
+  );
+  if (!ok) return;
+  muscleSelectedId = null;
+  persistMuscleTree(preview.tree, { status: 'แยกขาเป็น 3 ส่วนแล้ว' });
   paintMuscleSheet();
   paintMuscleSettingsList();
 }
@@ -10376,6 +10399,7 @@ async function init({ fromBoot = false } = {}) {
     if (part) onMuscleEditTap(part.getAttribute('data-region'));
   });
   els.muscleBeginnerLayout?.addEventListener('click', () => onMuscleBeginnerLayout());
+  els.muscleLegSplit?.addEventListener('click', () => onMuscleLegSplit());
   els.muscleEditSave?.addEventListener('click', () => saveMuscleEdit(false));
   els.muscleEditAuto?.addEventListener('click', () => saveMuscleEdit(true));
   els.muscleRestClose?.addEventListener('click', () => closeMuscleRest());
