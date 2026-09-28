@@ -3703,11 +3703,6 @@ function paintMuscleBodyMap(tree, todayKey) {
   if (!els.muscleBodyMap) return;
   const restMap = regionRestMap(tree, todayKey);
   els.muscleBodyMap.innerHTML = renderBodyPairHtml(musclePaintRest(tree, restMap));
-  const level = tree.restProfile?.level || 'beginner';
-  els.muscleBodyCard?.querySelectorAll('[data-rest-level]').forEach((b) => {
-    b.classList.toggle('is-active', b.dataset.restLevel === level);
-    b.setAttribute('aria-pressed', b.dataset.restLevel === level ? 'true' : 'false');
-  });
 }
 
 function fmtDays(n) {
@@ -3737,7 +3732,7 @@ function paintMuscleRegionSheet() {
   const restMap = regionRestMap(tree, todayKey);
   const info = restMap.get(region.id);
   const rest = regionRestDays(tree.restProfile, region.id);
-  const def = defaultRegionRest(region.id, tree.restProfile.level);
+  const def = defaultRegionRest(region.id);
   const overridden = tree.restProfile.days[region.id] != null;
   const step = info ? restStep(tree.restScale, info.slot) : null;
   const status = info
@@ -3774,8 +3769,8 @@ function paintMuscleRegionSheet() {
       <strong class="mr-rest-val">${fmtDays(rest)} วัน</strong>
       <button type="button" class="btn btn-secondary mr-step" data-region-rest="0.5" aria-label="เพิ่มวันพัก">+</button>
       ${overridden
-    ? `<button type="button" class="btn btn-secondary mr-step mr-rest-reset" data-region-rest="reset" title="กลับไปใช้ค่าตามงานวิจัย">ค่าเริ่มต้น ${fmtDays(def)}</button>`
-    : `<span class="mr-rest-def">ค่าตามงานวิจัย (${tree.restProfile.level === 'trained' ? 'ฝึกประจำ' : 'มือใหม่'})</span>`}
+    ? `<button type="button" class="btn btn-secondary mr-step mr-rest-reset" data-region-rest="reset" title="กลับไปใช้ค่าตั้งต้น">ค่าตั้งต้น ${fmtDays(def)}</button>`
+    : '<span class="mr-rest-def">ค่าตั้งต้น · กด − / + ปรับให้เข้ากับตัวเอง</span>'}
     </div>
     ${renderBodyPairHtml(musclePaintRoles(mapP, mapS, region.id), { compact: true })}
     <p class="cq-ex-map-cap">${selected
@@ -3795,16 +3790,6 @@ function onMuscleRegionRest(delta) {
     profile.days[muscleRegionId] = Math.min(14, Math.max(0.5, cur + Number(delta)));
   }
   persistMuscleTree(setRestProfile(tree, profile), { status: '' });
-  paintMuscleSheet();
-}
-
-function onMuscleRestLevel(level) {
-  if (!requireSyncReady()) return;
-  const tree = normalizeMuscleTree(ensureCaloriePayload().muscleTree);
-  if (tree.restProfile.level === level) return;
-  persistMuscleTree(setRestProfile(tree, { ...tree.restProfile, level }), {
-    status: level === 'trained' ? 'ใช้วันพักแบบฝึกประจำ' : 'ใช้วันพักแบบมือใหม่',
-  });
   paintMuscleSheet();
 }
 
@@ -3844,7 +3829,7 @@ function onLogExerciseToday(name) {
 function onMuscleBeginnerLayout() {
   if (!requireSyncReady()) return;
   const ok = window.confirm(
-    'จัดตารางเป็น 10 กลุ่มกล้ามแบบมือใหม่?\n\n'
+    'จัดตารางเป็น 10 กลุ่มกล้ามหลัก?\n\n'
     + '• อก · หลัง · ไหล่ · แขนหน้า · แขนหลัง · หน้าท้อง · ก้น · ต้นขาหน้า · ต้นขาหลัง · น่อง (+ คาร์ดิโอ)\n'
     + '• แถวกล้ามย่อยเดิม (อกบน/หน้าขา/ไหล่ข้าง ฯลฯ) รวมเป็น "ไม่ระบุท่า" ในกลุ่มนั้น · วันที่บันทึกย้ายตามครบ\n'
     + '• เพิ่มท่ายอดนิยม 1–3 ท่าต่อกลุ่ม · ท่าที่สร้างเองยังอยู่',
@@ -3852,7 +3837,7 @@ function onMuscleBeginnerLayout() {
   if (!ok) return;
   const { tree, touchDates } = applyBeginnerLayout(ensureCaloriePayload().muscleTree);
   muscleSelectedId = null;
-  persistMuscleTree(tree, { touchDates, status: 'จัดเป็นกลุ่มมือใหม่แล้ว' });
+  persistMuscleTree(tree, { touchDates, status: 'จัดเป็น 10 กลุ่มหลักแล้ว' });
   paintMuscleSheet();
   paintMuscleSettingsList();
 }
@@ -10275,11 +10260,6 @@ async function init({ fromBoot = false } = {}) {
     });
   });
   els.muscleBodyCard?.addEventListener('click', (e) => {
-    const lvl = e.target?.closest?.('[data-rest-level]');
-    if (lvl) {
-      onMuscleRestLevel(lvl.dataset.restLevel);
-      return;
-    }
     const part = e.target?.closest?.('[data-region]');
     if (part) openMuscleRegion(part.getAttribute('data-region'));
   });

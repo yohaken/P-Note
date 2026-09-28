@@ -224,7 +224,6 @@ export function resolveMoveMuscles(node, parentName = '') {
 
 export function normalizeRestProfile(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
-  const level = src.level === 'trained' ? 'trained' : 'beginner';
   const days = {};
   if (src.days && typeof src.days === 'object') {
     Object.keys(src.days).forEach((id) => {
@@ -233,18 +232,18 @@ export function normalizeRestProfile(raw) {
       if (Number.isFinite(n) && n >= 0.5 && n <= 14) days[id] = n;
     });
   }
-  return { level, days };
+  return { days };
 }
 
-export function defaultRegionRest(regionId, level = 'beginner') {
+export function defaultRegionRest(regionId) {
   const r = REGION_BY_ID.get(regionId);
   if (!r) return REST_READY_SLOT;
-  return r.rest[level === 'trained' ? 1 : 0];
+  return r.rest[0];
 }
 
 export function regionRestDays(profile, regionId) {
   const p = normalizeRestProfile(profile);
-  return p.days[regionId] ?? defaultRegionRest(regionId, p.level);
+  return p.days[regionId] ?? defaultRegionRest(regionId);
 }
 
 /**

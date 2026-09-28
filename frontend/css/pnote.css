@@ -9633,28 +9633,6 @@ body.calorie-muscle-pane #calorie-view {
   font-weight: 700;
   color: var(--text-muted);
 }
-.mbc-level {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.mbc-level-btn {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.66rem;
-  font-weight: 700;
-  padding: 0.22rem 0.6rem;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.mbc-level-btn.is-active {
-  background: var(--accent);
-  color: #fff;
-}
 .bm-pair {
   display: flex;
   justify-content: center;
