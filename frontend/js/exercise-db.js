@@ -784,7 +784,7 @@ export const LIBRARY_IMAGE_IDS = {
   'cable-crossover': 'Cable_Crossover',
   'db-pullover': 'Bent-Arm_Dumbbell_Pullover',
   'dips': 'Dips_-_Chest_Version',
-  'lat-pulldown': 'Wide-Grip_Lat_Pulldown',
+  'lat-pulldown': 'Close-Grip_Front_Lat_Pulldown',
   'wide-pulldown': 'Wide-Grip_Lat_Pulldown',
   'close-pulldown': 'V-Bar_Pulldown',
   'reverse-pulldown': 'Underhand_Cable_Pulldowns',

@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=327';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=328';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -18,7 +18,7 @@ import {
   muscleSlotsForDate,
   normalizeMuscleTree,
   toMuscleLayout,
-} from './muscle-tree.js?v=327';
+} from './muscle-tree.js?v=328';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;

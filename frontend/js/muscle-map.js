@@ -3,8 +3,8 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=327';
-import { EXERCISE_DB, LIBRARY_IMAGE_IDS, exerciseImageUrls } from './exercise-db.js?v=327';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=328';
+import { EXERCISE_DB, LIBRARY_IMAGE_IDS, exerciseImageUrls } from './exercise-db.js?v=328';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },
@@ -112,7 +112,7 @@ export const EXERCISE_LIBRARY = [
   ex('db-pullover', 'ดัมเบลพูลโอเวอร์', 'Dumbbell pullover', 'db', ['chest-lower'], ['lats', 'triceps', 'serratus']),
   ex('dips', 'ดิปบาร์คู่', 'Chest dip', 'bw', ['chest-lower'], ['triceps', 'delt-front', 'chest-upper'], ['ดิปอก', 'ดิป', 'Parallel-bar dip', 'Dips', 'Dip']),
 
-  ex('lat-pulldown', 'ดึงบาร์ลงหน้าอก', 'Lat pulldown', 'cable', ['lats'], ['biceps', 'mid-back', 'delt-rear', 'forearms']),
+  ex('lat-pulldown', 'ดึงบาร์ลงจับกลาง', 'Lat pulldown', 'cable', ['lats'], ['biceps', 'mid-back', 'delt-rear', 'forearms'], ['ดึงบาร์ลงหน้าอก', 'จับกลาง', 'Medium-grip lat pulldown']),
   ex('wide-pulldown', 'ดึงบาร์ลงมือกว้าง', 'Wide-grip lat pulldown', 'cable', ['lats'], ['mid-back', 'delt-rear', 'biceps']),
   ex('close-pulldown', 'ดึงบาร์ลงมือแคบ (V-bar)', 'Close-grip lat pulldown', 'cable', ['lats'], ['biceps', 'mid-back', 'forearms']),
   ex('reverse-pulldown', 'ดึงบาร์ลงมือหงาย', 'Reverse-grip lat pulldown', 'cable', ['lats'], ['biceps', 'mid-back']),
@@ -258,7 +258,7 @@ export const EXERCISE_LIBRARY = [
  */
 export const BEGINNER_GROUPS = [
   { id: 'bg-chest', name: 'อก', regions: ['chest-upper', 'chest-lower', 'serratus'], moves: ['วิดพื้น', 'เบนช์เพรส', 'เครื่องดันอก'] },
-  { id: 'bg-back', name: 'หลัง', regions: ['lats', 'mid-back', 'lower-back', 'traps-upper', 'neck'], moves: ['ดึงบาร์ลงหน้าอก', 'นั่งดึงเคเบิล', 'ดึงข้อ'] },
+  { id: 'bg-back', name: 'หลัง', regions: ['lats', 'mid-back', 'lower-back', 'traps-upper', 'neck'], moves: ['ดึงบาร์ลงจับกลาง', 'นั่งดึงเคเบิล', 'ดึงข้อ'] },
   { id: 'bg-shoulders', name: 'ไหล่', regions: ['delt-front', 'delt-side', 'delt-rear'], moves: ['ดันไหล่เหนือศีรษะ', 'ยกดัมเบลข้างลำตัว', 'ฟลายไหล่หลัง'] },
   { id: 'bg-biceps', name: 'แขนหน้า', regions: ['biceps', 'forearms'], moves: ['ดัมเบลเคิร์ล', 'แฮมเมอร์เคิร์ล'] },
   { id: 'bg-triceps', name: 'แขนหลัง', regions: ['triceps'], moves: ['เคเบิลกดแขนหลัง', 'เหยียดแขนหลังเหนือศีรษะ'] },
