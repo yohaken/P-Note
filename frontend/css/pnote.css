@@ -9208,7 +9208,7 @@ body.calorie-muscle-pane #calorie-view {
 
 .muscle-settings-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 0.3rem;
   align-items: center;
 }
@@ -9610,6 +9610,247 @@ body.calorie-muscle-pane #calorie-view {
   font-weight: 700;
   color: var(--mt-rest-fg);
   background: var(--mt-rest-bg);
+}
+
+/* Body map (รูปกล้าม) */
+.muscle-body-card {
+  margin: 0 0 0.45rem;
+  padding: 0.45rem 0.5rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.mbc-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem 0.5rem;
+  margin-bottom: 0.2rem;
+}
+.mbc-title {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.mbc-level {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.mbc-level-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mbc-level-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+.bm-pair {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+}
+.bm-side {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+.bm-side figcaption {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.bm-svg {
+  display: block;
+  height: min(46vh, 17rem);
+  width: auto;
+  overflow: visible;
+}
+.bm-pair.is-compact .bm-svg {
+  height: min(30vh, 11rem);
+}
+.bm-part {
+  stroke: var(--surface);
+  stroke-width: 0.12;
+  stroke-linejoin: round;
+}
+.bm-part.is-body {
+  fill: color-mix(in srgb, var(--text-muted) 16%, var(--surface));
+}
+.bm-part.is-muscle {
+  fill: color-mix(in srgb, var(--text-muted) 30%, var(--surface));
+  cursor: pointer;
+  transition: fill 0.15s ease;
+}
+.bm-part.is-muscle.bm-rest {
+  fill: var(--mt-rest-bg);
+}
+.bm-part.is-muscle.bm-rest.is-fading {
+  fill: color-mix(in srgb, #64748b var(--rest-fade), var(--mt-rest-bg));
+}
+.bm-part.is-muscle.bm-p {
+  fill: #ef4444;
+}
+.bm-part.is-muscle.bm-s {
+  fill: color-mix(in srgb, #f97316 55%, var(--surface));
+}
+.bm-part.is-muscle.bm-focus {
+  stroke: var(--text);
+  stroke-width: 0.35;
+}
+@media (hover: hover) {
+  .bm-part.is-muscle:hover {
+    stroke: var(--text);
+    stroke-width: 0.3;
+  }
+}
+.me-key {
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.me-key.is-p {
+  background: #ef4444;
+  color: #fff;
+}
+.me-key.is-s {
+  background: color-mix(in srgb, #f97316 55%, var(--surface));
+  color: var(--text);
+}
+.cq-ex-map {
+  margin: 0.25rem 0 0.1rem;
+}
+.cq-ex-map[hidden] {
+  display: none;
+}
+.cq-ex-map-cap {
+  margin: 0.25rem 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.mr-sheet {
+  max-height: min(88vh, 44rem);
+}
+.mr-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.mr-sci {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.mr-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+.mr-badge {
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--mt-rest-fg);
+  background: var(--mt-rest-bg);
+}
+.mr-status-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.mr-rest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+.mr-rest-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.mr-rest-val {
+  min-width: 3.4rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.mr-step {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
+}
+.mr-rest-reset {
+  font-size: 0.72rem;
+}
+.mr-rest-def {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.mr-ex-head {
+  margin: 0.6rem 0 0.3rem;
+  font-size: 0.8rem;
+}
+.mr-ex-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.mr-ex-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+.mr-ex-pick {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mr-ex-row.is-selected .mr-ex-pick {
+  outline: 1.5px solid #ef4444;
+  outline-offset: -1.5px;
+}
+.mr-ex-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.mr-ex-meta {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+.mr-ex-log {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 /* วันพัก editor */

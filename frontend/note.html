@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="309">
+  <meta name="pnote-build" content="310">
   <meta name="pnote-built" content="2026-09-27T20:10:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=309"></script>
+  <script src="js/cache-bootstrap.js?v=310"></script>
   <script>
     /* Apply saved brand icon before paint (favicon + logos + install manifest). */
     (function earlyAppIcon() {
@@ -24,7 +24,7 @@
           if (IDS.indexOf(cand) >= 0) id = cand;
         }
       } catch (e) {}
-      var src = 'icons/app/' + id + '-192.png?v=309';
+      var src = 'icons/app/' + id + '-192.png?v=310';
       function setLink(rel, href, type) {
         var el = document.querySelector('link[rel="' + rel + '"]');
         if (!el) {
@@ -37,7 +37,7 @@
       }
       setLink('icon', src, 'image/png');
       setLink('apple-touch-icon', src);
-      setLink('manifest', 'manifests/' + id + '.json?v=309');
+      setLink('manifest', 'manifests/' + id + '.json?v=310');
       window.__pnoteEarlyIconId = id;
       window.__pnoteEarlyIconSrc = src;
       document.addEventListener('DOMContentLoaded', function () {
@@ -47,7 +47,7 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="css/pnote.css?v=309">
+  <link rel="stylesheet" href="css/pnote.css?v=310">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -165,7 +165,7 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/app/leaf-192.png?v=309" width="16" height="16" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/app/leaf-192.png?v=310" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
           <span class="mode-switch-ver" id="calorie-app-ver">v257</span>
           <span class="topbar-meta-sep" aria-hidden="true">·</span>
@@ -376,6 +376,16 @@
           </div>
           <span class="muscle-range" id="muscle-range"></span>
         </div>
+        <div class="muscle-body-card" id="muscle-body-card">
+          <div class="mbc-head">
+            <span class="mbc-title">รูปกล้าม · แตะกล้ามเพื่อดูท่าและตั้งวันพัก</span>
+            <div class="mbc-level" role="group" aria-label="ระดับการฝึก">
+              <button type="button" class="mbc-level-btn" data-rest-level="beginner" title="เพิ่งเริ่มฝึก (ต่ำกว่า ~6 เดือน) · พักนานกว่า">มือใหม่</button>
+              <button type="button" class="mbc-level-btn" data-rest-level="trained" title="ฝึกสม่ำเสมอ · ฟื้นเร็วกว่า ~1 วัน">ฝึกประจำ</button>
+            </div>
+          </div>
+          <div id="muscle-body-map" class="mbc-map"></div>
+        </div>
         <div class="muscle-rest-legend" id="muscle-rest-legend" aria-label="ความหมายสีคอลัมน์พัก"></div>
         <div class="muscle-scroll" id="muscle-scroll"></div>
       </div>
@@ -398,6 +408,33 @@
       </div>
     </div>
 
+    <div id="muscle-region-overlay" class="muscle-manage-overlay" hidden>
+      <div class="muscle-manage-backdrop" data-close-overlay="muscle-region-overlay"></div>
+      <div class="muscle-manage-sheet mr-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-region-title">
+        <div class="muscle-manage-head">
+          <h3 id="muscle-region-title" class="muscle-manage-title">กล้ามเนื้อ</h3>
+          <button type="button" class="btn btn-secondary muscle-tool-btn" data-close-overlay="muscle-region-overlay" aria-label="ปิด">ปิด</button>
+        </div>
+        <div id="muscle-region-body" class="mr-body"></div>
+      </div>
+    </div>
+
+    <div id="muscle-edit-overlay" class="muscle-manage-overlay" hidden>
+      <div class="muscle-manage-backdrop" data-close-overlay="muscle-edit-overlay"></div>
+      <div class="muscle-manage-sheet mr-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-edit-title">
+        <div class="muscle-manage-head">
+          <h3 id="muscle-edit-title" class="muscle-manage-title">กล้ามที่ท่านี้ใช้</h3>
+          <button type="button" class="btn btn-secondary muscle-tool-btn" data-close-overlay="muscle-edit-overlay" aria-label="ปิด">ปิด</button>
+        </div>
+        <p class="rest-edit-hint">แตะกล้าม: ครั้งแรก = <b class="me-key is-p">หลัก</b> · ครั้งที่สอง = <b class="me-key is-s">รอง</b> · ครั้งที่สาม = เอาออก</p>
+        <div id="muscle-edit-body" class="mr-body"></div>
+        <div class="muscle-toolbar-actions muscle-manage-actions">
+          <button type="button" class="btn btn-primary muscle-tool-btn" id="muscle-edit-save">บันทึก</button>
+          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-edit-auto" title="ให้แอปเดาจากชื่อท่า/คลังท่า">ใช้ค่าอัตโนมัติ</button>
+        </div>
+      </div>
+    </div>
+
     <div id="muscle-rest-overlay" class="muscle-manage-overlay" hidden>
       <div class="muscle-manage-backdrop" id="muscle-rest-backdrop"></div>
       <div class="muscle-manage-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-rest-title">
@@ -407,6 +444,7 @@
         </div>
         <p class="rest-edit-hint">พักมากี่วันแล้วหมายถึงอะไร · ตั้งชื่อให้เข้ากับร่างกายตัวเอง · แตะวงกลมเพื่อเปลี่ยนสี · 7+ วันจะค่อยๆ จางเป็นเทาภายใน 14 วัน</p>
         <div id="muscle-rest-list" class="rest-edit-list" aria-label="ระดับวันพัก"></div>
+        <p class="rest-edit-hint">ชื่อระดับอิงกล้ามที่ต้องพัก 4 วัน · กล้ามที่ฟื้นเร็ว/ช้ากว่าจะขยับระดับตามสัดส่วน (ตั้งวันพักรายกล้ามได้ที่รูปกล้าม)</p>
         <div class="muscle-toolbar-actions muscle-manage-actions">
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-rest-reset">คืนค่าเริ่มต้น</button>
         </div>
@@ -450,6 +488,7 @@
           <strong id="cq-ex-readout" class="cq-ex-readout" aria-live="polite">—</strong>
           <button type="button" class="btn btn-secondary cq-ex-add" id="cq-ex-add">+ เพิ่มท่านี้</button>
         </div>
+        <div id="cq-ex-map" class="cq-ex-map" hidden aria-label="กล้ามที่ท่านี้ใช้"></div>
         <div id="cq-ex-list" class="cq-ex-list" hidden aria-label="ท่าของวันนี้"></div>
         <input id="calorie-quick-label" class="calorie-quick-label" type="text" maxlength="80" placeholder="ชื่อมื้อ (ไม่บังคับ)" autocomplete="off" enterkeyhint="done" hidden aria-label="ชื่อมื้อ">
         <textarea id="calorie-quick-input" class="calorie-quick-input" rows="1" autocomplete="off" enterkeyhint="done"></textarea>
@@ -1148,7 +1187,7 @@
 
     <div id="auth-overlay" class="auth-overlay">
       <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=309" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=310" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">ใส่รหัสเข้า</h2>
         <p class="auth-copy">ใส่รหัสผ่านเพื่อเปิดแอพ · จำไว้ในเครื่องนี้จนกว่าจะกดออกจากระบบ</p>
         <label class="notify-field auth-pin-field" for="auth-pin-input">
@@ -1394,7 +1433,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=309"></script>
-  <script src="js/update-watch.js?v=309"></script>
+  <script type="module" src="js/boot.js?v=310"></script>
+  <script src="js/update-watch.js?v=310"></script>
 </body>
 </html>

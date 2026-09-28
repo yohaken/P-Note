@@ -4,6 +4,16 @@
  * Day.exercises sync is applied by the caller (calorie helpers).
  */
 
+import {
+  computeRegionRest,
+  normalizeRestProfile,
+  readinessSlot,
+  regionRestDays,
+  resolveMoveMuscles,
+  sanitizeRegionIds,
+  REST_READY_SLOT,
+} from './muscle-map.js?v=310';
+
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
 
@@ -71,7 +81,13 @@ export function normalizeMuscleNode(raw) {
     ? null
     : String(raw.parentId).trim();
   const order = Number.isFinite(Number(raw.order)) ? Number(raw.order) : 0;
-  return { id, name, parentId, order };
+  const node = { id, name, parentId, order };
+  // p/s present (even empty) = muscles chosen by the user; absent = resolve from library/name.
+  if (Array.isArray(raw.p) || Array.isArray(raw.s)) {
+    node.p = sanitizeRegionIds(raw.p);
+    node.s = sanitizeRegionIds(raw.s).filter((r) => !node.p.includes(r));
+  }
+  return node;
 }
 
 /** Flat cells map: `${nodeId}|${dateKey}` → kcal */
@@ -129,6 +145,7 @@ export function normalizeMuscleTree(raw) {
     nodes: ordered,
     cells,
     restScale: normalizeRestScale(src.restScale),
+    restProfile: normalizeRestProfile(src.restProfile),
     updatedAt: String(src.updatedAt || '').trim(),
   };
 }
@@ -169,6 +186,23 @@ export function setRestScale(tree, scale) {
   return normalizeMuscleTree({ ...t, restScale: normalizeRestScale(scale), updatedAt: nowIsoLocal() });
 }
 
+export function setRestProfile(tree, profile) {
+  const t = normalizeMuscleTree(tree);
+  return normalizeMuscleTree({ ...t, restProfile: normalizeRestProfile(profile), updatedAt: nowIsoLocal() });
+}
+
+/** muscles = { p, s } to pin, or null to go back to library/name matching. */
+export function setNodeMuscles(tree, nodeId, muscles) {
+  const t = normalizeMuscleTree(tree);
+  if (!t.nodes.some((n) => n.id === nodeId)) return t;
+  const nodes = t.nodes.map((n) => {
+    if (n.id !== nodeId) return n;
+    const { p: _p, s: _s, ...rest } = n;
+    return muscles ? { ...rest, p: muscles.p || [], s: muscles.s || [] } : rest;
+  });
+  return normalizeMuscleTree({ ...t, nodes, updatedAt: nowIsoLocal() });
+}
+
 export function nextRestTone(tone) {
   const i = REST_TONES.indexOf(tone);
   return REST_TONES[(i + 1) % REST_TONES.length];
@@ -184,7 +218,7 @@ export function restStep(scale, days) {
   if (days == null) return null;
   const s = normalizeRestScale(scale);
   const last = REST_SCALE_DAYS - 1;
-  const i = Math.min(Math.max(days, 0), last);
+  const i = Math.min(Math.max(Math.floor(days), 0), last);
   if (i < last) return { ...s[i], fade: 0 };
   const tone = s[last].tone === 'slate' ? s[last - 1].tone : s[last].tone;
   const fade = Math.min(1, Math.max(0, (days - last) / REST_FADE_DAYS));
@@ -451,6 +485,7 @@ export function removeMuscleNode(tree, nodeId) {
     if (dropIds.has(id)) delete cells[k];
   });
   const next = normalizeMuscleTree({
+    ...t,
     nodes: nodes.length ? nodes : defaultMuscleNodes(),
     cells: nodes.length ? cells : {},
     updatedAt: nowIsoLocal(),
@@ -554,21 +589,80 @@ export function daysBetweenKeys(fromKey, toKey) {
   return Math.round((b - a) / 86400000);
 }
 
-function restCellHtml(t, r, todayKey, cardio, depthCls, leafCls) {
+/**
+ * Strength moves (leaves, cardio excluded) with resolved muscles and days since last trained.
+ * @returns {{ id, name, parentId, parentName, p: string[], s: string[], source, days: number|null, last: string }[]}
+ */
+export function muscleMoveStates(tree, todayKey = muscleToDateKey()) {
+  const t = normalizeMuscleTree(tree);
+  return flattenMuscleRows(t)
+    .filter((r) => r.leaf && !isCardioNode(t, r.id))
+    .map((r) => {
+      const parent = r.parentId ? t.nodes.find((n) => n.id === r.parentId) : null;
+      const node = t.nodes.find((n) => n.id === r.id);
+      const m = resolveMoveMuscles(node, parent?.name || '');
+      const last = lastTrainedDate(t, r.id, todayKey);
+      return {
+        id: r.id,
+        name: r.name,
+        parentId: r.parentId || null,
+        parentName: parent?.name || '',
+        p: m.p,
+        s: m.s,
+        source: m.source,
+        days: last ? daysBetweenKeys(last, todayKey) : null,
+        last,
+      };
+    });
+}
+
+/** Region id → recovery info, from every logged strength move. */
+export function regionRestMap(tree, todayKey = muscleToDateKey()) {
+  const t = normalizeMuscleTree(tree);
+  return computeRegionRest(muscleMoveStates(t, todayKey), t.restProfile);
+}
+
+/** Days a move needs = slowest-recovering primary muscle (plain days when muscles are unknown). */
+function moveRestDays(t, move) {
+  if (!move.p.length) return REST_READY_SLOT;
+  return Math.max(...move.p.map((id) => regionRestDays(t.restProfile, id)));
+}
+
+/** Least-recovered move under a row (the row itself when it is a move). */
+function rowRestInfo(t, r, moves) {
+  const ids = r.leaf ? [r.id] : (r.childIds || []);
+  let best = null;
+  ids.forEach((id) => {
+    const m = moves.get(id);
+    if (!m || m.days == null) return;
+    const rest = moveRestDays(t, m);
+    const slot = readinessSlot(m.days, rest);
+    if (!best || slot < best.slot) best = { days: m.days, last: m.last, slot, rest };
+  });
+  return best;
+}
+
+function fmtRest(n) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+function restCellHtml(t, r, moves, cardio, depthCls, leafCls) {
   const base = `mt-col-rest${depthCls}${leafCls}`;
   if (cardio) return `<td class="${base}" data-node-id="${esc(r.id)}"></td>`;
-  const last = lastTrainedDate(t, r.id, todayKey);
-  const days = last ? daysBetweenKeys(last, todayKey) : null;
-  const step = restStep(t.restScale, days);
+  const info = rowRestInfo(t, r, moves);
+  const days = info ? info.days : null;
+  const last = info ? info.last : '';
+  const step = info ? restStep(t.restScale, info.slot) : null;
   if (!step) {
     return `<td class="${base} is-none" data-node-id="${esc(r.id)}" title="ยังไม่เคยเล่น"><span class="mt-rest-val">–</span></td>`;
   }
   const tip = days === 0
     ? `เล่นวันนี้ · ${step.label}`
     : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${step.label}`;
+  const restTip = info.rest !== REST_READY_SLOT ? ` · กล้ามนี้พร้อมใน ${fmtRest(info.rest)} วัน` : '';
   const fadeCls = step.fade > 0 ? ' is-fading' : '';
   const fadeStyle = step.fade > 0 ? ` style="--rest-fade:${Math.round(step.fade * 100)}%"` : '';
-  return `<td class="${base} rest-tone-${esc(step.tone)}${fadeCls}"${fadeStyle} data-node-id="${esc(r.id)}" title="${esc(tip)}">
+  return `<td class="${base} rest-tone-${esc(step.tone)}${fadeCls}"${fadeStyle} data-node-id="${esc(r.id)}" title="${esc(tip + restTip)}">
     <span class="mt-rest-val"><b class="mt-rest-n">${days}</b><span class="mt-rest-lb">${esc(step.label)}</span></span>
   </td>`;
 }
@@ -591,6 +685,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
   const todayKey = opts.todayKey || muscleToDateKey();
   const dates = opts.dates || muscleDateKeys({ today: todayKey });
   const rows = flattenMuscleRows(t);
+  const moves = new Map(muscleMoveStates(t, todayKey).map((m) => [m.id, m]));
   const selectedId = opts.selectedId || '';
   const expandAll = Boolean(opts.expandAll);
   const expanded = opts.expandedIds instanceof Set
@@ -664,7 +759,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
         })
         .join('');
 
-      return `<tr class="mt-row${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${restCellHtml(t, r, todayKey, cardio, depthCls, leafCls)}${cells}</tr>`;
+      return `<tr class="mt-row${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${restCellHtml(t, r, moves, cardio, depthCls, leafCls)}${cells}</tr>`;
     })
     .join('');
 

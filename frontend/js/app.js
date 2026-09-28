@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=309';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=309';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=309';
-import { CONFIG } from './config.js?v=309';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=309';
-import { nowIso } from './clock.js?v=309';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=310';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=310';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=310';
+import { CONFIG } from './config.js?v=310';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=310';
+import { nowIso } from './clock.js?v=310';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=309';
+} from './auth.js?v=310';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=309';
+} from './notes.js?v=310';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=309';
+} from './sheet.js?v=310';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -132,7 +132,7 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
-} from './calorie.js?v=309';
+} from './calorie.js?v=310';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -152,8 +152,25 @@ import {
   renderRestLegendHtml,
   renderRestScaleEditorHtml,
   setRestScale,
-} from './muscle-tree.js?v=309';
-import { mountDrumPicker } from './drum-picker.js?v=309';
+  isCardioNode,
+  muscleMoveStates,
+  regionRestMap,
+  restStep,
+  setNodeMuscles,
+  setRestProfile,
+} from './muscle-tree.js?v=310';
+import {
+  EQUIPMENT_TH,
+  MUSCLE_GROUPS,
+  defaultRegionRest,
+  exercisesForRegion,
+  libraryExerciseByName,
+  regionById,
+  regionRestDays,
+  renderBodyPairHtml,
+  resolveMoveMuscles,
+} from './muscle-map.js?v=310';
+import { mountDrumPicker } from './drum-picker.js?v=310';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -161,8 +178,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=309';
-import { bindComposableInput } from './text-input.js?v=309';
+} from './note-text.js?v=310';
+import { bindComposableInput } from './text-input.js?v=310';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -203,14 +220,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=309';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=309';
+} from './schedule.js?v=310';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=310';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=309';
+} from './app-icons.js?v=310';
 import {
   allIcons,
   bestIconForLabel,
@@ -219,7 +236,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=309';
+} from './icons.js?v=310';
 import {
   notificationPermission,
   notificationSupported,
@@ -228,27 +245,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=309';
+} from './note-notify.js?v=310';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=309';
+} from './files.js?v=310';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=309');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=310');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=309');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=310');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=309');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=310');
   return userContextModPromise;
 }
 
@@ -272,7 +289,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=309';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=310';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -281,11 +298,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=309';
-import { normalizeNotesData } from './notes.js?v=309';
-import { SaveManager } from './sync.js?v=309';
-import { emptyDeletions } from './deletions.js?v=309';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=309';
+} from './remote.js?v=310';
+import { normalizeNotesData } from './notes.js?v=310';
+import { SaveManager } from './sync.js?v=310';
+import { emptyDeletions } from './deletions.js?v=310';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=310';
 
 const state = {
   notesData: {
@@ -677,6 +694,17 @@ const els = {
   muscleRestList: document.getElementById('muscle-rest-list'),
   muscleRestReset: document.getElementById('muscle-rest-reset'),
   muscleRestLegend: document.getElementById('muscle-rest-legend'),
+  muscleBodyCard: document.getElementById('muscle-body-card'),
+  muscleBodyMap: document.getElementById('muscle-body-map'),
+  muscleRegionOverlay: document.getElementById('muscle-region-overlay'),
+  muscleRegionTitle: document.getElementById('muscle-region-title'),
+  muscleRegionBody: document.getElementById('muscle-region-body'),
+  muscleEditOverlay: document.getElementById('muscle-edit-overlay'),
+  muscleEditTitle: document.getElementById('muscle-edit-title'),
+  muscleEditBody: document.getElementById('muscle-edit-body'),
+  muscleEditSave: document.getElementById('muscle-edit-save'),
+  muscleEditAuto: document.getElementById('muscle-edit-auto'),
+  cqExMap: document.getElementById('cq-ex-map'),
   dockCalorieLogBtn: document.getElementById('dock-calorie-log-btn'),
   dockCalorieMuscleBtn: document.getElementById('dock-calorie-muscle-btn'),
   dockCalorieHealthBtn: document.getElementById('dock-calorie-health-btn'),
@@ -3038,6 +3066,27 @@ function syncExerciseBar() {
     els.cqExAdd.textContent = exists ? 'อัปเดตท่านี้' : '+ เพิ่มท่านี้';
     els.cqExAdd.disabled = !move;
   }
+  paintExerciseMoveMap(move);
+}
+
+/** Wheel picker: light up the muscles the selected move works. */
+function paintExerciseMoveMap(move) {
+  const host = els.cqExMap;
+  if (!host) return;
+  const bar = els.cqExBar;
+  if (!move || move.cardio || (bar && bar.hidden)) {
+    host.hidden = true;
+    return;
+  }
+  const tree = ensureCaloriePayload().muscleTree;
+  const node = (tree?.nodes || []).find((n) => n.id === move.id);
+  const parent = node?.parentId ? tree.nodes.find((n) => n.id === node.parentId) : null;
+  const m = resolveMoveMuscles(node || { name: move.name }, parent?.name || '');
+  host.hidden = false;
+  host.innerHTML = `${renderBodyPairHtml(musclePaintRoles(m.p, m.s), { compact: true })}
+    <p class="cq-ex-map-cap">${m.p.length
+    ? `หลัก: ${escapeHtml(m.p.map((id) => regionById(id)?.name).join(', '))}${m.s.length ? ` · รอง: ${escapeHtml(m.s.map((id) => regionById(id)?.name).join(', '))}` : ''}${m.source === 'guess' ? ' · เดาจากชื่อ' : ''}`
+    : 'ยังไม่ระบุกล้าม · ตั้งได้ที่ โครงสร้าง → กล้าม'}</p>`;
 }
 
 function paintExerciseList(flashId = '') {
@@ -3374,6 +3423,8 @@ function paintMuscleSheet() {
   host.scrollLeft = prevLeft;
   host.scrollTop = prevTop;
   if (els.muscleRestLegend) els.muscleRestLegend.innerHTML = renderRestLegendHtml(tree.restScale);
+  paintMuscleBodyMap(tree, todayKey);
+  if (els.muscleRegionOverlay && !els.muscleRegionOverlay.hidden) paintMuscleRegionSheet();
   if (focusNode && focusDate) {
     const next = host.querySelector(
       `input.mt-kcal[data-node-id="${CSS.escape(focusNode)}"][data-date="${CSS.escape(focusDate)}"]`,
@@ -3590,6 +3641,9 @@ function paintMuscleSettingsList() {
           <span class="muscle-settings-kind">${kind}</span>
           <span class="muscle-settings-name">${escapeHtml(r.name)}</span>
         </button>
+        ${r.leaf && !isCardioNode(sheet.muscleTree, r.id)
+    ? `<button type="button" class="btn btn-secondary muscle-settings-rename" data-muscle-muscles="${escapeHtml(r.id)}" title="เลือกกล้ามที่ท่านี้ใช้บนรูป">กล้าม</button>`
+    : '<span></span>'}
         <button type="button" class="btn btn-secondary muscle-settings-rename" data-muscle-rename="${escapeHtml(r.id)}" title="แก้ชื่อ">แก้ชื่อ</button>
         <button type="button" class="btn btn-secondary muscle-settings-del" data-muscle-del="${escapeHtml(r.id)}" title="ลบ">ลบ</button>
       </div>`;
@@ -3606,6 +3660,224 @@ function openMuscleManage() {
 
 function closeMuscleManage() {
   if (els.muscleManageOverlay) els.muscleManageOverlay.hidden = true;
+}
+
+/* ---------- Body map (รูปกล้าม) ---------- */
+
+let muscleRegionId = '';
+let muscleRegionExName = '';
+let muscleEditNodeId = '';
+let muscleEditSel = { p: [], s: [] };
+
+function musclePaintRoles(p = [], s = [], focus = '') {
+  return (id) => {
+    const cls = [];
+    if (p.includes(id)) cls.push('bm-p');
+    else if (s.includes(id)) cls.push('bm-s');
+    if (id === focus) cls.push('bm-focus');
+    return { cls: cls.join(' ') };
+  };
+}
+
+function musclePaintRest(tree, restMap, focus = '') {
+  return (id) => {
+    const info = restMap.get(id);
+    const cls = [];
+    let style = '';
+    if (info) {
+      const step = restStep(tree.restScale, info.slot);
+      cls.push(`rest-tone-${step.tone}`, 'bm-rest');
+      if (step.fade > 0) {
+        cls.push('is-fading');
+        style = `--rest-fade:${Math.round(step.fade * 100)}%`;
+      }
+    }
+    if (id === focus) cls.push('bm-focus');
+    return { cls: cls.join(' '), style };
+  };
+}
+
+function paintMuscleBodyMap(tree, todayKey) {
+  if (!els.muscleBodyMap) return;
+  const restMap = regionRestMap(tree, todayKey);
+  els.muscleBodyMap.innerHTML = renderBodyPairHtml(musclePaintRest(tree, restMap));
+  const level = tree.restProfile?.level || 'beginner';
+  els.muscleBodyCard?.querySelectorAll('[data-rest-level]').forEach((b) => {
+    b.classList.toggle('is-active', b.dataset.restLevel === level);
+    b.setAttribute('aria-pressed', b.dataset.restLevel === level ? 'true' : 'false');
+  });
+}
+
+function fmtDays(n) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+function customMovesForMap(tree) {
+  return muscleMoveStates(tree, toDateKey())
+    .filter((m) => m.p.length || m.s.length)
+    .map((m) => ({ name: m.name, p: m.p, s: m.s, custom: true, days: m.days }));
+}
+
+function openMuscleRegion(regionId) {
+  if (!regionById(regionId)) return;
+  muscleRegionId = regionId;
+  muscleRegionExName = '';
+  paintMuscleRegionSheet();
+  if (els.muscleRegionOverlay) els.muscleRegionOverlay.hidden = false;
+}
+
+function paintMuscleRegionSheet() {
+  const region = regionById(muscleRegionId);
+  if (!region || !els.muscleRegionBody) return;
+  const sheet = ensureCaloriePayload();
+  const tree = normalizeMuscleTree(sheet.muscleTree);
+  const todayKey = toDateKey();
+  const restMap = regionRestMap(tree, todayKey);
+  const info = restMap.get(region.id);
+  const rest = regionRestDays(tree.restProfile, region.id);
+  const def = defaultRegionRest(region.id, tree.restProfile.level);
+  const overridden = tree.restProfile.days[region.id] != null;
+  const step = info ? restStep(tree.restScale, info.slot) : null;
+  const status = info
+    ? `<span class="mr-badge rest-tone-${escapeHtml(step.tone)}">${info.days} วัน · ${escapeHtml(step.label)}</span>
+       <span class="mr-status-sub">ล่าสุด ${escapeHtml(info.last.slice(8, 10).replace(/^0/, ''))}/${escapeHtml(String(Number(info.last.slice(5, 7))))}${info.via === 's' ? ' · โดนเป็นกล้ามรอง (นับครึ่ง)' : ''}</span>`
+    : '<span class="mr-status-sub">ยังไม่มีบันทึกที่โดนกล้ามนี้</span>';
+  const exs = exercisesForRegion(region.id, customMovesForMap(tree));
+  const selected = exs.find((e) => e.name === muscleRegionExName) || null;
+  const mapP = selected ? selected.p : [region.id];
+  const mapS = selected ? selected.s : [];
+  const exRows = exs
+    .map((e) => {
+      const sel = e.name === muscleRegionExName ? ' is-selected' : '';
+      const meta = [
+        e.role === 'p' ? '<b class="me-key is-p">หลัก</b>' : '<b class="me-key is-s">รอง</b>',
+        e.custom ? 'ท่าของฉัน' : escapeHtml(EQUIPMENT_TH[e.eq] || ''),
+      ].filter(Boolean).join(' · ');
+      return `<div class="mr-ex-row${sel}">
+        <button type="button" class="mr-ex-pick" data-ex-pick="${escapeHtml(e.name)}">
+          <span class="mr-ex-name">${escapeHtml(e.name)}</span>
+          <span class="mr-ex-meta">${meta}</span>
+        </button>
+        <button type="button" class="btn btn-secondary mr-ex-log" data-ex-log="${escapeHtml(e.name)}" title="บันทึกว่าเล่นวันนี้">+ วันนี้</button>
+      </div>`;
+    })
+    .join('');
+  if (els.muscleRegionTitle) els.muscleRegionTitle.textContent = region.name;
+  els.muscleRegionBody.innerHTML = `
+    <p class="mr-sci">${escapeHtml(region.sci)} · หมวด${escapeHtml(MUSCLE_GROUPS.find((g) => g.id === region.group)?.name || '')}</p>
+    <div class="mr-status">${status}</div>
+    <div class="mr-rest">
+      <span class="mr-rest-label">พักให้พร้อม</span>
+      <button type="button" class="btn btn-secondary mr-step" data-region-rest="-0.5" aria-label="ลดวันพัก">−</button>
+      <strong class="mr-rest-val">${fmtDays(rest)} วัน</strong>
+      <button type="button" class="btn btn-secondary mr-step" data-region-rest="0.5" aria-label="เพิ่มวันพัก">+</button>
+      ${overridden
+    ? `<button type="button" class="btn btn-secondary mr-step mr-rest-reset" data-region-rest="reset" title="กลับไปใช้ค่าตามงานวิจัย">ค่าเริ่มต้น ${fmtDays(def)}</button>`
+    : `<span class="mr-rest-def">ค่าตามงานวิจัย (${tree.restProfile.level === 'trained' ? 'ฝึกประจำ' : 'มือใหม่'})</span>`}
+    </div>
+    ${renderBodyPairHtml(musclePaintRoles(mapP, mapS, region.id), { compact: true })}
+    <p class="cq-ex-map-cap">${selected
+    ? `${escapeHtml(selected.name)} · หลัก: ${escapeHtml(selected.p.map((id) => regionById(id)?.name).join(', '))}${selected.s.length ? ` · รอง: ${escapeHtml(selected.s.map((id) => regionById(id)?.name).join(', '))}` : ''}`
+    : 'แตะชื่อท่าเพื่อดูว่าโดนกล้ามไหนบ้าง'}</p>
+    <h4 class="mr-ex-head">ท่าที่ใช้กล้ามนี้ (${exs.length})</h4>
+    <div class="mr-ex-list">${exRows || '<p class="settings-hint">ยังไม่มีท่า</p>'}</div>`;
+}
+
+function onMuscleRegionRest(delta) {
+  const sheet = ensureCaloriePayload();
+  const tree = normalizeMuscleTree(sheet.muscleTree);
+  const profile = { ...tree.restProfile, days: { ...tree.restProfile.days } };
+  if (delta === 'reset') delete profile.days[muscleRegionId];
+  else {
+    const cur = regionRestDays(profile, muscleRegionId);
+    profile.days[muscleRegionId] = Math.min(14, Math.max(0.5, cur + Number(delta)));
+  }
+  persistMuscleTree(setRestProfile(tree, profile), { status: '' });
+  paintMuscleSheet();
+}
+
+function onMuscleRestLevel(level) {
+  if (!requireSyncReady()) return;
+  const tree = normalizeMuscleTree(ensureCaloriePayload().muscleTree);
+  if (tree.restProfile.level === level) return;
+  persistMuscleTree(setRestProfile(tree, { ...tree.restProfile, level }), {
+    status: level === 'trained' ? 'ใช้วันพักแบบฝึกประจำ' : 'ใช้วันพักแบบมือใหม่',
+  });
+  paintMuscleSheet();
+}
+
+/** Mark a move as trained today; library moves get a row under the matching muscle group. */
+function onLogExerciseToday(name) {
+  if (!requireSyncReady()) return;
+  const sheet = ensureCaloriePayload();
+  let tree = normalizeMuscleTree(sheet.muscleTree);
+  const todayKey = toDateKey();
+  let node = tree.nodes.find((n) => n.name === name && !tree.nodes.some((c) => c.parentId === n.id));
+  if (!node) {
+    const lib = libraryExerciseByName(name);
+    if (!lib) return;
+    const groupTh = MUSCLE_GROUPS.find((g) => g.id === regionById(lib.p[0])?.group)?.name || 'ท่าอื่นๆ';
+    const hasCells = (id) => Object.keys(tree.cells).some((k) => k.startsWith(`${id}|`));
+    let root = tree.nodes.find((n) => !n.parentId && n.name === groupTh
+      && (tree.nodes.some((c) => c.parentId === n.id) || !hasCells(n.id)));
+    if (!root) {
+      const added = addMuscleCategory(tree, groupTh);
+      tree = added.tree;
+      root = added.node;
+    }
+    const child = addMuscleChild(tree, root.id, lib.name);
+    tree = child.tree;
+    node = child.node;
+  }
+  if (!node || isCardioNode(tree, node.id)) return;
+  if ((tree.cells[`${node.id}|${todayKey}`] || 0) > 0) {
+    setStatus(`${name} บันทึกไว้แล้ววันนี้`);
+    return;
+  }
+  const { tree: next } = setMuscleCellInTree(tree, node.id, todayKey, 1);
+  persistMuscleTree(next, { touchDates: [todayKey], status: `เล่น ${name} วันนี้` });
+  paintMuscleSheet();
+}
+
+function openMuscleEdit(nodeId) {
+  const tree = normalizeMuscleTree(ensureCaloriePayload().muscleTree);
+  const node = tree.nodes.find((n) => n.id === nodeId);
+  if (!node) return;
+  const parent = node.parentId ? tree.nodes.find((n) => n.id === node.parentId) : null;
+  const m = resolveMoveMuscles(node, parent?.name || '');
+  muscleEditNodeId = nodeId;
+  muscleEditSel = { p: [...m.p], s: [...m.s] };
+  if (els.muscleEditTitle) els.muscleEditTitle.textContent = `กล้ามที่ใช้ · ${parent ? `${parent.name} · ` : ''}${node.name}`;
+  paintMuscleEdit(m.source);
+  if (els.muscleEditOverlay) els.muscleEditOverlay.hidden = false;
+}
+
+function paintMuscleEdit(source = 'set') {
+  if (!els.muscleEditBody) return;
+  const { p, s } = muscleEditSel;
+  const names = (ids) => ids.map((id) => regionById(id)?.name).filter(Boolean).join(', ') || '—';
+  const srcNote = source === 'library' ? 'ตอนนี้ใช้ค่าจากคลังท่า'
+    : source === 'guess' ? 'ตอนนี้เดาจากชื่อท่า'
+      : source === '' ? 'ยังไม่ระบุกล้าม' : '';
+  els.muscleEditBody.innerHTML = `${renderBodyPairHtml(musclePaintRoles(p, s))}
+    <p class="cq-ex-map-cap"><b class="me-key is-p">หลัก</b> ${escapeHtml(names(p))}<br><b class="me-key is-s">รอง</b> ${escapeHtml(names(s))}${srcNote ? `<br><span class="mr-status-sub">${srcNote}</span>` : ''}</p>`;
+}
+
+function onMuscleEditTap(regionId) {
+  const { p, s } = muscleEditSel;
+  if (p.includes(regionId)) muscleEditSel = { p: p.filter((x) => x !== regionId), s: [...s, regionId] };
+  else if (s.includes(regionId)) muscleEditSel = { p, s: s.filter((x) => x !== regionId) };
+  else muscleEditSel = { p: [...p, regionId], s };
+  paintMuscleEdit();
+}
+
+function saveMuscleEdit(auto = false) {
+  if (!muscleEditNodeId) return;
+  const tree = setNodeMuscles(ensureCaloriePayload().muscleTree, muscleEditNodeId, auto ? null : muscleEditSel);
+  persistMuscleTree(tree, { status: auto ? 'ใช้กล้ามอัตโนมัติ' : 'บันทึกกล้ามของท่าแล้ว' });
+  paintMuscleSheet();
+  paintMuscleSettingsList();
+  if (els.muscleEditOverlay) els.muscleEditOverlay.hidden = true;
 }
 
 function paintMuscleRestEditor() {
@@ -9978,6 +10250,47 @@ async function init({ fromBoot = false } = {}) {
   els.muscleManageClose?.addEventListener('click', () => closeMuscleManage());
   els.muscleManageBackdrop?.addEventListener('click', () => closeMuscleManage());
   els.muscleRestBtn?.addEventListener('click', () => openMuscleRest());
+  document.querySelectorAll('[data-close-overlay]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const ov = document.getElementById(el.getAttribute('data-close-overlay'));
+      if (ov) ov.hidden = true;
+    });
+  });
+  els.muscleBodyCard?.addEventListener('click', (e) => {
+    const lvl = e.target?.closest?.('[data-rest-level]');
+    if (lvl) {
+      onMuscleRestLevel(lvl.dataset.restLevel);
+      return;
+    }
+    const part = e.target?.closest?.('[data-region]');
+    if (part) openMuscleRegion(part.getAttribute('data-region'));
+  });
+  els.muscleRegionBody?.addEventListener('click', (e) => {
+    const step = e.target?.closest?.('[data-region-rest]');
+    if (step) {
+      onMuscleRegionRest(step.dataset.regionRest);
+      return;
+    }
+    const log = e.target?.closest?.('[data-ex-log]');
+    if (log) {
+      onLogExerciseToday(log.dataset.exLog);
+      return;
+    }
+    const pick = e.target?.closest?.('[data-ex-pick]');
+    if (pick) {
+      muscleRegionExName = muscleRegionExName === pick.dataset.exPick ? '' : pick.dataset.exPick;
+      paintMuscleRegionSheet();
+      return;
+    }
+    const part = e.target?.closest?.('[data-region]');
+    if (part && part.getAttribute('data-region') !== muscleRegionId) openMuscleRegion(part.getAttribute('data-region'));
+  });
+  els.muscleEditBody?.addEventListener('click', (e) => {
+    const part = e.target?.closest?.('[data-region]');
+    if (part) onMuscleEditTap(part.getAttribute('data-region'));
+  });
+  els.muscleEditSave?.addEventListener('click', () => saveMuscleEdit(false));
+  els.muscleEditAuto?.addEventListener('click', () => saveMuscleEdit(true));
   els.muscleRestClose?.addEventListener('click', () => closeMuscleRest());
   els.muscleRestBackdrop?.addEventListener('click', () => closeMuscleRest());
   els.muscleRestReset?.addEventListener('click', () => onMuscleRestReset());
@@ -9985,6 +10298,13 @@ async function init({ fromBoot = false } = {}) {
   els.muscleRestList?.addEventListener('click', onMuscleRestToneClick);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    for (const ov of [els.muscleEditOverlay, els.muscleRegionOverlay]) {
+      if (ov && !ov.hidden) {
+        e.preventDefault();
+        ov.hidden = true;
+        return;
+      }
+    }
     if (els.muscleRestOverlay && !els.muscleRestOverlay.hidden) {
       e.preventDefault();
       closeMuscleRest();
@@ -10001,6 +10321,11 @@ async function init({ fromBoot = false } = {}) {
       muscleSelectedId = pick.getAttribute('data-muscle-pick');
       paintMuscleSettingsList();
       paintMuscleSheet();
+      return;
+    }
+    const mus = e.target?.closest?.('[data-muscle-muscles]');
+    if (mus) {
+      openMuscleEdit(mus.getAttribute('data-muscle-muscles'));
       return;
     }
     const rename = e.target?.closest?.('[data-muscle-rename]');
