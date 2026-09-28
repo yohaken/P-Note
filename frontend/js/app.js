@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=307';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=307';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=307';
-import { CONFIG } from './config.js?v=307';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=307';
-import { nowIso } from './clock.js?v=307';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=308';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=308';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=308';
+import { CONFIG } from './config.js?v=308';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=308';
+import { nowIso } from './clock.js?v=308';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=307';
+} from './auth.js?v=308';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=307';
+} from './notes.js?v=308';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=307';
+} from './sheet.js?v=308';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -132,7 +132,7 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
-} from './calorie.js?v=307';
+} from './calorie.js?v=308';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -146,8 +146,14 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=307';
-import { mountDrumPicker } from './drum-picker.js?v=307';
+  defaultRestScale,
+  nextRestTone,
+  normalizeRestScale,
+  renderRestLegendHtml,
+  renderRestScaleEditorHtml,
+  setRestScale,
+} from './muscle-tree.js?v=308';
+import { mountDrumPicker } from './drum-picker.js?v=308';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -155,8 +161,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=307';
-import { bindComposableInput } from './text-input.js?v=307';
+} from './note-text.js?v=308';
+import { bindComposableInput } from './text-input.js?v=308';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -197,14 +203,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=307';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=307';
+} from './schedule.js?v=308';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=308';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=307';
+} from './app-icons.js?v=308';
 import {
   allIcons,
   bestIconForLabel,
@@ -213,7 +219,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=307';
+} from './icons.js?v=308';
 import {
   notificationPermission,
   notificationSupported,
@@ -222,27 +228,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=307';
+} from './note-notify.js?v=308';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=307';
+} from './files.js?v=308';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=307');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=308');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=307');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=308');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=307');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=308');
   return userContextModPromise;
 }
 
@@ -266,7 +272,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=307';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=308';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -275,11 +281,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=307';
-import { normalizeNotesData } from './notes.js?v=307';
-import { SaveManager } from './sync.js?v=307';
-import { emptyDeletions } from './deletions.js?v=307';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=307';
+} from './remote.js?v=308';
+import { normalizeNotesData } from './notes.js?v=308';
+import { SaveManager } from './sync.js?v=308';
+import { emptyDeletions } from './deletions.js?v=308';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=308';
 
 const state = {
   notesData: {
@@ -664,6 +670,13 @@ const els = {
   muscleManageOverlay: document.getElementById('muscle-manage-overlay'),
   muscleManageBackdrop: document.getElementById('muscle-manage-backdrop'),
   muscleManageClose: document.getElementById('muscle-manage-close'),
+  muscleRestBtn: document.getElementById('muscle-rest-btn'),
+  muscleRestOverlay: document.getElementById('muscle-rest-overlay'),
+  muscleRestBackdrop: document.getElementById('muscle-rest-backdrop'),
+  muscleRestClose: document.getElementById('muscle-rest-close'),
+  muscleRestList: document.getElementById('muscle-rest-list'),
+  muscleRestReset: document.getElementById('muscle-rest-reset'),
+  muscleRestLegend: document.getElementById('muscle-rest-legend'),
   dockCalorieLogBtn: document.getElementById('dock-calorie-log-btn'),
   dockCalorieMuscleBtn: document.getElementById('dock-calorie-muscle-btn'),
   dockCalorieHealthBtn: document.getElementById('dock-calorie-health-btn'),
@@ -3360,6 +3373,7 @@ function paintMuscleSheet() {
   syncMuscleRangeUi(dates);
   host.scrollLeft = prevLeft;
   host.scrollTop = prevTop;
+  if (els.muscleRestLegend) els.muscleRestLegend.innerHTML = renderRestLegendHtml(tree.restScale);
   if (focusNode && focusDate) {
     const next = host.querySelector(
       `input.mt-kcal[data-node-id="${CSS.escape(focusNode)}"][data-date="${CSS.escape(focusDate)}"]`,
@@ -3592,6 +3606,60 @@ function openMuscleManage() {
 
 function closeMuscleManage() {
   if (els.muscleManageOverlay) els.muscleManageOverlay.hidden = true;
+}
+
+function paintMuscleRestEditor() {
+  if (!els.muscleRestList) return;
+  els.muscleRestList.innerHTML = renderRestScaleEditorHtml(ensureCaloriePayload().muscleTree?.restScale);
+}
+
+function openMuscleRest() {
+  if (!requireSyncReady()) return;
+  if (!els.muscleRestOverlay) return;
+  paintMuscleRestEditor();
+  els.muscleRestOverlay.hidden = false;
+}
+
+function closeMuscleRest() {
+  if (els.muscleRestOverlay) els.muscleRestOverlay.hidden = true;
+}
+
+function saveRestScale(scale, status) {
+  const sheet = ensureCaloriePayload();
+  persistMuscleTree(setRestScale(sheet.muscleTree, scale), { status });
+  paintMuscleSheet();
+}
+
+function onMuscleRestLabelChange(e) {
+  const input = e.target?.closest?.('input[data-rest-idx]');
+  if (!input) return;
+  const i = Number(input.dataset.restIdx);
+  const scale = normalizeRestScale(ensureCaloriePayload().muscleTree?.restScale);
+  if (!scale[i]) return;
+  const label = input.value.trim();
+  if (!label || label === scale[i].label) {
+    input.value = scale[i].label;
+    return;
+  }
+  scale[i] = { ...scale[i], label };
+  saveRestScale(scale, 'บันทึกวันพักแล้ว');
+}
+
+function onMuscleRestToneClick(e) {
+  const btn = e.target?.closest?.('[data-rest-tone]');
+  if (!btn) return;
+  const i = Number(btn.dataset.restTone);
+  const scale = normalizeRestScale(ensureCaloriePayload().muscleTree?.restScale);
+  if (!scale[i]) return;
+  scale[i] = { ...scale[i], tone: nextRestTone(scale[i].tone) };
+  saveRestScale(scale, '');
+  paintMuscleRestEditor();
+}
+
+function onMuscleRestReset() {
+  if (!window.confirm('คืนชื่อและสีวันพักเป็นค่าเริ่มต้น?')) return;
+  saveRestScale(defaultRestScale(), 'คืนค่าวันพักแล้ว');
+  paintMuscleRestEditor();
 }
 
 async function onMuscleScrollFocusIn(e) {
@@ -9909,8 +9977,19 @@ async function init({ fromBoot = false } = {}) {
   els.muscleManageBtn?.addEventListener('click', () => openMuscleManage());
   els.muscleManageClose?.addEventListener('click', () => closeMuscleManage());
   els.muscleManageBackdrop?.addEventListener('click', () => closeMuscleManage());
+  els.muscleRestBtn?.addEventListener('click', () => openMuscleRest());
+  els.muscleRestClose?.addEventListener('click', () => closeMuscleRest());
+  els.muscleRestBackdrop?.addEventListener('click', () => closeMuscleRest());
+  els.muscleRestReset?.addEventListener('click', () => onMuscleRestReset());
+  els.muscleRestList?.addEventListener('change', onMuscleRestLabelChange);
+  els.muscleRestList?.addEventListener('click', onMuscleRestToneClick);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (els.muscleRestOverlay && !els.muscleRestOverlay.hidden) {
+      e.preventDefault();
+      closeMuscleRest();
+      return;
+    }
     if (els.muscleManageOverlay && !els.muscleManageOverlay.hidden) {
       e.preventDefault();
       closeMuscleManage();

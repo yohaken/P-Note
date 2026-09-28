@@ -128,8 +128,80 @@ export function normalizeMuscleTree(raw) {
   return {
     nodes: ordered,
     cells,
+    restScale: normalizeRestScale(src.restScale),
     updatedAt: String(src.updatedAt || '').trim(),
   };
+}
+
+/** Rest scale: index = days since last trained (last slot = that many days or more). */
+export const REST_SCALE_DAYS = 8;
+export const REST_LABEL_MAX = 16;
+export const REST_TONES = ['red', 'orange', 'amber', 'yellow', 'lime', 'green', 'teal', 'sky', 'violet', 'slate'];
+
+export function defaultRestScale() {
+  return [
+    { label: 'เพิ่งเล่น', tone: 'red' },
+    { label: 'ยังล้า', tone: 'orange' },
+    { label: 'กำลังฟื้น', tone: 'amber' },
+    { label: 'เริ่มพร้อม', tone: 'yellow' },
+    { label: 'พร้อม', tone: 'lime' },
+    { label: 'พร้อมมาก', tone: 'green' },
+    { label: 'พร้อมเต็มที่', tone: 'teal' },
+    { label: 'ห่างนาน', tone: 'slate' },
+  ];
+}
+
+export function normalizeRestScale(raw) {
+  const defs = defaultRestScale();
+  const src = Array.isArray(raw) ? raw : [];
+  return defs.map((def, i) => {
+    const s = src[i] && typeof src[i] === 'object' ? src[i] : {};
+    const label = String(s.label ?? '').trim().slice(0, REST_LABEL_MAX) || def.label;
+    const tone = REST_TONES.includes(s.tone) ? s.tone : def.tone;
+    return { label, tone };
+  });
+}
+
+export function setRestScale(tree, scale) {
+  const t = normalizeMuscleTree(tree);
+  return normalizeMuscleTree({ ...t, restScale: normalizeRestScale(scale), updatedAt: nowIsoLocal() });
+}
+
+export function nextRestTone(tone) {
+  const i = REST_TONES.indexOf(tone);
+  return REST_TONES[(i + 1) % REST_TONES.length];
+}
+
+export function restDayLabel(i) {
+  if (i === 0) return 'วันนี้';
+  return i >= REST_SCALE_DAYS - 1 ? `${i}+ วัน` : `${i} วัน`;
+}
+
+export function restStep(scale, days) {
+  if (days == null) return null;
+  const s = normalizeRestScale(scale);
+  return s[Math.min(Math.max(days, 0), REST_SCALE_DAYS - 1)];
+}
+
+export function renderRestLegendHtml(scale) {
+  const s = normalizeRestScale(scale);
+  const chips = s
+    .map((st, i) => `<span class="mrl-chip rest-tone-${esc(st.tone)}"><b>${i === REST_SCALE_DAYS - 1 ? `${i}+` : i}</b> ${esc(st.label)}</span>`)
+    .join('');
+  return `<span class="mrl-title">พัก (วัน)</span>${chips}`;
+}
+
+export function renderRestScaleEditorHtml(scale) {
+  const s = normalizeRestScale(scale);
+  return s
+    .map((st, i) => `<div class="rest-edit-row">
+      <span class="rest-edit-day">${esc(restDayLabel(i))}</span>
+      <input class="rest-edit-label" type="text" maxlength="${REST_LABEL_MAX}" value="${esc(st.label)}"
+        data-rest-idx="${i}" aria-label="ชื่อระดับ ${esc(restDayLabel(i))}">
+      <button type="button" class="rest-edit-tone rest-tone-${esc(st.tone)}" data-rest-tone="${i}"
+        title="แตะเพื่อเปลี่ยนสี" aria-label="เปลี่ยนสี ${esc(restDayLabel(i))}">${i === REST_SCALE_DAYS - 1 ? `${i}+` : i}</button>
+    </div>`)
+    .join('');
 }
 
 export function mergeMuscleTreeField(local, remote) {
@@ -467,36 +539,20 @@ export function daysBetweenKeys(fromKey, toKey) {
   return Math.round((b - a) / 86400000);
 }
 
-/** Recovery tier from rest days: hot 0–1 · warm 2 · ready 3–6 · stale 7+. */
-export function restTier(days) {
-  if (days == null) return 'none';
-  if (days <= 1) return 'hot';
-  if (days === 2) return 'warm';
-  if (days <= 6) return 'ready';
-  return 'stale';
-}
-
-const REST_TIER_TEXT = {
-  hot: 'ยังฟื้นไม่พอ',
-  warm: 'เริ่มพร้อม',
-  ready: 'พร้อมเล่น',
-  stale: 'ห่างนาน · ควรกลับมาเล่น',
-};
-
 function restCellHtml(t, r, todayKey, cardio, depthCls, leafCls) {
   const base = `mt-col-rest${depthCls}${leafCls}`;
   if (cardio) return `<td class="${base}" data-node-id="${esc(r.id)}"></td>`;
   const last = lastTrainedDate(t, r.id, todayKey);
   const days = last ? daysBetweenKeys(last, todayKey) : null;
-  const tier = restTier(days);
-  if (tier === 'none') {
+  const step = restStep(t.restScale, days);
+  if (!step) {
     return `<td class="${base} is-none" data-node-id="${esc(r.id)}" title="ยังไม่เคยเล่น"><span class="mt-rest-val">–</span></td>`;
   }
   const label = days === 0 ? 'วันนี้' : String(days);
   const tip = days === 0
-    ? `เล่นวันนี้ · ${REST_TIER_TEXT[tier]}`
-    : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${REST_TIER_TEXT[tier]}`;
-  return `<td class="${base} is-${tier}" data-node-id="${esc(r.id)}" title="${esc(tip)}">
+    ? `เล่นวันนี้ · ${step.label}`
+    : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${step.label}`;
+  return `<td class="${base} rest-tone-${esc(step.tone)}" data-node-id="${esc(r.id)}" title="${esc(tip)}">
     <span class="mt-rest-val${days === 0 ? ' is-today' : ''}">${esc(label)}</span>
   </td>`;
 }
