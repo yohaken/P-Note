@@ -6857,7 +6857,6 @@ body.calorie-health-pane .calorie-toolbar,
 body.calorie-health-pane .calorie-dash,
 body.calorie-health-pane .calorie-today-card,
 body.calorie-health-pane .calorie-scroll,
-body.calorie-health-pane #dock-context-calorie,
 body.calorie-health-pane .calorie-muscle-sheet {
   display: none !important;
 }
@@ -6870,23 +6869,93 @@ body.calorie-muscle-pane .calorie-health-sheet {
   display: none !important;
 }
 
-body.calorie-health-pane #dock-calorie-log-btn,
-body.calorie-muscle-pane #dock-calorie-log-btn {
-  display: inline-flex !important;
-}
-
-body.calorie-health-pane #dock-calorie-health-btn {
+/* Calorie shortcuts live in the header row, so the bottom dock never covers content. */
+body.calorie-only #filter-dock {
   display: none !important;
 }
 
-body.calorie-muscle-pane #dock-calorie-muscle-btn {
-  display: none !important;
+/* overflow-x: hidden makes these scroll containers, which stops the sticky header from pinning. */
+body.calorie-only,
+body.calorie-only #app {
+  overflow-x: clip;
 }
 
-body.calorie-health-pane #dock-calorie-muscle-btn,
-body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-btn {
-  display: inline-flex !important;
+.cal-topnav {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.15rem 0 0.2rem;
 }
+
+.cal-topnav[hidden],
+body:not(.calorie-only) .cal-topnav {
+  display: none;
+}
+
+#board-topbar {
+  flex-wrap: wrap;
+}
+
+.ctn-panes,
+.ctn-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.ctn-actions[hidden] {
+  display: none;
+}
+
+.ctn-panes {
+  padding: 2px;
+  border-radius: 12px;
+  background: var(--surface-2, rgba(0, 0, 0, 0.06));
+}
+
+.ctn-btn {
+  appearance: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0.15rem 0.35rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+
+.ctn-btn svg {
+  display: block;
+}
+
+.ctn-btn:active {
+  transform: scale(0.95);
+}
+
+.ctn-pane.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.ctn-meal { color: #e07a2f; }
+.ctn-mus { color: #2f6f4e; }
+.ctn-body { color: #3d5a6c; }
 
 .chs-head {
   margin-bottom: 0.45rem;
@@ -8921,11 +8990,11 @@ body:not(.calorie-muscle-pane):not(.calorie-health-pane) #dock-calorie-muscle-bt
 
 /* Muscle pane: lock page to viewport — only .muscle-scroll pans dates L/R */
 body.calorie-muscle-pane {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 body.calorie-muscle-pane #app,
 body.calorie-muscle-pane #calorie-view {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100%;
 }
 

@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=321';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=321';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=321';
-import { CONFIG } from './config.js?v=321';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=321';
-import { nowIso } from './clock.js?v=321';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=322';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=322';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=322';
+import { CONFIG } from './config.js?v=322';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=322';
+import { nowIso } from './clock.js?v=322';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=321';
+} from './auth.js?v=322';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=321';
+} from './notes.js?v=322';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=321';
+} from './sheet.js?v=322';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -135,7 +135,7 @@ import {
   dayExerciseEntries,
   setDayExerciseEntries,
   parseExerciseCell,
-} from './calorie.js?v=321';
+} from './calorie.js?v=322';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -172,7 +172,7 @@ import {
   legacyRowPlans,
   convertLegacyRows,
   resolveTreeMove,
-} from './muscle-tree.js?v=321';
+} from './muscle-tree.js?v=322';
 import {
   EQUIPMENT_TH,
   beginnerGroupOfRegion,
@@ -191,9 +191,9 @@ import {
   renderBodyStatsHtml,
   ALL_EXERCISES,
   exerciseImages,
-} from './muscle-map.js?v=321';
-import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=321';
-import { mountDrumPicker } from './drum-picker.js?v=321';
+} from './muscle-map.js?v=322';
+import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=322';
+import { mountDrumPicker } from './drum-picker.js?v=322';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -201,8 +201,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=321';
-import { bindComposableInput } from './text-input.js?v=321';
+} from './note-text.js?v=322';
+import { bindComposableInput } from './text-input.js?v=322';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -243,14 +243,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=321';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=321';
+} from './schedule.js?v=322';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=322';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=321';
+} from './app-icons.js?v=322';
 import {
   allIcons,
   bestIconForLabel,
@@ -259,7 +259,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=321';
+} from './icons.js?v=322';
 import {
   notificationPermission,
   notificationSupported,
@@ -268,27 +268,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=321';
+} from './note-notify.js?v=322';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=321';
+} from './files.js?v=322';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=321');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=322');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=321');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=322');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=321');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=322');
   return userContextModPromise;
 }
 
@@ -312,7 +312,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=321';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=322';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -321,11 +321,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=321';
-import { normalizeNotesData } from './notes.js?v=321';
-import { SaveManager } from './sync.js?v=321';
-import { emptyDeletions } from './deletions.js?v=321';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=321';
+} from './remote.js?v=322';
+import { normalizeNotesData } from './notes.js?v=322';
+import { SaveManager } from './sync.js?v=322';
+import { emptyDeletions } from './deletions.js?v=322';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=322';
 
 const state = {
   notesData: {
@@ -2538,15 +2538,23 @@ function paintCalorieHealthSheet(sheet) {
   el.innerHTML = renderHealthSheetHtml(snap);
 }
 
+function syncCaloriePaneButtons(pane) {
+  [[els.dockCalorieLogBtn, 'log'], [els.dockCalorieMuscleBtn, 'muscle'], [els.dockCalorieHealthBtn, 'health']]
+    .forEach(([btn, id]) => {
+      if (!btn) return;
+      const on = (pane || 'log') === id;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+}
+
 function setCaloriePane(pane) {
   const next = pane === 'health' ? 'health' : pane === 'muscle' ? 'muscle' : 'log';
   if (next === 'muscle' && state.caloriePane !== 'muscle') muscleDateCount = MUSCLE_DATE_COLS;
   state.caloriePane = next;
   document.body.classList.toggle('calorie-health-pane', next === 'health');
   document.body.classList.toggle('calorie-muscle-pane', next === 'muscle');
-  if (els.dockCalorieLogBtn) els.dockCalorieLogBtn.hidden = next === 'log';
-  if (els.dockCalorieMuscleBtn) els.dockCalorieMuscleBtn.hidden = next === 'muscle';
-  if (els.dockCalorieHealthBtn) els.dockCalorieHealthBtn.hidden = next === 'health';
+  syncCaloriePaneButtons(next);
 
   if (els.calorieMuscleSheet) els.calorieMuscleSheet.hidden = next !== 'muscle';
   if (els.calorieHealthSheet) els.calorieHealthSheet.hidden = next !== 'health';
@@ -2829,6 +2837,7 @@ function renderCalorieSheet({ preserveScroll = false } = {}) {
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
   document.body.classList.toggle('calorie-health-pane', state.caloriePane === 'health');
   document.body.classList.toggle('calorie-muscle-pane', state.caloriePane === 'muscle');
+  syncCaloriePaneButtons(state.caloriePane);
   if (els.calorieMuscleSheet) els.calorieMuscleSheet.hidden = state.caloriePane !== 'muscle';
   if (els.calorieHealthSheet) els.calorieHealthSheet.hidden = state.caloriePane !== 'health';
   if (els.calorieScroll) {
@@ -2861,8 +2870,7 @@ function addCalorieDay() {
 }
 
 function syncCalorieFabs() {
-  const show = isCalorieMode() && els.filterDock && !els.filterDock.hidden;
-  if (els.calorieFabs) els.calorieFabs.hidden = !show;
+  if (els.calorieFabs) els.calorieFabs.hidden = !isCalorieMode();
   syncDockContextRail();
 }
 
