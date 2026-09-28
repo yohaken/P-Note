@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=227';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=305';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -15,7 +15,7 @@ import {
   muscleTreeLabels,
   normalizeMuscleTree,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=304';
+} from './muscle-tree.js?v=305';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -838,7 +838,7 @@ export function resolveNutritionGoals(sheet = {}, day = null) {
     ageYears,
     sex: sheet?.sex,
   });
-  const bodyFatPct = normalizeOptionalGoal(sheet.bodyFatPct, 3, 60);
+  const bodyFatPct = resolveDayBodyFat(day, sheet);
   const lbm = computeLbm(weight, bodyFatPct);
   const katch = computeBmrKatch(lbm);
   const bmr = katch ?? mifflin;
@@ -960,6 +960,18 @@ export function resolveDayWeight(day, sheet) {
   if (older[0]) return older[0].weight;
   const any = days.find((d) => Number.isFinite(d.weight) && d.weight > 0);
   return any?.weight ?? null;
+}
+
+/** Body-fat % for a day: own value, else nearest older logged day, else the settings value. */
+export function resolveDayBodyFat(day, sheet) {
+  if (Number.isFinite(day?.bodyFat)) return day.bodyFat;
+  const days = Array.isArray(sheet?.days) ? sheet.days : [];
+  const date = day?.date || '9999-12-31';
+  const older = days
+    .filter((d) => d.date <= date && Number.isFinite(d.bodyFat))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  if (older[0]) return older[0].bodyFat;
+  return normalizeOptionalGoal(sheet?.bodyFatPct, 3, 60);
 }
 
 /** Auto base (BMR) for a day from that day's weight + body profile. */
@@ -1108,6 +1120,7 @@ export function createDayRow(partial = {}) {
     date,
     waist: partial.waist == null || partial.waist === '' ? null : Number(partial.waist),
     weight: partial.weight == null || partial.weight === '' ? null : Number(partial.weight),
+    bodyFat: partial.bodyFat == null || partial.bodyFat === '' ? null : Number(partial.bodyFat),
     meals,
     mealsAt: normalizeMealsAt(partial.mealsAt, meals, updatedAt),
     mus: partial.mus == null || partial.mus === '' ? null : Number(partial.mus),
@@ -1116,6 +1129,7 @@ export function createDayRow(partial = {}) {
     note: String(partial.note || '').slice(0, 200),
     waistAt: partial.waistAt || '',
     weightAt: partial.weightAt || '',
+    bodyFatAt: partial.bodyFatAt || '',
     musAt: partial.musAt || '',
     noteAt: partial.noteAt || '',
     // Do NOT fabricate a "now" stamp for existing rows — that lets stale
@@ -1145,6 +1159,7 @@ export function normalizeDayRow(raw, fallbackBase = DEFAULT_BASE_KCAL) {
   const row = createDayRow(raw);
   if (!Number.isFinite(row.waist)) row.waist = null;
   if (!Number.isFinite(row.weight)) row.weight = null;
+  if (!Number.isFinite(row.bodyFat) || row.bodyFat < 3 || row.bodyFat > 60) row.bodyFat = null;
   if (!Number.isFinite(row.mus)) row.mus = null;
   if (!Number.isFinite(row.base)) row.base = null;
   return migrateLegacyExercises(row);
@@ -3150,6 +3165,7 @@ export function upsertDay(calorie, dayPartial) {
   next.mealsAt = normalizeMealsAt(next.mealsAt, next.meals, next.updatedAt || now);
   if (hasValue(next.waist) && !next.waistAt) next.waistAt = next.updatedAt || now;
   if (hasValue(next.weight) && !next.weightAt) next.weightAt = next.updatedAt || now;
+  if (hasValue(next.bodyFat) && !next.bodyFatAt) next.bodyFatAt = next.updatedAt || now;
   if (next.mus != null && !next.musAt) next.musAt = next.updatedAt || now;
   if (String(next.note || '').trim() && !next.noteAt) next.noteAt = next.updatedAt || now;
   const idx = sheet.days.findIndex((d) => d.id === next.id || d.date === next.date);
@@ -3187,6 +3203,7 @@ export function patchDay(calorie, dayId, patch) {
         mealsAt: stampMealsAt(d, meals, now),
         waistAt: patch.waist !== undefined ? now : (d.waistAt || ''),
         weightAt: patch.weight !== undefined ? now : (d.weightAt || ''),
+        bodyFatAt: patch.bodyFat !== undefined ? now : (d.bodyFatAt || ''),
         musAt: musStamp ? now : (d.musAt || ''),
         noteAt: patch.note !== undefined ? now : (d.noteAt || ''),
         updatedAt: now,
@@ -3242,6 +3259,7 @@ export function clearDayValues(calorie, dayId, { clearBody = false } = {}) {
   if (clearBody) {
     patch.waist = null;
     patch.weight = null;
+    patch.bodyFat = null;
   }
   return pruneFrequentMus(patchDay(sheet, dayId, patch));
 }
@@ -3362,7 +3380,7 @@ function pickStable(a, b) {
 export function calorieDayFingerprint(day) {
   const d = normalizeDayRow(day);
   return JSON.stringify([
-    d.date, d.waist, d.weight, normalizeMeals(d.meals), d.exercises, d.mus, d.base, d.note,
+    d.date, d.waist, d.weight, normalizeMeals(d.meals), d.exercises, d.mus, d.base, d.note, d.bodyFat,
   ]);
 }
 
@@ -3415,6 +3433,7 @@ function mergeExercisesField(a, b) {
 function mergeDayFields(a, b) {
   const waist = mergeScalarField(a.waist, b.waist, a.waistAt, b.waistAt, a.updatedAt, b.updatedAt);
   const weight = mergeScalarField(a.weight, b.weight, a.weightAt, b.weightAt, a.updatedAt, b.updatedAt);
+  const bodyFat = mergeScalarField(a.bodyFat, b.bodyFat, a.bodyFatAt, b.bodyFatAt, a.updatedAt, b.updatedAt);
   const exercises = mergeExercisesField(a, b);
   const musBurn = sumExerciseBurn(exercises);
   const mus = musBurn > 0 ? musBurn : null;
@@ -3426,6 +3445,7 @@ function mergeDayFields(a, b) {
     date: a.date || b.date,
     waist,
     weight,
+    bodyFat,
     meals: meals.meals,
     mealsAt: meals.mealsAt,
     exercises,
@@ -3434,6 +3454,7 @@ function mergeDayFields(a, b) {
     note,
     waistAt: newerStampIso(a.waistAt, b.waistAt),
     weightAt: newerStampIso(a.weightAt, b.weightAt),
+    bodyFatAt: newerStampIso(a.bodyFatAt, b.bodyFatAt),
     musAt: newerStampIso(a.musAt, b.musAt),
     noteAt: newerStampIso(a.noteAt, b.noteAt),
     updatedAt: newerStampIso(a.updatedAt, b.updatedAt),
