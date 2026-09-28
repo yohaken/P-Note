@@ -5,6 +5,8 @@
  */
 
 import {
+  BEGINNER_GROUPS,
+  UNSPECIFIED_MOVE,
   computeRegionRest,
   normalizeRestProfile,
   readinessSlot,
@@ -17,8 +19,20 @@ import {
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
 
-/** Seed tree matching the preferred Thai grouping. */
+const CARDIO_SEED = { id: 'bg-cardio', name: 'คาร์ดิโอ', moves: ['วิ่ง', 'เดิน', 'ปั่นจักรยาน'] };
+
+/** Seed tree: beginner muscle groups with popular moves, plus cardio. */
 export function defaultMuscleNodes() {
+  const out = [];
+  [...BEGINNER_GROUPS, CARDIO_SEED].forEach((g, i) => {
+    out.push({ id: g.id, name: g.name, parentId: null, order: i });
+    g.moves.forEach((name, j) => out.push({ id: `${g.id}-${j}`, name, parentId: g.id, order: j }));
+  });
+  return out;
+}
+
+/** Original seed (sub-muscle rows); still used when a stored tree lost its nodes but kept these cells. */
+export function legacyMuscleNodes() {
   const mk = (id, name, parentId, order) => ({ id, name, parentId, order });
   return [
     mk('m-chest', 'อก', null, 0),
@@ -112,7 +126,10 @@ export function normalizeMuscleTree(raw) {
   let nodes = (Array.isArray(src.nodes) ? src.nodes : [])
     .map(normalizeMuscleNode)
     .filter(Boolean);
-  if (!nodes.length) nodes = defaultMuscleNodes();
+  if (!nodes.length) {
+    const legacy = Object.keys(src.cells || {}).some((k) => k.startsWith('m-'));
+    nodes = legacy ? legacyMuscleNodes() : defaultMuscleNodes();
+  }
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
   nodes = nodes.filter((n) => {
@@ -201,6 +218,92 @@ export function setNodeMuscles(tree, nodeId, muscles) {
     return muscles ? { ...rest, p: muscles.p || [], s: muscles.s || [] } : rest;
   });
   return normalizeMuscleTree({ ...t, nodes, updatedAt: nowIsoLocal() });
+}
+
+/** Old sub-muscle rows → beginner group they fold into (as a "ไม่ระบุท่า" move). */
+const LEGACY_FOLD = {
+  'อก': { 'อกบน': 'bg-chest', 'อกล่าง': 'bg-chest', 'อกกลาง': 'bg-chest' },
+  'ขา': { 'หน้าขา': 'bg-quads', 'หลังขา': 'bg-hamstrings' },
+  'ไหล่': { 'หลัก': 'bg-shoulders', 'ข้าง': 'bg-shoulders' },
+};
+
+/**
+ * Reorganise into the 10 beginner groups (+ cardio): reuse same-named roots, fold legacy
+ * sub-muscle rows into "ไม่ระบุท่า" under the matching group (cells move with them), seed
+ * popular moves, keep every user-made row. Idempotent.
+ * @returns {{ tree: object, touchDates: string[] }}
+ */
+export function applyBeginnerLayout(tree) {
+  const t = normalizeMuscleTree(tree);
+  let nodes = t.nodes.map((n) => ({ ...n }));
+  const cells = { ...t.cells };
+  const touch = new Set();
+  const hasCells = (id) => Object.keys(cells).some((k) => k.startsWith(`${id}|`));
+  const hasKids = (id) => nodes.some((c) => c.parentId === id);
+
+  const rootIds = {};
+  [...BEGINNER_GROUPS, CARDIO_SEED].forEach((g, i) => {
+    const isCardio = g === CARDIO_SEED;
+    let root = nodes.find((n) => !n.parentId && (isCardio ? CARDIO_NAME_RE.test(n.name) : n.name === g.name));
+    if (root && !hasKids(root.id) && hasCells(root.id)) {
+      // A root logged as a move itself can't take children without losing its cells.
+      root.name = clampName(`${root.name} (เดิม)`);
+      root = null;
+    }
+    if (!root) {
+      root = { id: newId('cat'), name: g.name, parentId: null, order: 0 };
+      nodes.push(root);
+    }
+    root.order = -100 + i;
+    rootIds[g.id] = root.id;
+  });
+
+  const unspecified = {};
+  const unspecifiedFor = (gid) => {
+    if (unspecified[gid]) return unspecified[gid];
+    const pid = rootIds[gid];
+    let n = nodes.find((x) => x.parentId === pid && x.name === UNSPECIFIED_MOVE);
+    if (!n) {
+      n = { id: newId('leaf'), name: UNSPECIFIED_MOVE, parentId: pid, order: -1 };
+      nodes.push(n);
+    }
+    unspecified[gid] = n.id;
+    return n.id;
+  };
+  const drop = new Set();
+  nodes.filter((n) => n.parentId).forEach((child) => {
+    const parent = nodes.find((p) => p.id === child.parentId);
+    const gid = LEGACY_FOLD[parent?.name]?.[child.name];
+    if (!gid) return;
+    const target = unspecifiedFor(gid);
+    Object.keys(cells).forEach((k) => {
+      const [id, dk] = k.split('|');
+      if (id !== child.id) return;
+      const nk = cellKey(target, dk);
+      cells[nk] = Math.max(cells[nk] || 0, cells[k]);
+      delete cells[k];
+      touch.add(dk);
+    });
+    drop.add(child.id);
+  });
+  nodes = nodes.filter((n) => !drop.has(n.id));
+
+  const keepRoots = new Set(Object.values(rootIds));
+  nodes = nodes.filter((n) => n.parentId || keepRoots.has(n.id) || hasKids(n.id) || hasCells(n.id));
+
+  [...BEGINNER_GROUPS, CARDIO_SEED].forEach((g) => {
+    const pid = rootIds[g.id];
+    g.moves.forEach((name, j) => {
+      if (!nodes.some((n) => n.parentId === pid && n.name === name)) {
+        nodes.push({ id: newId('leaf'), name, parentId: pid, order: j });
+      }
+    });
+  });
+
+  return {
+    tree: normalizeMuscleTree({ ...t, nodes, cells, updatedAt: nowIsoLocal() }),
+    touchDates: [...touch].sort(),
+  };
 }
 
 export function nextRestTone(tone) {

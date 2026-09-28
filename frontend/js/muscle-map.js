@@ -133,6 +133,31 @@ export const EXERCISE_LIBRARY = [
   ex('tibialis-raise', 'ยกปลายเท้า', 'Tibialis raise', 'bw', ['tibialis']),
 ];
 
+/**
+ * Beginner logging layout: 10 big muscle groups (table categories), each seeded with a few
+ * popular library moves. Detail stays on the body map via each move's muscles.
+ */
+export const BEGINNER_GROUPS = [
+  { id: 'bg-chest', name: 'อก', regions: ['chest-upper', 'chest-lower', 'serratus'], moves: ['วิดพื้น', 'เบนช์เพรส', 'เครื่องดันอก'] },
+  { id: 'bg-back', name: 'หลัง', regions: ['lats', 'mid-back', 'lower-back'], moves: ['ดึงบาร์ลงหน้าอก', 'นั่งดึงเคเบิล', 'ดึงข้อ'] },
+  { id: 'bg-shoulders', name: 'ไหล่', regions: ['delt-front', 'delt-side', 'delt-rear', 'traps-upper', 'neck'], moves: ['ดันไหล่เหนือศีรษะ', 'ยกดัมเบลข้างลำตัว', 'ฟลายไหล่หลัง'] },
+  { id: 'bg-biceps', name: 'แขนหน้า', regions: ['biceps', 'forearms'], moves: ['ดัมเบลเคิร์ล', 'แฮมเมอร์เคิร์ล'] },
+  { id: 'bg-triceps', name: 'แขนหลัง', regions: ['triceps'], moves: ['เคเบิลกดแขนหลัง', 'เหยียดแขนหลังเหนือศีรษะ'] },
+  { id: 'bg-abs', name: 'หน้าท้อง', regions: ['abs', 'obliques', 'hip-flexor'], moves: ['แพลงก์', 'ครันช์'] },
+  { id: 'bg-glutes', name: 'ก้น', regions: ['glutes', 'glute-med'], moves: ['ฮิปทรัสต์', 'เตะขาไปหลัง'] },
+  { id: 'bg-quads', name: 'ต้นขาหน้า', regions: ['quads', 'adductors'], moves: ['สควอท', 'เครื่องเลกเพรส', 'ลันจ์'] },
+  { id: 'bg-hamstrings', name: 'ต้นขาหลัง', regions: ['hamstrings'], moves: ['โรมาเนียนเดดลิฟต์', 'เครื่องงอขา'] },
+  { id: 'bg-calves', name: 'น่อง', regions: ['calves', 'tibialis'], moves: ['เขย่งยืน'] },
+];
+
+/** Beginner group that owns a region (used to file library moves and label regions). */
+export function beginnerGroupOfRegion(regionId) {
+  return BEGINNER_GROUPS.find((g) => g.regions.includes(regionId)) || null;
+}
+
+/** Name for a move that stands in for "trained this group" without a specific exercise. */
+export const UNSPECIFIED_MOVE = 'ไม่ระบุท่า';
+
 const LIB_BY_NAME = new Map();
 EXERCISE_LIBRARY.forEach((e) => {
   LIB_BY_NAME.set(e.name, e);

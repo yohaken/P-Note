@@ -158,10 +158,11 @@ import {
   restStep,
   setNodeMuscles,
   setRestProfile,
+  applyBeginnerLayout,
 } from './muscle-tree.js?v=310';
 import {
   EQUIPMENT_TH,
-  MUSCLE_GROUPS,
+  beginnerGroupOfRegion,
   defaultRegionRest,
   exercisesForRegion,
   libraryExerciseByName,
@@ -687,6 +688,7 @@ const els = {
   muscleManageOverlay: document.getElementById('muscle-manage-overlay'),
   muscleManageBackdrop: document.getElementById('muscle-manage-backdrop'),
   muscleManageClose: document.getElementById('muscle-manage-close'),
+  muscleBeginnerLayout: document.getElementById('muscle-beginner-layout'),
   muscleRestBtn: document.getElementById('muscle-rest-btn'),
   muscleRestOverlay: document.getElementById('muscle-rest-overlay'),
   muscleRestBackdrop: document.getElementById('muscle-rest-backdrop'),
@@ -3764,7 +3766,7 @@ function paintMuscleRegionSheet() {
     .join('');
   if (els.muscleRegionTitle) els.muscleRegionTitle.textContent = region.name;
   els.muscleRegionBody.innerHTML = `
-    <p class="mr-sci">${escapeHtml(region.sci)} · หมวด${escapeHtml(MUSCLE_GROUPS.find((g) => g.id === region.group)?.name || '')}</p>
+    <p class="mr-sci">${escapeHtml(region.sci)} · กลุ่ม${escapeHtml(beginnerGroupOfRegion(region.id)?.name || '')}</p>
     <div class="mr-status">${status}</div>
     <div class="mr-rest">
       <span class="mr-rest-label">พักให้พร้อม</span>
@@ -3816,7 +3818,7 @@ function onLogExerciseToday(name) {
   if (!node) {
     const lib = libraryExerciseByName(name);
     if (!lib) return;
-    const groupTh = MUSCLE_GROUPS.find((g) => g.id === regionById(lib.p[0])?.group)?.name || 'ท่าอื่นๆ';
+    const groupTh = beginnerGroupOfRegion(lib.p[0])?.name || 'ท่าอื่นๆ';
     const hasCells = (id) => Object.keys(tree.cells).some((k) => k.startsWith(`${id}|`));
     let root = tree.nodes.find((n) => !n.parentId && n.name === groupTh
       && (tree.nodes.some((c) => c.parentId === n.id) || !hasCells(n.id)));
@@ -3837,6 +3839,22 @@ function onLogExerciseToday(name) {
   const { tree: next } = setMuscleCellInTree(tree, node.id, todayKey, 1);
   persistMuscleTree(next, { touchDates: [todayKey], status: `เล่น ${name} วันนี้` });
   paintMuscleSheet();
+}
+
+function onMuscleBeginnerLayout() {
+  if (!requireSyncReady()) return;
+  const ok = window.confirm(
+    'จัดตารางเป็น 10 กลุ่มกล้ามแบบมือใหม่?\n\n'
+    + '• อก · หลัง · ไหล่ · แขนหน้า · แขนหลัง · หน้าท้อง · ก้น · ต้นขาหน้า · ต้นขาหลัง · น่อง (+ คาร์ดิโอ)\n'
+    + '• แถวกล้ามย่อยเดิม (อกบน/หน้าขา/ไหล่ข้าง ฯลฯ) รวมเป็น "ไม่ระบุท่า" ในกลุ่มนั้น · วันที่บันทึกย้ายตามครบ\n'
+    + '• เพิ่มท่ายอดนิยม 1–3 ท่าต่อกลุ่ม · ท่าที่สร้างเองยังอยู่',
+  );
+  if (!ok) return;
+  const { tree, touchDates } = applyBeginnerLayout(ensureCaloriePayload().muscleTree);
+  muscleSelectedId = null;
+  persistMuscleTree(tree, { touchDates, status: 'จัดเป็นกลุ่มมือใหม่แล้ว' });
+  paintMuscleSheet();
+  paintMuscleSettingsList();
 }
 
 function openMuscleEdit(nodeId) {
@@ -10289,6 +10307,7 @@ async function init({ fromBoot = false } = {}) {
     const part = e.target?.closest?.('[data-region]');
     if (part) onMuscleEditTap(part.getAttribute('data-region'));
   });
+  els.muscleBeginnerLayout?.addEventListener('click', () => onMuscleBeginnerLayout());
   els.muscleEditSave?.addEventListener('click', () => saveMuscleEdit(false));
   els.muscleEditAuto?.addEventListener('click', () => saveMuscleEdit(true));
   els.muscleRestClose?.addEventListener('click', () => closeMuscleRest());
