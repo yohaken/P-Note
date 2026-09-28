@@ -3584,6 +3584,19 @@ function fitMuscleNameColumn(host) {
   const roomCap = Math.max(80, hostW - 26 - 90);
   const px = Math.max(80, Math.min(170 + thumbs, roomCap, Math.ceil(max + 14)));
   table.style.setProperty('--mt-name-w', `${px}px`);
+  fitMuscleRestColumn(table);
+}
+
+/** Rest column = widest pill (number + label), not a fixed width. */
+function fitMuscleRestColumn(table) {
+  table.classList.add('is-measuring-rest');
+  let max = 0;
+  table.querySelectorAll('.mt-col-rest .mt-rest-val').forEach((el) => {
+    max = Math.max(max, el.getBoundingClientRect().width);
+  });
+  table.classList.remove('is-measuring-rest');
+  if (!max) return;
+  table.style.setProperty('--mt-rest-w', `${Math.ceil(Math.max(max + 6, 34))}px`);
 }
 
 function syncMuscleExpandBtn() {

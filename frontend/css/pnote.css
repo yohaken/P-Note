@@ -9596,9 +9596,9 @@ body.calorie-muscle-pane #calorie-view {
   position: sticky;
   left: calc(var(--mt-name-w) + 1.6rem);
   z-index: 2;
-  min-width: 4.9rem;
-  width: 4.9rem;
-  max-width: 4.9rem;
+  min-width: var(--mt-rest-w, 4.9rem);
+  width: var(--mt-rest-w, 4.9rem);
+  max-width: var(--mt-rest-w, 4.9rem);
   padding: 0 0.12rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -9633,6 +9633,13 @@ body.calorie-muscle-pane #calorie-view {
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
+}
+.muscle-table.is-measuring-rest .mt-col-rest .mt-rest-val {
+  display: inline-flex;
+  overflow: visible;
+}
+.muscle-table.is-measuring-rest .mt-rest-lb {
+  overflow: visible;
 }
 .muscle-table .mt-rest-n {
   flex: 0 0 auto;
