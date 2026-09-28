@@ -32,6 +32,15 @@ export function regionLeafId(regionId) {
   return `${REGION_LEAF}${regionId}`;
 }
 
+/** User-added groups (ug-) hold user-added muscle rows (um-): ●/• marks like the fixed rows, not on the body map. */
+export function isCustomGroupId(id) {
+  return String(id || '').startsWith('ug-');
+}
+
+export function isCustomMuscleId(id) {
+  return String(id || '').startsWith('um-');
+}
+
 /** Region id of a muscle row ('' for groups, cardio and old move rows). */
 export function regionOfLeaf(nodeId) {
   const s = String(nodeId || '');
@@ -194,10 +203,14 @@ function normalizeMuscleTreeFresh(raw) {
     nodes = legacy ? legacyMuscleNodes() : defaultMuscleNodes();
   }
   const regionNames = normalizeRegionNames(src.regionNames);
+  const groupNames = normalizeGroupNames(src.groupNames);
   // Muscle rows show the user's name for the region, else the region table's (which may change between builds).
   nodes = nodes.map((n) => {
     const rid = regionOfLeaf(n.id);
-    const name = rid ? clampName(regionNames?.[rid]?.name || regionById(rid).name) : n.name;
+    const fixed = !rid && BEGINNER_GROUPS.find((g) => g.id === n.id);
+    const name = rid
+      ? clampName(regionNames?.[rid]?.name || regionById(rid).name)
+      : fixed ? clampName(groupNames?.[n.id]?.name || fixed.name) : n.name;
     return name && name !== n.name ? { ...n, name } : n;
   });
 
@@ -246,7 +259,63 @@ function normalizeMuscleTreeFresh(raw) {
   const moveLog = normalizeMoveLog(src.moveLog, cutoff);
   if (moveLog) out.moveLog = moveLog;
   if (regionNames) out.regionNames = regionNames;
+  if (groupNames) out.groupNames = groupNames;
   return out;
+}
+
+/** User names for the fixed groups: { groupId: { name, at } }; an empty name = the standard one. */
+function normalizeGroupNames(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  Object.keys(raw).forEach((gid) => {
+    if (!BEGINNER_GROUPS.some((g) => g.id === gid)) return;
+    const at = stampMs(raw[gid]?.at);
+    if (!at) return;
+    out[gid] = { name: clampName(raw[gid]?.name || ''), at };
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+/** Name shown for a fixed or user-added group. */
+export function groupLabel(tree, gid) {
+  const t = normalizeMuscleTree(tree);
+  const fixed = BEGINNER_GROUPS.find((g) => g.id === gid);
+  if (fixed) return t.groupNames?.[gid]?.name || fixed.name;
+  return t.nodes.find((n) => n.id === gid)?.name || '';
+}
+
+/** Rename a fixed group; '' or the standard name resets it. */
+export function setGroupName(tree, gid, name, nowMs = clockNowMs()) {
+  const t = normalizeMuscleTree(tree);
+  const fixed = BEGINNER_GROUPS.find((g) => g.id === gid);
+  if (!fixed) return t;
+  const clean = clampName(name || '');
+  const groupNames = { ...(t.groupNames || {}), [gid]: { name: clean === fixed.name ? '' : clean, at: nowMs } };
+  return normalizeMuscleTree({ ...t, groupNames, updatedAt: nowIsoLocal() });
+}
+
+/** User-added groups with their muscle rows, in table order. */
+export function customMuscleGroups(tree) {
+  const t = normalizeMuscleTree(tree);
+  return t.nodes
+    .filter((n) => !n.parentId && isCustomGroupId(n.id))
+    .map((g) => ({ id: g.id, name: g.name, muscles: t.nodes.filter((n) => n.parentId === g.id && isCustomMuscleId(n.id)) }));
+}
+
+export function addCustomGroup(tree, name) {
+  const t = normalizeMuscleTree(tree);
+  const label = clampName(name);
+  if (!label) return { tree: t, node: null };
+  const node = { id: newId('ug'), name: label, parentId: null, order: t.nodes.filter((n) => !n.parentId).length };
+  return { tree: normalizeMuscleTree({ ...t, nodes: [...t.nodes, node], updatedAt: nowIsoLocal() }), node };
+}
+
+export function addCustomMuscle(tree, groupId, name) {
+  const t = normalizeMuscleTree(tree);
+  const label = clampName(name);
+  if (!label || !isCustomGroupId(groupId) || !t.nodes.some((n) => n.id === groupId)) return { tree: t, node: null };
+  const node = { id: newId('um'), name: label, parentId: groupId, order: t.nodes.filter((n) => n.parentId === groupId).length };
+  return { tree: normalizeMuscleTree({ ...t, nodes: [...t.nodes, node], updatedAt: nowIsoLocal() }), node };
 }
 
 /** User names for muscle rows: { regionId: { name, at } }; an empty name = back to the standard one. */
@@ -265,6 +334,7 @@ function normalizeRegionNames(raw) {
 /** Name shown for a muscle row (user's name, else standard). */
 export function regionLabel(tree, rid) {
   const t = normalizeMuscleTree(tree);
+  if (isCustomMuscleId(rid)) return t.nodes.find((n) => n.id === rid)?.name || '';
   return t.regionNames?.[rid]?.name || regionById(rid)?.name || '';
 }
 
@@ -467,8 +537,12 @@ export function toMuscleLayout(tree, nowMs = clockNowMs()) {
   const logged = new Map();
   const hasKids = (id) => t.nodes.some((c) => c.parentId === id);
 
-  const cardioRoots = t.nodes.filter((n) => !n.parentId && !wantIds.has(n.id) && isCardioName(n.name));
+  const customIds = new Set(t.nodes.filter((n) => !n.parentId && isCustomGroupId(n.id)).map((n) => n.id));
+  const cardioRoots = t.nodes.filter((n) => !n.parentId && !wantIds.has(n.id) && !customIds.has(n.id) && isCardioName(n.name));
   const cardioRootIds = new Set(cardioRoots.map((r) => r.id));
+  const customNodes = t.nodes
+    .filter((n) => customIds.has(n.id) || (customIds.has(n.parentId) && isCustomMuscleId(n.id)))
+    .map((n) => ({ ...n }));
   const extraNodes = cardioRoots.map((r) => ({ ...r }));
   let home = cardioRoots.find((r) => hasKids(r.id) || !cellsOf(t.cells, r.id).length) || null;
 
@@ -504,7 +578,8 @@ export function toMuscleLayout(tree, nowMs = clockNowMs()) {
       cellsOf(t.cells, n.id).forEach((k) => { delete cells[k]; });
       return;
     }
-    if (wantIds.has(n.id) || cardioRootIds.has(n.id)) return;
+    if (wantIds.has(n.id) || cardioRootIds.has(n.id) || customIds.has(n.id)) return;
+    if (customIds.has(n.parentId) && isCustomMuscleId(n.id)) return;
     const parent = n.parentId ? byId.get(n.parentId) : null;
     if (n.parentId && cardioRootIds.has(n.parentId)) {
       extraNodes.push({ ...n });
@@ -529,7 +604,8 @@ export function toMuscleLayout(tree, nowMs = clockNowMs()) {
       const n = byId.get(w.id);
       return n?.at ? { ...w, at: n.at } : w;
     }),
-    ...extraNodes.map((n) => (n.parentId ? n : { ...n, order: BEGINNER_GROUPS.length + n.order / 1000 })),
+    ...customNodes.map((n) => (n.parentId ? n : { ...n, order: BEGINNER_GROUPS.length + n.order / 1000 })),
+    ...extraNodes.map((n) => (n.parentId ? n : { ...n, order: BEGINNER_GROUPS.length + 0.5 + n.order / 1000 })),
   ];
   const moveLog = { ...(t.moveLog || {}) };
   logged.forEach((names, dk) => {
@@ -626,6 +702,7 @@ function treeContentKey(tree) {
     t.restProfile,
     t.moveLog || null,
     t.regionNames || null,
+    t.groupNames || null,
   ]);
 }
 
@@ -636,7 +713,7 @@ export function muscleTreeNeedsPush(localCalorie, remoteCalorie) {
   return treeContentKey(merged) !== treeContentKey(remoteCalorie?.muscleTree);
 }
 
-const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.regionNames || t.nodes.some((n) => n.at));
+const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.regionNames || t.groupNames || t.nodes.some((n) => n.at));
 
 /**
  * A tree from a build before stamps (it strips them) that was saved last: every row and cell
@@ -711,7 +788,9 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   Object.entries(a.moveLog || {}).forEach(([k, v]) => { if (!moveLog[k] || moveLog[k].at <= v.at) moveLog[k] = v; });
   const regionNames = { ...(b.regionNames || {}) };
   Object.entries(a.regionNames || {}).forEach(([k, v]) => { if (!regionNames[k] || regionNames[k].at <= v.at) regionNames[k] = v; });
-  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, regionNames });
+  const groupNames = { ...(b.groupNames || {}) };
+  Object.entries(a.groupNames || {}).forEach(([k, v]) => { if (!groupNames[k] || groupNames[k].at <= v.at) groupNames[k] = v; });
+  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, regionNames, groupNames });
 }
 
 export function isLeafNode(node, nodes) {
@@ -807,7 +886,7 @@ export function isCardioMove(name, parentName = '') {
 export function isCardioNode(tree, nodeId) {
   const t = normalizeMuscleTree(tree);
   const node = t.nodes.find((n) => n.id === nodeId);
-  if (!node) return false;
+  if (!node || isCustomMuscleId(node.id) || isCustomGroupId(node.id)) return false;
   const parent = node.parentId ? t.nodes.find((n) => n.id === node.parentId) : null;
   return isCardioMove(node.name, parent?.name);
 }
@@ -853,7 +932,7 @@ export function muscleLeafIndex(tree) {
       parentId: r.parentId || null,
       parentName: parent?.name || '',
       label: labelKey(parent ? `${parent.name} · ${r.name}` : r.name),
-      cardio: isCardioMove(r.name, parent?.name),
+      cardio: !isCustomMuscleId(r.id) && !isCustomGroupId(r.id) && isCardioMove(r.name, parent?.name),
     });
   });
   const byLabel = new Map();
@@ -973,6 +1052,7 @@ export function canReparentMuscleNode(tree, nodeId, parentId) {
   if (!t.nodes.some((n) => n.parentId === parentId) && Object.keys(t.cells).some((k) => k.startsWith(`${parentId}|`))) {
     return false;
   }
+  if (isCustomMuscleId(nodeId) || isCustomGroupId(parentId)) return isCustomMuscleId(nodeId) && isCustomGroupId(parentId);
   // Cardio cells hold kcal and strength cells hold marks, so a move can't cross between them.
   const from = t.nodes.find((n) => n.id === node.parentId);
   return isCardioMove(node.name, from?.name) === isCardioMove(node.name, parent.name);
@@ -1176,7 +1256,7 @@ export function muscleMoveStates(tree, todayKey = muscleToDateKey()) {
     if (dk && dk <= todayKey && dk > (lastById.get(id) || '')) lastById.set(id, dk);
   });
   return flattenMuscleRows(t)
-    .filter((r) => r.leaf && !regionOfLeaf(r.id) && !nodeIsCardio(byId, byId.get(r.id)))
+    .filter((r) => r.leaf && !regionOfLeaf(r.id) && !isCustomMuscleId(r.id) && !isCustomGroupId(r.id) && !nodeIsCardio(byId, byId.get(r.id)))
     .map((r) => {
       const parent = r.parentId ? byId.get(r.parentId) : null;
       const node = byId.get(r.id);
@@ -1202,7 +1282,7 @@ export function regionMarks(tree) {
   const out = new Map();
   Object.keys(t.cells).forEach((k) => {
     const [id, dk] = k.split('|');
-    const rid = regionOfLeaf(id);
+    const rid = regionOfLeaf(id) || (isCustomMuscleId(id) ? id : '');
     if (!rid || !dk || !(t.cells[k] > 0)) return;
     if (!out.has(rid)) out.set(rid, new Map());
     out.get(rid).set(dk, t.cells[k] === MARK_SECONDARY ? MARK_SECONDARY : MARK_MAIN);
@@ -1219,7 +1299,7 @@ function regionHitStates(t, todayKey) {
     [MARK_MAIN, MARK_SECONDARY].forEach((v) => {
       if (!last[v]) return;
       out.push({
-        id: regionLeafId(rid),
+        id: isCustomMuscleId(rid) ? rid : regionLeafId(rid),
         p: v === MARK_MAIN ? [rid] : [],
         s: v === MARK_SECONDARY ? [rid] : [],
         days: daysBetweenKeys(last[v], todayKey),
@@ -1289,8 +1369,8 @@ export function muscleDaySummary(tree, dateKey) {
   const t = normalizeMuscleTree(tree);
   const main = [];
   const secondary = [];
-  BEGINNER_GROUPS.forEach((g) => g.regions.forEach((rid) => {
-    const v = t.cells[cellKey(regionLeafId(rid), dateKey)];
+  tableGroups(t).forEach((g) => g.keys.forEach((rid) => {
+    const v = t.cells[cellKey(g.fixed ? regionLeafId(rid) : rid, dateKey)];
     if (!(v > 0)) return;
     (v === MARK_SECONDARY ? secondary : main).push(regionLabel(t, rid));
   }));
@@ -1300,11 +1380,20 @@ export function muscleDaySummary(tree, dateKey) {
   return { main, secondary, cardio, moves: t.moveLog?.[dateKey]?.names || [] };
 }
 
+/** Table groups: the fixed ones (keys = region ids) then user-added ones (keys = muscle row ids). */
+function tableGroups(t) {
+  return [
+    ...BEGINNER_GROUPS.map((g) => ({ id: g.id, name: groupLabel(t, g.id), keys: g.regions, fixed: true })),
+    ...customMuscleGroups(t).map((g) => ({ id: g.id, name: g.name, keys: g.muscles.map((m) => m.id), fixed: false })),
+  ];
+}
+
 /** Top "เล่นหลัก" row: the groups each day was mainly about (tap = that day in words). */
 function daySummaryRowHtml(t, dates, todayKey, marks, cardioIds) {
+  const groupsAll = tableGroups(t);
   const cells = dates.map((dk) => {
-    const groups = BEGINNER_GROUPS
-      .map((g) => ({ name: g.name, n: g.regions.filter((rid) => marks.get(rid)?.get(dk) === MARK_MAIN).length }))
+    const groups = groupsAll
+      .map((g) => ({ name: g.name, n: g.keys.filter((rid) => marks.get(rid)?.get(dk) === MARK_MAIN).length }))
       .filter((g) => g.n)
       .sort((a, b) => b.n - a.n);
     const cut = cardioKcalOn(t, cardioIds, dk);
@@ -1362,7 +1451,7 @@ function cardioRowsHtml(t, dates, todayKey, { expandAll, expanded, selectedId })
   const cardioIds = new Set(cardioLeafIds(t));
   const sessions = (id) => Object.keys(t.cells).filter((k) => k.startsWith(`${id}|`) && t.cells[k] > 0).length;
   return rows.map((r) => {
-    if (regionOfLeaf(r.id) || BEGINNER_GROUPS.some((g) => g.id === r.id)) return '';
+    if (regionOfLeaf(r.id) || isCustomGroupId(r.id) || isCustomMuscleId(r.id) || BEGINNER_GROUPS.some((g) => g.id === r.id)) return '';
     const isGroup = !r.leaf;
     if (!isGroup && !cardioIds.has(r.id)) return '';
     if (r.depth && !(expandAll || expanded.has(r.parentId))) return '';
@@ -1437,23 +1526,23 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
     const sel = g.id === selectedId ? ' is-selected' : '';
     const cls = ` is-parent is-group${sel}${open ? ' is-open' : ''}`;
     const attrs = toggle ? ` data-group-toggle="1" title="${open ? 'แตะเพื่อหุบ' : 'แตะเพื่อขยายเป็นกล้ามย่อย'}"` : '';
-    const count = mainDays(g.regions);
+    const count = mainDays(g.keys);
     const cells = dates.map((dk) => {
-      const n = g.regions.filter((rid) => marks.get(rid)?.get(dk) === MARK_MAIN).length;
-      const sec = !n && g.regions.some((rid) => marks.get(rid)?.get(dk) === MARK_SECONDARY);
+      const n = g.keys.filter((rid) => marks.get(rid)?.get(dk) === MARK_MAIN).length;
+      const sec = !n && g.keys.some((rid) => marks.get(rid)?.get(dk) === MARK_SECONDARY);
       const html = n ? `<span class="mt-dose">${n}</span>` : sec ? '<span class="mt-dose is-sec" aria-label="โดนเป็นกล้ามรอง">•</span>' : '';
       return `<td class="mt-cell is-sum${dk === todayKey ? ' is-today' : ''}${n || sec ? ' is-hit' : ''}" data-date="${esc(dk)}"${n || sec ? ` data-mv-group="${esc(g.id)}"` : ''}>${html}</td>`;
     }).join('');
     return `<tr class="mt-row${cls}" data-node-id="${esc(g.id)}">
       ${nameCellHtml({ id: g.id, name: g.name, cls, attrs, toggle })}
       <td class="mt-col-count is-parent is-group${count ? ' is-filled' : ''}" data-node-id="${esc(g.id)}" title="วันที่มีกล้ามในกลุ่มนี้เป็นกล้ามหลัก ${count} วัน"><span class="mt-count-val">${count || ''}</span></td>
-      ${regionRestCellHtml(t, g.regions, ' is-parent is-group', g.id, restMap, anyRestMap)}
+      ${regionRestCellHtml(t, g.keys, ' is-parent is-group', g.id, restMap, anyRestMap)}
       ${cells}
     </tr>`;
   };
 
   const muscleRow = (g, rid, solo = false) => {
-    const id = regionLeafId(rid);
+    const id = g.fixed ? regionLeafId(rid) : rid;
     const name = regionLabel(t, rid);
     const sel = id === selectedId ? ' is-selected' : '';
     const pos = solo ? ' is-parent is-solo' : ' is-child';
@@ -1468,17 +1557,17 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
       </td>`;
     }).join('');
     return `<tr class="mt-row${cls}" data-node-id="${esc(id)}"${solo ? '' : ` data-parent-id="${esc(g.id)}"`}>
-      ${nameCellHtml({ id, name, cls, attrs: ` data-muscle-region="${esc(rid)}" title="แตะเพื่อดูท่าไกด์และตั้งวันพัก"` })}
+      ${nameCellHtml({ id, name, cls, attrs: g.fixed ? ` data-muscle-region="${esc(rid)}" title="แตะเพื่อดูท่าไกด์และตั้งวันพัก"` : ' title="กล้ามที่เพิ่มเอง · แก้ชื่อ/ลบ ที่ปุ่มจัดการ"' })}
       <td class="mt-col-count${pos} is-leaf${count ? ' is-filled' : ''}" data-node-id="${esc(id)}" title="เป็นกล้ามหลัก ${count} วัน"><span class="mt-count-val">${count || ''}</span></td>
       ${regionRestCellHtml(t, [rid], `${pos} is-leaf`, id, restMap, anyRestMap)}
       ${cells}
     </tr>`;
   };
 
-  const body = BEGINNER_GROUPS.map((g) => {
-    if (g.regions.length === 1) return muscleRow(g, g.regions[0], true);
+  const body = tableGroups(t).map((g) => {
+    if (g.fixed && g.keys.length === 1) return muscleRow(g, g.keys[0], true);
     const open = expandAll || expanded.has(g.id);
-    return groupRow(g, open) + (open ? g.regions.map((rid) => muscleRow(g, rid)).join('') : '');
+    return groupRow(g, open) + (open ? g.keys.map((rid) => muscleRow(g, rid)).join('') : '');
   }).join('');
   const cardio = cardioRowsHtml(t, dates, todayKey, { expandAll, expanded, selectedId });
 

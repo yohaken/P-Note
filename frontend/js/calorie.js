@@ -1379,6 +1379,7 @@ export function exercisePickerCatalog(tree) {
   rows.forEach((r) => {
     if (r.depth !== 0) return;
     const kids = rows.filter((c) => c.depth === 1 && c.parentId === r.id);
+    if (!kids.length && r.id.startsWith('ug-')) return;
     const moves = kids.length
       ? kids.map((c) => ({ id: c.id, name: c.name, label: leafLabelPath(t, c.id), cardio: isCardioNode(t, c.id) }))
       : [{ id: r.id, name: r.name, label: r.name, cardio: isCardioNode(t, r.id) }];

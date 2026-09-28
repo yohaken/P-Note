@@ -152,6 +152,12 @@ import {
   toMuscleLayout,
   regionLabel,
   setRegionName,
+  groupLabel,
+  setGroupName,
+  isCustomGroupId,
+  isCustomMuscleId,
+  addCustomGroup,
+  addCustomMuscle,
   nextMark,
   markMoveMuscles,
   muscleDaySummary,
@@ -3643,7 +3649,8 @@ function onMuscleMove(direction) {
     .filter((n) => (n.parentId || null) === (node?.parentId || null))
     .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'th'));
   const swapWith = siblings[siblings.findIndex((n) => n.id === muscleSelectedId) + (direction < 0 ? -1 : 1)];
-  const { tree, changed } = swapWith && isCardioRowId(swapWith.id)
+  const custom = (id) => isCustomGroupId(id) || isCustomMuscleId(id);
+  const { tree, changed } = swapWith && isCardioRowId(swapWith.id) && custom(swapWith.id) === custom(muscleSelectedId)
     ? moveMuscleNode(base, muscleSelectedId, direction)
     : { tree: base, changed: false };
   if (!changed) {
@@ -3754,10 +3761,10 @@ function openMusclePane() {
 /** Cardio group new moves go under (the selected one, else the first; made when missing). */
 function cardioParentFor(tree, selectedId) {
   const layoutIds = new Set(BEGINNER_GROUPS.map((g) => g.id));
-  const roots = tree.nodes.filter((n) => !n.parentId && !layoutIds.has(n.id));
+  const roots = tree.nodes.filter((n) => !n.parentId && !layoutIds.has(n.id) && !isCustomGroupId(n.id));
   const usable = (n) => tree.nodes.some((c) => c.parentId === n.id)
     || !Object.keys(tree.cells).some((k) => k.startsWith(`${n.id}|`));
-  const selected = tree.nodes.find((n) => n.id === selectedId);
+  const selected = tree.nodes.find((n) => n.id === selectedId && !isCustomGroupId(n.id) && !isCustomMuscleId(n.id));
   const pick = roots.find((n) => n.id === (selected?.parentId || selected?.id) && usable(n))
     || roots.find(usable);
   if (pick) return { tree, parent: pick };
@@ -3785,6 +3792,69 @@ async function onMuscleAddChild() {
   paintMuscleSettingsList();
 }
 
+async function onMuscleAddGroup() {
+  if (!requireSyncReady()) return;
+  const base = muscleLayoutForEdit();
+  if (!base) return;
+  const name = window.prompt('ชื่อกลุ่มกล้ามใหม่', '');
+  if (name == null) return;
+  const { tree, node } = addCustomGroup(base, name);
+  if (!node) {
+    setStatus('ใส่ชื่อกลุ่มก่อน', { forceToast: true, ms: 1400 });
+    return;
+  }
+  muscleSelectedId = node.id;
+  if (!muscleExpandAll) muscleExpandedIds.add(node.id);
+  persistMuscleTree(tree, { status: `เพิ่มกลุ่ม ${node.name} · กด + กล้าม เพื่อใส่กล้าม` });
+  paintMuscleSheet();
+  paintMuscleSettingsList();
+}
+
+async function onMuscleAddCustom() {
+  if (!requireSyncReady()) return;
+  const base = muscleLayoutForEdit();
+  if (!base) return;
+  const groups = base.nodes.filter((n) => !n.parentId && isCustomGroupId(n.id));
+  if (!groups.length) {
+    setStatus('กด + กลุ่มกล้าม ก่อน แล้วค่อยเพิ่มกล้าม', { forceToast: true, ms: 2200 });
+    return;
+  }
+  const sel = base.nodes.find((n) => n.id === muscleSelectedId);
+  const group = groups.find((g) => g.id === sel?.id || g.id === sel?.parentId) || (groups.length === 1 ? groups[0] : null);
+  if (!group) {
+    setStatus('แตะเลือกกลุ่มที่จะใส่ก่อน แล้วกด + กล้าม', { forceToast: true, ms: 2200 });
+    return;
+  }
+  const name = window.prompt(`ชื่อกล้ามใหม่ (อยู่ใน「${group.name}」)`, '');
+  if (name == null) return;
+  const { tree, node } = addCustomMuscle(base, group.id, name);
+  if (!node) {
+    setStatus('ใส่ชื่อกล้ามก่อน', { forceToast: true, ms: 1400 });
+    return;
+  }
+  muscleSelectedId = node.id;
+  if (!muscleExpandAll) muscleExpandedIds.add(group.id);
+  persistMuscleTree(tree, { status: `เพิ่ม ${node.name}` });
+  paintMuscleSheet();
+  paintMuscleSettingsList();
+}
+
+function onMuscleGroupRename(gid) {
+  if (!requireSyncReady()) return;
+  const g = BEGINNER_GROUPS.find((x) => x.id === gid);
+  if (!g) return;
+  const tree0 = normalizeMuscleTree(ensureCaloriePayload().muscleTree);
+  const input = window.prompt(`ชื่อกลุ่ม (ว่าง = ${g.name})`, groupLabel(tree0, gid));
+  if (input == null) return;
+  const tree = setGroupName(tree0, gid, input.trim());
+  if (groupLabel(tree, gid) === groupLabel(tree0, gid)) return;
+  const leaves = new Set(g.regions.map((rid) => regionLeafId(rid)));
+  const touch = [...new Set(Object.keys(tree.cells).filter((k) => leaves.has(k.split('|')[0])).map((k) => k.split('|')[1]))];
+  persistMuscleTree(tree, { touchDates: touch, status: 'เปลี่ยนชื่อกลุ่มแล้ว' });
+  paintMuscleSheet();
+  paintMuscleSettingsList();
+}
+
 function muscleDayText(tree, dk) {
   const d = muscleDaySummary(tree, dk);
   const parts = [];
@@ -3796,7 +3866,7 @@ function muscleDayText(tree, dk) {
 }
 
 async function onMuscleMarkTap(nodeId, dateKey) {
-  if (!requireSyncReady() || !regionOfLeaf(nodeId)) return;
+  if (!requireSyncReady() || !(regionOfLeaf(nodeId) || isCustomMuscleId(nodeId))) return;
   if (!(await confirmPastMuscleDate(dateKey))) return;
   const tree = muscleLayoutForEdit();
   if (!tree) return;
@@ -3824,15 +3894,18 @@ function onMuscleScrollClick(e) {
   const hit = e.target?.closest?.('[data-mv-group]');
   if (hit && els.muscleScroll?.contains(hit)) {
     const dk = hit.dataset.date;
-    const g = BEGINNER_GROUPS.find((x) => x.id === hit.dataset.mvGroup);
+    const gid = hit.dataset.mvGroup;
+    const g = BEGINNER_GROUPS.find((x) => x.id === gid);
     const view = muscleLayoutView();
     const d = muscleDaySummary(view, dk);
-    const names = new Set((g?.regions || []).map((rid) => regionLabel(view, rid)));
+    const names = new Set(g
+      ? g.regions.map((rid) => regionLabel(view, rid))
+      : view.nodes.filter((n) => n.parentId === gid).map((n) => n.name));
     const list = [
       ...d.main.filter((n) => names.has(n)),
       ...d.secondary.filter((n) => names.has(n)).map((n) => `${n} (รอง)`),
     ].join(', ');
-    setStatus(`${g?.name || ''} ${formatDateDisplay(dk)}: ${list || '–'}`, { forceToast: true, ms: 4000 });
+    setStatus(`${groupLabel(view, gid)} ${formatDateDisplay(dk)}: ${list || '–'}`, { forceToast: true, ms: 4000 });
     return;
   }
   const region = e.target?.closest?.('[data-muscle-region]');
@@ -3884,7 +3957,7 @@ async function onMuscleDeleteNode(nodeId) {
   const tree0 = normalizeMuscleTree(sheet.muscleTree);
   const node = tree0.nodes.find((n) => n.id === nodeId);
   if (!node) return;
-  const ok = await showConfirm(`ลบ「${node.name}」?\nรายการย่อยและค่าแคลที่เกี่ยวข้องจะหาย`, {
+  const ok = await showConfirm(`ลบ「${node.name}」?\nรายการย่อยและค่าที่บันทึกไว้ในแถวนี้จะหาย`, {
     okLabel: 'ลบ',
     danger: true,
   });
@@ -3909,8 +3982,16 @@ function paintMuscleSettingsList() {
   }
   const layoutIds = new Set(BEGINNER_GROUPS.map((g) => g.id));
   const rows = flattenMuscleRows(sheet.muscleTree).filter((r) => !layoutIds.has(r.id) && !regionOfLeaf(r.id));
+  const fixedHtml = `<p class="settings-hint">กลุ่มตั้งต้น · แก้ชื่อได้ (ว่าง = ชื่อเดิม)</p>${BEGINNER_GROUPS.map((g) => `
+      <div class="muscle-settings-row is-parent is-fixed" data-node-id="${escapeHtml(g.id)}">
+        <span class="muscle-settings-pick"><span class="muscle-settings-kind">กลุ่ม</span>
+          <span class="muscle-settings-name">${escapeHtml(groupLabel(sheet.muscleTree, g.id))}</span></span>
+        <span></span><span></span>
+        <button type="button" class="btn btn-secondary muscle-settings-rename" data-group-rename="${escapeHtml(g.id)}" title="แก้ชื่อกลุ่ม">แก้ชื่อ</button>
+        <span></span>
+      </div>`).join('')}<p class="settings-hint">กลุ่มที่เพิ่มเอง และคาร์ดิโอ</p>`;
   if (!rows.length) {
-    list.innerHTML = '<p class="settings-hint">ยังไม่มีท่าคาร์ดิโอ — กด + ท่าคาร์ดิโอ</p>';
+    list.innerHTML = `${fixedHtml}<p class="settings-hint">ยังไม่มี — กด + กลุ่มกล้าม หรือ + ท่าคาร์ดิโอ</p>`;
     return;
   }
   const hasOwnMarks = (id) => Object.keys(sheet.muscleTree.cells || {}).some((k) => k.startsWith(`${id}|`));
@@ -3921,11 +4002,12 @@ function paintMuscleSettingsList() {
       ? `<option value="${escapeHtml(g.id)}" selected>อยู่กลุ่ม ${escapeHtml(g.name)} · แตะเพื่อย้าย</option>`
       : `<option value="${escapeHtml(g.id)}">ย้ายไป ${escapeHtml(g.name)}</option>`))
     .join('');
-  list.innerHTML = rows
+  list.innerHTML = fixedHtml + rows
     .map((r) => {
       const depthCls = r.depth ? ' is-child' : ' is-parent';
       const sel = r.id === muscleSelectedId ? ' is-selected' : '';
-      const kind = r.leaf && r.depth ? 'ย่อย' : 'หมวด';
+      const custom = isCustomGroupId(r.id) || isCustomMuscleId(r.id);
+      const kind = custom ? (r.depth ? 'กล้าม' : 'กลุ่ม') : r.depth ? 'ท่า' : 'คาร์ดิโอ';
       return `<div class="muscle-settings-row${depthCls}${sel}" data-node-id="${escapeHtml(r.id)}">
         <button type="button" class="muscle-settings-pick" data-muscle-pick="${escapeHtml(r.id)}" title="เลือก">
           <span class="muscle-settings-kind">${kind}</span>
@@ -10679,6 +10761,8 @@ async function init({ fromBoot = false } = {}) {
   els.muscleAddChild?.addEventListener('click', () => {
     void onMuscleAddChild();
   });
+  document.getElementById('muscle-add-group')?.addEventListener('click', () => { void onMuscleAddGroup(); });
+  document.getElementById('muscle-add-custom')?.addEventListener('click', () => { void onMuscleAddCustom(); });
   els.muscleManageBtn?.addEventListener('click', () => openMuscleManage());
   els.muscleManageClose?.addEventListener('click', () => closeMuscleManage());
   els.muscleManageBackdrop?.addEventListener('click', () => closeMuscleManage());
@@ -10767,6 +10851,11 @@ async function init({ fromBoot = false } = {}) {
       muscleSelectedId = pick.getAttribute('data-muscle-pick');
       paintMuscleSettingsList();
       paintMuscleSheet();
+      return;
+    }
+    const groupRename = e.target?.closest?.('[data-group-rename]');
+    if (groupRename) {
+      onMuscleGroupRename(groupRename.getAttribute('data-group-rename'));
       return;
     }
     const rename = e.target?.closest?.('[data-muscle-rename]');
