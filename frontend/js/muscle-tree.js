@@ -5,6 +5,7 @@
  */
 
 import {
+  ALL_EXERCISES,
   BEGINNER_GROUPS,
   UNSPECIFIED_MOVE,
   beginnerGroupOfRegion,
@@ -17,7 +18,7 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=318';
+} from './muscle-map.js?v=319';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -59,8 +60,9 @@ function newId(prefix = 'm') {
   }
 }
 
+/** Commas would split the "kcal,label" day cell, so they become spaces. */
 function clampName(raw) {
-  return String(raw || '').trim().slice(0, MUSCLE_NAME_MAX);
+  return String(raw || '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MUSCLE_NAME_MAX);
 }
 
 function clampKcal(raw) {
@@ -500,13 +502,22 @@ export function leafLabelPath(tree, nodeId) {
  */
 export const CARDIO_NAME_RE = /คาดิโอ|คาร์ดิโอ|cardio|วิ่ง|เดิน|ปั่น|จักรยาน|ว่ายน้ำ|กระโดดเชือก/i;
 
+/** Cardio by name, except library strength moves that merely contain เดิน/ปั่น (เดินถือดัมเบล…). */
+export function isCardioName(name) {
+  return CARDIO_NAME_RE.test(name) && !libraryExerciseByName(name);
+}
+
+/** Cardio for a leaf name under an optional parent name (a cardio parent makes every child cardio). */
+export function isCardioMove(name, parentName = '') {
+  return Boolean(parentName && CARDIO_NAME_RE.test(parentName)) || isCardioName(name);
+}
+
 export function isCardioNode(tree, nodeId) {
   const t = normalizeMuscleTree(tree);
   const node = t.nodes.find((n) => n.id === nodeId);
   if (!node) return false;
-  if (CARDIO_NAME_RE.test(node.name)) return true;
   const parent = node.parentId ? t.nodes.find((n) => n.id === node.parentId) : null;
-  return Boolean(parent && CARDIO_NAME_RE.test(parent.name));
+  return isCardioMove(node.name, parent?.name);
 }
 
 /** Labels that belong to the current tree (used to rebuild day.exercises). */
@@ -515,8 +526,8 @@ export function muscleTreeLabels(tree) {
   const labels = new Set();
   rows.forEach((r) => {
     if (!r.leaf) return;
-    labels.add(r.name);
-    labels.add(leafLabelPath(tree, r.id));
+    labels.add(r.name.slice(0, MUSCLE_NAME_MAX));
+    labels.add(leafLabelPath(tree, r.id).slice(0, MUSCLE_NAME_MAX));
   });
   return labels;
 }
@@ -607,20 +618,35 @@ export function addMuscleChild(tree, parentId, name) {
 }
 
 function moveKey(name) {
-  return String(name || '').replace(/\s+/g, '').toLowerCase();
+  return clampName(name).replace(/\s+/g, '').toLowerCase();
+}
+
+const nodeIsCardio = (byId, n) => isCardioMove(n.name, n.parentId ? byId.get(n.parentId)?.name : '');
+
+/**
+ * One-pass lookup of strength moves already in the tree, by name key and library id.
+ * @returns {(name: string) => object|null}
+ */
+export function exerciseLeafIndex(tree) {
+  const t = normalizeMuscleTree(tree);
+  const byId = new Map(t.nodes.map((n) => [n.id, n]));
+  const byKey = new Map();
+  const byLib = new Map();
+  const hasKids = new Set(t.nodes.map((n) => n.parentId).filter(Boolean));
+  t.nodes.forEach((n) => {
+    if (nodeIsCardio(byId, n)) return;
+    // A childless root counts only once it has marks (else it is an empty group).
+    if (!n.parentId && (hasKids.has(n.id) || !Object.keys(t.cells).some((k) => k.startsWith(`${n.id}|`)))) return;
+    if (!byKey.has(moveKey(n.name))) byKey.set(moveKey(n.name), n);
+    const libId = n.id.startsWith('ex-') ? n.id.slice(3) : libraryExerciseByName(n.name)?.id;
+    if (libId && !byLib.has(libId)) byLib.set(libId, n);
+  });
+  return (name) => byKey.get(moveKey(name)) || byLib.get(libraryExerciseByName(name)?.id) || null;
 }
 
 /** Existing leaf that already stands for this exercise (same name, library id, or ex-id). */
 export function findExerciseLeaf(tree, name) {
-  const t = normalizeMuscleTree(tree);
-  const lib = libraryExerciseByName(name);
-  const key = moveKey(name);
-  return t.nodes.find((n) => {
-    if (!n.parentId || isCardioNode(t, n.id)) return false;
-    if (moveKey(n.name) === key) return true;
-    if (!lib) return false;
-    return n.id === `ex-${lib.id}` || libraryExerciseByName(n.name)?.id === lib.id;
-  }) || null;
+  return exerciseLeafIndex(tree)(name);
 }
 
 /**
@@ -633,10 +659,13 @@ export function bestGroupForMuscles(tree, primaries = []) {
   const moves = new Map(muscleMoveStates(t).map((m) => [m.id, m]));
   let best = null;
   let bestScore = 0;
+  const hasOwnMarks = (id) => Object.keys(t.cells).some((k) => k.startsWith(`${id}|`));
   flattenMuscleRows(t)
-    .filter((r) => !r.parentId && !isCardioNode(t, r.id))
+    .filter((r) => !r.parentId && !isCardioNode(t, r.id) && !(r.leaf && hasOwnMarks(r.id)))
     .forEach((r) => {
-      const regions = groupRegions(t, r, moves);
+      const regions = new Set(groupRegions(t, r, moves));
+      // "แขน" names only biceps; widen to its beginner group so arm moves don't spawn "แขนหน้า".
+      [...regions].forEach((id) => beginnerGroupOfRegion(id)?.regions.forEach((x) => regions.add(x)));
       const score = primaries.reduce((sum, id, i) => sum + (regions.has(id) ? (i ? 1 : 2) : 0), 0);
       if (score > bestScore) {
         best = t.nodes.find((n) => n.id === r.id);
@@ -658,13 +687,24 @@ export function addExerciseMove(tree, name) {
   const lib = libraryExerciseByName(name);
   const label = clampName(lib ? lib.name : name);
   if (!label) return { tree: t, node: null, created: false };
+  if (!lib && isCardioName(label)) {
+    let work = t;
+    let cardioRoot = t.nodes.find((n) => !n.parentId && CARDIO_NAME_RE.test(n.name)) || null;
+    if (!cardioRoot) ({ tree: work, node: cardioRoot } = addMuscleCategory(work, CARDIO_SEED.name));
+    const { tree: withLeaf, node } = addMuscleChild(work, cardioRoot.id, label);
+    return node ? { tree: withLeaf, node, created: true } : { tree: t, node: null, created: false };
+  }
   const { p } = lib ? lib : resolveMoveMuscles({ name: label }, '');
   let work = t;
   let group = bestGroupForMuscles(work, p);
+  const ownMarks = (g) => g && !work.nodes.some((n) => n.parentId === g.id)
+    && Object.keys(work.cells).some((k) => k.startsWith(`${g.id}|`));
+  if (ownMarks(group)) group = null;
   if (!group) {
     const groupName = (p.length && beginnerGroupOfRegion(p[0])?.name) || 'ท่าอื่นๆ';
     group = work.nodes.find((n) => !n.parentId && n.name === groupName) || null;
-    if (!group) ({ tree: work, node: group } = addMuscleCategory(work, groupName));
+    if (ownMarks(group)) group = null;
+    if (!group) ({ tree: work, node: group } = addMuscleCategory(work, ownMarks(work.nodes.find((n) => !n.parentId && n.name === groupName)) ? `${groupName} (ท่า)` : groupName));
   }
   const { tree: withLeaf, node } = addMuscleChild(work, group.id, label);
   if (!node) return { tree: t, node: null, created: false };
@@ -854,10 +894,136 @@ const LEGACY_MOVE_MUSCLES = {
   ท้องข้าง: [['obliques'], ['abs']],
 };
 
+const legacyKeyOf = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
+
+function legacyKey(name, parentName, table) {
+  const both = legacyKeyOf(parentName + name);
+  if (table[both]) return both;
+  const own = legacyKeyOf(name);
+  return table[own] ? own : '';
+}
+
 function legacyMoveMuscles(name, parentName) {
-  const key = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
-  const hit = LEGACY_MOVE_MUSCLES[key(parentName + name)] || LEGACY_MOVE_MUSCLES[key(name)];
+  const hit = LEGACY_MOVE_MUSCLES[legacyKey(name, parentName, LEGACY_MOVE_MUSCLES)];
   return hit ? { p: [...hit[0]], s: [...hit[1]], source: 'legacy' } : null;
+}
+
+/** Library moves a legacy row most likely stood for (first = suggestion). */
+const LEGACY_MOVE_SUGGEST = {
+  อกบน: ['incline-bench', 'incline-db-press', 'smith-incline', 'incline-chest-machine'],
+  อกกลาง: ['bench-press', 'chest-press-machine', 'flat-db-press', 'smith-bench'],
+  อกล่าง: ['decline-bench', 'dips', 'bench-press'],
+  ฟลาย: ['pec-deck', 'cable-fly', 'flat-db-fly'],
+  ไหล่หลัก: ['shoulder-press-machine', 'overhead-press', 'smith-shoulder-press', 'arnold-press'],
+  ไหล่ข้าง: ['lateral-raise', 'cable-lateral-raise', 'lateral-raise-machine'],
+  ไหล่หน้า: ['front-raise'],
+  หน้าแขน: ['db-curl', 'bb-curl', 'cable-curl', 'preacher-curl', 'hammer-curl'],
+  หลังแขน: ['triceps-pushdown', 'rope-pushdown', 'overhead-cable-ext', 'skull-crusher'],
+  ปีกกว้าง: ['wide-pulldown', 'lat-pulldown', 'pull-up'],
+  ปีกกลาง: ['lat-pulldown', 'wide-pulldown'],
+  ปีกแคบ: ['close-pulldown', 'reverse-pulldown', 'chin-up'],
+  หลังล่างแคบ: ['seated-cable-row', 'db-row'],
+  หลังล่างกว้าง: ['wide-cable-row', 'seated-cable-row'],
+  หลังกลางแคบ: ['t-bar-row', 'machine-row', 'seated-cable-row'],
+  หลังกลางกว้าง: ['machine-row', 'wide-cable-row', 'bb-row'],
+  หลังshrugs: ['shrug', 'bb-shrug'],
+  หน้าขา: ['leg-extension'],
+  หลังขา: ['leg-curl', 'seated-leg-curl', 'lying-leg-curl'],
+  ขารวม: ['squat', 'leg-press', 'hack-squat', 'smith-squat'],
+  น่องขา: ['calf-raise', 'calf-machine', 'seated-calf-raise'],
+  ข้างขา: ['hip-abduction', 'hip-adduction'],
+  ท้องกลาง: ['crunch', 'ab-machine', 'cable-crunch'],
+  ท้องข้าง: ['oblique-crunch', 'russian-twist', 'cable-woodchop'],
+};
+
+const LIB_BY_ID = new Map(ALL_EXERCISES.map((e) => [e.id, e]));
+
+/**
+ * Legacy muscle-part rows with suggested exercises; never-logged rows default to delete.
+ * @returns {{ id, name, parentName, sessions, options: object[], suggestion: string }[]}
+ */
+export function legacyRowPlans(tree, todayKey = muscleToDateKey()) {
+  const t = normalizeMuscleTree(tree);
+  return muscleMoveStates(t, todayKey)
+    .map((m) => ({ m, key: m.source === 'library' ? '' : legacyKey(m.name, m.parentName, LEGACY_MOVE_SUGGEST) }))
+    .filter(({ m, key }) => key || m.source === 'legacy')
+    .map(({ m, key }) => {
+      const options = (LEGACY_MOVE_SUGGEST[key] || []).map((id) => LIB_BY_ID.get(id)).filter(Boolean);
+      const sessions = countMuscleSessions(t, m.id);
+      return {
+        id: m.id,
+        name: m.name,
+        parentName: m.parentName,
+        sessions,
+        options,
+        suggestion: sessions ? (options[0]?.id || 'keep') : 'delete',
+      };
+    });
+}
+
+/**
+ * Apply choices per legacy row: a library id renames the row to that move (history kept;
+ * merged into an existing row for the same move), 'delete' drops a never-logged row.
+ * @param {Record<string, string>} choices nodeId → libId | 'delete' | 'keep'
+ * @returns {{ tree, touchDates: string[], renamed: number, merged: number, deleted: number }}
+ */
+export function convertLegacyRows(tree, choices = {}) {
+  let t = normalizeMuscleTree(tree);
+  const touch = new Set();
+  let renamed = 0;
+  let merged = 0;
+  let deleted = 0;
+  const libIdOf = (n) => libraryExerciseByName(n.name)?.id || '';
+  const emptiedRoots = new Set();
+  Object.entries(choices).forEach(([nodeId, choice]) => {
+    const node = t.nodes.find((n) => n.id === nodeId && n.parentId);
+    if (!node || !choice || choice === 'keep') return;
+    const cellKeys = Object.keys(t.cells).filter((k) => k.startsWith(`${nodeId}|`));
+    if (choice === 'delete') {
+      if (cellKeys.length) return;
+      emptiedRoots.add(node.parentId);
+      t = removeMuscleNode(t, nodeId).tree;
+      deleted += 1;
+      return;
+    }
+    const lib = LIB_BY_ID.get(choice);
+    if (!lib) return;
+    const other = t.nodes.find((n) => n.id !== nodeId && n.parentId && libIdOf(n) === lib.id);
+    if (other) {
+      const cells = { ...t.cells };
+      cellKeys.forEach((k) => {
+        const dk = k.split('|')[1];
+        const dest = cellKey(other.id, dk);
+        cells[dest] = Math.max(cells[dest] || 0, cells[k]);
+        delete cells[k];
+        touch.add(dk);
+      });
+      t = normalizeMuscleTree({
+        ...t,
+        cells,
+        nodes: t.nodes.filter((n) => n.id !== nodeId),
+        updatedAt: nowIsoLocal(),
+      });
+      merged += 1;
+      return;
+    }
+    const label = clampName(lib.name);
+    const { p, s: sec, ...rest } = node;
+    t = normalizeMuscleTree({
+      ...t,
+      nodes: t.nodes.map((n) => (n.id === nodeId ? { ...rest, name: label } : n)),
+      updatedAt: nowIsoLocal(),
+    });
+    cellKeys.forEach((k) => touch.add(k.split('|')[1]));
+    renamed += 1;
+  });
+  // A group left without moves would turn into a loggable row; drop it when it has no marks.
+  emptiedRoots.forEach((rootId) => {
+    const hasKids = t.nodes.some((n) => n.parentId === rootId);
+    const hasCells = Object.keys(t.cells).some((k) => k.startsWith(`${rootId}|`));
+    if (!hasKids && !hasCells && t.nodes.some((n) => n.id === rootId)) t = removeMuscleNode(t, rootId).tree;
+  });
+  return { tree: t, touchDates: [...touch], renamed, merged, deleted };
 }
 
 /** Library/explicit muscles, then the legacy row map, then a guess from the name. */
@@ -873,13 +1039,20 @@ export function resolveTreeMove(node, parentName = '') {
  */
 export function muscleMoveStates(tree, todayKey = muscleToDateKey()) {
   const t = normalizeMuscleTree(tree);
+  const byId = new Map(t.nodes.map((n) => [n.id, n]));
+  const lastById = new Map();
+  Object.keys(t.cells).forEach((k) => {
+    if (!(t.cells[k] > 0)) return;
+    const [id, dk] = k.split('|');
+    if (dk && dk <= todayKey && dk > (lastById.get(id) || '')) lastById.set(id, dk);
+  });
   return flattenMuscleRows(t)
-    .filter((r) => r.leaf && !isCardioNode(t, r.id))
+    .filter((r) => r.leaf && !nodeIsCardio(byId, byId.get(r.id)))
     .map((r) => {
-      const parent = r.parentId ? t.nodes.find((n) => n.id === r.parentId) : null;
-      const node = t.nodes.find((n) => n.id === r.id);
+      const parent = r.parentId ? byId.get(r.parentId) : null;
+      const node = byId.get(r.id);
       const m = resolveTreeMove(node, parent?.name || '');
-      const last = lastTrainedDate(t, r.id, todayKey);
+      const last = lastById.get(r.id) || '';
       return {
         id: r.id,
         name: r.name,
@@ -1027,6 +1200,11 @@ export function renderMuscleTableHtml(tree, opts = {}) {
   const dates = opts.dates || muscleDateKeys({ today: todayKey });
   const rows = flattenMuscleRows(t);
   const moves = new Map(muscleMoveStates(t, todayKey).map((m) => [m.id, m]));
+  const sessionsById = new Map();
+  Object.keys(t.cells).forEach((k) => {
+    if (t.cells[k] > 0) sessionsById.set(k.split('|')[0], (sessionsById.get(k.split('|')[0]) || 0) + 1);
+  });
+  const byId = new Map(t.nodes.map((n) => [n.id, n]));
   const selectedId = opts.selectedId || '';
   const expandAll = Boolean(opts.expandAll);
   const expanded = opts.expandedIds instanceof Set
@@ -1057,9 +1235,9 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       const sel = r.id === selectedId ? ' is-selected' : '';
       const depthCls = r.depth ? ' is-child' : ' is-parent';
       const leafCls = r.leaf ? ' is-leaf' : ' is-group';
-      const cardio = isCardioNode(t, r.id);
+      const cardio = nodeIsCardio(byId, byId.get(r.id));
       const doses = isGroup && !cardio ? groupDoseByDate(t, r, moves) : null;
-      const sessions = isGroup ? 0 : countMuscleSessions(t, r.id);
+      const sessions = isGroup ? 0 : (sessionsById.get(r.id) || 0);
       const cardioCls = cardio ? ' is-cardio' : '';
       const nameTitle = collapsible
         ? (openGroup ? 'แตะเพื่อหุบ' : 'แตะเพื่อขยาย')

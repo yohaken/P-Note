@@ -3,11 +3,12 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=318';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=319';
 import {
   cellKey,
   CARDIO_NAME_RE,
   flattenMuscleRows,
+  isCardioMove,
   isCardioNode,
   leafLabelPath,
   mergeMuscleTreeField,
@@ -15,7 +16,7 @@ import {
   muscleTreeLabels,
   normalizeMuscleTree,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=318';
+} from './muscle-tree.js?v=319';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -151,7 +152,9 @@ export function formatExerciseCell(burn, label = '') {
 /** Only cardio burns kcal · a bare number ("150" → "ออกกำลัง 150") is legacy cardio kcal. */
 export function isCardioLabel(label) {
   const s = String(label || '').trim();
-  return !s || /^ออกกำลัง \d+$/.test(s) || CARDIO_NAME_RE.test(s);
+  if (!s || /^ออกกำลัง \d+$/.test(s)) return true;
+  const [parent, ...rest] = s.split(' · ');
+  return rest.length ? isCardioMove(rest.join(' · '), parent) : isCardioMove(s);
 }
 
 export function normalizeExercises(raw) {
@@ -1253,10 +1256,11 @@ function treeMoveIndex(tree) {
   rows.forEach((r) => {
     if (!r.leaf) return;
     const parent = r.parentId ? byId.get(r.parentId) : null;
-    const cardio = CARDIO_NAME_RE.test(r.name) || Boolean(parent && CARDIO_NAME_RE.test(parent.name));
+    const cardio = isCardioMove(r.name, parent?.name);
     const info = { id: r.id, cardio };
-    out.set(parent ? `${parent.name} · ${r.name}` : r.name, info);
-    if (!out.has(r.name)) out.set(r.name, info);
+    const name = r.name.slice(0, 40);
+    out.set((parent ? `${parent.name} · ${r.name}` : r.name).slice(0, 40), info);
+    if (!out.has(name)) out.set(name, info);
   });
   return out;
 }
@@ -1267,7 +1271,12 @@ function treeMoveIndex(tree) {
  */
 function reconcileTreeExercises(day, tree, moveIndex) {
   if (!day?.date || !moveIndex.size) return day;
-  const list = normalizeExercises(day.exercises);
+  // A 0-kcal "group · move" cell whose move left the tree (renamed/removed) carries nothing.
+  const orig = normalizeExercises(day.exercises);
+  const list = orig.filter((cell) => {
+    const p = parseExerciseCell(cell);
+    return p.burn > 0 || !p.label.includes(' · ') || moveIndex.has(p.label);
+  });
   const slots = muscleSlotsForDate(tree, day.date);
   let exercises;
   if (slots.length) {
@@ -1275,7 +1284,7 @@ function reconcileTreeExercises(day, tree, moveIndex) {
     const kept = list.filter((cell) => !moveIndex.has(parseExerciseCell(cell).label));
     exercises = normalizeExercises([...slots.map((s) => formatExerciseCell(s.burn, s.label)), ...kept]);
   } else {
-    if (!list.length) return day;
+    if (!orig.length) return day;
     exercises = list.map((cell) => {
       const p = parseExerciseCell(cell);
       const move = moveIndex.get(p.label);
@@ -1283,7 +1292,7 @@ function reconcileTreeExercises(day, tree, moveIndex) {
     });
   }
   const mus = sumExerciseBurn(exercises) || null;
-  if (JSON.stringify(exercises) === JSON.stringify(list) && mus === (day.mus ?? null)) return day;
+  if (JSON.stringify(exercises) === JSON.stringify(orig) && mus === (day.mus ?? null)) return day;
   return { ...day, exercises, mus };
 }
 

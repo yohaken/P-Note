@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=318';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=318';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=318';
-import { CONFIG } from './config.js?v=318';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=318';
-import { nowIso } from './clock.js?v=318';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=319';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=319';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=319';
+import { CONFIG } from './config.js?v=319';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=319';
+import { nowIso } from './clock.js?v=319';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=318';
+} from './auth.js?v=319';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=318';
+} from './notes.js?v=319';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=318';
+} from './sheet.js?v=319';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -134,7 +134,8 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
-} from './calorie.js?v=318';
+  parseExerciseCell,
+} from './calorie.js?v=319';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -165,7 +166,10 @@ import {
   muscleTreeLabels,
   addExerciseMove,
   staleMoveIds,
-} from './muscle-tree.js?v=318';
+  legacyRowPlans,
+  convertLegacyRows,
+  resolveTreeMove,
+} from './muscle-tree.js?v=319';
 import {
   EQUIPMENT_TH,
   beginnerGroupOfRegion,
@@ -182,9 +186,11 @@ import {
   bodyFatHaloModel,
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
-} from './muscle-map.js?v=318';
-import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=318';
-import { mountDrumPicker } from './drum-picker.js?v=318';
+  ALL_EXERCISES,
+  exerciseImages,
+} from './muscle-map.js?v=319';
+import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=319';
+import { mountDrumPicker } from './drum-picker.js?v=319';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -192,8 +198,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=318';
-import { bindComposableInput } from './text-input.js?v=318';
+} from './note-text.js?v=319';
+import { bindComposableInput } from './text-input.js?v=319';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -234,14 +240,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=318';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=318';
+} from './schedule.js?v=319';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=319';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=318';
+} from './app-icons.js?v=319';
 import {
   allIcons,
   bestIconForLabel,
@@ -250,7 +256,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=318';
+} from './icons.js?v=319';
 import {
   notificationPermission,
   notificationSupported,
@@ -259,27 +265,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=318';
+} from './note-notify.js?v=319';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=318';
+} from './files.js?v=319';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=318');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=319');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=318');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=319');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=318');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=319');
   return userContextModPromise;
 }
 
@@ -303,7 +309,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=318';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=319';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -312,11 +318,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=318';
-import { normalizeNotesData } from './notes.js?v=318';
-import { SaveManager } from './sync.js?v=318';
-import { emptyDeletions } from './deletions.js?v=318';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=318';
+} from './remote.js?v=319';
+import { normalizeNotesData } from './notes.js?v=319';
+import { SaveManager } from './sync.js?v=319';
+import { emptyDeletions } from './deletions.js?v=319';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=319';
 
 const state = {
   notesData: {
@@ -696,6 +702,10 @@ const els = {
   muscleFreeform: document.getElementById('muscle-freeform'),
   muscleAddExercise: document.getElementById('muscle-add-exercise'),
   muscleStaleToggle: document.getElementById('muscle-stale-toggle'),
+  muscleConvertBtn: document.getElementById('muscle-convert-btn'),
+  muscleConvertOverlay: document.getElementById('muscle-convert-overlay'),
+  muscleConvertBody: document.getElementById('muscle-convert-body'),
+  muscleConvertApply: document.getElementById('muscle-convert-apply'),
   muscleLoadOlder: document.getElementById('muscle-load-older'),
   muscleRange: document.getElementById('muscle-range'),
   muscleSettingsList: document.getElementById('muscle-settings-list'),
@@ -3102,7 +3112,7 @@ function paintExerciseMoveMap(move) {
   const tree = ensureCaloriePayload().muscleTree;
   const node = (tree?.nodes || []).find((n) => n.id === move.id);
   const parent = node?.parentId ? tree.nodes.find((n) => n.id === node.parentId) : null;
-  const m = resolveMoveMuscles(node || { name: move.name }, parent?.name || '');
+  const m = resolveTreeMove(node || { name: move.name }, parent?.name || '');
   host.hidden = false;
   host.innerHTML = `${renderBodyPairHtml(musclePaintRoles(m.p, m.s), { compact: true })}
     <p class="cq-ex-map-cap">${m.p.length
@@ -3420,7 +3430,9 @@ function syncMuscleRangeUi(dates) {
 function paintMuscleSheet() {
   const host = els.muscleScroll;
   if (!host) return;
-  const restored = restoreMusclePins(normalizeMuscleTree(ensureCaloriePayload().muscleTree));
+  const restored = state.cloudHydrated && navigator.onLine
+    ? restoreMusclePins(normalizeMuscleTree(ensureCaloriePayload().muscleTree))
+    : null;
   if (restored && isSyncReady()) {
     persistMuscleTree(restored, { status: '' });
     return;
@@ -3437,6 +3449,7 @@ function paintMuscleSheet() {
   const oldest = oldestMuscleDate(tree);
   muscleHasOlder = Boolean(oldest && oldest < dates[dates.length - 1]) && muscleDateCount < MUSCLE_DATE_MAX;
   const stale = staleMoveIds(tree, todayKey);
+  if (muscleSelectedId) stale.delete(muscleSelectedId);
   const showStale = localStorage.getItem(MUSCLE_SHOW_STALE_KEY) === '1';
   host.innerHTML = renderMuscleTableHtml(tree, {
     dates,
@@ -3446,6 +3459,11 @@ function paintMuscleSheet() {
     expandedIds: muscleExpandedIds,
     hideIds: showStale ? null : stale,
   });
+  if (els.muscleConvertBtn) {
+    const n = legacyRowPlans(tree, todayKey).length;
+    els.muscleConvertBtn.hidden = !n;
+    els.muscleConvertBtn.textContent = `แปลงแถวเก่า (${n})`;
+  }
   if (els.muscleStaleToggle) {
     els.muscleStaleToggle.hidden = !stale.size;
     els.muscleStaleToggle.textContent = showStale ? `ซ่อนท่าเก่า (${stale.size})` : `แสดงท่าเก่า (${stale.size})`;
@@ -3474,14 +3492,16 @@ function fitMuscleNameColumn(host) {
   const table = host?.querySelector?.('.muscle-table');
   if (!table) return;
   let max = 0;
+  let thumbs = 0;
   table.querySelectorAll('.mt-name-text').forEach((el) => {
     const thumb = el.closest('.mt-name-row')?.querySelector('.mt-ex-thumb') ? 34 : 0;
+    thumbs = Math.max(thumbs, thumb);
     max = Math.max(max, (el.scrollWidth || 0) + thumb);
   });
   const hostW = host.clientWidth || 320;
   // Keep count col (~26px) + at least ~3 date cols visible inside the scrollport.
   const roomCap = Math.max(80, hostW - 26 - 90);
-  const px = Math.max(80, Math.min(170, roomCap, Math.ceil(max + 14)));
+  const px = Math.max(80, Math.min(170 + thumbs, roomCap, Math.ceil(max + 14)));
   table.style.setProperty('--mt-name-w', `${px}px`);
 }
 
@@ -3527,12 +3547,69 @@ function onMuscleMove(direction) {
 const MUSCLE_TREE_BACKUP_KEY = 'pnote_muscle_tree_v1_backup';
 const MUSCLE_SHOW_STALE_KEY = 'pnote_muscle_show_stale';
 
+function openMuscleConvert() {
+  if (!requireSyncReady() || !els.muscleConvertOverlay || !els.muscleConvertBody) return;
+  const plans = legacyRowPlans(normalizeMuscleTree(ensureCaloriePayload().muscleTree), toDateKey());
+  const optLabel = (e) => `${e.name} · ${e.en}`;
+  els.muscleConvertBody.innerHTML = plans.map((p) => {
+    const opts = [
+      ...p.options.map((e) => `<option value="${escapeHtml(e.id)}"${p.suggestion === e.id ? ' selected' : ''}>${escapeHtml(optLabel(e))}</option>`),
+      '<option value="keep">ไม่เปลี่ยน (เก็บชื่อเดิม)</option>',
+      p.sessions ? '' : `<option value="delete"${p.suggestion === 'delete' ? ' selected' : ''}>ลบแถวนี้ (ไม่เคยบันทึก)</option>`,
+    ].join('');
+    return `<div class="mc-row" data-mc-row="${escapeHtml(p.id)}">
+      <span class="mc-thumb" data-mc-thumb></span>
+      <label>
+        <span class="mc-name">${escapeHtml(p.parentName)} / ${escapeHtml(p.name)} <small>· บันทึก ${p.sessions} ครั้ง</small></span>
+        <select class="mc-select" data-mc-choice="${escapeHtml(p.id)}">${opts}</select>
+      </label>
+    </div>`;
+  }).join('') || '<p class="xp-empty">ไม่มีแถวเก่าให้แปลงแล้ว</p>';
+  els.muscleConvertBody.querySelectorAll('[data-mc-choice]').forEach(syncMuscleConvertThumb);
+  els.muscleConvertOverlay.hidden = false;
+}
+
+function syncMuscleConvertThumb(select) {
+  const thumb = select.closest('.mc-row')?.querySelector('[data-mc-thumb]');
+  if (!thumb) return;
+  const lib = ALL_EXERCISES.find((e) => e.id === select.value);
+  const img = lib ? exerciseImages(lib)[0] : '';
+  thumb.innerHTML = img
+    ? `<img src="${escapeHtml(img)}" alt="" loading="lazy" decoding="async">`
+    : select.value === 'delete' ? '🗑' : select.value === 'keep' ? '–' : '';
+}
+
+function applyMuscleConvert() {
+  if (!requireSyncReady() || !els.muscleConvertBody) return;
+  const choices = {};
+  els.muscleConvertBody.querySelectorAll('[data-mc-choice]').forEach((sel) => {
+    choices[sel.dataset.mcChoice] = sel.value;
+  });
+  const sheet = ensureCaloriePayload();
+  const r = convertLegacyRows(sheet.muscleTree, choices);
+  if (!r.renamed && !r.merged && !r.deleted) {
+    els.muscleConvertOverlay.hidden = true;
+    return;
+  }
+  const ok = window.confirm(
+    `แปลงแถวเก่า?\n\n• เปลี่ยนเป็นท่า ${r.renamed} แถว\n• รวมกับท่าที่มีอยู่ ${r.merged} แถว\n• ลบแถวที่ไม่เคยบันทึก ${r.deleted} แถว\n\nประวัติวันที่เล่นยังอยู่ครบ`,
+  );
+  if (!ok) return;
+  persistMuscleTree(r.tree, {
+    touchDates: r.touchDates,
+    status: `แปลงแล้ว ${r.renamed + r.merged} แถว · ลบ ${r.deleted}`,
+  });
+  els.muscleConvertOverlay.hidden = true;
+  paintMuscleSheet();
+}
+
 function onMuscleToggleStale() {
   const on = localStorage.getItem(MUSCLE_SHOW_STALE_KEY) === '1';
   try { localStorage.setItem(MUSCLE_SHOW_STALE_KEY, on ? '0' : '1'); } catch { /* ignore */ }
   paintMuscleSheet();
 }
 const MUSCLE_PINS_KEY = 'pnote_muscle_pins';
+const MUSCLE_PINS_RESTORED_KEY = 'pnote_muscle_pins_restored';
 
 /** One-time copy of the tree as it was before this build first saved it. */
 function backupMuscleTreeOnce(tree) {
@@ -3565,7 +3642,11 @@ function restoreMusclePins(tree) {
   } catch {
     saved = null;
   }
-  if (!saved?.pins) return null;
+  if (!saved?.pins || localStorage.getItem(MUSCLE_PINS_RESTORED_KEY)) return null;
+  // Only undo an old-build wipe (no pins and no rest settings at all), never a deliberate edit.
+  const hasPins = tree.nodes.some((n) => n.p || n.s);
+  const hasRest = Object.keys(tree.restProfile?.days || {}).length > 0;
+  if (hasPins || hasRest) return null;
   let changed = false;
   const nodes = tree.nodes.map((n) => {
     const pin = saved.pins[n.id];
@@ -3579,7 +3660,11 @@ function restoreMusclePins(tree) {
     restProfile = saved.restProfile;
     changed = true;
   }
-  return changed ? normalizeMuscleTree({ ...tree, nodes, restProfile, updatedAt: nowIso() }) : null;
+  if (!changed) return null;
+  // Once per device: a later all-unpinned tree is a deliberate edit from another device.
+  localStorage.setItem(MUSCLE_PINS_RESTORED_KEY, '1');
+  const base = Date.parse(tree.updatedAt || '') || Date.now();
+  return normalizeMuscleTree({ ...tree, nodes, restProfile, updatedAt: new Date(base + 1).toISOString() });
 }
 
 function persistMuscleTree(nextTree, { touchDates = [], status = '' } = {}) {
@@ -3596,7 +3681,10 @@ function persistMuscleTree(nextTree, { touchDates = [], status = '' } = {}) {
   const staleLabels = new Set([...muscleTreeLabels(prev)].filter((l) => !newLabels.has(l)));
   const dates = new Set(touchDates);
   if (staleLabels.size) {
-    Object.keys(tree.cells).forEach((k) => dates.add(k.split('|')[1]));
+    (next.days || []).forEach((day) => {
+      const hit = (day.exercises || []).some((cell) => staleLabels.has(parseExerciseCell(cell).label));
+      if (hit) dates.add(day.date);
+    });
   }
   dates.forEach((d) => {
     if (d) next = applyMuscleDayExercises(next, tree, d, { staleLabels });
@@ -3792,13 +3880,19 @@ function musclePaintRoles(p = [], s = [], focus = '') {
   };
 }
 
+/** Days on the full-rest clock: a secondary hit needs only part of the rest, so it ages faster. */
+function regionRestEquivDays(info) {
+  if (info.via !== 's' || !(info.rest > 0) || !(info.full > 0)) return info.days;
+  return Math.floor((info.days * info.full) / info.rest);
+}
+
 function musclePaintRest(tree, restMap, focus = '') {
   return (id) => {
     const info = restMap.get(id);
     const cls = [];
     let style = '';
     if (info) {
-      const step = restStep(tree.restScale, info.days);
+      const step = restStep(tree.restScale, regionRestEquivDays(info));
       cls.push(`rest-tone-${step.tone}`, 'bm-rest');
       if (step.fade > 0) {
         cls.push('is-fading');
@@ -3912,7 +4006,7 @@ function paintMuscleRegionSheet() {
   const rest = regionRestDays(tree.restProfile, region.id);
   const def = defaultRegionRest(region.id);
   const overridden = tree.restProfile.days[region.id] != null;
-  const step = info ? restStep(tree.restScale, info.days) : null;
+  const step = info ? restStep(tree.restScale, regionRestEquivDays(info)) : null;
   const status = info
     ? `<span class="mr-badge rest-tone-${escapeHtml(step.tone)}">${info.days} วัน · ${escapeHtml(step.label)}</span>
        <span class="mr-status-sub">ล่าสุด ${escapeHtml(info.last.slice(8, 10).replace(/^0/, ''))}/${escapeHtml(String(Number(info.last.slice(5, 7))))}${info.via === 's' ? ' · โดนเป็นกล้ามรอง (พักครึ่งเดียว)' : ''} · ${restRemaining(info.days, info.rest) > 0 ? `อีก ${fmtDays(restRemaining(info.days, info.rest))} วันครบพัก` : 'พักครบแล้ว'}</span>`
@@ -3989,10 +4083,11 @@ function addExerciseToMuscleTree(name, { logToday = false } = {}) {
   if (!node) ({ tree, node, created } = addExerciseMove(tree, name));
   if (!node) return null;
   const already = (tree.cells[`${node.id}|${todayKey}`] || 0) > 0;
-  const logged = logToday && !already;
+  const cardio = isCardioNode(tree, node.id);
+  const logged = logToday && !already && !cardio;
   if (logged) ({ tree } = setMuscleCellInTree(tree, node.id, todayKey, 1));
   if (!created && !logged) {
-    if (logToday) setStatus(`${node.name} บันทึกไว้แล้ววันนี้`);
+    if (logToday) setStatus(cardio ? `${node.name} เป็นคาดิโอ — ใส่ kcal ในตาราง` : `${node.name} บันทึกไว้แล้ววันนี้`);
     return { node, created, logged, undo: () => {} };
   }
   persistMuscleTree(tree, {
@@ -4000,8 +4095,19 @@ function addExerciseToMuscleTree(name, { logToday = false } = {}) {
     status: logged ? `เล่น ${node.name} วันนี้` : `เพิ่มท่า ${node.name}`,
   });
   paintMuscleSheet();
+  const nodeId = node.id;
   const undo = () => {
-    persistMuscleTree({ ...before, updatedAt: nowIso() }, { touchDates: logged ? [todayKey] : [], status: 'ยกเลิกแล้ว' });
+    let cur = normalizeMuscleTree(ensureCaloriePayload().muscleTree);
+    if (created) {
+      if (!cur.nodes.some((n) => n.id === nodeId)) return;
+      cur = removeMuscleNode(cur, nodeId).tree;
+      const parentId = tree.nodes.find((n) => n.id === nodeId)?.parentId;
+      const wasNewGroup = parentId && !before.nodes.some((n) => n.id === parentId);
+      if (wasNewGroup && !cur.nodes.some((n) => n.parentId === parentId)) cur = removeMuscleNode(cur, parentId).tree;
+    } else if (logged) {
+      cur = setMuscleCellInTree(cur, nodeId, todayKey, 0).tree;
+    }
+    persistMuscleTree(cur, { touchDates: [todayKey], status: 'ยกเลิกแล้ว' });
     paintMuscleSheet();
   };
   return { node, created, logged, undo };
@@ -4054,7 +4160,7 @@ function openMuscleEdit(nodeId) {
   const node = tree.nodes.find((n) => n.id === nodeId);
   if (!node) return;
   const parent = node.parentId ? tree.nodes.find((n) => n.id === node.parentId) : null;
-  const m = resolveMoveMuscles(node, parent?.name || '');
+  const m = resolveTreeMove(node, parent?.name || '');
   muscleEditNodeId = nodeId;
   muscleEditSel = { p: [...m.p], s: [...m.s] };
   if (els.muscleEditTitle) els.muscleEditTitle.textContent = `กล้ามที่ใช้ · ${parent ? `${parent.name} · ` : ''}${node.name}`;
@@ -10558,9 +10664,14 @@ async function init({ fromBoot = false } = {}) {
     setStatus,
   });
   els.muscleAddExercise?.addEventListener('click', () => {
-    if (requireSyncReady()) openExercisePicker();
+    openExercisePicker();
   });
   els.muscleStaleToggle?.addEventListener('click', onMuscleToggleStale);
+  els.muscleConvertBtn?.addEventListener('click', openMuscleConvert);
+  els.muscleConvertApply?.addEventListener('click', applyMuscleConvert);
+  els.muscleConvertBody?.addEventListener('change', (e) => {
+    if (e.target?.matches?.('[data-mc-choice]')) syncMuscleConvertThumb(e.target);
+  });
   els.muscleScroll?.addEventListener('click', onMuscleScrollClick);
   els.muscleScroll?.addEventListener('scroll', onMuscleScrollLoadOlder, { passive: true });
   els.muscleLoadOlder?.addEventListener('click', loadOlderMuscleDates);

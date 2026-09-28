@@ -10276,6 +10276,10 @@ body.light .bm-halo {
   font-size: 0.86rem;
   font-weight: 750;
   line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .xp-row-meta {
   display: block;
@@ -10313,6 +10317,7 @@ body.light .bm-halo {
   color: #f59e0b;
 }
 .xp-today {
+  min-height: 44px;
   padding: 0.45rem 0.55rem;
   font-size: 0.75rem;
   white-space: nowrap;
@@ -10514,4 +10519,70 @@ body.light .bm-halo {
   object-fit: cover;
   object-position: center 30%;
   pointer-events: none;
+}
+
+/* Legacy row → exercise conversion sheet */
+.mc-hint {
+  margin: 0 0 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.mc-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.mc-thumb {
+  width: 64px;
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+.mc-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+}
+.mc-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+.mc-name small {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.mc-select {
+  width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+.mc-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+}
+.mc-foot .btn {
+  flex: 1;
+}
+
+.xp-more {
+  width: 100%;
+  margin-top: 0.5rem;
 }

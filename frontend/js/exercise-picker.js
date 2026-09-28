@@ -12,13 +12,13 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=318';
-import { regionRestMap, findExerciseLeaf } from './muscle-tree.js?v=318';
+} from './muscle-map.js?v=319';
+import { regionRestMap, exerciseLeafIndex } from './muscle-tree.js?v=319';
 
 const FAVS_KEY = 'pnote_ex_favs';
 const FAV_GROUP = 'fav';
 const SEARCH_LIMIT = 60;
-const TOAST_MS = 5000;
+const TOAST_MS = 8000;
 
 let deps = {
   getTree: () => null,
@@ -32,6 +32,9 @@ let groupId = null;
 let query = '';
 let detailId = '';
 let detailOnly = false;
+let showExtras = false;
+let searchTimer = 0;
+let leafOf = () => null;
 const eqSel = new Set();
 let toastTimer = 0;
 let toastUndo = null;
@@ -78,7 +81,7 @@ const exById = new Map(ALL_EXERCISES.map((e) => [e.id, e]));
 
 function detailHtml(e, tree, favs) {
   const imgs = exerciseImages(e);
-  const has = tree ? !!findExerciseLeaf(tree, e.name) : false;
+  const has = !!leafOf(e.name);
   const fav = favs.has(e.id);
   const names = (ids) => ids.map((id) => regionById(id)?.name).filter(Boolean).join(', ') || '–';
   const photo = imgs.length
@@ -134,15 +137,38 @@ function groupExercises(group, list = libraryFiltered()) {
   return [...main, ...more];
 }
 
-const normQ = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+/**
+ * Loose key so common spellings meet: no spaces/dashes, no tone marks or ์,
+ * ช/ต/ส/ซ→ท, ค→ก, doubled ล collapsed (สควอช = สควอส = สควอท, ดัมเบลล์ = ดัมเบล).
+ */
+const normQ = (s) => String(s || '')
+  .toLowerCase()
+  .replace(/[\s\-_/().,·]+/g, '')
+  .replace(/[\u0E47-\u0E4E]/g, '')
+  .replace(/[ชตสซศษ]/g, 'ท')
+  .replace(/ค/g, 'ก')
+  .replace(/ลล/g, 'ล');
+
+const nameKeys = new Map();
+function keysOf(e) {
+  if (!nameKeys.has(e.id)) {
+    const words = [e.name, e.en, ...(e.aka || [])].map(normQ).filter(Boolean);
+    const areas = e.p.flatMap((id) => [regionById(id)?.name, ...BEGINNER_GROUPS.filter((g) => g.regions.includes(id)).map((g) => g.name)])
+      .map(normQ).filter(Boolean);
+    nameKeys.set(e.id, { words, areas });
+  }
+  return nameKeys.get(e.id);
+}
 
 function searchExercises(q, list = libraryFiltered()) {
   const key = normQ(q);
+  if (!key) return [];
   const rank = (e) => {
-    const names = [e.name, e.en, ...(e.aka || [])].map(normQ);
-    if (names.some((n) => n === key)) return 0;
-    if (names.some((n) => n.startsWith(key))) return 1;
-    if (names.some((n) => n.includes(key))) return 2;
+    const { words, areas } = keysOf(e);
+    if (words.some((n) => n === key)) return 0;
+    if (words.some((n) => n.startsWith(key))) return 1;
+    if (words.some((n) => n.includes(key))) return 2;
+    if (areas.some((n) => n.includes(key))) return e.extra ? 4 : 3;
     return -1;
   };
   return list
@@ -203,7 +229,7 @@ function groupsHtml(tree, favs) {
 }
 
 function rowHtml(e, tree, favs) {
-  const has = tree ? !!findExerciseLeaf(tree, e.name) : false;
+  const has = !!leafOf(e.name);
   const fav = favs.has(e.id);
   const meta = [e.en, EQUIPMENT_TH[e.eq] || ''].filter(Boolean).join(' · ');
   return `<div class="xp-row">
@@ -236,6 +262,7 @@ function listHtml(list, tree, favs, { limit = 0 } = {}) {
 function paint() {
   if (!els.body) return;
   const tree = safeTree();
+  leafOf = tree ? exerciseLeafIndex(tree) : () => null;
   const favs = loadFavs();
   const group = groupId === FAV_GROUP ? null : groupById(groupId);
   let title = 'เลือกท่า';
@@ -252,7 +279,13 @@ function paint() {
     html = listHtml(libraryFiltered().filter((e) => favs.has(e.id)), tree, favs);
   } else if (group) {
     title = `กลุ่ม${group.name}`;
-    html = listHtml(favFirst(groupExercises(group), favs), tree, favs);
+    const all = groupExercises(group);
+    const main = all.filter((e) => !e.extra || favs.has(e.id) || leafOf(e.name));
+    const extras = all.filter((e) => !main.includes(e));
+    html = listHtml(favFirst(showExtras ? [...main, ...extras] : main, favs), tree, favs);
+    if (extras.length && !showExtras) {
+      html = html.replace('<button type="button" class="xp-custom"', `<button type="button" class="btn btn-secondary xp-more" data-xp-more>ท่าเพิ่มเติม (${extras.length}) · มีรูป</button><button type="button" class="xp-custom"`);
+    }
   } else {
     html = groupsHtml(tree, favs);
   }
@@ -331,6 +364,12 @@ function onBodyClick(e) {
   const grp = t?.closest?.('[data-xp-group]');
   if (grp) {
     groupId = grp.dataset.xpGroup;
+    showExtras = false;
+    paint();
+    return;
+  }
+  if (t?.closest?.('[data-xp-more]')) {
+    showExtras = true;
     paint();
     return;
   }
@@ -406,8 +445,11 @@ export function initExercisePicker(opts = {}) {
   els.eq?.addEventListener('click', onEqClick);
   els.back?.addEventListener('click', onBack);
   els.search?.addEventListener('input', () => {
-    query = els.search.value;
-    paint();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      query = els.search.value;
+      paint();
+    }, 150);
   });
   els.search?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing) {
@@ -454,6 +496,8 @@ export function openExercisePicker({ groupId: gid } = {}) {
   groupId = gid === FAV_GROUP || groupById(gid) ? gid : null;
   detailId = '';
   detailOnly = false;
+  showExtras = false;
+  eqSel.clear();
   query = '';
   if (els.search) els.search.value = '';
   hideToast();
