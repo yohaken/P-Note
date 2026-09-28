@@ -14,7 +14,7 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=314';
+} from './muscle-map.js?v=315';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;

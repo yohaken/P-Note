@@ -3,7 +3,7 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=314';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=315';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },
@@ -421,13 +421,17 @@ export function renderBodyStatsHtml(s = {}) {
     `<span class="mbc-chip"${title ? ` title="${esc(title)}"` : ''}><span class="mbc-chip-k">${esc(label)}</span><b>${esc(value)}</b>${unit && value !== '—' ? `<span class="mbc-chip-u">${esc(unit)}</span>` : ''}</span>`;
   const sexLabel = s.sex === 'female' ? 'หญิง' : s.sex === 'male' ? 'ชาย' : '—';
   const fatVal = m ? `${est}${fmtStat(m.bodyFatPct)}` : '—';
+  const at = (dk) => (dk ? `ล่าสุด ${Number(dk.slice(8, 10))}/${Number(dk.slice(5, 7))}` : '');
+  const fatTip = m?.estimated ? 'ประมาณจาก BMI (Deurenberg) · ใส่ไขมัน % รายวันเพื่อค่าจริง'
+    : s.fatAt ? at(s.fatAt)
+      : m ? 'จากค่าตั้งค่า · ยังไม่เคยใส่รายวัน' : '';
   return [
-    chip('สูง', fmtStat(s.heightCm, 0), 'ซม.'),
-    chip('อายุ', fmtStat(s.age, 0), 'ปี'),
+    chip('สูง', fmtStat(s.heightCm, 0), 'ซม.', 'จากตั้งค่า'),
+    chip('อายุ', fmtStat(s.age, 0), 'ปี', 'คิดจากวันเกิด ณ วันนี้'),
     chip('เพศ', sexLabel),
-    chip('หนัก', fmtStat(s.weight), 'กก.'),
-    chip('เอว', fmtStat(s.waist), 'ซม.'),
-    chip('ไขมัน', fatVal, '%', m?.estimated ? 'ประมาณจาก BMI (Deurenberg)' : ''),
+    chip('หนัก', fmtStat(s.weight), 'กก.', at(s.weightAt)),
+    chip('เอว', fmtStat(s.waist), 'ซม.', at(s.waistAt)),
+    chip(m && !m.estimated && !s.fatAt ? 'ไขมัน (ตั้งค่า)' : 'ไขมัน', fatVal, '%', fatTip),
     chip('BMI', fmtStat(s.bmi)),
     chip('มวลไขมัน', m ? `${est}${fmtStat(m.fatKg)}` : '—', 'กก.'),
     chip('ไร้ไขมัน', m ? `${est}${fmtStat(m.ffm)}` : '—', 'กก.', 'มวลไร้ไขมัน (FFM/LBM)'),

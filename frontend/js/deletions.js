@@ -1,7 +1,7 @@
 /**
  * Tombstones for hard deletes — survives multi-device merge (v9+).
  */
-import { compareStamp, nowIso, newerStampIso } from './clock.js?v=314';
+import { compareStamp, nowIso, newerStampIso } from './clock.js?v=315';
 
 const KINDS = ['notes', 'notepads', 'tags'];
 

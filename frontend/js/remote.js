@@ -1,8 +1,8 @@
-import { STORAGE_KEYS } from './config.js?v=314';
-import { initFirebase, getDb, auth } from './firebase.js?v=314';
-import { nowIso, setClockOffset } from './clock.js?v=314';
-import { emptyDeletions, normalizeDeletions } from './deletions.js?v=314';
-import { notesDataForCloudPush } from './import-data.js?v=314';
+import { STORAGE_KEYS } from './config.js?v=315';
+import { initFirebase, getDb, auth } from './firebase.js?v=315';
+import { nowIso, setClockOffset } from './clock.js?v=315';
+import { emptyDeletions, normalizeDeletions } from './deletions.js?v=315';
+import { notesDataForCloudPush } from './import-data.js?v=315';
 import {
   doc,
   getDoc,

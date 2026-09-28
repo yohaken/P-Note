@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=314';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=314';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=314';
-import { CONFIG } from './config.js?v=314';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=314';
-import { nowIso } from './clock.js?v=314';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=315';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=315';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=315';
+import { CONFIG } from './config.js?v=315';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=315';
+import { nowIso } from './clock.js?v=315';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=314';
+} from './auth.js?v=315';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=314';
+} from './notes.js?v=315';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=314';
+} from './sheet.js?v=315';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -134,7 +134,7 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
-} from './calorie.js?v=314';
+} from './calorie.js?v=315';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -161,7 +161,7 @@ import {
   setNodeMuscles,
   setRestProfile,
   applyBeginnerLayout,
-} from './muscle-tree.js?v=314';
+} from './muscle-tree.js?v=315';
 import {
   EQUIPMENT_TH,
   beginnerGroupOfRegion,
@@ -178,8 +178,8 @@ import {
   bodyFatHaloModel,
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
-} from './muscle-map.js?v=314';
-import { mountDrumPicker } from './drum-picker.js?v=314';
+} from './muscle-map.js?v=315';
+import { mountDrumPicker } from './drum-picker.js?v=315';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -187,8 +187,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=314';
-import { bindComposableInput } from './text-input.js?v=314';
+} from './note-text.js?v=315';
+import { bindComposableInput } from './text-input.js?v=315';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -229,14 +229,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=314';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=314';
+} from './schedule.js?v=315';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=315';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=314';
+} from './app-icons.js?v=315';
 import {
   allIcons,
   bestIconForLabel,
@@ -245,7 +245,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=314';
+} from './icons.js?v=315';
 import {
   notificationPermission,
   notificationSupported,
@@ -254,27 +254,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=314';
+} from './note-notify.js?v=315';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=314';
+} from './files.js?v=315';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=314');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=315');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=314');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=315');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=314');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=315');
   return userContextModPromise;
 }
 
@@ -298,7 +298,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=314';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=315';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -307,11 +307,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=314';
-import { normalizeNotesData } from './notes.js?v=314';
-import { SaveManager } from './sync.js?v=314';
-import { emptyDeletions } from './deletions.js?v=314';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=314';
+} from './remote.js?v=315';
+import { normalizeNotesData } from './notes.js?v=315';
+import { SaveManager } from './sync.js?v=315';
+import { emptyDeletions } from './deletions.js?v=315';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=315';
 
 const state = {
   notesData: {
@@ -3729,19 +3729,29 @@ function bodyFatOverlayOn() {
 
 function muscleBodySnapshot(todayKey) {
   const sheet = ensureCaloriePayload();
-  const known = lastKnownBody(sheet);
+  const days = (Array.isArray(sheet.days) ? sheet.days : [])
+    .filter((d) => d?.date && d.date <= todayKey)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const latest = (key) => days.find((d) => Number.isFinite(d[key]) && d[key] > 0) || null;
+  const wDay = latest('weight');
+  const waDay = latest('waist');
+  const fDay = latest('bodyFat');
   const heightCm = sheet.heightCm;
-  const weight = known.weight;
-  const waist = known.waist;
+  const weight = wDay ? wDay.weight : lastKnownBody(sheet).weight;
+  const waist = waDay ? waDay.waist : null;
+  const age = ageFromBirthDate(sheet.birthDate, new Date(`${todayKey}T12:00:00`)) ?? sheet.age;
   const bmi = computeBmi(weight, heightCm);
-  const measuredFat = resolveDayBodyFat({ date: todayKey }, sheet);
-  const model = bodyFatHaloModel({ weight, bodyFatPct: measuredFat, bmi, age: sheet.age, sex: sheet.sex });
+  const measuredFat = fDay ? fDay.bodyFat : resolveDayBodyFat({ date: todayKey }, sheet);
+  const model = bodyFatHaloModel({ weight, bodyFatPct: measuredFat, bmi, age, sex: sheet.sex });
   if (model && !model.estimated) {
     const lbm = computeLbm(weight, model.bodyFatPct);
     if (lbm != null) model.ffm = Math.round(lbm * 10) / 10;
   }
   const whtr = Number.isFinite(waist) && heightCm > 0 ? waist / heightCm : null;
-  return { heightCm, age: sheet.age, sex: sheet.sex, weight, waist, bmi, whtr, model };
+  return {
+    heightCm, age, sex: sheet.sex, weight, waist, bmi, whtr, model,
+    weightAt: wDay?.date || '', waistAt: waDay?.date || '', fatAt: fDay?.date || '',
+  };
 }
 
 function paintMuscleBodyMap(tree, todayKey) {
