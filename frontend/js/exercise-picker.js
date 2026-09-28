@@ -12,8 +12,8 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=328';
-import { regionRestMap } from './muscle-tree.js?v=328';
+} from './muscle-map.js?v=329';
+import { regionRestMap } from './muscle-tree.js?v=329';
 
 const FAVS_KEY = 'pnote_ex_favs';
 const FAV_GROUP = 'fav';
@@ -149,7 +149,7 @@ const nameKeys = new Map();
 function keysOf(e) {
   if (!nameKeys.has(e.id)) {
     const words = [e.name, e.en, ...(e.aka || [])].map(normQ).filter(Boolean);
-    const areas = e.p.flatMap((id) => [regionById(id)?.name, ...BEGINNER_GROUPS.filter((g) => g.regions.includes(id)).map((g) => g.name)])
+    const areas = e.p.flatMap((id) => [regionById(id)?.name, ...(regionById(id)?.aka || []), ...BEGINNER_GROUPS.filter((g) => g.regions.includes(id)).map((g) => g.name)])
       .map(normQ).filter(Boolean);
     nameKeys.set(e.id, { words, areas });
   }

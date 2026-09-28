@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=328';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=329';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -17,8 +17,9 @@ import {
   muscleLeafIndex,
   muscleSlotsForDate,
   normalizeMuscleTree,
+  setMoveLogNames,
   toMuscleLayout,
-} from './muscle-tree.js?v=328';
+} from './muscle-tree.js?v=329';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -1393,11 +1394,13 @@ export function exercisePickerCatalog(tree) {
  */
 export function dayExerciseEntries(calorie, day) {
   const t = toMuscleLayout(calorie?.muscleTree).tree;
-  const { leaves } = muscleLeafIndex(t);
+  const { leaves, byLabel } = muscleLeafIndex(t);
   const dateKey = day?.date;
   const out = [];
   const seen = new Set();
-  normalizeExercises(day?.exercises).forEach((cell) => {
+  normalizeExercises(day?.exercises).forEach((raw) => {
+    const cell = resolveAliasCell(raw, t, byLabel, dateKey);
+    if (!cell) return;
     const p = parseExerciseCell(cell);
     if (p.empty) return;
     const known = leafForLabel(t, p.label, dateKey);
@@ -1437,11 +1440,11 @@ export function dayExerciseEntries(calorie, day) {
 /**
  * Replace a day's exercises with the picker entries — writes tree cells for
  * tree moves (so the muscle table stays in step) and keeps freeform entries.
+ * The tree (in the converted layout) is only saved when the entries change a cell or the move log.
  */
 export function setDayExerciseEntries(calorie, dateKey, entries) {
   const { sheet, day } = ensureDay(calorie, dateKey);
-  const layout = toMuscleLayout(sheet.muscleTree);
-  let tree = layout.tree;
+  let tree = toMuscleLayout(sheet.muscleTree).tree;
   const want = new Map();
   const freeform = [];
   (entries || []).forEach((e) => {
@@ -1464,11 +1467,16 @@ export function setDayExerciseEntries(calorie, dateKey, entries) {
     treeChanged = true;
   });
   if (treeChanged) tree = normalizeMuscleTree({ ...tree, cells, updatedAt: nowIso() });
-  treeChanged = treeChanged || layout.changed;
+  if (!want.size && !freeform.length && tree.moveLog?.[dateKey]?.names?.length) {
+    tree = setMoveLogNames(tree, dateKey, []);
+    treeChanged = true;
+  }
   const next = treeChanged
     ? { ...sheet, muscleTree: tree, muscleTreeAt: nowIso() }
     : sheet;
-  const slots = muscleSlotsForDate(tree, dateKey).map((s) => formatExerciseCell(s.burn, s.label));
+  // Unsaved, the day row must match the stored tree's labels (what normalizeCalorie rebuilds from).
+  const slotTree = treeChanged ? tree : normalizeMuscleTree(sheet.muscleTree);
+  const slots = muscleSlotsForDate(slotTree, dateKey).map((s) => formatExerciseCell(s.burn, s.label));
   const exercises = normalizeExercises([...slots, ...freeform]);
   const mus = sumExerciseBurn(exercises) || null;
   return patchDay(next, day.id, { exercises, mus });

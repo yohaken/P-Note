@@ -14,8 +14,8 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=328';
-import { nowIso, nowMs as clockNowMs } from './clock.js?v=328';
+} from './muscle-map.js?v=329';
+import { nowIso, nowMs as clockNowMs } from './clock.js?v=329';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -193,6 +193,12 @@ function normalizeMuscleTreeFresh(raw) {
     const legacy = Object.keys(src.cells || {}).some((k) => k.startsWith('m-'));
     nodes = legacy ? legacyMuscleNodes() : defaultMuscleNodes();
   }
+  // Muscle rows take their name from the region table, which may rename them between builds.
+  nodes = nodes.map((n) => {
+    const rid = regionOfLeaf(n.id);
+    const name = rid ? clampName(regionById(rid).name) : n.name;
+    return name && name !== n.name ? { ...n, name } : n;
+  });
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
   nodes = nodes.filter((n) => {
@@ -444,7 +450,29 @@ export function toMuscleLayout(tree, nowMs = clockNowMs()) {
   };
 
   let folded = 0;
+  const fold = (id, m, label) => {
+    const keys = cellsOf(t.cells, id).filter((k) => t.cells[k] > 0);
+    if (!keys.length) return;
+    folded += 1;
+    keys.forEach((k) => {
+      const dk = k.split('|')[1];
+      m.p.forEach((rid) => markRegion(rid, dk, MARK_MAIN));
+      m.s.forEach((rid) => markRegion(rid, dk, MARK_SECONDARY));
+      if (!logged.has(dk)) logged.set(dk, []);
+      logged.get(dk).push(label);
+      touch.add(dk);
+    });
+  };
+  const groupById = new Map(BEGINNER_GROUPS.map((g) => [g.id, g]));
   t.nodes.forEach((n) => {
+    const group = groupById.get(n.id);
+    if (group && !hasKids(n.id)) {
+      // A fixed group that was itself logged as a move: read it like a "ไม่ระบุท่า" row of that group.
+      const r = resolveTreeMove({ ...n, name: UNSPECIFIED_MOVE }, n.name);
+      fold(n.id, r.p.length ? r : { p: [...group.regions], s: [] }, n.name);
+      cellsOf(t.cells, n.id).forEach((k) => { delete cells[k]; });
+      return;
+    }
     if (wantIds.has(n.id) || cardioRootIds.has(n.id)) return;
     const parent = n.parentId ? byId.get(n.parentId) : null;
     if (n.parentId && cardioRootIds.has(n.parentId)) {
@@ -460,19 +488,7 @@ export function toMuscleLayout(tree, nowMs = clockNowMs()) {
       extraNodes.push({ ...n, parentId: home.id, order: 1000 + n.order });
       return;
     }
-    const keys = cellsOf(t.cells, n.id).filter((k) => t.cells[k] > 0);
-    if (!keys.length) return;
-    folded += 1;
-    const m = resolveTreeMove(n, parent?.name || '');
-    const label = n.name === UNSPECIFIED_MOVE && parent ? parent.name : n.name;
-    keys.forEach((k) => {
-      const dk = k.split('|')[1];
-      m.p.forEach((rid) => markRegion(rid, dk, MARK_MAIN));
-      m.s.forEach((rid) => markRegion(rid, dk, MARK_SECONDARY));
-      if (!logged.has(dk)) logged.set(dk, []);
-      logged.get(dk).push(label);
-      touch.add(dk);
-    });
+    fold(n.id, resolveTreeMove(n, parent?.name || ''), n.name === UNSPECIFIED_MOVE && parent ? parent.name : n.name);
   });
   // A folded cardio-root move (childless root holding its own kcal) keeps its place.
   if (home && !extraNodes.includes(home) && !cardioRootIds.has(home.id)) extraNodes.unshift(home);
@@ -495,8 +511,10 @@ export function toMuscleLayout(tree, nowMs = clockNowMs()) {
   Object.keys(t.cells).forEach((k) => {
     if (next.cells[k] == null) touch.add(k.split('|')[1]);
   });
+  // Day rows still carry the old labels of moved rows until the converted tree is saved.
+  const aliased = recordMuscleLabelAliases(t, next, nowMs);
   return {
-    tree: normalizeMuscleTree({ ...next, updatedAt: nowIsoLocal() }),
+    tree: normalizeMuscleTree({ ...aliased, updatedAt: nowIsoLocal() }),
     touchDates: [...touch].sort(),
     changed: true,
     folded,
@@ -615,28 +633,46 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   const bRemoved = b.removed || {};
   const aById = new Map(a.nodes.map((n) => [n.id, n]));
   const bById = new Map(b.nodes.map((n) => [n.id, n]));
-  const nodes = [];
-  new Set([...aById.keys(), ...bById.keys(), ...Object.keys(aRemoved), ...Object.keys(bRemoved)]).forEach((id) => {
-    const an = aById.get(id);
-    const bn = bById.get(id);
-    const aStamp = an ? an.at || 0 : aRemoved[id] || 0;
-    const bStamp = bn ? bn.at || 0 : bRemoved[id] || 0;
-    const win = bStamp > aStamp ? bn : an;
-    if (win) nodes.push(win);
-  });
-  const removed = { ...aRemoved };
-  Object.keys(bRemoved).forEach((id) => { removed[id] = Math.max(removed[id] || 0, bRemoved[id]); });
   const aCellAt = a.cellAt || {};
   const bCellAt = b.cellAt || {};
   const cells = {};
   const cellAt = {};
+  const liveAt = new Map();
   new Set([...Object.keys(a.cells), ...Object.keys(b.cells), ...Object.keys(aCellAt), ...Object.keys(bCellAt)]).forEach((k) => {
     const aStamp = aCellAt[k] || 0;
     const bStamp = bCellAt[k] || 0;
     const val = bStamp > aStamp ? b.cells[k] : a.cells[k];
     if (val != null) cells[k] = val;
     if (aStamp || bStamp) cellAt[k] = Math.max(aStamp, bStamp);
+    const id = k.split('|')[0];
+    if (val != null && cellAt[k] > (liveAt.get(id) || 0)) liveAt.set(id, cellAt[k]);
   });
+  const nodes = [];
+  const kept = new Set();
+  const revived = [];
+  new Set([...aById.keys(), ...bById.keys(), ...Object.keys(aRemoved), ...Object.keys(bRemoved)]).forEach((id) => {
+    const an = aById.get(id);
+    const bn = bById.get(id);
+    const aStamp = an ? an.at || 0 : aRemoved[id] || 0;
+    const bStamp = bn ? bn.at || 0 : bRemoved[id] || 0;
+    let win = bStamp > aStamp ? bn : an;
+    // A row removed on one device but marked later on the other stays, so the next layout pass folds that mark.
+    if (!win && (an || bn) && (liveAt.get(id) || 0) > Math.max(aStamp, bStamp)) {
+      win = an || bn;
+      revived.push([win, an ? aById : bById]);
+    }
+    if (!win) return;
+    nodes.push(win);
+    kept.add(id);
+  });
+  revived.forEach(([n, from]) => {
+    const parent = n.parentId && !kept.has(n.parentId) ? from.get(n.parentId) : null;
+    if (!parent) return;
+    nodes.push(parent);
+    kept.add(parent.id);
+  });
+  const removed = { ...aRemoved };
+  Object.keys(bRemoved).forEach((id) => { removed[id] = Math.max(removed[id] || 0, bRemoved[id]); });
   const aliases = { ...(b.aliases || {}) };
   Object.entries(a.aliases || {}).forEach(([k, v]) => { if (!aliases[k] || aliases[k].at <= v.at) aliases[k] = v; });
   const moveLog = { ...(b.moveLog || {}) };

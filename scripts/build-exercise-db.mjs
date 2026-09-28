@@ -72,10 +72,22 @@ const RE = {
   lowToHigh: /\blow cable crossover\b/,
   press: /\bpress|push-?up|pushup|dip\b|dips\b/,
   flatPress: /bench press|chest press|floor press|push-?up|pushup|board press|pin press|chain press/,
-  rear: /rear[- ]?delt|reverse fl|reverse machine fl|back fl|face pull|rear lateral|bent[- ]over.*(raise|lateral)|external rotation|sled reverse/,
+  rear: /rear[- ]?delt|reverse fl|reverse machine fl|back fl|face pull|rear lateral|bent[- ]over.*(raise|lateral)|external rotation|sled reverse|pull apart|cuban/,
   side: /lateral|side raise|upright|deltoid raise|laterals|scaption|power partials|iron cross/,
-  pull: /\brows?\b|pull-?downs?|pull-?ups?|pullups|chin|muscle up/,
+  // \bchin: a bare "chin" also matches "machine".
+  pull: /\brows?\b|pull-?downs?|pull-?ups?|pullups|\bchin|muscle up/,
   shoulderPress: /press|jerk|handstand/,
+  overhead: /overhead|military|shoulder|jerk|bent press/,
+  // Upstream tags scapular retraction as "traps"; on these it is mid/lower traps, not the shrug.
+  retract: /\brows?\b|pull apart|rear[- ]?delt|reverse fl|face pull|bent[- ]over.*(raise|lateral)|scapular pull|muscle up/,
+  upright: /upright/,
+  serratusRaise: /incline shoulder raise/,
+  straightLegRaise: /hanging leg raise|lying leg raise/,
+  kneeTuck: /pull-in|knee\/hip raise/,
+  hipRaise: /hip raise/,
+  hammerCurl: /hammer.*curl/,
+  reverseCurl: /reverse.*curl|zottman/,
+  hipThrust: /hip thrust|glute bridge/,
   obliques: /twist|oblique|side bend|side bridge|side jackknife|russian|wood ?chop|windmill|cross-body|heel touch|elbow to knee|air bike|landmine 180|judo|wipers/,
   hipFlexor: /leg raise|leg lift|knee raise|knee\/hip raise|hanging pike|flutter|pull-in|leg tucks|tuck crunch|hip flexion|mountain climb|jackknife|v-up|scissor kick/,
   tibialis: /reverse calf/,
@@ -103,7 +115,7 @@ function mapMuscles(x, regionIds) {
   const mapOne = (m, list, isPrimary) => {
     switch (m) {
       case 'chest': {
-        const r = chestRegion(name);
+        const r = !isPrimary && shouldersPrimary ? 'chest-upper' : chestRegion(name);
         add(list, r);
         if (r === 'chest-lower' && RE.flatPress.test(name) && !/decline/.test(name)) add(s, 'chest-upper');
         break;
@@ -111,12 +123,13 @@ function mapMuscles(x, regionIds) {
       case 'shoulders': {
         const r = shoulderRegion(name);
         add(list, r);
-        if (r === 'delt-front' && RE.shoulderPress.test(name) && !RE.flatPress.test(name)) add(s, 'delt-side');
+        if (r === 'delt-front' && RE.shoulderPress.test(name) && !RE.flatPress.test(name)
+          && (shouldersPrimary || RE.overhead.test(name))) add(s, 'delt-side');
         break;
       }
       case 'abductors': add(list, 'glute-med'); break;
       case 'lower back': add(regionIds.has('lower-back') ? list : s, regionIds.has('lower-back') ? 'lower-back' : 'mid-back'); break;
-      case 'traps': add(list, 'traps-upper'); break;
+      case 'traps': add(list, RE.retract.test(name) && !RE.upright.test(name) ? 'mid-back' : 'traps-upper'); break;
       case 'middle back': add(list, 'mid-back'); break;
       case 'neck': add(list, 'neck'); break;
       case 'abdominals':
@@ -125,14 +138,43 @@ function mapMuscles(x, regionIds) {
         if (RE.hipFlexor.test(name)) add(s, 'hip-flexor');
         break;
       case 'quadriceps': add(list, 'quads'); break;
-      case 'calves': add(list, RE.tibialis.test(name) && isPrimary ? 'tibialis' : 'calves'); break;
+      case 'calves':
+        if (!isPrimary && RE.hipThrust.test(name)) { add(list, 'adductors'); add(list, 'glute-med'); break; }
+        add(list, RE.tibialis.test(name) && isPrimary ? 'tibialis' : 'calves');
+        break;
       default: add(list, m); // hamstrings, glutes, adductors, biceps, triceps, forearms, lats
     }
   };
 
+  const shouldersPrimary = x.primaryMuscles.includes('shoulders');
   x.primaryMuscles.forEach((m) => mapOne(m, p, true));
   x.secondaryMuscles.forEach((m) => mapOne(m, s, false));
-  return { p, s: s.filter((id) => !p.includes(id)) };
+  return adjustRoles(name, p, s.filter((id) => !p.includes(id)));
+}
+
+/** Prime movers upstream tags too coarsely; each returns [p, s] (s is re-deduped against p). */
+function adjustRoles(name, p, s) {
+  const lead = (first, list, rest = []) => {
+    const np = [...first, ...list.filter((id) => !first.includes(id))];
+    const ns = [...rest, ...s].filter((id, i, a) => !np.includes(id) && a.indexOf(id) === i);
+    return { p: np, s: ns };
+  };
+  if (RE.serratusRaise.test(name)) return { p: ['serratus'], s: ['chest-upper', 'delt-front'] };
+  if (RE.upright.test(name) && /\brow/.test(name)) {
+    return lead(['delt-side'], [], ['traps-upper', ...p]);
+  }
+  if (p.includes('biceps') && /curl/.test(name)) {
+    if (RE.hammerCurl.test(name)) return lead(['biceps', 'forearms'], p);
+    if (RE.reverseCurl.test(name)) return lead(['forearms', 'biceps'], p);
+  }
+  if (p.includes('abs')) {
+    if (RE.straightLegRaise.test(name)) return lead(['hip-flexor', 'abs'], p);
+    if (RE.kneeTuck.test(name)) return lead(['abs', 'hip-flexor'], p);
+    if (RE.hipRaise.test(name)) return lead([], p, ['hip-flexor']);
+  }
+  if (/cuban/.test(name)) return lead(['delt-rear'], p, ['delt-side']);
+  if (/\bshrug/.test(name) && !/clean|snatch/.test(name)) return { p, s: s.filter((id) => !id.startsWith('delt-')) };
+  return { p, s };
 }
 
 const q = (v) => `'${String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;

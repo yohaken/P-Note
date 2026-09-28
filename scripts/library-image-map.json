@@ -21,8 +21,7 @@
   "cable-crossover": "Cable_Crossover",
   "db-pullover": "Bent-Arm_Dumbbell_Pullover",
   "dips": "Dips_-_Chest_Version",
-
-  "lat-pulldown": "Wide-Grip_Lat_Pulldown",
+  "lat-pulldown": "Close-Grip_Front_Lat_Pulldown",
   "wide-pulldown": "Wide-Grip_Lat_Pulldown",
   "close-pulldown": "V-Bar_Pulldown",
   "reverse-pulldown": "Underhand_Cable_Pulldowns",
@@ -45,7 +44,6 @@
   "bird-dog": null,
   "deadlift": "Barbell_Deadlift",
   "rack-pull": "Rack_Pulls",
-
   "overhead-press": "Dumbbell_Shoulder_Press",
   "bb-ohp": "Standing_Military_Press",
   "shoulder-press-machine": "Machine_Shoulder_Military_Press",
@@ -64,7 +62,6 @@
   "shrug": "Dumbbell_Shrug",
   "bb-shrug": "Barbell_Shrug",
   "pike-push-up": null,
-
   "db-curl": "Dumbbell_Bicep_Curl",
   "bb-curl": "Barbell_Curl",
   "preacher-curl": "Machine_Preacher_Curls",
@@ -87,7 +84,6 @@
   "wrist-curl": "Seated_Dumbbell_Palms-Up_Wrist_Curl",
   "reverse-wrist-curl": "Seated_Dumbbell_Palms-Down_Wrist_Curl",
   "farmer-carry": "Farmers_Walk",
-
   "plank": "Plank",
   "crunch": "Crunches",
   "sit-up": "Sit-Up",
@@ -109,7 +105,6 @@
   "rotary-torso": null,
   "pallof-press": "Pallof_Press",
   "db-side-bend": "Dumbbell_Side_Bend",
-
   "squat": "Barbell_Squat",
   "front-squat": "Front_Barbell_Squat",
   "smith-squat": "Smith_Machine_Squat",
@@ -151,5 +146,9 @@
   "calf-machine": "Standing_Calf_Raises",
   "leg-press-calf": "Calf_Press_On_The_Leg_Press_Machine",
   "seated-calf-raise": "Seated_Calf_Raise",
-  "tibialis-raise": "Smith_Machine_Reverse_Calf_Raises"
+  "tibialis-raise": "Smith_Machine_Reverse_Calf_Raises",
+  "power-clean": "Power_Clean",
+  "push-press": "Push_Press",
+  "box-jump": "Front_Box_Jump",
+  "neck-curl": "Lying_Face_Up_Plate_Neck_Resistance"
 }
