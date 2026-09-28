@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from './config.js?v=326';
+import { STORAGE_KEYS } from './config.js?v=327';
 
 const BUILD_META_RE = /meta\s+name=["']pnote-build["']\s+content=["'](\d+)["']/i;
 

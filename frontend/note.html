@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="326">
+  <meta name="pnote-build" content="327">
   <meta name="pnote-built" content="2026-09-27T20:10:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="แคลโน้ต">
   <title>แคลโน้ต</title>
-  <script src="js/cache-bootstrap.js?v=326"></script>
+  <script src="js/cache-bootstrap.js?v=327"></script>
   <script>
     /* Apply saved brand icon before paint (favicon + logos + install manifest). */
     (function earlyAppIcon() {
@@ -24,7 +24,7 @@
           if (IDS.indexOf(cand) >= 0) id = cand;
         }
       } catch (e) {}
-      var src = 'icons/app/' + id + '-192.png?v=326';
+      var src = 'icons/app/' + id + '-192.png?v=327';
       function setLink(rel, href, type) {
         var el = document.querySelector('link[rel="' + rel + '"]');
         if (!el) {
@@ -37,7 +37,7 @@
       }
       setLink('icon', src, 'image/png');
       setLink('apple-touch-icon', src);
-      setLink('manifest', 'manifests/' + id + '.json?v=326');
+      setLink('manifest', 'manifests/' + id + '.json?v=327');
       window.__pnoteEarlyIconId = id;
       window.__pnoteEarlyIconSrc = src;
       document.addEventListener('DOMContentLoaded', function () {
@@ -47,7 +47,7 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="css/pnote.css?v=326">
+  <link rel="stylesheet" href="css/pnote.css?v=327">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -165,7 +165,7 @@
           <span class="mode-switch-chev" aria-hidden="true">▾</span>
         </button>
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/app/leaf-192.png?v=326" width="16" height="16" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/app/leaf-192.png?v=327" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
           <span class="mode-switch-ver" id="calorie-app-ver">v257</span>
           <span class="topbar-meta-sep" aria-hidden="true">·</span>
@@ -367,18 +367,12 @@
       <!-- Muscle tree × date matrix -->
       <div id="calorie-muscle-sheet" class="calorie-muscle-sheet" hidden aria-label="ตารางกล้ามเนื้อ">
         <div class="muscle-toolbar">
-          <div class="muscle-view-switch" id="muscle-view-switch" role="group" aria-label="มุมมองตาราง">
-            <button type="button" class="mvs-btn" data-muscle-view="move" aria-pressed="true" title="แถวเป็นท่าที่เล่น">ท่า</button>
-            <button type="button" class="mvs-btn" data-muscle-view="muscle" aria-pressed="false" title="แถวเป็นกล้าม · ดูว่าโดนกล้ามไหนวันไหน">กล้าม</button>
-          </div>
           <div class="muscle-toolbar-actions">
-            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-btn" title="แก้ชื่อ ลบ เพิ่มหมวด/ย่อย">โครงสร้าง</button>
+            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-btn" title="เพิ่ม แก้ชื่อ ลบ ท่าคาร์ดิโอ">คาร์ดิโอ</button>
             <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-rest-btn" title="ตั้งชื่อและสีของแต่ละวันพัก">วันพัก</button>
             <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-expand-all" title="ขยายหรือหุบทุกรายการย่อย" hidden>ขยายทั้งหมด</button>
-            <button type="button" class="btn btn-primary muscle-tool-btn" id="muscle-add-exercise" title="เลือกท่าจากคลัง · ระบบผูกกล้ามให้เอง">+ ท่า</button>
-            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-freeform" title="ใส่ท่าวันนี้ด้วยลูกกลิ้ง หมวด · ท่า · แคล (คาร์ดิโอ)">ลูกกลิ้ง</button>
-            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-convert-btn" title="เปลี่ยนแถวชื่อส่วนกล้ามเดิมเป็นชื่อท่าจริง พร้อมรูป" hidden>แปลงแถวเก่า</button>
-            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-stale-toggle" title="ท่าเก่าที่ไม่ได้เล่นเกิน 30 วัน ยังนับในสรุปกลุ่ม" hidden>แสดงท่าเก่า</button>
+            <button type="button" class="btn btn-primary muscle-tool-btn" id="muscle-add-exercise" title="ดูท่าจากคลังพร้อมรูป · กดเล่นวันนี้แล้วติ๊กกล้ามให้เอง">ท่าไกด์</button>
+            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-freeform" title="ใส่วันนี้ด้วยลูกกลิ้ง กลุ่ม · กล้าม (คาร์ดิโอใส่ kcal)">ลูกกลิ้ง</button>
             <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-load-older" title="โหลดวันเก่าเพิ่มอีก 30 วัน · หรือเลื่อนตารางไปขวาสุด" hidden>ย้อนหลังเพิ่ม ›</button>
           </div>
           <span class="muscle-range" id="muscle-range"></span>
@@ -387,7 +381,7 @@
           <div class="mbc-head">
             <button type="button" class="mbc-collapse" id="muscle-body-collapse" aria-expanded="true" aria-controls="muscle-body-map">
               <span class="mbc-chev" aria-hidden="true">▾</span>
-              <span class="mbc-title">รูปกล้าม · แตะกล้ามเพื่อดูท่าและตั้งวันพัก</span>
+              <span class="mbc-title">รูปกล้าม · แตะกล้ามเพื่อดูท่าไกด์และตั้งวันพัก</span>
             </button>
             <button type="button" class="mbc-fat-toggle" id="muscle-body-fat-toggle" aria-pressed="true" title="แสดง/ซ่อนเงาไขมันเทียบร่างลีน">เงาไขมัน</button>
           </div>
@@ -405,17 +399,15 @@
       <div class="muscle-manage-backdrop" id="muscle-manage-backdrop"></div>
       <div class="muscle-manage-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-manage-title">
         <div class="muscle-manage-head">
-          <h3 id="muscle-manage-title" class="muscle-manage-title">โครงสร้างกล้ามเนื้อ</h3>
+          <h3 id="muscle-manage-title" class="muscle-manage-title">ท่าคาร์ดิโอ</h3>
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-close" aria-label="ปิด">ปิด</button>
         </div>
-        <div id="muscle-settings-list" class="muscle-settings-list" aria-label="รายการกล้ามเนื้อ"></div>
+        <p class="rest-edit-hint">แถวกล้ามเนื้อตายตัว ไม่ต้องจัดเอง · ที่นี่จัดการแค่ท่าคาร์ดิโอ (ใส่ kcal ที่เบิร์น)</p>
+        <div id="muscle-settings-list" class="muscle-settings-list" aria-label="รายการท่าคาร์ดิโอ"></div>
         <div class="muscle-toolbar-actions muscle-manage-actions">
-          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-add-cat">+ หมวด</button>
-          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-add-child">+ ย่อย</button>
+          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-add-child">+ ท่าคาร์ดิโอ</button>
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-move-up" title="เลื่อนรายการที่เลือกขึ้น">↑</button>
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-move-down" title="เลื่อนรายการที่เลือกลง">↓</button>
-          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-beginner-layout" title="จัดเป็น 10 กลุ่มกล้ามหลัก + ท่ายอดนิยม · ข้อมูลเดิมย้ายตามครบ">จัดเป็น 10 กลุ่มหลัก</button>
-          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-leg-split" title="แยกหมวดขาตามกายวิภาค: ก้น · ขาท่อนบน (ต้นขา) · ขาท่อนล่าง (น่อง/หน้าแข้ง) · ข้อมูลเดิมย้ายตามครบ">แยกขา 3 ส่วน</button>
         </div>
       </div>
     </div>
@@ -436,44 +428,13 @@
       <div class="muscle-manage-sheet mr-sheet xp-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-picker-title">
         <div class="muscle-manage-head">
           <button type="button" class="btn btn-secondary muscle-tool-btn xp-back" id="muscle-picker-back" aria-label="กลับ" hidden>‹ กลับ</button>
-          <h3 id="muscle-picker-title" class="muscle-manage-title xp-title">เลือกท่า</h3>
+          <h3 id="muscle-picker-title" class="muscle-manage-title xp-title">ท่าไกด์</h3>
           <button type="button" class="btn btn-secondary muscle-tool-btn" data-close-overlay="muscle-picker-overlay" aria-label="ปิด">ปิด</button>
         </div>
         <input type="search" id="muscle-picker-search" class="xp-search" placeholder="ค้นหาท่า (ไทย / English)" autocomplete="off" enterkeyhint="search" aria-label="ค้นหาท่า">
         <div id="muscle-picker-eq" class="xp-chips" role="group" aria-label="กรองตามอุปกรณ์"></div>
         <div id="muscle-picker-body" class="mr-body xp-body"></div>
         <div id="muscle-picker-toast" class="xp-toast" role="status" aria-live="polite" hidden></div>
-      </div>
-    </div>
-
-    <div id="muscle-convert-overlay" class="muscle-manage-overlay" hidden>
-      <div class="muscle-manage-backdrop" data-close-overlay="muscle-convert-overlay"></div>
-      <div class="muscle-manage-sheet mr-sheet xp-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-convert-title">
-        <div class="muscle-manage-head">
-          <h3 id="muscle-convert-title" class="muscle-manage-title">แปลงแถวเก่าเป็นท่า</h3>
-          <button type="button" class="btn btn-secondary muscle-tool-btn" data-close-overlay="muscle-convert-overlay" aria-label="ปิด">ปิด</button>
-        </div>
-        <p class="mc-hint">เลือกท่าที่แถวนั้นหมายถึง · ประวัติวันที่เล่นยังอยู่ครบ · ท่าเดียวกันสองแถวจะรวมเป็นแถวเดียว</p>
-        <div id="muscle-convert-body" class="mr-body xp-body"></div>
-        <div class="mc-foot">
-          <button type="button" class="btn btn-primary" id="muscle-convert-apply">ใช้ตามที่เลือก</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="muscle-edit-overlay" class="muscle-manage-overlay" hidden>
-      <div class="muscle-manage-backdrop" data-close-overlay="muscle-edit-overlay"></div>
-      <div class="muscle-manage-sheet mr-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-edit-title">
-        <div class="muscle-manage-head">
-          <h3 id="muscle-edit-title" class="muscle-manage-title">กล้ามที่ท่านี้ใช้</h3>
-          <button type="button" class="btn btn-secondary muscle-tool-btn" data-close-overlay="muscle-edit-overlay" aria-label="ปิด">ปิด</button>
-        </div>
-        <p class="rest-edit-hint">แตะกล้าม: ครั้งแรก = <b class="me-key is-p">หลัก</b> · ครั้งที่สอง = <b class="me-key is-s">รอง</b> · ครั้งที่สาม = เอาออก</p>
-        <div id="muscle-edit-body" class="mr-body"></div>
-        <div class="muscle-toolbar-actions muscle-manage-actions">
-          <button type="button" class="btn btn-primary muscle-tool-btn" id="muscle-edit-save">บันทึก</button>
-          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-edit-auto" title="ให้แอปเดาจากชื่อท่า/คลังท่า">ใช้ค่าอัตโนมัติ</button>
-        </div>
       </div>
     </div>
 
@@ -1229,7 +1190,7 @@
 
     <div id="auth-overlay" class="auth-overlay">
       <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=326" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=327" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">ใส่รหัสเข้า</h2>
         <p class="auth-copy">ใส่รหัสผ่านเพื่อเปิดแอพ · จำไว้ในเครื่องนี้จนกว่าจะกดออกจากระบบ</p>
         <label class="notify-field auth-pin-field" for="auth-pin-input">
@@ -1465,7 +1426,7 @@
 
   <button type="button" class="undo-fab" id="undo-fab-btn" aria-label="เลิกทำล่าสุด" title="เลิกทำล่าสุด" disabled hidden>↩</button>
 
-  <script type="module" src="js/boot.js?v=326"></script>
-  <script src="js/update-watch.js?v=326"></script>
+  <script type="module" src="js/boot.js?v=327"></script>
+  <script src="js/update-watch.js?v=327"></script>
 </body>
 </html>

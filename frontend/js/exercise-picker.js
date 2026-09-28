@@ -12,8 +12,8 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=326';
-import { regionRestMap, exerciseLeafIndex, isCardioNode } from './muscle-tree.js?v=326';
+} from './muscle-map.js?v=327';
+import { regionRestMap } from './muscle-tree.js?v=327';
 
 const FAVS_KEY = 'pnote_ex_favs';
 const FAV_GROUP = 'fav';
@@ -24,7 +24,6 @@ let deps = {
   getTree: () => null,
   getTodayKey: () => '',
   onAdd: () => null,
-  onOpenMuscleEdit: () => {},
   setStatus: () => {},
 };
 let els = {};
@@ -34,7 +33,6 @@ let detailId = '';
 let detailOnly = false;
 let showExtras = false;
 let searchTimer = 0;
-let leafOf = () => null;
 const eqSel = new Set();
 let toastTimer = 0;
 let toastUndo = null;
@@ -81,7 +79,6 @@ const exById = new Map(ALL_EXERCISES.map((e) => [e.id, e]));
 
 function detailHtml(e, tree, favs) {
   const imgs = exerciseImages(e);
-  const has = !!leafOf(e.name);
   const fav = favs.has(e.id);
   const names = (ids) => ids.map((id) => regionById(id)?.name).filter(Boolean).join(', ') || '–';
   const photo = imgs.length
@@ -89,7 +86,7 @@ function detailHtml(e, tree, favs) {
     : '<p class="xp-empty">ยังไม่มีรูปท่านี้</p>';
   return `<div class="xp-detail">
       ${photo}
-      <h3 class="xp-detail-th">${esc(e.name)}${has ? ' <span class="xp-tag">มีแล้ว</span>' : ''}</h3>
+      <h3 class="xp-detail-th">${esc(e.name)}</h3>
       <p class="xp-detail-en">${esc(e.en || '')}${EQUIPMENT_TH[e.eq] ? ` · ${esc(EQUIPMENT_TH[e.eq])}` : ''}</p>
       <div class="xp-detail-muscles">
         <div class="xp-detail-body">${renderBodyPairHtml(musclePaint(e), { compact: true })}</div>
@@ -100,8 +97,7 @@ function detailHtml(e, tree, favs) {
       </div>
       <div class="xp-detail-actions">
         <button type="button" class="xp-star${fav ? ' is-on' : ''}" data-xp-fav="${esc(e.id)}" aria-pressed="${fav}" aria-label="${fav ? 'เอาออกจากท่าโปรด' : 'เพิ่มเป็นท่าโปรด'}">${fav ? '★' : '☆'}</button>
-        <button type="button" class="btn btn-secondary" data-xp-add="${esc(e.name)}">${has ? 'มีในตารางแล้ว' : 'เพิ่มลงตาราง'}</button>
-        <button type="button" class="btn btn-primary" data-xp-today="${esc(e.name)}">+ เล่นวันนี้</button>
+        <button type="button" class="btn btn-primary" data-xp-today="${esc(e.name)}" title="ติ๊กกล้ามหลัก/รองของท่านี้ว่าเล่นวันนี้">เล่นวันนี้</button>
       </div>
       <p class="xp-credit">รูป: free-exercise-db (สาธารณสมบัติ)</p>
     </div>`;
@@ -229,19 +225,18 @@ function groupsHtml(tree, favs) {
 }
 
 function rowHtml(e, tree, favs) {
-  const has = !!leafOf(e.name);
   const fav = favs.has(e.id);
   const meta = [e.en, EQUIPMENT_TH[e.eq] || ''].filter(Boolean).join(' · ');
   return `<div class="xp-row">
       <button type="button" class="xp-thumb" data-xp-detail="${esc(e.id)}" aria-label="${esc(`ดูท่า ${e.name}`)}">${thumbHtml(e)}</button>
       <button type="button" class="xp-row-main" data-xp-detail="${esc(e.id)}" title="ดูท่าและกล้ามที่ใช้">
         <span class="xp-row-text">
-          <span class="xp-row-name">${esc(e.name)}${has ? ' <span class="xp-tag">มีแล้ว</span>' : ''}</span>
+          <span class="xp-row-name">${esc(e.name)}</span>
           <span class="xp-row-meta">${esc(meta)}</span>
         </span>
       </button>
       <button type="button" class="xp-star${fav ? ' is-on' : ''}" data-xp-fav="${esc(e.id)}" aria-pressed="${fav}" aria-label="${fav ? 'เอาออกจากท่าโปรด' : 'เพิ่มเป็นท่าโปรด'}">${fav ? '★' : '☆'}</button>
-      <button type="button" class="btn btn-secondary xp-today" data-xp-today="${esc(e.name)}" title="เพิ่มและบันทึกว่าเล่นวันนี้">+ วันนี้</button>
+      <button type="button" class="btn btn-secondary xp-today" data-xp-today="${esc(e.name)}" title="ติ๊กกล้ามของท่านี้ว่าเล่นวันนี้">เล่นวันนี้</button>
     </div>`;
 }
 
@@ -251,21 +246,16 @@ function listHtml(list, tree, favs, { limit = 0 } = {}) {
   const more = limit && list.length > limit
     ? `<p class="xp-empty">แสดง ${limit} จาก ${list.length} ท่า · พิมพ์ให้เจาะจงขึ้น</p>` : '';
   const empty = list.length ? '' : `<p class="xp-empty">${eqSel.size ? 'ไม่พบท่าที่ตรงกับอุปกรณ์ที่เลือก' : 'ไม่พบท่า'}</p>`;
-  const text = query.trim();
-  const custom = `<button type="button" class="xp-custom" data-xp-custom>
-      <span class="xp-custom-plus">+</span>
-      <span>สร้างท่าเอง${text ? ` “${esc(text)}”` : ''}<span class="xp-row-meta">${text ? 'เพิ่มแล้วเลือกกล้ามที่ใช้' : 'พิมพ์ชื่อท่าในช่องค้นหาก่อน'}</span></span>
-    </button>`;
-  return `<div class="xp-list">${rows}</div>${more}${empty}${custom}`;
+  const hint = '<p class="xp-empty">ไม่เจอท่าที่เล่น? แตะช่องกล้ามในตารางเองได้เลย · ท่าเป็นแค่ไกด์</p>';
+  return `<div class="xp-list">${rows}</div>${more}${empty}${hint}`;
 }
 
 function paint() {
   if (!els.body) return;
   const tree = safeTree();
-  leafOf = tree ? exerciseLeafIndex(tree) : () => null;
   const favs = loadFavs();
   const group = groupId === FAV_GROUP ? null : groupById(groupId);
-  let title = 'เลือกท่า';
+  let title = 'ท่าไกด์';
   let html;
   const detail = detailId ? exById.get(detailId) : null;
   if (detail) {
@@ -280,11 +270,11 @@ function paint() {
   } else if (group) {
     title = `กลุ่ม${group.name}`;
     const all = groupExercises(group);
-    const main = all.filter((e) => !e.extra || favs.has(e.id) || leafOf(e.name));
+    const main = all.filter((e) => !e.extra || favs.has(e.id));
     const extras = all.filter((e) => !main.includes(e));
     html = listHtml(favFirst(showExtras ? [...main, ...extras] : main, favs), tree, favs);
     if (extras.length && !showExtras) {
-      html = html.replace('<button type="button" class="xp-custom"', `<button type="button" class="btn btn-secondary xp-more" data-xp-more>ท่าเพิ่มเติม (${extras.length}) · มีรูป</button><button type="button" class="xp-custom"`);
+      html = html.replace('<p class="xp-empty">ไม่เจอท่า', `<button type="button" class="btn btn-secondary xp-more" data-xp-more>ท่าเพิ่มเติม (${extras.length}) · มีรูป</button><p class="xp-empty">ไม่เจอท่า`);
     }
   } else {
     html = groupsHtml(tree, favs);
@@ -327,27 +317,13 @@ function showToast(text, undo) {
   toastTimer = setTimeout(hideToast, TOAST_MS);
 }
 
-function addMove(name, logToday) {
-  const res = deps.onAdd(name, { logToday, groupId: groupId === FAV_GROUP ? '' : groupId || '' });
+function logToday(name) {
+  const res = deps.onAdd(name);
   if (!res) return;
   const label = res.node?.name || name;
-  if (res.logged) showToast(`เพิ่ม ${label} วันนี้แล้ว`, res.undo);
-  else if (res.created) showToast(`เพิ่ม ${label} แล้ว`, res.undo);
-  else showToast(logToday ? `${label} บันทึกไว้แล้ววันนี้` : `${label} มีในตารางแล้ว`);
+  if (res.logged) showToast(`ติ๊กกล้ามของ ${label} วันนี้แล้ว`, res.undo);
+  else showToast(`${label} บันทึกไว้แล้ววันนี้`);
   paint();
-}
-
-function createCustom() {
-  const text = query.trim();
-  if (!text) {
-    els.search?.focus();
-    deps.setStatus('พิมพ์ชื่อท่าในช่องค้นหาก่อน');
-    return;
-  }
-  const res = deps.onAdd(text, { logToday: false });
-  if (!res?.node) return;
-  closeExercisePicker();
-  if (!isCardioNode(deps.getTree(), res.node.id)) deps.onOpenMuscleEdit(res.node.id);
 }
 
 function toggleFav(id) {
@@ -385,15 +361,8 @@ function onBodyClick(e) {
   }
   const today = t?.closest?.('[data-xp-today]');
   if (today) {
-    addMove(today.dataset.xpToday, true);
-    return;
+    logToday(today.dataset.xpToday);
   }
-  const add = t?.closest?.('[data-xp-add]');
-  if (add) {
-    addMove(add.dataset.xpAdd, false);
-    return;
-  }
-  if (t?.closest?.('[data-xp-custom]')) createCustom();
 }
 
 function onEqClick(e) {

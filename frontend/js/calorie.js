@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=326';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=327';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -17,7 +17,8 @@ import {
   muscleLeafIndex,
   muscleSlotsForDate,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=326';
+  toMuscleLayout,
+} from './muscle-tree.js?v=327';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -1371,7 +1372,7 @@ export const EXERCISE_BURN_STEPS = (() => {
  * @returns {{ id: string, name: string, moves: { id: string, name: string, label: string }[] }[]}
  */
 export function exercisePickerCatalog(tree) {
-  const t = normalizeMuscleTree(tree);
+  const t = toMuscleLayout(tree).tree;
   const rows = flattenMuscleRows(t);
   const groups = [];
   rows.forEach((r) => {
@@ -1391,7 +1392,7 @@ export function exercisePickerCatalog(tree) {
  * @returns {{ nodeId: string|null, label: string, burn: number }[]}
  */
 export function dayExerciseEntries(calorie, day) {
-  const t = normalizeMuscleTree(calorie?.muscleTree);
+  const t = toMuscleLayout(calorie?.muscleTree).tree;
   const { leaves } = muscleLeafIndex(t);
   const dateKey = day?.date;
   const out = [];
@@ -1418,6 +1419,8 @@ export function dayExerciseEntries(calorie, day) {
       out.push({ nodeId: move.id, label: move.label, burn: value > 0 ? value : p.burn, cardio: move.cardio });
       return;
     }
+    // A 0-kcal "group · move" copy of a row that is no longer in the table carries nothing.
+    if (!(p.burn > 0) && p.label.includes(' · ')) return;
     out.push({ nodeId: null, label: p.label || `ออกกำลัง ${p.burn}`, burn: p.burn, cardio: isCardioLabel(p.label) });
   });
   if (dateKey) {
@@ -1437,7 +1440,8 @@ export function dayExerciseEntries(calorie, day) {
  */
 export function setDayExerciseEntries(calorie, dateKey, entries) {
   const { sheet, day } = ensureDay(calorie, dateKey);
-  let tree = normalizeMuscleTree(sheet.muscleTree);
+  const layout = toMuscleLayout(sheet.muscleTree);
+  let tree = layout.tree;
   const want = new Map();
   const freeform = [];
   (entries || []).forEach((e) => {
@@ -1460,6 +1464,7 @@ export function setDayExerciseEntries(calorie, dateKey, entries) {
     treeChanged = true;
   });
   if (treeChanged) tree = normalizeMuscleTree({ ...tree, cells, updatedAt: nowIso() });
+  treeChanged = treeChanged || layout.changed;
   const next = treeChanged
     ? { ...sheet, muscleTree: tree, muscleTreeAt: nowIso() }
     : sheet;

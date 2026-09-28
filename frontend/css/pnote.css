@@ -9091,30 +9091,6 @@ body.calorie-muscle-pane #calorie-view {
   gap: 0.28rem;
 }
 
-.muscle-view-switch {
-  display: inline-flex;
-  padding: 2px;
-  border-radius: 9px;
-  background: var(--surface-2, rgba(0, 0, 0, 0.06));
-}
-
-.mvs-btn {
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 650;
-  padding: 0.3rem 0.8rem;
-  border-radius: 7px;
-  cursor: pointer;
-}
-
-.mvs-btn.is-active {
-  background: var(--accent);
-  color: #fff;
-}
-
 .muscle-table.is-muscle-view .mt-cell.is-hit {
   cursor: pointer;
 }
@@ -9581,8 +9557,7 @@ body.calorie-muscle-pane #calorie-view {
 .muscle-table .mt-row-name.is-child .mt-name-btn {
   padding-left: 0.45rem;
 }
-.muscle-table tr.is-group .mt-cell,
-.muscle-table .mt-link-mark {
+.muscle-table tr.is-group .mt-cell {
   flex: 0 0 auto;
   appearance: none;
   border: 0;
@@ -9598,18 +9573,6 @@ body.calorie-muscle-pane #calorie-view {
   text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-.muscle-table .mt-link-mark.is-none {
-  background: #f59e0b;
-  color: #fff;
-}
-.muscle-table .mt-link-mark.is-guess {
-  background: transparent;
-  color: var(--text-muted);
-  box-shadow: inset 0 0 0 1px var(--border);
-}
-.muscle-table .mt-link-mark.is-count {
-  cursor: default;
 }
 .muscle-table tr.is-group .mt-name-row {
   height: 1.05rem;
@@ -10528,17 +10491,6 @@ body.light .bm-halo {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.xp-tag {
-  display: inline-block;
-  margin-left: 0.2rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
-  font-size: 0.6rem;
-  font-weight: 800;
-  vertical-align: 0.1em;
-}
 .xp-star {
   appearance: none;
   width: 2rem;
@@ -10566,36 +10518,6 @@ body.light .bm-halo {
   font-size: 0.75rem;
   color: var(--text-muted);
   text-align: center;
-}
-.xp-custom {
-  appearance: none;
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.55rem 0.65rem;
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
-}
-.xp-custom-plus {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.6rem;
-  height: 1.6rem;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
-  font-weight: 800;
 }
 .xp-toast {
   position: absolute;
@@ -10738,90 +10660,95 @@ body.light .bm-halo {
   text-align: center;
 }
 
-/* Pose thumbnail beside a move name in the muscle table */
-.mt-ex-thumb {
-  appearance: none;
-  flex-shrink: 0;
-  width: 30px;
-  height: 22px;
+.xp-more {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+/* Muscle row cells: ● main / • secondary, tap cycles */
+.muscle-table .mt-cell.is-mark {
   padding: 0;
-  margin-right: 0.3rem;
+}
+.muscle-table .mt-mark-btn {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 1.3rem;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.3rem;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.muscle-table .mt-cell.is-mark.is-main {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.muscle-table .mt-cell.is-mark.is-sec .mt-mark-btn {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+.muscle-table-legend .mt-mark.is-main {
+  color: var(--accent);
+}
+.muscle-table-legend .mt-mark.is-sec {
+  color: var(--text-muted);
+}
+
+/* Muscle guide sheet: today buttons + move photos */
+.mr-today {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.2rem 0 0.45rem;
+}
+.mr-today-btn {
+  appearance: none;
+  padding: 0.35rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 999px;
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mr-today-btn.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.mr-ex-row {
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+}
+.mr-ex-thumb {
+  appearance: none;
+  width: 56px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   overflow: hidden;
   background: #fff;
   cursor: pointer;
 }
-.mt-ex-thumb img {
+.mr-ex-thumb.is-empty {
+  cursor: default;
+  background: var(--surface-2, rgba(0, 0, 0, 0.04));
+}
+.mr-ex-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center 30%;
   pointer-events: none;
-}
-
-/* Legacy row → exercise conversion sheet */
-.mc-hint {
-  margin: 0 0 0.4rem;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-}
-.mc-row {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--border);
-}
-.mc-thumb {
-  width: 64px;
-  height: 48px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  font-size: 1.1rem;
-}
-.mc-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 30%;
-}
-.mc-name {
-  font-weight: 600;
-  font-size: 0.88rem;
-}
-.mc-name small {
-  color: var(--text-muted);
-  font-weight: 400;
-}
-.mc-select {
-  width: 100%;
-  margin-top: 0.2rem;
-  padding: 0.35rem 0.4rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface, var(--bg));
-  color: var(--text);
-  font: inherit;
-  font-size: 0.85rem;
-}
-.mc-foot {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 0.5rem;
-}
-.mc-foot .btn {
-  flex: 1;
-}
-
-.xp-more {
-  width: 100%;
-  margin-top: 0.5rem;
 }
