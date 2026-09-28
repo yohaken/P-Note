@@ -14,8 +14,8 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=330';
-import { nowIso, nowMs as clockNowMs } from './clock.js?v=330';
+} from './muscle-map.js?v=331';
+import { nowIso, nowMs as clockNowMs } from './clock.js?v=331';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;

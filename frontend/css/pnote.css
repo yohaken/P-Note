@@ -6899,6 +6899,7 @@ body.calorie-only {
   padding: 0.25rem 0.45rem calc(0.25rem + env(safe-area-inset-bottom, 0px));
   background: var(--bg);
   border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 14px -8px rgb(0 0 0 / 22%);
 }
 
 .cal-topnav[hidden],
@@ -9115,11 +9116,13 @@ body.calorie-muscle-pane #calorie-view {
   overflow-y: auto;
   width: 100%;
   max-width: 100%;
-  max-height: calc(100dvh - 9.5rem);
+  max-height: var(--muscle-scroll-max, calc(100dvh - 9.5rem));
+  margin-bottom: 0.6rem;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  overscroll-behavior-y: contain;
+  /* Vertical overscroll must chain to the page, or the bottom bar can hide the last rows. */
+  overscroll-behavior-y: auto;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   border-radius: 8px;
