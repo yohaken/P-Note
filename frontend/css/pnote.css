@@ -9555,14 +9555,6 @@ body.calorie-muscle-pane #calorie-view {
 .muscle-table .mt-col-rest.is-none .mt-rest-val {
   justify-content: center;
 }
-.muscle-table .mt-rest-half {
-  flex: 0 0 auto;
-  margin-left: auto;
-  font-style: normal;
-  font-size: 0.56rem;
-  font-weight: 800;
-  opacity: 0.8;
-}
 .muscle-table .mt-dose {
   display: block;
   font-size: 0.6rem;

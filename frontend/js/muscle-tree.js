@@ -14,7 +14,7 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=316';
+} from './muscle-map.js?v=317';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -820,16 +820,6 @@ export function fmtDose(n) {
   return `${whole || !half ? whole : ''}${half ? '½' : ''}`;
 }
 
-/** Group rest: last day (≤ today) any dose landed; `half` when that day was secondary-only. */
-function groupRestInfo(t, r, moves, doses, todayKey) {
-  let last = '';
-  doses.forEach((v, dk) => { if (dk <= todayKey && dk > last) last = dk; });
-  if (!last) return null;
-  const best = rowRestInfo(t, r, moves);
-  const rest = best?.rest ?? null;
-  return { days: daysBetweenKeys(last, todayKey), last, rest, half: !doses.get(last).full };
-}
-
 /** Most recently trained move under a row (the row itself when it is a move). */
 function rowRestInfo(t, r, moves) {
   const ids = r.leaf ? [r.id] : (r.childIds || []);
@@ -867,27 +857,26 @@ function muscleLinkMarkHtml(r, moves, cardio) {
   return `<span class="mt-link-mark is-none is-count" title="${esc(tip)}" aria-label="${esc(tip)}">!${missing > 1 ? missing : ''}</span>`;
 }
 
-function restCellHtml(t, r, moves, cardio, depthCls, leafCls, groupInfo) {
+function restCellHtml(t, r, moves, cardio, depthCls, leafCls) {
   const base = `mt-col-rest${depthCls}${leafCls}`;
-  if (cardio) return `<td class="${base}" data-node-id="${esc(r.id)}"></td>`;
-  const info = groupInfo !== undefined ? groupInfo : rowRestInfo(t, r, moves);
+  if (cardio || !r.leaf) return `<td class="${base}" data-node-id="${esc(r.id)}"></td>`;
+  const info = rowRestInfo(t, r, moves);
   const days = info ? info.days : null;
   const last = info ? info.last : '';
   const step = info ? restStep(t.restScale, days) : null;
   if (!step) {
     return `<td class="${base} is-none" data-node-id="${esc(r.id)}" title="ยังไม่เคยเล่น"><span class="mt-rest-val">–</span></td>`;
   }
-  const halfTip = info.half ? ' · โดนเป็นกล้ามรอง (½)' : '';
-  const tip = (days === 0
+  const tip = days === 0
     ? `เล่นวันนี้ · ${step.label}`
-    : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${step.label}`) + halfTip;
+    : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${step.label}`;
   const left = restRemaining(days, info.rest);
   const restTip = left == null ? ''
     : ` · กล้ามนี้ควรพัก ${fmtRest(info.rest)} วัน · ${left > 0 ? `อีก ${fmtRest(left)} วัน` : 'ครบแล้ว'}`;
   const fadeCls = step.fade > 0 ? ' is-fading' : '';
   const fadeStyle = step.fade > 0 ? ` style="--rest-fade:${Math.round(step.fade * 100)}%"` : '';
   return `<td class="${base} rest-tone-${esc(step.tone)}${fadeCls}"${fadeStyle} data-node-id="${esc(r.id)}" title="${esc(tip + restTip)}">
-    <span class="mt-rest-val"><b class="mt-rest-n">${days}</b><span class="mt-rest-lb">${esc(step.label)}</span>${info.half ? '<i class="mt-rest-half">½</i>' : ''}</span>
+    <span class="mt-rest-val"><b class="mt-rest-n">${days}</b><span class="mt-rest-lb">${esc(step.label)}</span></span>
   </td>`;
 }
 
@@ -941,7 +930,6 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       const leafCls = r.leaf ? ' is-leaf' : ' is-group';
       const cardio = isCardioNode(t, r.id);
       const doses = isGroup && !cardio ? groupDoseByDate(t, r, moves) : null;
-      const doseSum = doses ? [...doses.values()].reduce((a, v) => a + v.dose, 0) : 0;
       const sessions = isGroup ? 0 : countMuscleSessions(t, r.id);
       const cardioCls = cardio ? ' is-cardio' : '';
       const nameTitle = collapsible
@@ -957,12 +945,8 @@ export function renderMuscleTableHtml(tree, opts = {}) {
           </button>${muscleLinkMarkHtml(r, moves, cardio)}
         </div>
       </th>`;
-      const countTip = doses
-        ? ` title="${esc(`รวม ${fmtDose(doseSum)} ครั้ง · ท่าหลักของกลุ่ม = 1 · โดนเป็นกล้ามรองจากท่าอื่น = ½`)}"`
-        : isGroup ? '' : ` title="เล่นไป ${sessions} ครั้ง"`;
-      const countVal = doses ? (doseSum ? fmtDose(doseSum) : '') : (sessions || '');
-      const countCell = `<td class="mt-col-count${depthCls}${leafCls}${countVal ? ' is-filled' : ''}" data-node-id="${esc(r.id)}"${countTip}>
-        <span class="mt-count-val">${countVal}</span>
+      const countCell = `<td class="mt-col-count${depthCls}${leafCls}${sessions ? ' is-filled' : ''}" data-node-id="${esc(r.id)}"${isGroup ? '' : ` title="เล่นไป ${sessions} ครั้ง"`}>
+        <span class="mt-count-val">${sessions || ''}</span>
       </td>`;
 
       const cells = dates
@@ -993,7 +977,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
         })
         .join('');
 
-      return `<tr class="mt-row${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${restCellHtml(t, r, moves, cardio, depthCls, leafCls, doses ? groupRestInfo(t, r, moves, doses, todayKey) : undefined)}${cells}</tr>`;
+      return `<tr class="mt-row${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${restCellHtml(t, r, moves, cardio, depthCls, leafCls)}${cells}</tr>`;
     })
     .join('');
 
@@ -1002,7 +986,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       <tr>
         <th class="mt-corner" scope="col">กล้ามเนื้อ</th>
         <th class="mt-col-count-head" scope="col" title="จำนวนครั้งที่เล่น (วันที่มีแคล)">ครั้ง</th>
-        <th class="mt-col-rest-head" scope="col" title="พักมากี่วันแล้วนับจากครั้งล่าสุด · หมวด = รวมท่าที่โดนกล้ามกลุ่มนี้เป็นกล้ามรองด้วย (½)">พัก</th>
+        <th class="mt-col-rest-head" scope="col" title="พักมากี่วันแล้วนับจากครั้งล่าสุดของท่านั้น">พัก</th>
         ${headDates}
       </tr>
     </thead>
