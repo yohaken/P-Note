@@ -6880,22 +6880,30 @@ body.calorie-only #app {
   overflow-x: clip;
 }
 
+/* The bottom bar carries the safe-area inset itself. */
+body.calorie-only {
+  padding-bottom: 0;
+}
+
+/* In-flow bar at the end of #app: sticks to the screen bottom, content ends above it. */
 .cal-topnav {
-  flex: 1 0 100%;
+  position: sticky;
+  bottom: 0;
+  z-index: 50;
+  flex: 0 0 auto;
+  margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
-  padding: 0.15rem 0 0.2rem;
+  padding: 0.25rem 0.45rem calc(0.25rem + env(safe-area-inset-bottom, 0px));
+  background: var(--bg);
+  border-top: 1px solid var(--border);
 }
 
 .cal-topnav[hidden],
 body:not(.calorie-only) .cal-topnav {
   display: none;
-}
-
-#board-topbar {
-  flex-wrap: wrap;
 }
 
 .ctn-panes,
