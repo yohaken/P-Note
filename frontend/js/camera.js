@@ -7,7 +7,7 @@ import {
   normalizeCameraFacing,
   normalizeCameraQuality,
   normalizeCameraSaveToDevice,
-} from './settings.js?v=329';
+} from './settings.js?v=330';
 
 /**
  * @typedef {{

@@ -14,8 +14,8 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=329';
-import { nowIso, nowMs as clockNowMs } from './clock.js?v=329';
+} from './muscle-map.js?v=330';
+import { nowIso, nowMs as clockNowMs } from './clock.js?v=330';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -1427,11 +1427,12 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
     </tr>`;
   };
 
-  const muscleRow = (g, rid) => {
+  const muscleRow = (g, rid, solo = false) => {
     const id = regionLeafId(rid);
     const name = regionById(rid).name;
     const sel = id === selectedId ? ' is-selected' : '';
-    const cls = ` is-child is-leaf${sel}`;
+    const pos = solo ? ' is-parent is-solo' : ' is-child';
+    const cls = `${pos} is-leaf${sel}`;
     const count = mainDays([rid]);
     const cells = dates.map((dk) => {
       const v = marks.get(rid)?.get(dk) || 0;
@@ -1441,15 +1442,16 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
         <button type="button" class="mt-mark-btn" data-mark-node="${esc(id)}" data-date="${esc(dk)}" aria-label="${esc(`${name} ${dk} ${label} · แตะเพื่อเปลี่ยน`)}">${v === MARK_MAIN ? '●' : v === MARK_SECONDARY ? '•' : ''}</button>
       </td>`;
     }).join('');
-    return `<tr class="mt-row${cls}" data-node-id="${esc(id)}" data-parent-id="${esc(g.id)}">
+    return `<tr class="mt-row${cls}" data-node-id="${esc(id)}"${solo ? '' : ` data-parent-id="${esc(g.id)}"`}>
       ${nameCellHtml({ id, name, cls, attrs: ` data-muscle-region="${esc(rid)}" title="แตะเพื่อดูท่าไกด์และตั้งวันพัก"` })}
-      <td class="mt-col-count is-child is-leaf${count ? ' is-filled' : ''}" data-node-id="${esc(id)}" title="เป็นกล้ามหลัก ${count} วัน"><span class="mt-count-val">${count || ''}</span></td>
-      ${regionRestCellHtml(t, [rid], ' is-child is-leaf', id, restMap, anyRestMap)}
+      <td class="mt-col-count${pos} is-leaf${count ? ' is-filled' : ''}" data-node-id="${esc(id)}" title="เป็นกล้ามหลัก ${count} วัน"><span class="mt-count-val">${count || ''}</span></td>
+      ${regionRestCellHtml(t, [rid], `${pos} is-leaf`, id, restMap, anyRestMap)}
       ${cells}
     </tr>`;
   };
 
   const body = BEGINNER_GROUPS.map((g) => {
+    if (g.regions.length === 1) return muscleRow(g, g.regions[0], true);
     const open = expandAll || expanded.has(g.id);
     return groupRow(g, open) + (open ? g.regions.map((rid) => muscleRow(g, rid)).join('') : '');
   }).join('');
