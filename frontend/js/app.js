@@ -1183,9 +1183,21 @@ function showSyncSavedPopup(message = 'อัปเดตแล้ว', { force 
 }
 
 /** Block user edits until cloud sync is ready; show waiting popup. */
+let syncBlockedToastAt = 0;
+
 function requireSyncReady() {
   if (isSyncReady()) return true;
   refreshSyncGateUi();
+  const now = Date.now();
+  if (now - syncBlockedToastAt > 3000) {
+    syncBlockedToastAt = now;
+    const msg = !state.authUser
+      ? 'ยังไม่ได้เข้าสู่ระบบ · แก้ไขไม่ได้'
+      : !navigator.onLine
+        ? 'ไม่มีเน็ต · รอเชื่อมใหม่แล้วกดอีกครั้ง'
+        : 'กำลังซิงค์ · รอสักครู่แล้วกดอีกครั้ง';
+    setStatus(msg, { forceToast: true, ms: 2200 });
+  }
   if (state.authUser && !spaceSyncInFlight && navigator.onLine) {
     void ensureCloudReady({ force: true, announce: true, gateAlways: true });
   }
