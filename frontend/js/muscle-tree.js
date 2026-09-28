@@ -9,12 +9,11 @@ import {
   UNSPECIFIED_MOVE,
   computeRegionRest,
   normalizeRestProfile,
-  readinessSlot,
   regionRestDays,
   resolveMoveMuscles,
   sanitizeRegionIds,
-  REST_READY_SLOT,
-} from './muscle-map.js?v=310';
+  restRemaining,
+} from './muscle-map.js?v=311';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -350,7 +349,7 @@ export function renderRestScaleEditorHtml(scale) {
       <span class="rest-edit-day">${esc(restDayLabel(i))}</span>
       <input class="rest-edit-label" type="text" maxlength="${REST_LABEL_MAX}" value="${esc(st.label)}"
         data-rest-idx="${i}" aria-label="ชื่อระดับ ${esc(restDayLabel(i))}">
-      <button type="button" class="rest-edit-tone rest-tone-${esc(st.tone)}${i === REST_SCALE_DAYS - 1 ? ' is-fade' : ''}" data-rest-tone="${i}"
+      <button type="button" class="rest-edit-tone rest-tone-${esc(i === REST_SCALE_DAYS - 1 ? fadeToneOf(s) : st.tone)}${i === REST_SCALE_DAYS - 1 ? ' is-fade' : ''}" data-rest-tone="${i}"
         title="แตะเพื่อเปลี่ยนสี" aria-label="เปลี่ยนสี ${esc(restDayLabel(i))}">${i === REST_SCALE_DAYS - 1 ? `${i}+` : i}</button>
     </div>`)
     .join('');
@@ -725,13 +724,13 @@ export function regionRestMap(tree, todayKey = muscleToDateKey()) {
   return computeRegionRest(muscleMoveStates(t, todayKey), t.restProfile);
 }
 
-/** Days a move needs = slowest-recovering primary muscle (plain days when muscles are unknown). */
+/** Days a move needs = slowest-recovering primary muscle (null when muscles are unknown). */
 function moveRestDays(t, move) {
-  if (!move.p.length) return REST_READY_SLOT;
+  if (!move.p.length) return null;
   return Math.max(...move.p.map((id) => regionRestDays(t.restProfile, id)));
 }
 
-/** Least-recovered move under a row (the row itself when it is a move). */
+/** Most recently trained move under a row (the row itself when it is a move). */
 function rowRestInfo(t, r, moves) {
   const ids = r.leaf ? [r.id] : (r.childIds || []);
   let best = null;
@@ -739,8 +738,8 @@ function rowRestInfo(t, r, moves) {
     const m = moves.get(id);
     if (!m || m.days == null) return;
     const rest = moveRestDays(t, m);
-    const slot = readinessSlot(m.days, rest);
-    if (!best || slot < best.slot) best = { days: m.days, last: m.last, slot, rest };
+    if (best && (m.days > best.days || (m.days === best.days && (rest ?? 0) <= (best.rest ?? 0)))) return;
+    best = { days: m.days, last: m.last, rest };
   });
   return best;
 }
@@ -755,14 +754,16 @@ function restCellHtml(t, r, moves, cardio, depthCls, leafCls) {
   const info = rowRestInfo(t, r, moves);
   const days = info ? info.days : null;
   const last = info ? info.last : '';
-  const step = info ? restStep(t.restScale, info.slot) : null;
+  const step = info ? restStep(t.restScale, days) : null;
   if (!step) {
     return `<td class="${base} is-none" data-node-id="${esc(r.id)}" title="ยังไม่เคยเล่น"><span class="mt-rest-val">–</span></td>`;
   }
   const tip = days === 0
     ? `เล่นวันนี้ · ${step.label}`
     : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${step.label}`;
-  const restTip = info.rest !== REST_READY_SLOT ? ` · กล้ามนี้พร้อมใน ${fmtRest(info.rest)} วัน` : '';
+  const left = restRemaining(days, info.rest);
+  const restTip = left == null ? ''
+    : ` · กล้ามนี้ควรพัก ${fmtRest(info.rest)} วัน · ${left > 0 ? `อีก ${fmtRest(left)} วัน` : 'ครบแล้ว'}`;
   const fadeCls = step.fade > 0 ? ' is-fading' : '';
   const fadeStyle = step.fade > 0 ? ` style="--rest-fade:${Math.round(step.fade * 100)}%"` : '';
   return `<td class="${base} rest-tone-${esc(step.tone)}${fadeCls}"${fadeStyle} data-node-id="${esc(r.id)}" title="${esc(tip + restTip)}">

@@ -3,7 +3,7 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=310';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=311';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },
@@ -237,7 +237,7 @@ export function normalizeRestProfile(raw) {
 
 export function defaultRegionRest(regionId) {
   const r = REGION_BY_ID.get(regionId);
-  if (!r) return REST_READY_SLOT;
+  if (!r) return DEFAULT_REST_DAYS;
   return r.rest[0];
 }
 
@@ -246,31 +246,27 @@ export function regionRestDays(profile, regionId) {
   return p.days[regionId] ?? defaultRegionRest(regionId);
 }
 
-/**
- * Rest-scale slot that means "fully recovered". A muscle that needs R days reaches this
- * slot after R days, so the user's labels stay meaningful for fast and slow muscles alike.
- */
-export const REST_READY_SLOT = 4;
+/** Rest days assumed for a move whose muscles are unknown. */
+export const DEFAULT_REST_DAYS = 4;
 
-export function readinessSlot(days, restDays) {
+/** Days of rest still needed (0 = recovered). */
+export function restRemaining(days, restDays) {
   if (days == null || !(restDays > 0)) return null;
-  return (days * REST_READY_SLOT) / restDays;
+  return Math.max(0, restDays - days);
 }
 
 /**
- * Per-region recovery from trained moves. Secondary hits count as half a session:
- * they start the muscle half-way through its rest period.
+ * Per-region recovery from trained moves: the most recent hit wins (a primary hit
+ * beats a secondary one on the same day).
  * @param {{ p: string[], s: string[], days: number|null, last: string }[]} moves
- * @returns {Map<string, { days: number, slot: number, via: 'p'|'s', last: string, rest: number }>}
+ * @returns {Map<string, { days: number, via: 'p'|'s', last: string, rest: number }>}
  */
 export function computeRegionRest(moves, profile) {
   const out = new Map();
   const consider = (id, days, last, via) => {
-    const rest = regionRestDays(profile, id);
-    const eff = via === 's' ? days + rest / 2 : days;
-    const slot = readinessSlot(eff, rest);
     const prev = out.get(id);
-    if (!prev || slot < prev.slot) out.set(id, { days, slot, via, last, rest });
+    if (prev && (prev.days < days || (prev.days === days && (prev.via === 'p' || via === 's')))) return;
+    out.set(id, { days, via, last, rest: regionRestDays(profile, id) });
   };
   moves.forEach((m) => {
     if (m.days == null) return;
