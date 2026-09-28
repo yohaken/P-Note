@@ -1,12 +1,13 @@
-import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=325';
-import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=325';
-import { compareStamp, newerStampIso } from './clock.js?v=325';
+import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=326';
+import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=326';
+import { compareStamp, newerStampIso } from './clock.js?v=326';
+import { muscleTreeNeedsPush } from './muscle-tree.js?v=326';
 import {
   applyDeletionFilter,
   isEntityTombstoned,
   mergeDeletions,
   normalizeDeletions,
-} from './deletions.js?v=325';
+} from './deletions.js?v=326';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -197,6 +198,7 @@ export function localNeedsRemotePush(localRaw, remoteRaw) {
   if (entityNeedsPush(local.notepads, remote.notepads)) return true;
   if (calorieDaysNeedPush(local.calorie?.days || [], remote.calorie?.days || [])) return true;
   if (compareStamp(local.calorie?.updatedAt, remote.calorie?.updatedAt) > 0) return true;
+  if (local.calorie && muscleTreeNeedsPush(local.calorie, remote.calorie)) return true;
   const ld = normalizeDeletions(local.deletions);
   const rd = normalizeDeletions(remote.deletions);
   if (compareStamp(ld.updatedAt, rd.updatedAt) > 0) return true;

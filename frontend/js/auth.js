@@ -1,4 +1,4 @@
-import { auth, initFirebase } from './firebase.js?v=325';
+import { auth, initFirebase } from './firebase.js?v=326';
 import {
   onAuthStateChanged,
   signInAnonymously,

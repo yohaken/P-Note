@@ -12,8 +12,8 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=325';
-import { regionRestMap, exerciseLeafIndex } from './muscle-tree.js?v=325';
+} from './muscle-map.js?v=326';
+import { regionRestMap, exerciseLeafIndex, isCardioNode } from './muscle-tree.js?v=326';
 
 const FAVS_KEY = 'pnote_ex_favs';
 const FAV_GROUP = 'fav';
@@ -347,7 +347,7 @@ function createCustom() {
   const res = deps.onAdd(text, { logToday: false });
   if (!res?.node) return;
   closeExercisePicker();
-  deps.onOpenMuscleEdit(res.node.id);
+  if (!isCardioNode(deps.getTree(), res.node.id)) deps.onOpenMuscleEdit(res.node.id);
 }
 
 function toggleFav(id) {

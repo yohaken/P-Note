@@ -9,6 +9,7 @@ import {
   BEGINNER_GROUPS,
   UNSPECIFIED_MOVE,
   beginnerGroupOfRegion,
+  curatedLibraryId,
   exerciseImages,
   libraryExerciseByName,
   computeRegionRest,
@@ -18,7 +19,8 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=325';
+} from './muscle-map.js?v=326';
+import { nowIso, nowMs as clockNowMs } from './clock.js?v=326';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -65,6 +67,11 @@ function clampName(raw) {
   return String(raw || '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MUSCLE_NAME_MAX);
 }
 
+/** Day-cell label key: cut to 40 chars the same way parseExerciseCell does (cut, then trim). */
+export function labelKey(raw) {
+  return String(raw || '').slice(0, MUSCLE_NAME_MAX).trim();
+}
+
 function clampKcal(raw) {
   if (raw == null || raw === '') return null;
   const n = Math.round(Number(raw));
@@ -74,7 +81,7 @@ function clampKcal(raw) {
 
 function nowIsoLocal() {
   try {
-    return new Date().toISOString();
+    return nowIso();
   } catch {
     return '';
   }
@@ -193,7 +200,7 @@ function normalizeMuscleTreeFresh(raw) {
     if (!idSet.has(nodeId)) delete cells[k];
   });
 
-  const cutoff = Date.now() - TOMBSTONE_KEEP_MS;
+  const cutoff = clockNowMs() - TOMBSTONE_KEEP_MS;
   const out = {
     nodes: ordered,
     cells,
@@ -206,30 +213,81 @@ function normalizeMuscleTreeFresh(raw) {
   const removed = normalizeStampMap(src.removed, (id, at) => !idSet.has(id) && at > cutoff);
   if (Object.keys(cellAt).length) out.cellAt = cellAt;
   if (Object.keys(removed).length) out.removed = removed;
+  const aliases = normalizeAliases(src.aliases, idSet, cutoff);
+  if (aliases) out.aliases = aliases;
   return out;
 }
 
-const nodeSig = (n) => `${n.name}|${n.parentId || ''}|${n.order}|${n.p ? n.p.join(',') : '-'}|${n.s ? n.s.join(',') : '-'}`;
+function normalizeAliases(raw, idSet, cutoff) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  Object.keys(raw).forEach((k) => {
+    const label = labelKey(k);
+    const id = String(raw[k]?.id || '');
+    const at = stampMs(raw[k]?.at);
+    if (!label || !idSet.has(id) || !(at > cutoff)) return;
+    if (!out[label] || out[label].at < at) out[label] = { id, at };
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+const nodeSig = (n) => `${n.name}|${n.parentId || ''}|${n.p ? n.p.join(',') : '-'}|${n.s ? n.s.join(',') : '-'}`;
+
+/**
+ * Siblings (kept in both versions) placed before a node. Deleting or moving a neighbour
+ * renumbers `order` without changing this, so only rows the user actually moved get stamped.
+ */
+function siblingsBefore(tree, node, keep) {
+  return tree.nodes
+    .filter((n) => n.parentId === node.parentId && n.order < node.order && keep.has(n.id))
+    .map((n) => n.id)
+    .sort()
+    .join(',');
+}
+
+/**
+ * Old day-cell label → leaf id, for leaves whose label changed (rename, move, group rename),
+ * so day rows written with the old label can be matched to the leaf later (even from sync).
+ */
+export function recordMuscleLabelAliases(prevRaw, nextRaw, nowMs = clockNowMs()) {
+  const prev = normalizeMuscleTree(prevRaw);
+  const next = normalizeMuscleTree(nextRaw);
+  if (prev === next) return next;
+  const nextIdx = muscleLeafIndex(next);
+  const aliases = { ...(next.aliases || {}) };
+  let changed = false;
+  muscleLeafIndex(prev).leaves.forEach((l) => {
+    const now = nextIdx.byId.get(l.id);
+    if (!now || now.label === l.label || nextIdx.byLabel.has(l.label)) return;
+    if (aliases[l.label]?.id === l.id) return;
+    aliases[l.label] = { id: l.id, at: nowMs };
+    changed = true;
+  });
+  return changed ? normalizeMuscleTree({ ...next, aliases }) : next;
+}
 
 /**
  * Stamp what changed between two versions of the tree (nodes, cells, removed rows) so
  * mergeMuscleTreeField can keep edits from both devices. Call once per local save.
  */
-export function stampMuscleTreeChanges(prevRaw, nextRaw, nowMs = Date.now()) {
+export function stampMuscleTreeChanges(prevRaw, nextRaw, nowMs = clockNowMs()) {
   const prev = normalizeMuscleTree(prevRaw);
-  const next = normalizeMuscleTree(nextRaw);
+  const next = normalizeMuscleTree(recordMuscleLabelAliases(prevRaw, nextRaw, nowMs));
   if (prev === next) return next;
-  let changed = false;
+  let changed = next !== normalizeMuscleTree(nextRaw);
   const prevById = new Map(prev.nodes.map((n) => [n.id, n]));
+  const nextIds = new Set(next.nodes.map((n) => n.id));
+  const inBoth = new Set(prev.nodes.filter((n) => nextIds.has(n.id)).map((n) => n.id));
   const removed = { ...(next.removed || {}) };
   const nodes = next.nodes.map((n) => {
     const p = prevById.get(n.id);
-    if (p && nodeSig(p) === nodeSig(n)) return n.at || !p.at ? n : { ...n, at: p.at };
+    const same = p && nodeSig(p) === nodeSig(n)
+      && siblingsBefore(prev, p, inBoth) === siblingsBefore(next, n, inBoth);
+    if (same) return n.at || !p.at ? n : { ...n, at: p.at };
     changed = true;
     delete removed[n.id];
     return { ...n, at: nowMs };
   });
-  const nextIds = new Set(next.nodes.map((n) => n.id));
   prev.nodes.forEach((n) => {
     if (nextIds.has(n.id)) return;
     removed[n.id] = nowMs;
@@ -322,7 +380,7 @@ export function applyBeginnerLayout(tree) {
   const rootIds = {};
   [...BEGINNER_GROUPS, CARDIO_SEED].forEach((g, i) => {
     const isCardio = g === CARDIO_SEED;
-    let root = nodes.find((n) => !n.parentId && (isCardio ? CARDIO_NAME_RE.test(n.name) : n.name === g.name));
+    let root = nodes.find((n) => !n.parentId && (isCardio ? isCardioName(n.name) : n.name === g.name));
     if (root && !hasKids(root.id) && hasCells(root.id)) {
       // A root logged as a move itself can't take children without losing its cells.
       root.name = clampName(`${root.name} (เดิม)`);
@@ -493,19 +551,51 @@ export function mergeMuscleTreeField(local, remote) {
   const at = rNewer
     ? (remote?.muscleTreeAt || rt.updatedAt || local?.muscleTreeAt || '')
     : (local?.muscleTreeAt || lt.updatedAt || remote?.muscleTreeAt || '');
-  return { muscleTree: mergeMuscleTrees(a, b), muscleTreeAt: at };
+  return { muscleTree: mergeMuscleTrees(a, b, rNewer ? rAt : lAt), muscleTreeAt: at };
 }
 
-const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.nodes.some((n) => n.at));
+function treeContentKey(tree) {
+  const t = normalizeMuscleTree(tree);
+  return JSON.stringify([
+    t.nodes.map(({ at: _at, ...n }) => n),
+    t.cells,
+    t.restScale,
+    t.restProfile,
+  ]);
+}
+
+/** True when merging the local tree into the remote one changes it (so it must be pushed). */
+export function muscleTreeNeedsPush(localCalorie, remoteCalorie) {
+  if (!localCalorie?.muscleTree) return false;
+  const merged = mergeMuscleTreeField(localCalorie, remoteCalorie || {}).muscleTree;
+  return treeContentKey(merged) !== treeContentKey(remoteCalorie?.muscleTree);
+}
+
+const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.nodes.some((n) => n.at));
+
+/**
+ * A tree from a build before stamps (it strips them) that was saved last: every row and cell
+ * in it, and every row/cell it no longer has, counts as edited when it was saved.
+ */
+function stampWholeTree(a, b, atMs) {
+  const aIds = new Set(a.nodes.map((n) => n.id));
+  const removed = {};
+  b.nodes.forEach((n) => { if (!aIds.has(n.id)) removed[n.id] = atMs; });
+  const cellAt = {};
+  [...Object.keys(a.cells), ...Object.keys(b.cells), ...Object.keys(b.cellAt || {})].forEach((k) => { cellAt[k] = atMs; });
+  return { ...a, nodes: a.nodes.map((n) => ({ ...n, at: atMs })), cellAt, removed };
+}
 
 /**
  * Row by row and cell by cell, the newer stamp wins; unstamped items follow `a` (the tree
  * saved last), so data from builds before stamps merges exactly as before.
+ * aAtMs = when `a` was saved; used when `a` comes from a build that drops stamps.
  */
-export function mergeMuscleTrees(aRaw, bRaw) {
-  const a = normalizeMuscleTree(aRaw);
+export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
+  let a = normalizeMuscleTree(aRaw);
   const b = normalizeMuscleTree(bRaw);
   if (a === b || (!hasStamps(a) && !hasStamps(b))) return a;
+  if (!hasStamps(a) && aAtMs > 0) a = stampWholeTree(a, b, aAtMs);
   const aRemoved = a.removed || {};
   const bRemoved = b.removed || {};
   const aById = new Map(a.nodes.map((n) => [n.id, n]));
@@ -532,7 +622,9 @@ export function mergeMuscleTrees(aRaw, bRaw) {
     if (val != null) cells[k] = val;
     if (aStamp || bStamp) cellAt[k] = Math.max(aStamp, bStamp);
   });
-  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed });
+  const aliases = { ...(b.aliases || {}) };
+  Object.entries(a.aliases || {}).forEach(([k, v]) => { if (!aliases[k] || aliases[k].at <= v.at) aliases[k] = v; });
+  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases });
 }
 
 export function isLeafNode(node, nodes) {
@@ -602,17 +694,27 @@ export const CARDIO_NAME_RE = new RegExp([
   'swim|jump[\\s-]*rope|skipping|stair|stepper|\\bjog|\\brun(ning)?\\b|\\bwalk(ing)?\\b|\\bhiit\\b|aerobic|zumba',
 ].join('|'), 'i');
 
+/**
+ * Names build 324 already treated as cardio. Moves saved before 325 under a strength group
+ * (e.g. "Treadmill" logged as 1 = a mark) must keep meaning the same thing.
+ */
+const LEGACY_CARDIO_NAME_RE = /คาดิโอ|คาร์ดิโอ|cardio|วิ่ง|เดิน|ปั่น|จักรยาน|ว่ายน้ำ|กระโดดเชือก/i;
+
 /** Words that make an otherwise cardio-sounding name a lift (walking lunge, farmer walk…). */
-const STRENGTH_WORD_RE = /lunge|carry|farmer|curl|press|squat|raise|crunch|ลันจ์|ถือ/i;
+const STRENGTH_WORD_RE = /\b(lunges?|carry|farmers?|curls?|press|squats?|raises?|crunch(es)?)\b|ลันจ์/i;
 
 /** Cardio by name, except library strength moves that merely contain เดิน/ปั่น (เดินถือดัมเบล…). */
 export function isCardioName(name) {
   return CARDIO_NAME_RE.test(name) && !STRENGTH_WORD_RE.test(name) && !libraryExerciseByName(name);
 }
 
-/** Cardio for a leaf name under an optional parent name (a cardio parent makes every child cardio). */
+/**
+ * Cardio for a leaf name under an optional parent name (a cardio parent makes every child cardio).
+ * Outside a cardio group only the pre-325 names count, so older strength rows keep their meaning.
+ */
 export function isCardioMove(name, parentName = '') {
-  return Boolean(parentName && CARDIO_NAME_RE.test(parentName)) || isCardioName(name);
+  if (parentName && isCardioName(parentName)) return true;
+  return LEGACY_CARDIO_NAME_RE.test(name) && !libraryExerciseByName(name);
 }
 
 export function isCardioNode(tree, nodeId) {
@@ -663,7 +765,7 @@ export function muscleLeafIndex(tree) {
       name: r.name,
       parentId: r.parentId || null,
       parentName: parent?.name || '',
-      label: (parent ? `${parent.name} · ${r.name}` : r.name).slice(0, MUSCLE_NAME_MAX),
+      label: labelKey(parent ? `${parent.name} · ${r.name}` : r.name),
       cardio: isCardioMove(r.name, parent?.name),
     });
   });
@@ -675,11 +777,11 @@ export function muscleLeafIndex(tree) {
   leaves.forEach((leaf) => add(leaf.label, leaf));
   const bare = new Map();
   leaves.forEach((leaf) => {
-    const k = leaf.name.slice(0, MUSCLE_NAME_MAX);
+    const k = labelKey(leaf.name);
     bare.set(k, [...(bare.get(k) || []), leaf]);
   });
   bare.forEach((list, k) => { if (!byLabel.has(k)) list.forEach((leaf) => add(k, leaf)); });
-  const out = { leaves, byLabel };
+  const out = { leaves, byLabel, byId: new Map(leaves.map((l) => [l.id, l])) };
   LEAF_INDEX.set(t, out);
   return out;
 }
@@ -687,7 +789,7 @@ export function muscleLeafIndex(tree) {
 /** The leaf a day-cell label stands for on a date: one with a mark that day beats one without. */
 export function leafForLabel(tree, label, dateKey, skip = null) {
   const t = normalizeMuscleTree(tree);
-  const list = (muscleLeafIndex(t).byLabel.get(String(label || '').slice(0, MUSCLE_NAME_MAX)) || [])
+  const list = (muscleLeafIndex(t).byLabel.get(labelKey(label)) || [])
     .filter((l) => !skip?.has(l.id));
   if (!list.length) return null;
   return (dateKey && list.find((l) => t.cells[cellKey(l.id, dateKey)] > 0)) || list[0];
@@ -781,7 +883,7 @@ export function exerciseLeafIndex(tree) {
     // A childless root counts only once it has marks (else it is an empty group).
     if (!n.parentId && (hasKids.has(n.id) || !Object.keys(t.cells).some((k) => k.startsWith(`${n.id}|`)))) return;
     if (!byKey.has(moveKey(n.name))) byKey.set(moveKey(n.name), n);
-    const libId = n.id.startsWith('ex-') ? n.id.slice(3) : libraryExerciseByName(n.name)?.id;
+    const libId = curatedLibraryId(n.id.startsWith('ex-') ? n.id.slice(3) : libraryExerciseByName(n.name)?.id);
     if (libId && !byLib.has(libId)) byLib.set(libId, n);
   });
   return (name) => byKey.get(moveKey(name)) || byLib.get(libraryExerciseByName(name)?.id) || null;
@@ -835,7 +937,10 @@ export function addExerciseMove(tree, name) {
   if (sameCardio) return { tree: t, node: sameCardio, created: false };
   if (!lib && isCardioName(label)) {
     let work = t;
-    let cardioRoot = t.nodes.find((n) => !n.parentId && CARDIO_NAME_RE.test(n.name)) || null;
+    // A childless root with marks of its own is a logged move; adding a child would wipe them.
+    const usable = (n) => t.nodes.some((c) => c.parentId === n.id)
+      || !Object.keys(t.cells).some((k) => k.startsWith(`${n.id}|`));
+    let cardioRoot = t.nodes.find((n) => !n.parentId && isCardioName(n.name) && usable(n)) || null;
     if (!cardioRoot) ({ tree: work, node: cardioRoot } = addMuscleCategory(work, CARDIO_SEED.name));
     const { tree: withLeaf, node } = addMuscleChild(work, cardioRoot.id, label);
     return node ? { tree: withLeaf, node, created: true } : { tree: t, node: null, created: false };
@@ -886,15 +991,23 @@ export function renameMuscleNode(tree, nodeId, name) {
 }
 
 /** Move a leaf under another group (cells stay keyed by id, so its history moves along). */
-export function reparentMuscleNode(tree, nodeId, parentId) {
+export function canReparentMuscleNode(tree, nodeId, parentId) {
   const t = normalizeMuscleTree(tree);
   const node = t.nodes.find((n) => n.id === nodeId && n.parentId);
   const parent = t.nodes.find((n) => n.id === parentId && !n.parentId);
-  if (!node || !parent || node.parentId === parentId) return { tree: t, changed: false };
+  if (!node || !parent || node.parentId === parentId) return false;
   // A childless root with its own marks is itself a move and can't take children.
   if (!t.nodes.some((n) => n.parentId === parentId) && Object.keys(t.cells).some((k) => k.startsWith(`${parentId}|`))) {
-    return { tree: t, changed: false };
+    return false;
   }
+  // Cardio cells hold kcal and strength cells hold marks, so a move can't cross between them.
+  const from = t.nodes.find((n) => n.id === node.parentId);
+  return isCardioMove(node.name, from?.name) === isCardioMove(node.name, parent.name);
+}
+
+export function reparentMuscleNode(tree, nodeId, parentId) {
+  const t = normalizeMuscleTree(tree);
+  if (!canReparentMuscleNode(t, nodeId, parentId)) return { tree: t, changed: false };
   const order = t.nodes.filter((n) => n.parentId === parentId).length;
   const nodes = t.nodes.map((n) => (n.id === nodeId ? { ...n, parentId, order } : n));
   return { tree: normalizeMuscleTree({ ...t, nodes, updatedAt: nowIsoLocal() }), changed: true };
@@ -1268,9 +1381,10 @@ function datesByMoveId(t) {
  * logged. Muscle overlap between groups is shown only in the muscle view.
  * @returns {Map<string, number>}
  */
-export function groupMovesByDate(r, datesById) {
+export function groupMovesByDate(r, datesById, cardioIds = null) {
   const out = new Map();
   (r.childIds || []).forEach((id) => {
+    if (cardioIds?.has(id)) return;
     (datesById.get(id) || []).forEach((dk) => out.set(dk, (out.get(dk) || 0) + 1));
   });
   return out;
@@ -1457,6 +1571,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
   const moves = new Map(moveList.map((m) => [m.id, m]));
   const restMap = primaryRestMap(moveList, t.restProfile);
   const datesById = datesByMoveId(t);
+  const cardioIds = new Set(muscleLeafIndex(t).leaves.filter((l) => l.cardio).map((l) => l.id));
   const sessionsById = new Map();
   Object.keys(t.cells).forEach((k) => {
     if (t.cells[k] > 0) sessionsById.set(k.split('|')[0], (sessionsById.get(k.split('|')[0]) || 0) + 1);
@@ -1493,7 +1608,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       const depthCls = r.depth ? ' is-child' : ' is-parent';
       const leafCls = r.leaf ? ' is-leaf' : ' is-group';
       const cardio = nodeIsCardio(byId, byId.get(r.id));
-      const doses = isGroup && !cardio ? groupMovesByDate(r, datesById) : null;
+      const doses = isGroup && !cardio ? groupMovesByDate(r, datesById, cardioIds) : null;
       const sessions = isGroup ? 0 : (sessionsById.get(r.id) || 0);
       const cardioCls = cardio ? ' is-cardio' : '';
       const nameTitle = collapsible

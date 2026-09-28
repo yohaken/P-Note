@@ -3,12 +3,13 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=325';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=326';
 import {
   cellKey,
   CARDIO_NAME_RE,
   flattenMuscleRows,
   isCardioMove,
+  isCardioName,
   isCardioNode,
   leafForLabel,
   leafLabelPath,
@@ -16,7 +17,7 @@ import {
   muscleLeafIndex,
   muscleSlotsForDate,
   normalizeMuscleTree,
-} from './muscle-tree.js?v=325';
+} from './muscle-tree.js?v=326';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -149,12 +150,25 @@ export function formatExerciseCell(burn, label = '') {
   return lab ? `${b},${lab}` : `${b},`;
 }
 
+/**
+ * Labels of cardio leaves in the tree last passed to normalizeCalorie — a cardio move whose
+ * name doesn't sound like cardio (or lost the word in the 40-char cut) still keeps its kcal.
+ */
+let treeCardioLabels = new Set();
+
+function rememberTreeCardioLabels(moveIndex) {
+  const next = new Set();
+  moveIndex.forEach((leaves, label) => { if (leaves.some((l) => l.cardio)) next.add(label); });
+  treeCardioLabels = next;
+}
+
 /** Only cardio burns kcal · a bare number ("150" → "ออกกำลัง 150") is legacy cardio kcal. */
 export function isCardioLabel(label) {
   const s = String(label || '').trim();
   if (!s || /^ออกกำลัง \d+$/.test(s)) return true;
+  if (treeCardioLabels.has(s)) return true;
   const [parent, ...rest] = s.split(' · ');
-  return rest.length ? isCardioMove(rest.join(' · '), parent) : isCardioMove(s);
+  return rest.length ? isCardioMove(rest.join(' · '), parent) : isCardioName(s);
 }
 
 export function normalizeExercises(raw) {
@@ -1193,6 +1207,7 @@ export function normalizeCalorie(raw) {
   const sex = src.sex === 'female' ? 'female' : 'male';
   const muscleTree = normalizeMuscleTree(src.muscleTree);
   const moveIndex = treeMoveIndex(muscleTree);
+  rememberTreeCardioLabels(moveIndex);
   const days = (Array.isArray(src.days) ? src.days : [])
     .filter((d) => d && typeof d === 'object')
     .map((d) => reconcileTreeExercises(normalizeDayRow(d, defaultBase), muscleTree, moveIndex))
@@ -1269,11 +1284,27 @@ function keepBesideSlots(cell, tree, moveIndex, dateKey) {
  * Tree-backed entries: strength marks burn 0 kcal, cardio takes the cell kcal.
  * Pure (no stamps) so every device derives the same row.
  */
+/**
+ * A cell written under a leaf's old label (renamed / moved, maybe on another device):
+ * a copy of the table goes, typed cardio kcal moves to the current label.
+ * @returns {string|null} cell to keep (null = drop)
+ */
+function resolveAliasCell(cell, tree, moveIndex, dateKey) {
+  const p = parseExerciseCell(cell);
+  const alias = tree.aliases?.[p.label];
+  if (!alias || moveIndex.has(p.label)) return cell;
+  const leaf = muscleLeafIndex(tree).byId.get(alias.id);
+  if (!leaf) return cell;
+  if (!(p.burn > 0) || !leaf.cardio || tree.cells[cellKey(leaf.id, dateKey)] > 0) return null;
+  return formatExerciseCell(p.burn, leaf.label);
+}
+
 function reconcileTreeExercises(day, tree, moveIndex) {
   if (!day?.date || !moveIndex.size) return day;
   // A 0-kcal "group · move" cell whose move left the tree (renamed/removed) carries nothing.
   const orig = normalizeExercises(day.exercises);
-  const list = orig.filter((cell) => {
+  const list = orig.map((cell) => resolveAliasCell(cell, tree, moveIndex, day.date)).filter((cell) => {
+    if (!cell) return false;
     const p = parseExerciseCell(cell);
     return p.burn > 0 || !p.label.includes(' · ') || moveIndex.has(p.label);
   });
@@ -1300,18 +1331,26 @@ function reconcileTreeExercises(day, tree, moveIndex) {
  * Rebuild a day's exercise slots from muscle leaf cells for that date,
  * keeping freeform slots whose labels are not tree leaves.
  */
-export function applyMuscleDayExercises(sheet, tree, dateKey, { staleLabels = null } = {}) {
+/**
+ * staleLabels: label → leaf ids it stood for in prevTree (leaves removed from the tree).
+ * A cell copied from those leaves' table cells goes; cardio kcal typed without a cell stays.
+ */
+export function applyMuscleDayExercises(sheet, tree, dateKey, { staleLabels = null, prevTree = null } = {}) {
   const t = normalizeMuscleTree(tree || sheet?.muscleTree);
   const muscleSlots = muscleSlotsForDate(t, dateKey).map((s) =>
     formatExerciseCell(s.burn, s.label),
   );
   const moveIndex = treeMoveIndex(t);
+  const prevCells = prevTree ? normalizeMuscleTree(prevTree).cells : {};
   let { sheet: next, day } = ensureDay(sheet, dateKey);
   const kept = normalizeExercises(day.exercises).filter((cell) => {
     const p = parseExerciseCell(cell);
-    if (p.empty || staleLabels?.has(p.label)) return false;
-    return keepBesideSlots(cell, t, moveIndex, dateKey);
-  });
+    if (p.empty) return false;
+    const staleIds = staleLabels?.get(p.label);
+    if (staleIds && (!(p.burn > 0) || staleIds.some((id) => prevCells[cellKey(id, dateKey)] > 0))) return false;
+    return true;
+  }).map((cell) => resolveAliasCell(cell, t, moveIndex, dateKey))
+    .filter((cell) => cell && keepBesideSlots(cell, t, moveIndex, dateKey));
   const exercises = normalizeExercises([...muscleSlots, ...kept]);
   const mus = sumExerciseBurn(exercises) || null;
   return patchDay(next, day.id, { exercises, mus });
@@ -1363,7 +1402,14 @@ export function dayExerciseEntries(calorie, day) {
     const known = leafForLabel(t, p.label, dateKey);
     const move = leafForLabel(t, p.label, dateKey, seen);
     if (known) {
-      if (!move) return;
+      if (!move) {
+        // Same cardio typed twice with no table cell (two runs): add it to the first entry.
+        const first = out.find((e) => e.nodeId && e.cardio && e.label === known.label);
+        if (first && p.burn > 0 && !(dateKey && t.cells[cellKey(first.nodeId, dateKey)] > 0)) {
+          first.burn = Math.min(5000, first.burn + p.burn);
+        }
+        return;
+      }
       // Strength rows store the mark in the table cell; the day row holds 0 kcal.
       const value = dateKey ? t.cells[cellKey(move.id, dateKey)] : null;
       if (!move.cardio && !(value > 0)) return;

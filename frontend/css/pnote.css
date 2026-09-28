@@ -9313,13 +9313,23 @@ body.calorie-muscle-pane #calorie-view {
 
 .muscle-settings-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 0.3rem;
   align-items: center;
 }
 
+/* 3rd slot = "move to group" select: its own line under the name so the name keeps its width. */
+.muscle-settings-row > :nth-child(3) {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.muscle-settings-row.is-parent > :nth-child(3) {
+  display: none;
+}
+
 .muscle-settings-move {
-  max-width: 5.2rem;
+  justify-self: start;
+  width: min(100%, 14rem);
   min-height: 2rem;
   font: inherit;
   font-size: 0.72rem;
@@ -9719,9 +9729,9 @@ body.calorie-muscle-pane #calorie-view {
 .muscle-table .mt-day-more,
 .muscle-table .mt-day-cardio {
   display: block;
-  font-size: 0.52rem;
+  font-size: 0.58rem;
   font-weight: 750;
-  line-height: 0.78rem;
+  line-height: 0.8rem;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -9736,7 +9746,7 @@ body.calorie-muscle-pane #calorie-view {
   color: var(--text-muted);
 }
 .muscle-table .mt-day-cardio {
-  color: #c2410c;
+  color: color-mix(in srgb, #ea580c 78%, var(--text));
 }
 .muscle-table-legend {
   display: flex;

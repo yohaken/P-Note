@@ -3,8 +3,8 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=325';
-import { EXERCISE_DB, LIBRARY_IMAGE_IDS, exerciseImageUrls } from './exercise-db.js?v=325';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=326';
+import { EXERCISE_DB, LIBRARY_IMAGE_IDS, exerciseImageUrls } from './exercise-db.js?v=326';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },
@@ -226,9 +226,9 @@ export const EXERCISE_LIBRARY = [
   ex('thruster', 'ธรัสเตอร์', 'Thruster', 'bb', ['quads', 'delt-front'], ['glutes', 'triceps', 'delt-side', 'abs']),
   ex('wall-ball', 'วอลล์บอล', 'Wall ball', 'other', ['quads', 'delt-front'], ['glutes', 'triceps', 'abs'], ['Wall ball shot']),
   ex('push-press', 'พุชเพรส', 'Push press', 'bb', ['delt-front'], ['triceps', 'delt-side', 'quads', 'glutes']),
-  ex('power-clean', 'พาวเวอร์คลีน', 'Power clean', 'bb', ['glutes', 'hamstrings', 'traps-upper'], ['quads', 'lower-back', 'delt-front', 'forearms'], ['Clean', 'Clean and press']),
+  ex('power-clean', 'พาวเวอร์คลีน', 'Power clean', 'bb', ['glutes', 'hamstrings', 'traps-upper'], ['quads', 'lower-back', 'delt-front', 'forearms']),
   ex('burpee', 'เบอร์พี', 'Burpee', 'bw', ['quads', 'chest-lower'], ['glutes', 'delt-front', 'triceps', 'abs'], ['Burpees']),
-  ex('box-jump', 'กระโดดขึ้นกล่อง', 'Box jump', 'bw', ['quads', 'glutes'], ['calves', 'hamstrings']),
+  ex('box-jump', 'กระโดดขึ้นกล่อง', 'Box jump', 'bw', ['quads', 'glutes'], ['calves', 'hamstrings'], ['บ็อกซ์จัมป์', 'Front box jump']),
   ex('man-maker', 'แมนเมกเกอร์', 'Man maker', 'db', ['chest-lower', 'delt-front', 'quads'], ['triceps', 'mid-back', 'glutes', 'abs']),
   ex('leg-curl', 'เครื่องงอขา', 'Leg curl', 'machine', ['hamstrings'], ['calves']),
   ex('seated-leg-curl', 'เครื่องงอขานั่ง', 'Seated leg curl', 'machine', ['hamstrings'], ['calves']),
@@ -320,6 +320,14 @@ export function exerciseImages(e) {
   return e?.img ? exerciseImageUrls(e.img) : [];
 }
 
+const LIB_ID_BY_IMG = new Map(Object.entries(LIBRARY_IMAGE_IDS).map(([id, img]) => [img, id]));
+
+/** "db-<photo id>" of a photo move later adopted by a curated move → that move's id. */
+export function curatedLibraryId(libId) {
+  const id = String(libId || '');
+  return id.startsWith('db-') ? LIB_ID_BY_IMG.get(id.slice(3)) || id : id;
+}
+
 export function libraryExerciseByName(name) {
   return LIB_BY_NAME.get(libNameKey(name)) || null;
 }
@@ -330,7 +338,7 @@ const GUESS_RULES = [
   [/leg\s*extension|เหยียดขา/i, ['quads']],
   [/wrist\s*curl|เคิร์ลข้อมือ/i, ['forearms']],
   [/curl|เคิร์ล/i, ['biceps'], ['forearms']],
-  [/upright\s*row|อัพไรท์/i, ['delt-side'], ['traps-upper', 'delt-front']],
+  [/upright\s*row|อัพไรท์\s*(โรว์)?/i, ['delt-side'], ['traps-upper', 'delt-front']],
   [/ไหล่\s*·?\s*หลัง|rear delt|reverse (fly|pec)/i, ['delt-rear'], ['mid-back']],
   [/\brows?\b|โรว์/i, ['mid-back', 'lats'], ['biceps', 'delt-rear']],
   [/pull[\s-]*down|pull[\s-]*ups?\b|chin[\s-]*ups?\b|ดึงบาร์ลง|ดึงข้อ/i, ['lats'], ['biceps', 'mid-back']],
@@ -377,6 +385,9 @@ const GUESS_BROAD_FROM = GUESS_RULES.findIndex(([re]) => re.test('อก'));
 
 const groupsOf = (ids) => new Set(ids.map((id) => beginnerGroupOfRegion(id)?.id).filter(Boolean));
 
+/** "Lunge with curl", "squat to press", "ท่า A + ท่า B": a name made of two moves. */
+const COMBO_JOIN_RE = /\s(with|and|to|into|plus|then)\s|[+&]|กับ|และ|ต่อด้วย/i;
+
 /**
  * First matching rule decides; a combo name ("lunge with curl") also gets the muscles of
  * other specific rules that match the rest of the name and work a different muscle group.
@@ -387,12 +398,15 @@ function matchGuess(text) {
   if (i < 0) return null;
   const hits = [];
   let rest = text;
-  GUESS_RULES.slice(0, GUESS_BROAD_FROM).forEach(([re, p, s = []], j) => {
-    const m = rest.match(re);
-    if (!m) return;
-    rest = rest.replace(m[0], ' ');
-    hits.push({ j, pos: text.indexOf(m[0]), p, s });
-  });
+  if (i < GUESS_BROAD_FROM && COMBO_JOIN_RE.test(text)) {
+    GUESS_RULES.slice(0, GUESS_BROAD_FROM).forEach(([re, p, s = []], j) => {
+      const m = rest.match(re);
+      if (!m) return;
+      // Same-length filler that \s can't match, so later rules can't bridge a removed word.
+      rest = `${rest.slice(0, m.index)}${'#'.repeat(m[0].length)}${rest.slice(m.index + m[0].length)}`;
+      hits.push({ j, pos: m.index, p, s });
+    });
+  }
   const first = GUESS_RULES[i];
   if (i >= GUESS_BROAD_FROM || hits.length < 2) return { i, p: [...first[1]], s: [...(first[2] || [])] };
   const seen = new Set();

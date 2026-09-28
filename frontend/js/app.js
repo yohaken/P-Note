@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=325';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=325';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=325';
-import { CONFIG } from './config.js?v=325';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=325';
-import { nowIso } from './clock.js?v=325';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=326';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=326';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=326';
+import { CONFIG } from './config.js?v=326';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=326';
+import { nowIso } from './clock.js?v=326';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=325';
+} from './auth.js?v=326';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=325';
+} from './notes.js?v=326';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=325';
+} from './sheet.js?v=326';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -135,7 +135,7 @@ import {
   dayExerciseEntries,
   setDayExerciseEntries,
   parseExerciseCell,
-} from './calorie.js?v=325';
+} from './calorie.js?v=326';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -173,10 +173,13 @@ import {
   convertLegacyRows,
   resolveTreeMove,
   stampMuscleTreeChanges,
+  recordMuscleLabelAliases,
   renderMuscleTableLegendHtml,
   reparentMuscleNode,
+  canReparentMuscleNode,
+  muscleLeafIndex,
   muscleSlotsForDate,
-} from './muscle-tree.js?v=325';
+} from './muscle-tree.js?v=326';
 import {
   EQUIPMENT_TH,
   BEGINNER_GROUPS,
@@ -196,9 +199,9 @@ import {
   renderBodyStatsHtml,
   ALL_EXERCISES,
   exerciseImages,
-} from './muscle-map.js?v=325';
-import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=325';
-import { mountDrumPicker } from './drum-picker.js?v=325';
+} from './muscle-map.js?v=326';
+import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=326';
+import { mountDrumPicker } from './drum-picker.js?v=326';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -206,8 +209,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=325';
-import { bindComposableInput } from './text-input.js?v=325';
+} from './note-text.js?v=326';
+import { bindComposableInput } from './text-input.js?v=326';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -248,14 +251,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=325';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=325';
+} from './schedule.js?v=326';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=326';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=325';
+} from './app-icons.js?v=326';
 import {
   allIcons,
   bestIconForLabel,
@@ -264,7 +267,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=325';
+} from './icons.js?v=326';
 import {
   notificationPermission,
   notificationSupported,
@@ -273,27 +276,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=325';
+} from './note-notify.js?v=326';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=325';
+} from './files.js?v=326';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=325');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=326');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=325');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=326');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=325');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=326');
   return userContextModPromise;
 }
 
@@ -317,7 +320,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=325';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=326';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -326,11 +329,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=325';
-import { normalizeNotesData } from './notes.js?v=325';
-import { SaveManager } from './sync.js?v=325';
-import { emptyDeletions } from './deletions.js?v=325';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=325';
+} from './remote.js?v=326';
+import { normalizeNotesData } from './notes.js?v=326';
+import { SaveManager } from './sync.js?v=326';
+import { emptyDeletions } from './deletions.js?v=326';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=326';
 
 const state = {
   notesData: {
@@ -3022,6 +3025,21 @@ let exCatalog = [];
 let exEntries = [];
 /** Wheels moved since the last add/load → บันทึก includes the current pick. */
 let exDrumDirty = false;
+/** Pick the wheels showed after the last add/load; landing back on it is not a change. */
+let exDrumCleanKey = '';
+
+function exerciseDrumKey() {
+  return `${exSelectedMove()?.id || ''}|${exDrumBurn?.getValue?.() ?? ''}`;
+}
+
+function markExerciseDrumClean() {
+  exDrumDirty = false;
+  exDrumCleanKey = exerciseDrumKey();
+}
+
+function markExerciseDrumMoved() {
+  exDrumDirty = exerciseDrumKey() !== exDrumCleanKey;
+}
 
 function exGroupById(id) {
   return exCatalog.find((g) => g.id === id) || exCatalog[0] || null;
@@ -3051,8 +3069,8 @@ function mountExerciseMoveDrum(group, moveId = '') {
     ariaLabel: 'ท่า',
     flickGain: 1.4,
     onChange: () => {
-      exDrumDirty = true;
       fitExerciseBurnToMove();
+      markExerciseDrumMoved();
       syncExerciseBar();
     },
   });
@@ -3079,8 +3097,8 @@ function ensureExerciseDrums({ nodeId = '', burn = EX_BURN_DEFAULT } = {}) {
     flickGain: 1.4,
     onChange: (gid) => {
       mountExerciseMoveDrum(exGroupById(gid));
-      exDrumDirty = true;
       fitExerciseBurnToMove();
+      markExerciseDrumMoved();
       syncExerciseBar();
     },
   });
@@ -3095,12 +3113,12 @@ function ensureExerciseDrums({ nodeId = '', burn = EX_BURN_DEFAULT } = {}) {
     ariaLabel: 'แคลที่เบิร์น',
     flickGain: 1.85,
     onChange: () => {
-      exDrumDirty = true;
+      markExerciseDrumMoved();
       syncExerciseBar();
     },
   });
   if (exSelectedMove()?.cardio === false) exDrumBurn?.setValue?.(1, { quiet: true });
-  exDrumDirty = false;
+  markExerciseDrumClean();
   syncExerciseBar();
 }
 
@@ -3181,7 +3199,7 @@ function upsertExerciseFromDrums() {
   const entry = { nodeId: move.id, label: move.label, burn: move.cardio ? burn : 1, cardio: move.cardio };
   if (i >= 0) exEntries[i] = entry;
   else exEntries.push(entry);
-  exDrumDirty = false;
+  markExerciseDrumClean();
   paintExerciseList(move.id);
   syncExerciseBar();
   return true;
@@ -3238,7 +3256,7 @@ function sameExerciseEntries(a, b) {
 }
 
 function submitExerciseWheels() {
-  if (exDrumDirty && !upsertExerciseFromDrums()) return;
+  if (exDrumDirty && !upsertExerciseFromDrums()) return false;
   const dateKey = calorieQuickEdit?.date || toDateKey();
   const sheet = ensureCaloriePayload();
   const day = calorieQuickEdit
@@ -3246,17 +3264,18 @@ function submitExerciseWheels() {
     : sheet.days.find((d) => d.date === dateKey);
   if (calorieQuickEdit && !day) {
     setStatus('ไม่พบวัน');
-    return;
+    return false;
   }
   const before = day ? dayExerciseEntries(sheet, day) : [];
   if (!exEntries.length && !before.length) {
     setStatus('หมุนเลือกท่าก่อน', { forceToast: true });
-    return;
+    return false;
   }
   if (sameExerciseEntries(before, exEntries)) {
     closeCalorieQuick();
-    return;
+    return true;
   }
+  if (!requireSyncReady()) return false;
   let next = setDayExerciseEntries(sheet, day?.date || dateKey, exEntries);
   if (!exEntries.length) next = pruneFrequentMus(next);
   const total = exEntries.reduce((s, e) => s + (Number(e.burn) || 0), 0);
@@ -3268,6 +3287,7 @@ function submitExerciseWheels() {
     fullRender: true,
   });
   closeCalorieQuick();
+  return true;
 }
 
 /** Leaving the wheels for the muscle table would drop picks not saved yet — offer to save them first. */
@@ -3279,12 +3299,11 @@ async function onExerciseManage() {
     : sheet.days.find((d) => d.date === dateKey);
   const before = day ? dayExerciseEntries(sheet, day) : [];
   if (exDrumDirty || !sameExerciseEntries(before, exEntries)) {
-    const ok = await showConfirm('มีท่าที่เลือกไว้แต่ยังไม่บันทึก\nบันทึกก่อนไปเพิ่มท่าใหม่?', {
+    const ok = await showConfirm('รายการท่ายังไม่บันทึก\nบันทึกก่อนไปเพิ่มท่าใหม่?', {
       okLabel: 'บันทึกแล้วไปต่อ',
       cancelLabel: 'อยู่ต่อ',
     });
-    if (!ok) return;
-    submitExerciseWheels();
+    if (!ok || !submitExerciseWheels()) return;
   }
   openMusclePane();
 }
@@ -3747,23 +3766,27 @@ function persistMuscleTree(nextTree, { touchDates = [], status = '' } = {}) {
   const sheet = ensureCaloriePayload();
   const prev = normalizeMuscleTree(sheet.muscleTree);
   backupMuscleTreeOnce(prev);
-  const tree = normalizeMuscleTree(nextTree);
+  const tree = recordMuscleLabelAliases(prev, nextTree);
   let next = {
     ...sheet,
     muscleTree: tree,
     muscleTreeAt: tree.updatedAt || nowIso(),
   };
   const newLabels = muscleTreeLabels(tree);
-  const staleLabels = new Set([...muscleTreeLabels(prev)].filter((l) => !newLabels.has(l)));
+  const staleLabels = new Map();
+  muscleLeafIndex(prev).byLabel.forEach((leaves, label) => {
+    if (!newLabels.has(label) && !tree.aliases?.[label]) staleLabels.set(label, leaves.map((l) => l.id));
+  });
   const dates = new Set(touchDates);
-  if (staleLabels.size) {
-    (next.days || []).forEach((day) => {
-      const hit = (day.exercises || []).some((cell) => staleLabels.has(parseExerciseCell(cell).label));
-      if (hit) dates.add(day.date);
+  (next.days || []).forEach((day) => {
+    const hit = (day.exercises || []).some((cell) => {
+      const label = parseExerciseCell(cell).label;
+      return staleLabels.has(label) || (tree.aliases?.[label] && !newLabels.has(label));
     });
-  }
+    if (hit) dates.add(day.date);
+  });
   dates.forEach((d) => {
-    if (d) next = applyMuscleDayExercises(next, tree, d, { staleLabels });
+    if (d) next = applyMuscleDayExercises(next, tree, d, { staleLabels, prevTree: prev });
   });
   saveMusclePins(tree);
   persistCalorie(next, { status, fullRender: false, immediate: true });
@@ -3831,8 +3854,11 @@ function onMuscleScrollClick(e) {
   const daySum = e.target?.closest?.('[data-day-sum]');
   if (daySum && els.muscleScroll?.contains(daySum)) {
     const dk = daySum.dataset.date;
-    const slots = muscleSlotsForDate(ensureCaloriePayload().muscleTree, dk);
-    const list = slots.map((s) => (s.cardio ? `${s.label} −${s.value}` : s.label.split(' · ').pop())).join(', ');
+    const tree = ensureCaloriePayload().muscleTree;
+    const { byId } = muscleLeafIndex(tree);
+    const list = muscleSlotsForDate(tree, dk)
+      .map((s) => `${byId.get(s.id)?.name || s.label}${s.cardio ? ` −${s.value}` : ''}`)
+      .join(', ');
     setStatus(`${formatDateDisplay(dk)}: ${list || '–'}`, { forceToast: true, ms: 5000 });
     return;
   }
@@ -3935,8 +3961,11 @@ function paintMuscleSettingsList() {
   }
   const hasOwnMarks = (id) => Object.keys(sheet.muscleTree.cells || {}).some((k) => k.startsWith(`${id}|`));
   const groups = rows.filter((r) => !r.depth && (!r.leaf || !hasOwnMarks(r.id)));
-  const groupOptions = (current) => groups
-    .map((g) => `<option value="${escapeHtml(g.id)}"${g.id === current ? ' selected' : ''}>${escapeHtml(g.name)}</option>`)
+  const groupOptions = (r) => groups
+    .filter((g) => g.id === r.parentId || canReparentMuscleNode(sheet.muscleTree, r.id, g.id))
+    .map((g) => (g.id === r.parentId
+      ? `<option value="${escapeHtml(g.id)}" selected>อยู่กลุ่ม ${escapeHtml(g.name)} · แตะเพื่อย้าย</option>`
+      : `<option value="${escapeHtml(g.id)}">ย้ายไป ${escapeHtml(g.name)}</option>`))
     .join('');
   list.innerHTML = rows
     .map((r) => {
@@ -3952,7 +3981,7 @@ function paintMuscleSettingsList() {
     ? `<button type="button" class="btn btn-secondary muscle-settings-rename" data-muscle-muscles="${escapeHtml(r.id)}" title="เลือกกล้ามที่ท่านี้ใช้บนรูป">กล้าม</button>`
     : '<span></span>'}
         ${r.depth
-    ? `<select class="muscle-settings-move" data-muscle-reparent="${escapeHtml(r.id)}" aria-label="ย้าย ${escapeHtml(r.name)} ไปกลุ่มอื่น" title="ย้ายไปกลุ่มอื่น">${groupOptions(r.parentId)}</select>`
+    ? `<select class="muscle-settings-move" data-muscle-reparent="${escapeHtml(r.id)}" aria-label="ย้าย ${escapeHtml(r.name)} ไปกลุ่มอื่น" title="ย้ายไปกลุ่มอื่น">${groupOptions(r)}</select>`
     : '<span></span>'}
         <button type="button" class="btn btn-secondary muscle-settings-rename" data-muscle-rename="${escapeHtml(r.id)}" title="แก้ชื่อ">แก้ชื่อ</button>
         <button type="button" class="btn btn-secondary muscle-settings-del" data-muscle-del="${escapeHtml(r.id)}" title="ลบ">ลบ</button>
@@ -3961,16 +3990,32 @@ function paintMuscleSettingsList() {
     .join('');
 }
 
-function onMuscleReparent(nodeId, parentId) {
+async function onMuscleReparent(nodeId, parentId) {
   if (!requireSyncReady()) return;
   const before = normalizeMuscleTree(ensureCaloriePayload().muscleTree);
-  const { tree, changed } = reparentMuscleNode(before, nodeId, parentId);
+  const fromId = before.nodes.find((n) => n.id === nodeId)?.parentId || '';
+  let { tree, changed } = reparentMuscleNode(before, nodeId, parentId);
   if (!changed) {
     paintMuscleSettingsList();
     return;
   }
   const node = tree.nodes.find((n) => n.id === nodeId);
   const parent = tree.nodes.find((n) => n.id === parentId);
+  const from = tree.nodes.find((n) => n.id === fromId);
+  // An emptied group would turn into a loggable move of its own.
+  if (from && !tree.nodes.some((n) => n.parentId === from.id)) {
+    const drop = await showConfirm(`「${from.name}」ไม่มีท่าเหลือแล้ว\nลบกลุ่มนี้ด้วยไหม?`, {
+      okLabel: 'ลบกลุ่ม',
+      cancelLabel: 'ยกเลิกการย้าย',
+      danger: true,
+    });
+    if (!drop) {
+      paintMuscleSettingsList();
+      return;
+    }
+    ({ tree } = removeMuscleNode(tree, from.id));
+    muscleExpandedIds.delete(from.id);
+  }
   const touchDates = Object.keys(before.cells).filter((k) => k.startsWith(`${nodeId}|`)).map((k) => k.split('|')[1]);
   muscleSelectedId = nodeId;
   if (!muscleExpandAll) muscleExpandedIds.add(parentId);
@@ -4255,7 +4300,10 @@ function addExerciseToMuscleTree(name, { logToday = false, groupId = '' } = {}) 
     } else if (ownMark) {
       cur = setMuscleCellInTree(cur, nodeId, todayKey, 0).tree;
     } else {
-      setStatus('ท่านี้มีค่าที่ใส่เองแล้ว — ไม่ได้ยกเลิก', { forceToast: true, ms: 2200 });
+      const msg = !cur.nodes.some((n) => n.id === nodeId) || (!created && !(cur.cells[todayKeyCell] > 0))
+        ? 'ไม่มีอะไรให้ยกเลิกแล้ว'
+        : 'ท่านี้มีค่าที่ใส่เองแล้ว — ไม่ได้ยกเลิก';
+      setStatus(msg, { forceToast: true, ms: 2200 });
       return;
     }
     persistMuscleTree(cur, { touchDates: [todayKey], status: 'ยกเลิกแล้ว' });
@@ -10120,7 +10168,9 @@ function notesContentKey(data) {
     .sort()
     .join(',')}`;
   const pinPart = homePinsFingerprint(data);
-  return `${notePart}|${tagPart}|${padPart}|${calPart}|${pinPart}`;
+  const tree = data?.calorie?.muscleTree;
+  const treePart = tree ? `${data.calorie.muscleTreeAt || ''}:${JSON.stringify(tree).length}` : '';
+  return `${notePart}|${tagPart}|${padPart}|${calPart}|${pinPart}|${treePart}`;
 }
 
 function paintNotesFromLocal(data) {

@@ -1,4 +1,4 @@
-import { CONFIG, STORAGE_KEYS } from './config.js?v=325';
+import { CONFIG, STORAGE_KEYS } from './config.js?v=326';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
