@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=302';
+} from './auth.js?v=303';
 import {
   addTag,
   addNotepad,
@@ -114,6 +114,7 @@ import {
   renderCalorieTableLoadHintHtml,
   renderCalorieTotalsHtml,
   renderExerciseTableHtml,
+  musCellWrapHtml,
   renderHealthSheetHtml,
   renderHomeDashHtml,
   resolveNutritionGoals,
@@ -130,7 +131,7 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
-} from './calorie.js?v=302';
+} from './calorie.js?v=303';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -144,8 +145,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=302';
-import { mountDrumPicker } from './drum-picker.js?v=302';
+} from './muscle-tree.js?v=303';
+import { mountDrumPicker } from './drum-picker.js?v=303';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -196,7 +197,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=227';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=302';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=303';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
@@ -2694,15 +2695,16 @@ function refreshCalorieDerived() {
           else noteTd.insertAdjacentHTML('afterbegin', html);
         } else if (fit) fit.remove();
       }
-      const musInput = trB.querySelector('[data-cal-field="mus"]');
-      if (musInput) {
+      const musWrap = trB.querySelector('.cal-col-burn .cal-input-wrap');
+      if (musWrap) {
         const exLine = formatExerciseDisplay(row);
         const cellTitle = isPastCalorieDay(row.id)
           ? 'วันก่อน · แตะเพื่อปลดล็อกแก้'
           : 'แตะเพื่อแก้ / เคลียร์แล้วบันทึก';
-        musInput.title = exLine
+        const title = exLine
           ? `${exLine}${row.mus != null ? ` · เบิร์น −${row.mus} kcal` : ''} · ${cellTitle}`
           : cellTitle;
+        musWrap.outerHTML = musCellWrapHtml(row, escAttr(row.id), title);
       }
     }
   });

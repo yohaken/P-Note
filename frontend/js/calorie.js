@@ -15,7 +15,7 @@ import {
   muscleTreeLabels,
   normalizeMuscleTree,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=302';
+} from './muscle-tree.js?v=303';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -196,6 +196,35 @@ export function renderExerciseTableHtml(day) {
   const dayId = esc(day?.id || '');
   const editHint = `${full} · แตะเพื่อแก้ / เคลียร์แล้วบันทึก`;
   return `<div class="cal-exercise-fit${scroll}" data-cal-exercise-day="${dayId}" role="button" tabindex="-1" aria-label="แก้ท่า ${esc(full)}" title="${esc(editHint)}">${chips}</div>`;
+}
+
+/** Muscle groups played (label prefix before " · ", cardio excluded) + kcal that cuts the balance. */
+export function exerciseDaySummary(day) {
+  const groups = [];
+  normalizeExercises(day?.exercises).forEach((cell) => {
+    const p = parseExerciseCell(cell);
+    const group = String(p.label || '').split(' · ')[0].trim();
+    if (!group || CARDIO_NAME_RE.test(group) || groups.includes(group)) return;
+    groups.push(group);
+  });
+  const kcal = Number.isFinite(day?.mus) && day.mus > 0 ? Math.round(day.mus) : 0;
+  return { groups, kcal };
+}
+
+/** Spreadsheet mus cell overlay: group names on top, −kcal (orange) below. */
+export function renderMusSummaryHtml(day) {
+  const { groups, kcal } = exerciseDaySummary(day);
+  if (!groups.length && !kcal) return '';
+  const names = groups.length ? `<span class="cal-mus-groups">${esc(groups.join(' '))}</span>` : '';
+  const cut = kcal ? `<span class="cal-mus-cut">−${kcal}</span>` : '';
+  return `<span class="cal-mus-sum" aria-hidden="true">${names}${cut}</span>`;
+}
+
+export function musCellWrapHtml(row, id, title) {
+  const sum = renderMusSummaryHtml(row);
+  const hasMus = row.mus != null && row.mus !== '';
+  const cls = sum ? ' has-sum' : hasMus ? ' has-value' : '';
+  return `<span class="cal-input-wrap${cls}">${sum}<input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง" title="${esc(title)}"></span>`;
 }
 
 /** Quick-edit sheet text from exercise slots (label,kcal per line). */
@@ -3579,7 +3608,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         <td class="cal-col-sum cal-derived ${toneClass(m.blKg)}" data-cal-derived="blKg">${m.blKg == null ? '' : formatSigned(m.blKg, 2)}</td>
       </tr>
       <tr class="cal-row cal-day-b${today}${past}" data-day-id="${id}" data-month="${month}" data-date="${esc(row.date)}">
-        <td class="cal-col-burn"><span class="cal-input-wrap${row.mus != null && row.mus !== '' ? ' has-value' : ''}"><input class="cal-cell" data-cal-field="mus" data-day-id="${id}" value="${row.mus ?? ''}" inputmode="numeric" readonly aria-label="ออกกำลัง" title="${esc(musTitle)}"></span></td>
+        <td class="cal-col-burn">${musCellWrapHtml(row, id, musTitle)}</td>
         <td class="cal-col-burn cal-burn-stack" title="BMR · รวมเบิร์น · %bal">
           <span class="cal-derived cal-base-auto" data-cal-derived="base">${formatBurnMusDisplay(m.base)}</span>
           <span class="cal-burn-stack-sub">
