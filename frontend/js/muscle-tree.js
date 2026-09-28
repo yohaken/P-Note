@@ -7,6 +7,9 @@
 import {
   BEGINNER_GROUPS,
   UNSPECIFIED_MOVE,
+  beginnerGroupOfRegion,
+  exerciseImages,
+  libraryExerciseByName,
   computeRegionRest,
   normalizeRestProfile,
   regionRestDays,
@@ -14,7 +17,7 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=317';
+} from './muscle-map.js?v=318';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -335,7 +338,7 @@ export function splitLegGroups(tree) {
   let moved = 0;
   legRoots.forEach((root) => {
     nodes.filter((n) => n.parentId === root.id).forEach((child) => {
-      const m = resolveMoveMuscles(child, root.name);
+      const m = resolveTreeMove(child, root.name);
       const p = m.p;
       let dest = upper;
       if (p.length && p.every((x) => LOWER_LEG_REGIONS.has(x))) dest = lower;
@@ -603,6 +606,87 @@ export function addMuscleChild(tree, parentId, name) {
   return { tree: normalizeMuscleTree(next), node };
 }
 
+function moveKey(name) {
+  return String(name || '').replace(/\s+/g, '').toLowerCase();
+}
+
+/** Existing leaf that already stands for this exercise (same name, library id, or ex-id). */
+export function findExerciseLeaf(tree, name) {
+  const t = normalizeMuscleTree(tree);
+  const lib = libraryExerciseByName(name);
+  const key = moveKey(name);
+  return t.nodes.find((n) => {
+    if (!n.parentId || isCardioNode(t, n.id)) return false;
+    if (moveKey(n.name) === key) return true;
+    if (!lib) return false;
+    return n.id === `ex-${lib.id}` || libraryExerciseByName(n.name)?.id === lib.id;
+  }) || null;
+}
+
+/**
+ * Strength group whose regions best cover the primaries (first primary counts double).
+ * @returns {object|null} root node
+ */
+export function bestGroupForMuscles(tree, primaries = []) {
+  const t = normalizeMuscleTree(tree);
+  if (!primaries.length) return null;
+  const moves = new Map(muscleMoveStates(t).map((m) => [m.id, m]));
+  let best = null;
+  let bestScore = 0;
+  flattenMuscleRows(t)
+    .filter((r) => !r.parentId && !isCardioNode(t, r.id))
+    .forEach((r) => {
+      const regions = groupRegions(t, r, moves);
+      const score = primaries.reduce((sum, id, i) => sum + (regions.has(id) ? (i ? 1 : 2) : 0), 0);
+      if (score > bestScore) {
+        best = t.nodes.find((n) => n.id === r.id);
+        bestScore = score;
+      }
+    });
+  return best;
+}
+
+/**
+ * Add an exercise as a move under the group that fits its primary muscles
+ * (creates the beginner group when none fits). Reuses a matching move when one exists.
+ * @returns {{ tree, node, created: boolean }}
+ */
+export function addExerciseMove(tree, name) {
+  const t = normalizeMuscleTree(tree);
+  const existing = findExerciseLeaf(t, name);
+  if (existing) return { tree: t, node: existing, created: false };
+  const lib = libraryExerciseByName(name);
+  const label = clampName(lib ? lib.name : name);
+  if (!label) return { tree: t, node: null, created: false };
+  const { p } = lib ? lib : resolveMoveMuscles({ name: label }, '');
+  let work = t;
+  let group = bestGroupForMuscles(work, p);
+  if (!group) {
+    const groupName = (p.length && beginnerGroupOfRegion(p[0])?.name) || 'ท่าอื่นๆ';
+    group = work.nodes.find((n) => !n.parentId && n.name === groupName) || null;
+    if (!group) ({ tree: work, node: group } = addMuscleCategory(work, groupName));
+  }
+  const { tree: withLeaf, node } = addMuscleChild(work, group.id, label);
+  if (!node) return { tree: t, node: null, created: false };
+  const wantId = lib ? `ex-${lib.id}` : '';
+  if (!wantId || withLeaf.nodes.some((n) => n.id === wantId)) return { tree: withLeaf, node, created: true };
+  const nodes = withLeaf.nodes.map((n) => (n.id === node.id ? { ...n, id: wantId } : n));
+  const renamed = normalizeMuscleTree({ ...withLeaf, nodes });
+  return { tree: renamed, node: renamed.nodes.find((n) => n.id === wantId), created: true };
+}
+
+/** Days without a log before an old (not library / not pinned) move is hidden. */
+export const STALE_MOVE_DAYS = 30;
+
+/** Ids of old moves not logged for STALE_MOVE_DAYS; still counted in group doses. */
+export function staleMoveIds(tree, todayKey = muscleToDateKey(), days = STALE_MOVE_DAYS) {
+  return new Set(
+    muscleMoveStates(tree, todayKey)
+      .filter((m) => m.source !== 'library' && m.source !== 'set' && m.last && m.days > days)
+      .map((m) => m.id),
+  );
+}
+
 export function renameMuscleNode(tree, nodeId, name) {
   const label = clampName(name);
   const t = normalizeMuscleTree(tree);
@@ -740,6 +824,50 @@ export function daysBetweenKeys(fromKey, toKey) {
 }
 
 /**
+ * Muscle-part rows logged before moves had exercises: the lift each most likely stood for.
+ * Keyed by parent+name or name, spaces removed. Shown with "?" until the user confirms.
+ */
+const LEGACY_MOVE_MUSCLES = {
+  อกบน: [['chest-upper'], ['delt-front', 'triceps', 'chest-lower']],
+  อกกลาง: [['chest-lower'], ['chest-upper', 'delt-front', 'triceps']],
+  อกล่าง: [['chest-lower'], ['triceps', 'delt-front']],
+  ฟลาย: [['chest-lower'], ['chest-upper', 'delt-front']],
+  ไหล่หลัก: [['delt-front'], ['delt-side', 'triceps', 'chest-upper', 'traps-upper']],
+  ไหล่ข้าง: [['delt-side'], ['delt-front', 'traps-upper']],
+  ไหล่หน้า: [['delt-front'], ['chest-upper', 'delt-side', 'serratus']],
+  หน้าแขน: [['biceps'], ['forearms']],
+  หลังแขน: [['triceps'], []],
+  ปีกกว้าง: [['lats'], ['mid-back', 'delt-rear', 'biceps', 'forearms']],
+  ปีกกลาง: [['lats'], ['biceps', 'mid-back', 'delt-rear', 'forearms']],
+  ปีกแคบ: [['lats'], ['biceps', 'mid-back', 'forearms']],
+  หลังล่างแคบ: [['lats', 'mid-back'], ['biceps', 'delt-rear', 'forearms']],
+  หลังล่างกว้าง: [['mid-back', 'lats'], ['delt-rear', 'biceps']],
+  หลังกลางแคบ: [['mid-back', 'lats'], ['biceps', 'delt-rear']],
+  หลังกลางกว้าง: [['mid-back'], ['delt-rear', 'lats', 'biceps', 'traps-upper']],
+  หลังshrugs: [['traps-upper'], ['forearms']],
+  หน้าขา: [['quads'], []],
+  หลังขา: [['hamstrings'], ['calves']],
+  ขารวม: [['quads', 'glutes'], ['adductors']],
+  น่องขา: [['calves'], []],
+  ข้างขา: [['glute-med'], ['glutes']],
+  ท้องกลาง: [['abs'], ['obliques']],
+  ท้องข้าง: [['obliques'], ['abs']],
+};
+
+function legacyMoveMuscles(name, parentName) {
+  const key = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
+  const hit = LEGACY_MOVE_MUSCLES[key(parentName + name)] || LEGACY_MOVE_MUSCLES[key(name)];
+  return hit ? { p: [...hit[0]], s: [...hit[1]], source: 'legacy' } : null;
+}
+
+/** Library/explicit muscles, then the legacy row map, then a guess from the name. */
+export function resolveTreeMove(node, parentName = '') {
+  const m = resolveMoveMuscles(node, parentName);
+  if (m.source === 'set' || m.source === 'library') return m;
+  return legacyMoveMuscles(node?.name, parentName) || m;
+}
+
+/**
  * Strength moves (leaves, cardio excluded) with resolved muscles and days since last trained.
  * @returns {{ id, name, parentId, parentName, p: string[], s: string[], source, days: number|null, last: string }[]}
  */
@@ -750,7 +878,7 @@ export function muscleMoveStates(tree, todayKey = muscleToDateKey()) {
     .map((r) => {
       const parent = r.parentId ? t.nodes.find((n) => n.id === r.parentId) : null;
       const node = t.nodes.find((n) => n.id === r.id);
-      const m = resolveMoveMuscles(node, parent?.name || '');
+      const m = resolveTreeMove(node, parent?.name || '');
       const last = lastTrainedDate(t, r.id, todayKey);
       return {
         id: r.id,
@@ -848,7 +976,7 @@ function muscleLinkMarkHtml(r, moves, cardio) {
     const none = !m.p.length;
     const tip = none
       ? 'ยังไม่ผูกกล้าม · ไม่นับวันพักให้กล้ามไหน · แตะเพื่อเลือกกล้าม'
-      : `เดากล้ามจากชื่อ (${m.p.map((id) => regionById(id)?.name).filter(Boolean).join(', ')}) · แตะเพื่อตรวจ/แก้`;
+      : `${m.source === 'legacy' ? 'ผูกตามท่าที่น่าจะเล่น' : 'เดากล้ามจากชื่อ'} (${m.p.map((id) => regionById(id)?.name).filter(Boolean).join(', ')}) · แตะเพื่อตรวจ/แก้`;
     return `<button type="button" class="mt-link-mark ${none ? 'is-none' : 'is-guess'}" data-muscle-link="${esc(r.id)}" title="${esc(tip)}" aria-label="${esc(tip)}">${none ? '!' : '?'}</button>`;
   }
   const missing = (r.childIds || []).filter((id) => moves.get(id) && !moves.get(id).p.length).length;
@@ -904,6 +1032,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
   const expanded = opts.expandedIds instanceof Set
     ? opts.expandedIds
     : new Set(Array.isArray(opts.expandedIds) ? opts.expandedIds : []);
+  const hidden = opts.hideIds instanceof Set ? opts.hideIds : new Set();
 
   const headDates = dates
     .map((dk) => {
@@ -922,7 +1051,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       const isChild = r.depth > 0;
       if (isChild) {
         const open = expandAll || expanded.has(r.parentId);
-        if (!open) return '';
+        if (!open || hidden.has(r.id)) return '';
       }
       const openGroup = isGroup && (expandAll || expanded.has(r.id));
       const sel = r.id === selectedId ? ' is-selected' : '';
@@ -938,8 +1067,12 @@ export function renderMuscleTableHtml(tree, opts = {}) {
           ? 'คาดิโอ · ใส่ kcal ที่เบิร์นจริง · หักออกจากดุลแคลวันนั้น'
           : 'ท่ากล้าม · ใส่ 1 = เล่นวันนั้น · ไม่นับแคล';
       const cardioTag = cardio && r.depth === 0 ? '<span class="mt-cardio-tag">kcal · หักดุล</span>' : '';
+      const photo = r.leaf && !cardio ? exerciseImages(libraryExerciseByName(r.name))[0] : '';
+      const photoBtn = photo
+        ? `<button type="button" class="mt-ex-thumb" data-ex-photo="${esc(r.name)}" aria-label="${esc(`ดูท่า ${r.name}`)}"><img src="${esc(photo)}" alt="" loading="lazy" decoding="async"></button>`
+        : '';
       const nameCell = `<th class="mt-row-name${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" scope="row" data-node-id="${esc(r.id)}">
-        <div class="mt-name-row">
+        <div class="mt-name-row">${photoBtn}
           <button type="button" class="mt-name-btn${collapsible ? ' is-group-toggle' : ''}" data-node-id="${esc(r.id)}"${collapsible ? ' data-group-toggle="1"' : ''} title="${esc(nameTitle)}">
             <span class="mt-name-text">${esc(r.name)}</span>${cardioTag}
           </button>${muscleLinkMarkHtml(r, moves, cardio)}

@@ -1,5 +1,5 @@
-import { cacheName, getAppBuild } from './version.js?v=317';
-import { checkForAppUpdate } from './update.js?v=317';
+import { cacheName, getAppBuild } from './version.js?v=318';
+import { checkForAppUpdate } from './update.js?v=318';
 
 let controllerReloadPending = false;
 

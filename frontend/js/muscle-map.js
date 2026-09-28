@@ -3,7 +3,8 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=317';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=318';
+import { EXERCISE_DB, LIBRARY_IMAGE_IDS, exerciseImageUrls } from './exercise-db.js?v=318';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },
@@ -72,64 +73,174 @@ export function sanitizeRegionIds(raw) {
   return out;
 }
 
-export const EQUIPMENT_TH = { bw: 'ตัวเปล่า', db: 'ดัมเบล', bb: 'บาร์เบล', mc: 'เครื่อง/เคเบิล' };
+export const EQUIPMENT_TH = {
+  bw: 'ตัวเปล่า',
+  db: 'ดัมเบล',
+  bb: 'บาร์เบล',
+  kb: 'เคตเทิลเบล',
+  band: 'ยางยืด',
+  cable: 'เคเบิล',
+  machine: 'เครื่อง',
+  mc: 'เครื่อง/เคเบิล',
+  other: 'อื่นๆ',
+};
 
-const ex = (id, name, en, eq, p, s = []) => ({ id, name, en, eq, p, s });
+/** aka = older/alternate names (Thai or English) that must still resolve to this move. */
+const ex = (id, name, en, eq, p, s = [], aka = []) => ({ id, name, en, eq, p, s, aka });
 
 /** Beginner-friendly seed library; muscles follow ExRx-style target/synergist roles. */
 export const EXERCISE_LIBRARY = [
-  ex('push-up', 'วิดพื้น', 'Push-up', 'bw', ['chest-lower'], ['delt-front', 'triceps', 'abs']),
+  ex('push-up', 'วิดพื้น', 'Push-up', 'bw', ['chest-lower'], ['chest-upper', 'delt-front', 'triceps', 'serratus', 'abs']),
+  ex('knee-push-up', 'วิดพื้นคุกเข่า', 'Knee push-up', 'bw', ['chest-lower'], ['chest-upper', 'delt-front', 'triceps']),
+  ex('incline-push-up', 'วิดพื้นมือวางสูง', 'Incline push-up', 'bw', ['chest-lower'], ['delt-front', 'triceps', 'serratus']),
+  ex('decline-push-up', 'วิดพื้นเท้าวางสูง', 'Decline push-up', 'bw', ['chest-upper'], ['chest-lower', 'delt-front', 'triceps']),
   ex('bench-press', 'เบนช์เพรส', 'Bench press', 'bb', ['chest-lower'], ['chest-upper', 'delt-front', 'triceps']),
+  ex('incline-bench', 'เบนช์เพรสเอียงขึ้น', 'Incline bench press', 'bb', ['chest-upper'], ['delt-front', 'triceps', 'chest-lower']),
+  ex('decline-bench', 'เบนช์เพรสเอียงลง', 'Decline bench press', 'bb', ['chest-lower'], ['triceps', 'delt-front']),
+  ex('flat-db-press', 'ดัมเบลเพรสม้าราบ', 'Flat dumbbell press', 'db', ['chest-lower'], ['chest-upper', 'delt-front', 'triceps']),
   ex('incline-db-press', 'ดัมเบลเพรสเอียงขึ้น', 'Incline dumbbell press', 'db', ['chest-upper'], ['delt-front', 'triceps']),
-  ex('chest-press-machine', 'เครื่องดันอก', 'Machine chest press', 'mc', ['chest-lower'], ['delt-front', 'triceps']),
-  ex('cable-fly', 'เคเบิลฟลาย', 'Cable / pec-deck fly', 'mc', ['chest-lower', 'chest-upper'], ['delt-front']),
-  ex('dips', 'ดิปบาร์คู่', 'Parallel-bar dip', 'bw', ['chest-lower', 'triceps'], ['delt-front']),
+  ex('smith-bench', 'สมิธเบนช์เพรส', 'Smith machine bench press', 'machine', ['chest-lower'], ['chest-upper', 'delt-front', 'triceps']),
+  ex('smith-incline', 'สมิธเพรสเอียงขึ้น', 'Smith machine incline press', 'machine', ['chest-upper'], ['delt-front', 'triceps', 'chest-lower']),
+  ex('chest-press-machine', 'เครื่องดันอก', 'Machine chest press', 'machine', ['chest-lower'], ['chest-upper', 'delt-front', 'triceps']),
+  ex('incline-chest-machine', 'เครื่องดันอกเอียงขึ้น', 'Incline machine chest press', 'machine', ['chest-upper'], ['delt-front', 'triceps']),
+  ex('flat-db-fly', 'ดัมเบลฟลายม้าราบ', 'Flat dumbbell fly', 'db', ['chest-lower'], ['chest-upper', 'delt-front']),
+  ex('incline-db-fly', 'ดัมเบลฟลายเอียงขึ้น', 'Incline dumbbell fly', 'db', ['chest-upper'], ['chest-lower', 'delt-front']),
+  ex('pec-deck', 'เครื่องบีบอก', 'Seated pec fly / pec deck', 'machine', ['chest-lower'], ['chest-upper', 'delt-front']),
+  ex('cable-fly', 'เคเบิลฟลาย', 'Cable fly', 'cable', ['chest-lower'], ['chest-upper', 'delt-front'], ['Cable / pec-deck fly']),
+  ex('cable-fly-low-high', 'เคเบิลฟลายล่างขึ้นบน', 'Low-to-high cable fly', 'cable', ['chest-upper'], ['chest-lower', 'delt-front']),
+  ex('cable-crossover', 'เคเบิลครอสโอเวอร์', 'Cable crossover', 'cable', ['chest-lower'], ['chest-upper', 'delt-front']),
+  ex('db-pullover', 'ดัมเบลพูลโอเวอร์', 'Dumbbell pullover', 'db', ['chest-lower'], ['lats', 'triceps', 'serratus']),
+  ex('dips', 'ดิปบาร์คู่', 'Chest dip', 'bw', ['chest-lower'], ['triceps', 'delt-front', 'chest-upper'], ['ดิปอก', 'Parallel-bar dip']),
 
-  ex('lat-pulldown', 'ดึงบาร์ลงหน้าอก', 'Lat pulldown', 'mc', ['lats'], ['biceps', 'mid-back', 'delt-rear']),
-  ex('pull-up', 'ดึงข้อ', 'Pull-up / chin-up', 'bw', ['lats'], ['biceps', 'mid-back', 'forearms', 'abs']),
-  ex('seated-cable-row', 'นั่งดึงเคเบิล', 'Seated cable row', 'mc', ['lats', 'mid-back'], ['delt-rear', 'biceps', 'lower-back']),
+  ex('lat-pulldown', 'ดึงบาร์ลงหน้าอก', 'Lat pulldown', 'cable', ['lats'], ['biceps', 'mid-back', 'delt-rear', 'forearms']),
+  ex('wide-pulldown', 'ดึงบาร์ลงมือกว้าง', 'Wide-grip lat pulldown', 'cable', ['lats'], ['mid-back', 'delt-rear', 'biceps']),
+  ex('close-pulldown', 'ดึงบาร์ลงมือแคบ (V-bar)', 'Close-grip lat pulldown', 'cable', ['lats'], ['biceps', 'mid-back', 'forearms']),
+  ex('reverse-pulldown', 'ดึงบาร์ลงมือหงาย', 'Reverse-grip lat pulldown', 'cable', ['lats'], ['biceps', 'mid-back']),
+  ex('pull-up', 'ดึงข้อ', 'Pull-up', 'bw', ['lats'], ['biceps', 'mid-back', 'forearms'], ['Pull-up / chin-up']),
+  ex('chin-up', 'ดึงข้อมือหงาย', 'Chin-up', 'bw', ['lats'], ['biceps', 'mid-back', 'forearms']),
+  ex('assisted-pull-up', 'เครื่องช่วยดึงข้อ', 'Assisted pull-up', 'machine', ['lats'], ['biceps', 'mid-back', 'delt-rear']),
+  ex('straight-arm-pulldown', 'เคเบิลกดแขนตรง', 'Straight-arm pulldown', 'cable', ['lats'], ['triceps', 'delt-rear']),
+  ex('high-row-machine', 'เครื่องไฮโรว์', 'Machine high row', 'machine', ['lats'], ['mid-back', 'delt-rear', 'biceps']),
+  ex('pullover-machine', 'เครื่องพูลโอเวอร์', 'Machine pullover', 'machine', ['lats'], ['chest-lower', 'triceps']),
+  ex('seated-cable-row', 'นั่งดึงเคเบิล', 'Seated cable row', 'cable', ['lats', 'mid-back'], ['delt-rear', 'biceps', 'forearms']),
+  ex('wide-cable-row', 'นั่งดึงเคเบิลมือกว้าง', 'Wide-grip seated cable row', 'cable', ['mid-back'], ['lats', 'delt-rear', 'biceps']),
   ex('db-row', 'ดัมเบลโรว์แขนเดียว', 'One-arm dumbbell row', 'db', ['lats', 'mid-back'], ['delt-rear', 'biceps', 'forearms']),
-  ex('inverted-row', 'ดึงตัวใต้บาร์', 'Inverted row', 'bw', ['mid-back', 'lats'], ['delt-rear', 'biceps', 'abs']),
-  ex('back-extension', 'แบ็กเอกซ์เทนชัน', 'Back extension', 'mc', ['lower-back'], ['glutes', 'hamstrings']),
+  ex('incline-db-row', 'ดัมเบลโรว์นอนคว่ำม้าเอียง', 'Chest-supported dumbbell row', 'db', ['mid-back'], ['lats', 'delt-rear', 'biceps']),
+  ex('bb-row', 'บาร์เบลโรว์', 'Barbell row', 'bb', ['mid-back', 'lats'], ['delt-rear', 'biceps', 'lower-back', 'forearms']),
+  ex('t-bar-row', 'ทีบาร์โรว์', 'T-bar row', 'bb', ['mid-back', 'lats'], ['delt-rear', 'biceps', 'lower-back']),
+  ex('machine-row', 'เครื่องโรว์อกพิง', 'Chest-supported machine row', 'machine', ['mid-back', 'lats'], ['delt-rear', 'biceps']),
+  ex('inverted-row', 'ดึงตัวใต้บาร์', 'Inverted row', 'bw', ['mid-back', 'lats'], ['delt-rear', 'biceps']),
+  ex('back-extension', 'แบ็กเอกซ์เทนชัน', 'Back extension', 'bw', ['lower-back'], ['glutes', 'hamstrings', 'adductors']),
+  ex('superman', 'ซูเปอร์แมน', 'Superman', 'bw', ['lower-back'], ['glutes', 'hamstrings']),
+  ex('bird-dog', 'เบิร์ดด็อก', 'Bird dog', 'bw', ['lower-back'], ['glutes', 'abs']),
   ex('deadlift', 'เดดลิฟต์', 'Deadlift', 'bb', ['glutes', 'hamstrings', 'lower-back'], ['quads', 'traps-upper', 'lats', 'forearms', 'adductors']),
+  ex('rack-pull', 'แร็กพูล', 'Rack pull', 'bb', ['lower-back', 'glutes'], ['hamstrings', 'traps-upper', 'forearms']),
 
-  ex('overhead-press', 'ดันไหล่เหนือศีรษะ', 'Overhead press', 'db', ['delt-front'], ['delt-side', 'triceps', 'traps-upper']),
-  ex('lateral-raise', 'ยกดัมเบลข้างลำตัว', 'Lateral raise', 'db', ['delt-side'], ['traps-upper']),
-  ex('rear-delt-fly', 'ฟลายไหล่หลัง', 'Reverse fly', 'db', ['delt-rear'], ['mid-back']),
-  ex('face-pull', 'เฟซพูล', 'Face pull', 'mc', ['delt-rear', 'mid-back'], ['traps-upper']),
+  ex('overhead-press', 'ดันไหล่เหนือศีรษะ', 'Overhead press', 'db', ['delt-front'], ['delt-side', 'triceps', 'traps-upper', 'chest-upper', 'serratus']),
+  ex('bb-ohp', 'บาร์เบลดันไหล่ยืน', 'Standing barbell overhead press', 'bb', ['delt-front'], ['delt-side', 'triceps', 'chest-upper', 'traps-upper']),
+  ex('shoulder-press-machine', 'เครื่องดันไหล่', 'Machine shoulder press', 'machine', ['delt-front'], ['delt-side', 'triceps']),
+  ex('smith-shoulder-press', 'สมิธดันไหล่', 'Smith machine shoulder press', 'machine', ['delt-front'], ['delt-side', 'triceps']),
+  ex('arnold-press', 'อาร์โนลด์เพรส', 'Arnold press', 'db', ['delt-front'], ['delt-side', 'triceps', 'chest-upper']),
+  ex('landmine-press', 'แลนด์ไมน์เพรส', 'Landmine press', 'bb', ['delt-front'], ['chest-upper', 'triceps', 'serratus']),
+  ex('front-raise', 'ยกดัมเบลด้านหน้า', 'Front raise', 'db', ['delt-front'], ['chest-upper', 'delt-side', 'serratus']),
+  ex('lateral-raise', 'ยกดัมเบลข้างลำตัว', 'Lateral raise', 'db', ['delt-side'], ['traps-upper', 'delt-front']),
+  ex('cable-lateral-raise', 'เคเบิลยกไหล่ข้าง', 'Cable lateral raise', 'cable', ['delt-side'], ['delt-front', 'traps-upper']),
+  ex('lateral-raise-machine', 'เครื่องยกไหล่ข้าง', 'Machine lateral raise', 'machine', ['delt-side'], ['delt-front', 'traps-upper']),
+  ex('upright-row', 'อัพไรท์โรว์', 'Upright row', 'bb', ['delt-side'], ['traps-upper', 'delt-front', 'biceps']),
+  ex('rear-delt-fly', 'ฟลายไหล่หลัง', 'Reverse fly', 'db', ['delt-rear'], ['mid-back', 'delt-side']),
+  ex('reverse-pec-deck', 'เครื่องฟลายไหล่หลัง', 'Reverse pec deck', 'machine', ['delt-rear'], ['mid-back', 'delt-side']),
+  ex('face-pull', 'เฟซพูล', 'Face pull', 'cable', ['delt-rear', 'mid-back'], ['traps-upper']),
+  ex('band-pull-apart', 'ยางยืดดึงแยก', 'Band pull-apart', 'band', ['delt-rear'], ['mid-back']),
   ex('shrug', 'ยักไหล่', 'Shrug', 'db', ['traps-upper'], ['forearms']),
+  ex('bb-shrug', 'ยักไหล่บาร์เบล/สมิธ', 'Barbell / Smith shrug', 'bb', ['traps-upper'], ['forearms']),
   ex('pike-push-up', 'วิดพื้นก้นโด่ง', 'Pike push-up', 'bw', ['delt-front'], ['triceps', 'chest-upper']),
 
   ex('db-curl', 'ดัมเบลเคิร์ล', 'Dumbbell curl', 'db', ['biceps'], ['forearms']),
+  ex('bb-curl', 'บาร์เบล/EZ เคิร์ล', 'Barbell / EZ-bar curl', 'bb', ['biceps'], ['forearms']),
+  ex('preacher-curl', 'พรีชเชอร์เคิร์ล', 'Preacher curl', 'machine', ['biceps'], ['forearms']),
+  ex('cable-curl', 'เคเบิลเคิร์ล', 'Cable curl', 'cable', ['biceps'], ['forearms']),
+  ex('incline-db-curl', 'ดัมเบลเคิร์ลม้าเอียง', 'Incline dumbbell curl', 'db', ['biceps'], ['forearms']),
+  ex('concentration-curl', 'คอนเซนเทรชันเคิร์ล', 'Concentration curl', 'db', ['biceps']),
   ex('hammer-curl', 'แฮมเมอร์เคิร์ล', 'Hammer curl', 'db', ['biceps', 'forearms']),
-  ex('triceps-pushdown', 'เคเบิลกดแขนหลัง', 'Triceps pushdown', 'mc', ['triceps']),
+  ex('reverse-curl', 'รีเวิร์สเคิร์ล', 'Reverse curl', 'bb', ['forearms'], ['biceps']),
+  ex('triceps-pushdown', 'เคเบิลกดแขนหลัง', 'Triceps pushdown', 'cable', ['triceps']),
+  ex('rope-pushdown', 'เคเบิลกดเชือก', 'Rope pushdown', 'cable', ['triceps']),
   ex('overhead-triceps-ext', 'เหยียดแขนหลังเหนือศีรษะ', 'Overhead triceps extension', 'db', ['triceps']),
-  ex('bench-dip', 'ดิปม้านั่ง', 'Bench dip', 'bw', ['triceps'], ['delt-front', 'chest-lower']),
-  ex('close-grip-push-up', 'วิดพื้นมือแคบ', 'Close-grip push-up', 'bw', ['triceps'], ['chest-lower', 'delt-front']),
+  ex('overhead-cable-ext', 'เคเบิลเหยียดแขนเหนือศีรษะ', 'Overhead cable triceps extension', 'cable', ['triceps']),
+  ex('skull-crusher', 'สกัลครัชเชอร์', 'Skull crusher', 'bb', ['triceps']),
+  ex('db-kickback', 'ดัมเบลคิกแบ็ก', 'Dumbbell triceps kickback', 'db', ['triceps']),
+  ex('close-grip-bench', 'เบนช์เพรสมือแคบ', 'Close-grip bench press', 'bb', ['triceps'], ['chest-lower', 'chest-upper', 'delt-front']),
+  ex('triceps-dip', 'ดิปแขนหลัง', 'Triceps dip', 'bw', ['triceps'], ['chest-lower', 'delt-front']),
+  ex('assisted-dip', 'เครื่องช่วยดิป/ดิปนั่ง', 'Assisted / seated dip machine', 'machine', ['triceps'], ['chest-lower', 'delt-front']),
+  ex('bench-dip', 'ดิปม้านั่ง', 'Bench dip', 'bw', ['triceps'], ['delt-front', 'chest-lower', 'chest-upper']),
+  ex('close-grip-push-up', 'วิดพื้นมือแคบ', 'Close-grip push-up', 'bw', ['triceps'], ['chest-lower', 'delt-front', 'chest-upper']),
   ex('wrist-curl', 'เคิร์ลข้อมือ', 'Wrist curl', 'db', ['forearms']),
-  ex('farmer-carry', 'เดินถือดัมเบล', "Farmer's carry", 'db', ['forearms', 'traps-upper'], ['abs', 'glutes']),
+  ex('reverse-wrist-curl', 'เคิร์ลข้อมือคว่ำ', 'Reverse wrist curl', 'db', ['forearms']),
+  ex('farmer-carry', 'เดินถือดัมเบล', "Farmer's carry", 'db', ['forearms', 'traps-upper'], ['obliques', 'glute-med']),
 
   ex('plank', 'แพลงก์', 'Plank', 'bw', ['abs'], ['obliques', 'delt-front', 'glutes']),
   ex('crunch', 'ครันช์', 'Crunch', 'bw', ['abs'], ['obliques']),
-  ex('leg-raise', 'นอนยกขา', 'Lying leg raise', 'bw', ['abs', 'hip-flexor']),
+  ex('sit-up', 'ซิทอัพ', 'Sit-up', 'bw', ['abs'], ['hip-flexor', 'obliques']),
+  ex('reverse-crunch', 'รีเวิร์สครันช์', 'Reverse crunch', 'bw', ['abs'], ['obliques', 'hip-flexor']),
+  ex('bicycle-crunch', 'ครันช์ปั่นจักรยาน', 'Bicycle crunch', 'bw', ['abs', 'obliques'], ['hip-flexor']),
+  ex('cable-crunch', 'เคเบิลครันช์', 'Cable crunch', 'cable', ['abs'], ['obliques']),
+  ex('ab-machine', 'เครื่องครันช์', 'Ab crunch machine', 'machine', ['abs'], ['obliques']),
+  ex('ab-wheel', 'ล้อบริหารหน้าท้อง', 'Ab wheel rollout', 'bw', ['abs'], ['obliques', 'lats', 'hip-flexor']),
+  ex('dead-bug', 'เดดบัก', 'Dead bug', 'bw', ['abs'], ['obliques', 'hip-flexor']),
+  ex('mountain-climber', 'เมาน์เทนไคลม์เบอร์', 'Mountain climber', 'bw', ['abs'], ['hip-flexor', 'delt-front', 'quads']),
+  ex('leg-raise', 'นอนยกขา', 'Lying leg raise', 'bw', ['hip-flexor'], ['abs', 'obliques']),
   ex('hanging-knee-raise', 'ห้อยตัวยกเข่า', 'Hanging knee raise', 'bw', ['abs', 'hip-flexor'], ['obliques', 'forearms']),
+  ex('hanging-leg-raise', 'ห้อยตัวยกขาตรง', 'Hanging leg raise', 'bw', ['hip-flexor', 'abs'], ['obliques', 'forearms']),
+  ex('captains-chair', 'กัปตันแชร์ยกเข่า', "Captain's chair knee raise", 'machine', ['abs', 'hip-flexor'], ['obliques']),
   ex('side-plank', 'แพลงก์ข้าง', 'Side plank', 'bw', ['obliques'], ['glute-med', 'abs']),
   ex('russian-twist', 'รัสเซียนทวิสต์', 'Russian twist', 'bw', ['obliques'], ['abs', 'hip-flexor']),
+  ex('oblique-crunch', 'ครันช์ข้าง', 'Oblique crunch', 'bw', ['obliques'], ['abs']),
+  ex('cable-woodchop', 'เคเบิลวู้ดช็อป', 'Cable woodchop', 'cable', ['obliques'], ['abs']),
+  ex('rotary-torso', 'เครื่องบิดลำตัว', 'Rotary torso machine', 'machine', ['obliques'], ['abs']),
+  ex('pallof-press', 'พาลอฟเพรส', 'Pallof press', 'cable', ['obliques'], ['abs']),
+  ex('db-side-bend', 'ดัมเบลเอียงข้าง', 'Dumbbell side bend', 'db', ['obliques'], ['lower-back']),
 
-  ex('squat', 'สควอท', 'Squat', 'bb', ['quads', 'glutes'], ['adductors', 'hamstrings', 'lower-back', 'abs']),
-  ex('bodyweight-squat', 'สควอทตัวเปล่า', 'Bodyweight squat', 'bw', ['quads', 'glutes'], ['adductors', 'calves']),
-  ex('leg-press', 'เครื่องเลกเพรส', 'Leg press', 'mc', ['quads'], ['glutes', 'adductors']),
-  ex('lunge', 'ลันจ์', 'Lunge / split squat', 'bw', ['quads', 'glutes'], ['adductors', 'hamstrings', 'glute-med', 'calves']),
-  ex('leg-extension', 'เครื่องเหยียดขา', 'Leg extension', 'mc', ['quads']),
-  ex('hip-thrust', 'ฮิปทรัสต์', 'Hip thrust / glute bridge', 'bb', ['glutes'], ['hamstrings', 'quads', 'glute-med']),
+  ex('squat', 'สควอท', 'Squat', 'bb', ['quads', 'glutes'], ['adductors', 'lower-back', 'abs']),
+  ex('front-squat', 'ฟรอนต์สควอท', 'Front squat', 'bb', ['quads'], ['glutes', 'adductors', 'abs']),
+  ex('smith-squat', 'สมิธสควอท', 'Smith machine squat', 'machine', ['quads', 'glutes'], ['adductors']),
+  ex('hack-squat', 'แฮกสควอท', 'Hack squat', 'machine', ['quads'], ['glutes', 'adductors']),
+  ex('goblet-squat', 'กอบเล็ตสควอท', 'Goblet squat', 'kb', ['quads', 'glutes'], ['adductors', 'abs']),
+  ex('bodyweight-squat', 'สควอทตัวเปล่า', 'Bodyweight squat', 'bw', ['quads', 'glutes'], ['adductors']),
+  ex('wall-sit', 'นั่งพิงกำแพง', 'Wall sit', 'bw', ['quads'], ['glutes']),
+  ex('leg-press', 'เครื่องเลกเพรส', 'Leg press', 'machine', ['quads'], ['glutes', 'adductors']),
+  ex('lunge', 'ลันจ์', 'Lunge / split squat', 'bw', ['quads', 'glutes'], ['adductors', 'glute-med', 'calves']),
+  ex('reverse-lunge', 'ลันจ์ถอยหลัง', 'Reverse lunge', 'db', ['glutes', 'quads'], ['adductors', 'glute-med']),
+  ex('bulgarian-split-squat', 'บัลแกเรียนสปลิทสควอท', 'Bulgarian split squat', 'db', ['quads', 'glutes'], ['adductors', 'glute-med']),
+  ex('step-up', 'สเต็ปอัพ', 'Step-up', 'db', ['quads', 'glutes'], ['glute-med', 'adductors']),
+  ex('leg-extension', 'เครื่องเหยียดขา', 'Leg extension', 'machine', ['quads']),
+  ex('hip-thrust', 'ฮิปทรัสต์', 'Hip thrust / glute bridge', 'bb', ['glutes'], ['hamstrings', 'quads', 'glute-med', 'adductors']),
+  ex('hip-thrust-machine', 'เครื่องฮิปทรัสต์', 'Hip thrust machine', 'machine', ['glutes'], ['hamstrings', 'adductors']),
+  ex('glute-bridge', 'กลูทบริดจ์', 'Glute bridge', 'bw', ['glutes'], ['hamstrings', 'adductors']),
   ex('romanian-deadlift', 'โรมาเนียนเดดลิฟต์', 'Romanian deadlift', 'db', ['hamstrings', 'glutes'], ['lower-back', 'forearms', 'adductors']),
-  ex('leg-curl', 'เครื่องงอขา', 'Leg curl', 'mc', ['hamstrings'], ['calves']),
-  ex('glute-kickback', 'เตะขาไปหลัง', 'Glute kickback', 'mc', ['glutes'], ['hamstrings']),
-  ex('hip-adduction', 'เครื่องหนีบขา', 'Hip adduction', 'mc', ['adductors']),
-  ex('hip-abduction', 'เครื่องกางขา', 'Hip abduction', 'mc', ['glute-med']),
+  ex('stiff-leg-deadlift', 'สติฟเลกเดดลิฟต์', 'Stiff-leg deadlift', 'bb', ['hamstrings'], ['glutes', 'lower-back', 'adductors']),
+  ex('single-leg-rdl', 'เดดลิฟต์ขาเดียว', 'Single-leg Romanian deadlift', 'db', ['hamstrings', 'glutes'], ['glute-med', 'lower-back']),
+  ex('sumo-deadlift', 'ซูโม่เดดลิฟต์', 'Sumo deadlift', 'bb', ['glutes', 'quads', 'adductors'], ['hamstrings', 'lower-back', 'traps-upper', 'forearms']),
+  ex('good-morning', 'กู๊ดมอร์นิ่ง', 'Good morning', 'bb', ['hamstrings'], ['glutes', 'lower-back', 'adductors']),
+  ex('kb-swing', 'เคตเทิลเบลสวิง', 'Kettlebell swing', 'kb', ['glutes', 'hamstrings'], ['lower-back', 'forearms', 'abs']),
+  ex('leg-curl', 'เครื่องงอขา', 'Leg curl', 'machine', ['hamstrings'], ['calves']),
+  ex('seated-leg-curl', 'เครื่องงอขานั่ง', 'Seated leg curl', 'machine', ['hamstrings'], ['calves']),
+  ex('lying-leg-curl', 'เครื่องงอขานอนคว่ำ', 'Lying leg curl', 'machine', ['hamstrings'], ['calves']),
+  ex('nordic-curl', 'นอร์ดิกเคิร์ล', 'Nordic hamstring curl', 'bw', ['hamstrings'], ['calves']),
+  ex('glute-kickback', 'เตะขาไปหลัง', 'Cable glute kickback', 'cable', ['glutes'], ['hamstrings'], ['เคเบิลเตะขาไปหลัง', 'Glute kickback']),
+  ex('machine-kickback-glute', 'เครื่องเตะขาไปหลัง', 'Glute kickback machine', 'machine', ['glutes'], ['hamstrings']),
+  ex('donkey-kick', 'เตะขาท่าคลาน', 'Donkey kick', 'bw', ['glutes'], ['hamstrings']),
+  ex('hip-adduction', 'เครื่องหนีบขา', 'Hip adduction', 'machine', ['adductors']),
+  ex('copenhagen', 'โคเปนเฮเกนแพลงก์', 'Copenhagen plank', 'bw', ['adductors'], ['obliques']),
+  ex('hip-abduction', 'เครื่องกางขา', 'Hip abduction', 'machine', ['glute-med'], ['glutes']),
+  ex('cable-abduction', 'เคเบิลกางขา', 'Cable hip abduction', 'cable', ['glute-med'], ['glutes']),
+  ex('lateral-band-walk', 'เดินข้างยางยืด', 'Lateral band walk', 'band', ['glute-med'], ['glutes']),
+  ex('clamshell', 'แคลมเชลล์', 'Clamshell', 'band', ['glute-med'], ['glutes']),
   ex('sumo-squat', 'สควอทขากว้าง', 'Sumo squat', 'db', ['quads', 'adductors', 'glutes'], ['hamstrings']),
   ex('calf-raise', 'เขย่งยืน', 'Standing calf raise', 'bw', ['calves']),
-  ex('seated-calf-raise', 'เขย่งนั่ง', 'Seated calf raise', 'mc', ['calves']),
+  ex('single-leg-calf', 'เขย่งขาเดียว', 'Single-leg calf raise', 'db', ['calves']),
+  ex('calf-machine', 'เครื่องเขย่งยืน/สมิธ', 'Standing calf raise machine / Smith', 'machine', ['calves']),
+  ex('leg-press-calf', 'เขย่งบนเครื่องเลกเพรส', 'Leg press calf raise', 'machine', ['calves']),
+  ex('seated-calf-raise', 'เขย่งนั่ง', 'Seated calf raise', 'machine', ['calves']),
   ex('tibialis-raise', 'ยกปลายเท้า', 'Tibialis raise', 'bw', ['tibialis']),
 ];
 
@@ -139,8 +250,8 @@ export const EXERCISE_LIBRARY = [
  */
 export const BEGINNER_GROUPS = [
   { id: 'bg-chest', name: 'อก', regions: ['chest-upper', 'chest-lower', 'serratus'], moves: ['วิดพื้น', 'เบนช์เพรส', 'เครื่องดันอก'] },
-  { id: 'bg-back', name: 'หลัง', regions: ['lats', 'mid-back', 'lower-back'], moves: ['ดึงบาร์ลงหน้าอก', 'นั่งดึงเคเบิล', 'ดึงข้อ'] },
-  { id: 'bg-shoulders', name: 'ไหล่', regions: ['delt-front', 'delt-side', 'delt-rear', 'traps-upper', 'neck'], moves: ['ดันไหล่เหนือศีรษะ', 'ยกดัมเบลข้างลำตัว', 'ฟลายไหล่หลัง'] },
+  { id: 'bg-back', name: 'หลัง', regions: ['lats', 'mid-back', 'lower-back', 'traps-upper', 'neck'], moves: ['ดึงบาร์ลงหน้าอก', 'นั่งดึงเคเบิล', 'ดึงข้อ'] },
+  { id: 'bg-shoulders', name: 'ไหล่', regions: ['delt-front', 'delt-side', 'delt-rear'], moves: ['ดันไหล่เหนือศีรษะ', 'ยกดัมเบลข้างลำตัว', 'ฟลายไหล่หลัง'] },
   { id: 'bg-biceps', name: 'แขนหน้า', regions: ['biceps', 'forearms'], moves: ['ดัมเบลเคิร์ล', 'แฮมเมอร์เคิร์ล'] },
   { id: 'bg-triceps', name: 'แขนหลัง', regions: ['triceps'], moves: ['เคเบิลกดแขนหลัง', 'เหยียดแขนหลังเหนือศีรษะ'] },
   { id: 'bg-abs', name: 'หน้าท้อง', regions: ['abs', 'obliques', 'hip-flexor'], moves: ['แพลงก์', 'ครันช์'] },
@@ -158,23 +269,75 @@ export function beginnerGroupOfRegion(regionId) {
 /** Name for a move that stands in for "trained this group" without a specific exercise. */
 export const UNSPECIFIED_MOVE = 'ไม่ระบุท่า';
 
-const LIB_BY_NAME = new Map();
+const libNameKey = (name) => String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
 EXERCISE_LIBRARY.forEach((e) => {
-  LIB_BY_NAME.set(e.name, e);
-  LIB_BY_NAME.set(e.en.toLowerCase(), e);
+  e.img = LIBRARY_IMAGE_IDS[e.id] || '';
 });
 
+const LIB_BY_NAME = new Map();
+EXERCISE_LIBRARY.forEach((e) => {
+  [e.name, e.en, ...e.aka].forEach((n) => {
+    const k = libNameKey(n);
+    if (k && !LIB_BY_NAME.has(k)) LIB_BY_NAME.set(k, e);
+  });
+});
+
+/** Photo database moves not already in the curated library (cardio stays on the wheel). */
+export const EXTRA_EXERCISES = (() => {
+  const curated = new Set(Object.values(LIBRARY_IMAGE_IDS));
+  const byDbId = new Map(EXERCISE_DB.map((d) => [d.id, d]));
+  EXERCISE_LIBRARY.forEach((e) => {
+    const k = e.img && libNameKey(byDbId.get(e.img)?.en);
+    if (k && !LIB_BY_NAME.has(k)) LIB_BY_NAME.set(k, e);
+  });
+  const out = [];
+  EXERCISE_DB.forEach((d) => {
+    if (curated.has(d.id) || d.cat === 'cardio' || !d.p.length) return;
+    const name = LIB_BY_NAME.has(libNameKey(d.th)) ? d.en : d.th;
+    if (LIB_BY_NAME.has(libNameKey(name))) return;
+    const e = { id: `db-${d.id}`, name, en: d.en, eq: d.eq, p: [...d.p], s: d.s.filter((x) => !d.p.includes(x)), aka: [], img: d.id, extra: true };
+    LIB_BY_NAME.set(libNameKey(name), e);
+    if (!LIB_BY_NAME.has(libNameKey(d.en))) LIB_BY_NAME.set(libNameKey(d.en), e);
+    out.push(e);
+  });
+  return out;
+})();
+
+/** Curated moves first, then the photo database. */
+export const ALL_EXERCISES = [...EXERCISE_LIBRARY, ...EXTRA_EXERCISES];
+
+/** Start/end photo URLs for a move ([] when it has no photo). */
+export function exerciseImages(e) {
+  return e?.img ? exerciseImageUrls(e.img) : [];
+}
+
 export function libraryExerciseByName(name) {
-  const s = String(name || '').trim();
-  return LIB_BY_NAME.get(s) || LIB_BY_NAME.get(s.toLowerCase()) || null;
+  return LIB_BY_NAME.get(libNameKey(name)) || null;
 }
 
 /** First match wins, so specific phrases precede broad ones (e.g. หลังขา before หลัง). */
 const GUESS_RULES = [
-  [/อกบน|upper chest|incline/i, ['chest-upper'], ['delt-front', 'triceps']],
+  [/(leg|hamstring)\s*curl|nordic|งอขา/i, ['hamstrings']],
+  [/leg\s*extension|เหยียดขา/i, ['quads']],
+  [/wrist\s*curl|เคิร์ลข้อมือ/i, ['forearms']],
+  [/curl|เคิร์ล/i, ['biceps'], ['forearms']],
+  [/upright\s*row|อัพไรท์/i, ['delt-side'], ['traps-upper', 'delt-front']],
+  [/ไหล่\s*·?\s*หลัง|rear delt|reverse (fly|pec)/i, ['delt-rear'], ['mid-back']],
+  [/\brows?\b|โรว์/i, ['mid-back', 'lats'], ['biceps', 'delt-rear']],
+  [/pull[\s-]*down|pull[\s-]*ups?\b|chin[\s-]*ups?\b|ดึงบาร์ลง|ดึงข้อ/i, ['lats'], ['biceps', 'mid-back']],
+  [/calf|calves|เขย่ง/i, ['calves']],
+  [/squat|สควอท|lunge|ลันจ์|leg\s*press|เลกเพรส|step[\s-]*up/i, ['quads', 'glutes'], ['adductors']],
+  [/romanian|\brdl\b|stiff[\s-]*leg|good\s*morning|deadlift|เดดลิฟต์/i, ['hamstrings', 'glutes'], ['lower-back', 'forearms']],
+  [/hip\s*thrust|glute\s*bridge|ฮิปทรัสต์|บริดจ์/i, ['glutes'], ['hamstrings', 'adductors']],
+  [/lateral\s*raise|side\s*raise|ยกไหล่ข้าง|ยกดัมเบลข้าง/i, ['delt-side'], ['delt-front', 'traps-upper']],
+  [/overhead\s*press|shoulder\s*press|military|ดันไหล่/i, ['delt-front'], ['delt-side', 'triceps']],
+  [/อกบน|upper chest|incline(?!\s*(walk|treadmill))/i, ['chest-upper'], ['delt-front', 'triceps']],
+  [/bench\s*press|chest\s*press|push[\s-]*ups?\b|วิดพื้น|เบนช์|ดันอก/i, ['chest-lower'], ['chest-upper', 'delt-front', 'triceps']],
+  [/crunch|sit[\s-]*up|plank|ครันช์|ซิทอัพ|แพลงก์/i, ['abs'], ['obliques']],
   [/อกล่าง|อกกลาง|lower chest/i, ['chest-lower'], ['delt-front', 'triceps']],
+  [/\bfly|\bflye|ฟลาย|บีบอก|pec[\s-]*deck/i, ['chest-lower'], ['chest-upper', 'delt-front']],
   [/ไหล่\s*·?\s*ข้าง|lateral delt|side delt/i, ['delt-side'], ['traps-upper']],
-  [/ไหล่\s*·?\s*หลัง|rear delt/i, ['delt-rear'], ['mid-back']],
   [/ไหล่\s*·?\s*(หน้า|หลัก)|front delt/i, ['delt-front'], ['delt-side', 'triceps']],
   [/หลัง\s*ขา|ขา\s*หลัง|ต้นขาหลัง|hamstring/i, ['hamstrings'], ['glutes']],
   [/หน้า\s*ขา|ขา\s*หน้า|ต้นขาหน้า|quad/i, ['quads'], ['glutes']],
@@ -265,18 +428,28 @@ export function restRemaining(days, restDays) {
   return Math.max(0, restDays - days);
 }
 
+/** Share of a muscle's rest that a secondary hit uses up. */
+export const SECONDARY_REST_SHARE = 0.5;
+
 /**
- * Per-region recovery from trained moves: the most recent hit wins (a primary hit
- * beats a secondary one on the same day).
+ * Per-region recovery from trained moves: the hit leaving the most rest still to go wins
+ * (a secondary hit needs rest × SECONDARY_REST_SHARE); ties go to the most recent hit.
+ * `rest` is the rest that hit needs; `full` is the muscle's full rest.
  * @param {{ p: string[], s: string[], days: number|null, last: string }[]} moves
  * @returns {Map<string, { days: number, via: 'p'|'s', last: string, rest: number }>}
  */
 export function computeRegionRest(moves, profile) {
   const out = new Map();
   const consider = (id, days, last, via) => {
+    const full = regionRestDays(profile, id);
+    const rest = via === 's' ? full * SECONDARY_REST_SHARE : full;
+    const left = rest - days;
     const prev = out.get(id);
-    if (prev && (prev.days < days || (prev.days === days && (prev.via === 'p' || via === 's')))) return;
-    out.set(id, { days, via, last, rest: regionRestDays(profile, id) });
+    if (prev) {
+      const prevLeft = prev.rest - prev.days;
+      if (prevLeft > left || (prevLeft === left && (prev.days < days || (prev.days === days && prev.via === 'p')))) return;
+    }
+    out.set(id, { days, via, last, rest, full });
   };
   moves.forEach((m) => {
     if (m.days == null) return;

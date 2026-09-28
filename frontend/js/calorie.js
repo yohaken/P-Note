@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=317';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=318';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -15,7 +15,7 @@ import {
   muscleTreeLabels,
   normalizeMuscleTree,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=317';
+} from './muscle-tree.js?v=318';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -1291,7 +1291,7 @@ function reconcileTreeExercises(day, tree, moveIndex) {
  * Rebuild a day's exercise slots from muscle leaf cells for that date,
  * keeping freeform slots whose labels are not tree leaves.
  */
-export function applyMuscleDayExercises(sheet, tree, dateKey) {
+export function applyMuscleDayExercises(sheet, tree, dateKey, { staleLabels = null } = {}) {
   const t = normalizeMuscleTree(tree || sheet?.muscleTree);
   const muscleSlots = muscleSlotsForDate(t, dateKey).map((s) =>
     formatExerciseCell(s.burn, s.label),
@@ -1301,7 +1301,7 @@ export function applyMuscleDayExercises(sheet, tree, dateKey) {
   const kept = normalizeExercises(day.exercises).filter((cell) => {
     const p = parseExerciseCell(cell);
     if (p.empty) return false;
-    return !treeLabels.has(p.label);
+    return !treeLabels.has(p.label) && !staleLabels?.has(p.label);
   });
   const exercises = normalizeExercises([...muscleSlots, ...kept]);
   const mus = sumExerciseBurn(exercises) || null;

@@ -10056,3 +10056,462 @@ body.light .bm-halo {
   color: #c2410c;
 }
 
+/* Exercise picker (+ ท่า) */
+.xp-sheet {
+  height: min(88vh, 44rem);
+}
+.xp-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xp-back[hidden] {
+  display: none;
+}
+.xp-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.xp-search:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -1px;
+}
+.xp-chips {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  flex-shrink: 0;
+  padding-bottom: 0.1rem;
+  scrollbar-width: none;
+}
+.xp-chips::-webkit-scrollbar {
+  display: none;
+}
+.xp-chip {
+  flex-shrink: 0;
+  padding: 0.22rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.xp-chip.is-on {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--text);
+}
+.xp-body {
+  padding-bottom: 3rem;
+}
+.xp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+@media (min-width: 420px) {
+  .xp-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.xp-group {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.6rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.xp-group:active {
+  background: var(--surface-2);
+}
+.xp-group-name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+.xp-group-count {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.xp-dot {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--text-muted) 55%, transparent);
+}
+.xp-dot.is-ok {
+  background: #22c55e;
+}
+.xp-dot.is-rest {
+  background: #f59e0b;
+}
+.xp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
+  margin: 0.55rem 0 0;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+.xp-legend .xp-dot {
+  margin-left: 0.25rem;
+}
+.xp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.xp-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.25rem;
+  align-items: center;
+}
+.xp-row-main {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.3rem 0.5rem 0.3rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.xp-row-main:active {
+  background: var(--surface-2);
+}
+.xp-thumb {
+  appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+}
+.xp-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+}
+.xp-thumb-badge {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: flex;
+  height: 22px;
+  padding: 1px 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface, #fff) 85%, transparent);
+}
+.xp-thumb-body {
+  display: flex;
+  height: 44px;
+}
+.xp-thumb .bm-svg {
+  height: 100%;
+  width: auto;
+  pointer-events: none;
+}
+.xp-thumb .bm-part {
+  stroke-width: 0.25;
+}
+.xp-thumb .bm-part.is-muscle {
+  cursor: inherit;
+}
+.bm-part.is-muscle.xp-p {
+  fill: var(--accent);
+}
+.bm-part.is-muscle.xp-s {
+  fill: color-mix(in srgb, var(--accent) 38%, var(--surface));
+}
+.xp-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.xp-row-name {
+  font-size: 0.86rem;
+  font-weight: 750;
+  line-height: 1.3;
+}
+.xp-row-meta {
+  display: block;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xp-tag {
+  display: inline-block;
+  margin-left: 0.2rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 0.6rem;
+  font-weight: 800;
+  vertical-align: 0.1em;
+}
+.xp-star {
+  appearance: none;
+  width: 2rem;
+  height: 2.2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.xp-star.is-on {
+  color: #f59e0b;
+}
+.xp-today {
+  padding: 0.45rem 0.55rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.xp-empty {
+  margin: 0.5rem 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+.xp-custom {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.xp-custom-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-weight: 800;
+}
+.xp-toast {
+  position: absolute;
+  left: 0.8rem;
+  right: 0.8rem;
+  bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  background: var(--text);
+  color: var(--surface, var(--bg));
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 6px 18px color-mix(in srgb, #0f172a 25%, transparent);
+}
+.xp-toast[hidden] {
+  display: none;
+}
+.xp-toast-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xp-toast-undo {
+  appearance: none;
+  flex-shrink: 0;
+  padding: 0.15rem 0.4rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+
+/* Exercise detail (photo + muscles) */
+.xp-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-bottom: 0.5rem;
+}
+.xp-detail-photo {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.xp-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.xp-detail-photo.is-anim .xp-frame-1 {
+  animation: xp-frame-swap 2.4s steps(1, end) infinite;
+}
+@keyframes xp-frame-swap {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xp-detail-photo.is-anim .xp-frame-1 { animation: none; opacity: 0; }
+}
+.xp-detail-th {
+  margin: 0.2rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.xp-detail-en {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.xp-detail-muscles {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: center;
+}
+.xp-chips[hidden], .xp-search[hidden] {
+  display: none;
+}
+.xp-detail-body {
+  display: flex;
+  overflow: hidden;
+}
+.xp-detail-body .bm-pair {
+  height: auto;
+}
+.xp-detail-body .bm-svg {
+  height: 110px;
+  width: auto;
+}
+.xp-detail-muscles dl {
+  margin: 0;
+  font-size: 0.82rem;
+}
+.xp-detail-muscles dt {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.xp-detail-muscles dd {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+.xp-key {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.xp-key.is-s {
+  background: color-mix(in srgb, var(--accent) 38%, var(--surface));
+}
+.xp-detail-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.xp-detail-actions .btn {
+  flex: 1;
+}
+.xp-credit {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-align: center;
+}
+
+/* Pose thumbnail beside a move name in the muscle table */
+.mt-ex-thumb {
+  appearance: none;
+  flex-shrink: 0;
+  width: 30px;
+  height: 22px;
+  padding: 0;
+  margin-right: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+}
+.mt-ex-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  pointer-events: none;
+}
