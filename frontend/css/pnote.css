@@ -9555,6 +9555,27 @@ body.calorie-muscle-pane #calorie-view {
 .muscle-table .mt-col-rest.is-none .mt-rest-val {
   justify-content: center;
 }
+.muscle-table .mt-rest-half {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-style: normal;
+  font-size: 0.56rem;
+  font-weight: 800;
+  opacity: 0.8;
+}
+.muscle-table .mt-dose {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1.05rem;
+  text-align: center;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.muscle-table .mt-dose.is-half {
+  color: var(--text-muted);
+  font-weight: 700;
+}
 .muscle-table tr.is-group .mt-rest-val {
   margin: 0.05rem 0;
   line-height: 0.9rem;
@@ -9722,6 +9743,85 @@ body.calorie-muscle-pane #calorie-view {
     stroke: var(--text);
     stroke-width: 0.3;
   }
+}
+
+/* Body stats strip + fat halo (เงาไขมัน) */
+.muscle-body-card {
+  --bm-halo: #f59e0b;
+}
+.mbc-fat-toggle {
+  padding: 0.08rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mbc-fat-toggle.is-on {
+  border-color: color-mix(in srgb, var(--bm-halo) 60%, transparent);
+  background: color-mix(in srgb, var(--bm-halo) 16%, transparent);
+  color: var(--text);
+}
+.mbc-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.18rem;
+  margin: 0 0 0.3rem;
+}
+.mbc-stats:empty {
+  display: none;
+}
+.mbc-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  padding: 0.05rem 0.32rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.58rem;
+  line-height: 1.35;
+  color: var(--text);
+  white-space: nowrap;
+}
+.mbc-chip b {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.mbc-chip-k,
+.mbc-chip-u {
+  color: var(--text-muted);
+}
+.bm-pair.has-halo {
+  gap: calc(0.6rem + (var(--bm-halo-sx, 1) - 1) * 4rem);
+}
+.bm-halo {
+  fill: var(--bm-halo);
+  stroke: var(--bm-halo);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  opacity: 0.32;
+  pointer-events: none;
+}
+body.light .bm-halo {
+  opacity: 0.5;
+}
+.bm-halo-base {
+  fill: var(--surface);
+  stroke: var(--surface);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.mbc-fat-note {
+  margin: 0.15rem 0 0;
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--bm-halo) 70%, var(--text));
+  cursor: help;
 }
 .me-key {
   padding: 0 0.3rem;

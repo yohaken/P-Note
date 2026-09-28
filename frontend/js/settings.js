@@ -1,12 +1,12 @@
-import { STORAGE_KEYS } from './config.js?v=313';
-import { compareStamp, nowIso } from './clock.js?v=313';
-import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=313';
+import { STORAGE_KEYS } from './config.js?v=314';
+import { compareStamp, nowIso } from './clock.js?v=314';
+import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=314';
 import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
-} from './schedule.js?v=313';
-import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=313';
-import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=313';
+} from './schedule.js?v=314';
+import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=314';
+import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=314';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,

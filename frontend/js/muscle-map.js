@@ -3,7 +3,7 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=313';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=314';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },
@@ -171,32 +171,32 @@ export function libraryExerciseByName(name) {
 
 /** First match wins, so specific phrases precede broad ones (e.g. หลังขา before หลัง). */
 const GUESS_RULES = [
-  [/อกบน|upper chest|incline/i, ['chest-upper']],
-  [/อกล่าง|อกกลาง|lower chest/i, ['chest-lower']],
-  [/ไหล่\s*·?\s*ข้าง|lateral delt|side delt/i, ['delt-side']],
-  [/ไหล่\s*·?\s*หลัง|rear delt/i, ['delt-rear']],
-  [/ไหล่\s*·?\s*(หน้า|หลัก)|front delt/i, ['delt-front']],
-  [/หลัง\s*ขา|ขา\s*หลัง|ต้นขาหลัง|hamstring/i, ['hamstrings']],
-  [/หน้า\s*ขา|ขา\s*หน้า|ต้นขาหน้า|quad/i, ['quads']],
+  [/อกบน|upper chest|incline/i, ['chest-upper'], ['delt-front', 'triceps']],
+  [/อกล่าง|อกกลาง|lower chest/i, ['chest-lower'], ['delt-front', 'triceps']],
+  [/ไหล่\s*·?\s*ข้าง|lateral delt|side delt/i, ['delt-side'], ['traps-upper']],
+  [/ไหล่\s*·?\s*หลัง|rear delt/i, ['delt-rear'], ['mid-back']],
+  [/ไหล่\s*·?\s*(หน้า|หลัก)|front delt/i, ['delt-front'], ['delt-side', 'triceps']],
+  [/หลัง\s*ขา|ขา\s*หลัง|ต้นขาหลัง|hamstring/i, ['hamstrings'], ['glutes']],
+  [/หน้า\s*ขา|ขา\s*หน้า|ต้นขาหน้า|quad/i, ['quads'], ['glutes']],
   [/ขาด้านใน|ขาหนีบ|adductor/i, ['adductors']],
   [/ข้าง\s*ขา|ขา\s*ข้าง|ขาด้านนอก|abduct/i, ['glute-med']],
-  [/หลังล่าง|lower back/i, ['lower-back']],
+  [/หลังล่าง|lower back/i, ['lower-back'], ['glutes', 'hamstrings']],
   [/แขน\s*หลัง|หลัง\s*แขน|ไตรเซ|tricep/i, ['triceps']],
-  [/แขน\s*หน้า|หน้า\s*แขน|ไบเซ|bicep/i, ['biceps']],
+  [/แขน\s*หน้า|หน้า\s*แขน|ไบเซ|bicep/i, ['biceps'], ['forearms']],
   [/แขนท่อนล่าง|แขนล่าง|ปลายแขน|forearm/i, ['forearms']],
-  [/ท้อง\s*ข้าง|ข้าง\s*ท้อง|เอวข้าง|oblique/i, ['obliques']],
+  [/ท้อง\s*ข้าง|ข้าง\s*ท้อง|เอวข้าง|oblique/i, ['obliques'], ['abs']],
   [/ก้น\s*ข้าง|glute med/i, ['glute-med']],
-  [/ก้น|glute/i, ['glutes']],
+  [/ก้น|glute/i, ['glutes'], ['hamstrings']],
   [/น่อง|calf|calves/i, ['calves']],
   [/หน้าแข้ง|tibialis/i, ['tibialis']],
   [/บ่า|trap|shrug|ยักไหล่/i, ['traps-upper']],
-  [/ปีก|\blats?\b/i, ['lats']],
-  [/อก|chest|pec/i, ['chest-upper', 'chest-lower']],
-  [/ไหล่|shoulder|delt/i, ['delt-front', 'delt-side']],
-  [/ท้อง|\babs?\b|core|แกนกลาง/i, ['abs']],
-  [/หลัง|back/i, ['lats', 'mid-back']],
-  [/ขา|leg/i, ['quads', 'hamstrings', 'glutes']],
-  [/แขน|arm/i, ['biceps', 'triceps']],
+  [/ปีก|\blats?\b/i, ['lats'], ['biceps', 'mid-back']],
+  [/อก|chest|pec/i, ['chest-upper', 'chest-lower'], ['delt-front', 'triceps']],
+  [/ไหล่|shoulder|delt/i, ['delt-front', 'delt-side'], ['triceps', 'traps-upper']],
+  [/ท้อง|\babs?\b|core|แกนกลาง/i, ['abs'], ['obliques']],
+  [/หลัง|back/i, ['lats', 'mid-back'], ['biceps', 'delt-rear']],
+  [/ขา|leg/i, ['quads', 'hamstrings', 'glutes'], ['adductors']],
+  [/แขน|arm/i, ['biceps', 'triceps'], ['forearms']],
 ];
 
 /** Rules from here on are whole-area fallbacks (อก, ไหล่, หลัง …). */
@@ -204,7 +204,7 @@ const GUESS_BROAD_FROM = GUESS_RULES.findIndex(([re]) => re.test('อก'));
 
 function matchGuess(text) {
   const i = text ? GUESS_RULES.findIndex(([re]) => re.test(text)) : -1;
-  return i < 0 ? null : { i, p: [...GUESS_RULES[i][1]], s: [] };
+  return i < 0 ? null : { i, p: [...GUESS_RULES[i][1]], s: [...(GUESS_RULES[i][2] || [])] };
 }
 
 /** The move name decides; the group name only helps when the move name alone is vague (e.g. แขน › หลัง). */
@@ -335,4 +335,110 @@ export function renderBodyPairHtml(paint, { compact = false } = {}) {
     <figure class="bm-side">${renderBodySvg('front', paint)}<figcaption>หน้า</figcaption></figure>
     <figure class="bm-side">${renderBodySvg('back', paint)}<figcaption>หลัง</figcaption></figure>
   </div>`;
+}
+
+/** Healthy body-fat % used as the lean reference body. */
+export const LEAN_REF_BODY_FAT = { male: 15, female: 23 };
+
+export const BODY_FAT_MODEL_HINT =
+  'ร่างลีน = มวลไร้ไขมัน (FFM) เท่าเดิม ที่ไขมันสุขภาพดี (ชาย 15% · หญิง 23%) · '
+  + 'น้ำหนักร่างลีน = FFM ÷ (1 − ไขมันอ้างอิง) · '
+  + 'ความกว้างเงาส้ม = √(น้ำหนักจริง ÷ น้ำหนักร่างลีน) (ส่วนสูงเท่าเดิม ความกว้างโตตาม √มวล) · '
+  + 'ถ้าไม่มี %ไขมัน ประมาณจาก BMI (Deurenberg: 1.2×BMI + 0.23×อายุ − 10.8×ชาย − 5.4)';
+
+/** Deurenberg (1991) adult body-fat % from BMI. */
+export function estimateBodyFatDeurenberg(bmi, age, sex) {
+  if (!Number.isFinite(bmi) || bmi <= 0 || !Number.isFinite(age)) return null;
+  const pct = 1.2 * bmi + 0.23 * age - 10.8 * (sex === 'female' ? 0 : 1) - 5.4;
+  return Math.round(Math.min(60, Math.max(3, pct)) * 10) / 10;
+}
+
+/**
+ * Current body vs a lean reference with the same fat-free mass.
+ * @returns {null | { bodyFatPct, estimated, refPct, ffm, fatKg, refWeight, excessKg, sx }}
+ * sx = horizontal scale of the current outline vs the lean body (1 = within lean range).
+ */
+export function bodyFatHaloModel({ weight, bodyFatPct, bmi, age, sex } = {}) {
+  if (!Number.isFinite(weight) || weight <= 0) return null;
+  let pct = Number.isFinite(bodyFatPct) ? bodyFatPct : null;
+  const estimated = pct == null;
+  if (estimated) pct = estimateBodyFatDeurenberg(bmi, age, sex);
+  if (pct == null) return null;
+  const refPct = sex === 'female' ? LEAN_REF_BODY_FAT.female : LEAN_REF_BODY_FAT.male;
+  const ffm = weight * (1 - pct / 100);
+  const refWeight = ffm / (1 - refPct / 100);
+  const excessKg = weight - refWeight;
+  const sx = excessKg > 0 ? Math.min(1.45, Math.sqrt(weight / refWeight)) : 1;
+  const r1 = (n) => Math.round(n * 10) / 10;
+  return {
+    bodyFatPct: pct,
+    estimated,
+    refPct,
+    ffm: r1(ffm),
+    fatKg: r1(weight - ffm),
+    refWeight: r1(refWeight),
+    excessKg: r1(excessKg),
+    sx: Math.round(sx * 1000) / 1000,
+  };
+}
+
+function haloGroup(side, sx) {
+  const parts = side === 'back' ? BODY_BACK : BODY_FRONT;
+  const cx = side === 'back' ? 54.5 : 17.5;
+  const d = parts.map(([, p]) => `<path d="${p}"/>`).join('');
+  return `<g class="bm-halo" aria-hidden="true" transform="translate(${cx} 0) scale(${sx} 1) translate(${-cx} 0)">${d}</g>`
+    + `<g class="bm-halo-base" aria-hidden="true">${d}</g>`;
+}
+
+/**
+ * Same as renderBodyPairHtml, plus an optional amber halo (current size) scaled
+ * horizontally around each view's center axis behind the lean body.
+ * @param {{ compact?: boolean, halo?: { sx: number } | null }} opts
+ */
+export function renderBodyPairHaloHtml(paint, { compact = false, halo = null } = {}) {
+  const sx = Number(halo?.sx);
+  if (!(sx > 1.001)) return renderBodyPairHtml(paint, { compact });
+  const side = (s) => renderBodySvg(s, paint).replace(/^(<svg[^>]*>)/, `$1${haloGroup(s, sx)}`);
+  return `<div class="bm-pair has-halo${compact ? ' is-compact' : ''}" style="--bm-halo-sx:${sx}">
+    <figure class="bm-side">${side('front')}<figcaption>หน้า</figcaption></figure>
+    <figure class="bm-side">${side('back')}<figcaption>หลัง</figcaption></figure>
+  </div>`;
+}
+
+function fmtStat(v, digits = 1) {
+  if (!Number.isFinite(v)) return '—';
+  return Number.isInteger(v) ? String(v) : v.toFixed(digits);
+}
+
+/**
+ * Tiny chips: height, age, sex, weight, waist, fat%, BMI, fat kg, FFM kg, WHtR.
+ * @param {{ heightCm, age, sex, weight, waist, bmi, whtr, model }} s
+ */
+export function renderBodyStatsHtml(s = {}) {
+  const m = s.model;
+  const est = m?.estimated ? '~' : '';
+  const chip = (label, value, unit = '', title = '') =>
+    `<span class="mbc-chip"${title ? ` title="${esc(title)}"` : ''}><span class="mbc-chip-k">${esc(label)}</span><b>${esc(value)}</b>${unit && value !== '—' ? `<span class="mbc-chip-u">${esc(unit)}</span>` : ''}</span>`;
+  const sexLabel = s.sex === 'female' ? 'หญิง' : s.sex === 'male' ? 'ชาย' : '—';
+  const fatVal = m ? `${est}${fmtStat(m.bodyFatPct)}` : '—';
+  return [
+    chip('สูง', fmtStat(s.heightCm, 0), 'ซม.'),
+    chip('อายุ', fmtStat(s.age, 0), 'ปี'),
+    chip('เพศ', sexLabel),
+    chip('หนัก', fmtStat(s.weight), 'กก.'),
+    chip('เอว', fmtStat(s.waist), 'ซม.'),
+    chip('ไขมัน', fatVal, '%', m?.estimated ? 'ประมาณจาก BMI (Deurenberg)' : ''),
+    chip('BMI', fmtStat(s.bmi)),
+    chip('มวลไขมัน', m ? `${est}${fmtStat(m.fatKg)}` : '—', 'กก.'),
+    chip('ไร้ไขมัน', m ? `${est}${fmtStat(m.ffm)}` : '—', 'กก.', 'มวลไร้ไขมัน (FFM/LBM)'),
+    chip('เอว/สูง', Number.isFinite(s.whtr) ? s.whtr.toFixed(2) : '—', '', 'WHtR · ควร < 0.5'),
+  ].join('');
+}
+
+/** One-line caption under the map for the fat halo. */
+export function bodyFatHaloCaption(model) {
+  if (!model) return 'ยังไม่มีน้ำหนัก — ใส่น้ำหนักในแคลอรี่เพื่อดูเงาไขมัน';
+  const pct = `${fmtStat(model.bodyFatPct)}%${model.estimated ? ' (ประมาณ)' : ''}`;
+  if (model.excessKg <= 0) return `ไขมัน ${pct} · อยู่ในช่วงร่างลีนแล้ว (≤ ${model.refPct}%)`;
+  return `ไขมัน ${pct} · เกินร่างลีน ~${fmtStat(model.excessKg)} กก.`;
 }

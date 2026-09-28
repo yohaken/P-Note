@@ -1,5 +1,5 @@
-import { CONFIG } from './config.js?v=313';
-import { saveNotes, markCloudPending, clearCloudPending } from './local.js?v=313';
+import { CONFIG } from './config.js?v=314';
+import { saveNotes, markCloudPending, clearCloudPending } from './local.js?v=314';
 
 export class SaveManager {
   constructor() {
