@@ -368,9 +368,9 @@
       <div id="calorie-muscle-sheet" class="calorie-muscle-sheet" hidden aria-label="ตารางกล้ามเนื้อ">
         <div class="muscle-toolbar">
           <div class="muscle-toolbar-actions">
-            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-btn" title="จัดการทุกแถว: เพิ่ม · แก้ชื่อ · ลบ/ซ่อน · จัดลำดับ">จัดการ</button>
+            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-btn" title="จัดการทุกแถว: เพิ่ม · แก้ชื่อ · ลบ · จัดลำดับ">จัดการ</button>
             <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-rest-btn" title="ตั้งชื่อและสีของแต่ละวันพัก">วันพัก</button>
-            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-expand-all" title="ขยายหรือหุบทุกรายการย่อย" hidden>ขยายทั้งหมด</button>
+            <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-expand-all" title="หุบหรือกางทุกกลุ่มในตาราง">หุบทั้งหมด</button>
             <button type="button" class="btn btn-primary muscle-tool-btn" id="muscle-add-exercise" title="ดูท่าจากคลังพร้อมรูป · กดเล่นวันนี้แล้วติ๊กกล้ามให้เอง">ท่าไกด์</button>
             <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-freeform" title="ใส่วันนี้ด้วยลูกกลิ้ง กลุ่ม · กล้าม (คาร์ดิโอใส่ kcal)">ลูกกลิ้ง</button>
             <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-load-older" title="โหลดวันเก่าเพิ่มอีก 30 วัน · หรือเลื่อนตารางไปขวาสุด" hidden>ย้อนหลังเพิ่ม ›</button>
@@ -397,10 +397,9 @@
       <div class="muscle-manage-backdrop" id="muscle-manage-backdrop"></div>
       <div class="muscle-manage-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-manage-title">
         <div class="muscle-manage-head">
-          <h3 id="muscle-manage-title" class="muscle-manage-title">จัดการกลุ่ม · คาร์ดิโอ</h3>
-          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-close" aria-label="ปิด">ปิด</button>
+          <h3 id="muscle-manage-title" class="muscle-manage-title">จัดการกลุ่ม · คาร์ดิโอ</h3>          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-manage-close" aria-label="ปิด">ปิด</button>
         </div>
-        <p class="rest-edit-hint">ลากจุดหน้าแถวเพื่อย้าย/สลับกลุ่ม · + เพิ่มกล้ามในกลุ่ม · แถวตั้งต้นซ่อนได้</p>
+        <p class="rest-edit-hint">ลากจุดหน้าแถวเพื่อย้าย/สลับกลุ่ม · + เพิ่มกล้ามในกลุ่ม · ลบกลุ่มได้เมื่อว่าง</p>
         <div id="muscle-settings-list" class="muscle-settings-list" aria-label="รายการแถวในตารางกล้าม"></div>
         <div class="muscle-toolbar-actions muscle-manage-actions">
           <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-add-group">+ กลุ่มกล้าม</button>

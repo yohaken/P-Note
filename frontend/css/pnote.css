@@ -9052,6 +9052,8 @@ body.calorie-muscle-pane #calorie-view {
 }
 
 .muscle-manage-title {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   font-size: 1rem;
   font-weight: 750;
@@ -9303,8 +9305,7 @@ body.calorie-muscle-pane #calorie-view {
 .muscle-settings-row > .muscle-settings-pick { grid-area: pick; }
 .muscle-settings-row > .muscle-settings-add { grid-area: add; }
 .muscle-settings-row > .muscle-settings-rename { grid-area: ren; }
-.muscle-settings-row > .muscle-settings-del,
-.muscle-settings-row > .muscle-settings-hide { grid-area: del; }
+.muscle-settings-row > .muscle-settings-del { grid-area: del; }
 .muscle-settings-row > .muscle-settings-move { grid-area: add; }
 
 .muscle-settings-move {
@@ -9347,15 +9348,6 @@ body.calorie-muscle-pane #calorie-view {
   font-weight: 700;
 }
 
-.muscle-settings-row.is-hidden .muscle-settings-pick {
-  border-style: dashed;
-  color: var(--text-muted);
-}
-.muscle-settings-row.is-hidden .muscle-settings-name {
-  text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent);
-}
-
 .muscle-settings-chev {
   flex: 0 0 auto;
   width: 0.7rem;
@@ -9367,17 +9359,6 @@ body.calorie-muscle-pane #calorie-view {
   flex: 0 0 auto;
   font-size: 0.66rem;
   color: var(--text-muted);
-}
-
-.muscle-settings-hidden-tag {
-  flex: 0 0 auto;
-  margin-left: auto;
-  font-size: 0.64rem;
-  padding: 0 0.3rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  white-space: nowrap;
 }
 
 .muscle-settings-pick {
@@ -9415,8 +9396,7 @@ body.calorie-muscle-pane #calorie-view {
 
 .muscle-settings-add,
 .muscle-settings-rename,
-.muscle-settings-del,
-.muscle-settings-hide {
+.muscle-settings-del {
   width: 100%;
   min-height: 2rem;
   padding: 0.3rem 0.2rem;
@@ -9436,9 +9416,17 @@ body.calorie-muscle-pane #calorie-view {
   color: #b91c1c;
 }
 
-.muscle-settings-hide[disabled] {
-  opacity: 0.45;
-  cursor: default;
+/* Group still has rows: stays tappable so the toast can say why it can't be deleted. */
+.muscle-settings-del.is-blocked {
+  opacity: 0.4;
+}
+
+.muscle-settings-restore {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.74rem;
 }
 
 /* Drag handle: touch-action none so a finger drag moves the row instead of scrolling the list. */
@@ -9581,6 +9569,17 @@ body.muscle-dragging * {
   word-break: break-word;
   line-height: 1.25;
   font-size: 0.72rem;
+}
+
+.mt-name-btn.is-group-toggle .mt-name-text::before {
+  content: '▸';
+  display: inline-block;
+  width: 1em;
+  font-size: 0.95em;
+  color: var(--text-muted);
+}
+.mt-row.is-open .mt-name-btn.is-group-toggle .mt-name-text::before {
+  content: '▾';
 }
 
 .mt-del-btn {

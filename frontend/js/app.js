@@ -181,7 +181,6 @@ import {
   canReparentMuscleNode,
   muscleLeafIndex,
   manageRows,
-  isRowHidden,
   setRowHidden,
 } from './muscle-tree.js?v=333';
 import {
@@ -2899,9 +2898,24 @@ let calorieQuickMode = null; // 'meal' | 'mus'
 let calorieQuickEdit = null;
 /** Selected muscle tree node id (for +ย่อย / rename). */
 let muscleSelectedId = null;
-/** Muscle table starts collapsed (category rows only). */
-const muscleExpandAll = true;
-const muscleExpandedIds = new Set();
+/** Groups folded in the muscle table (all open by default); per device, not synced. */
+const MUSCLE_COLLAPSED_KEY = 'pnote_muscle_collapsed';
+const muscleCollapsedIds = new Set((() => {
+  try {
+    const v = JSON.parse(localStorage.getItem(MUSCLE_COLLAPSED_KEY) || '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+})());
+
+function saveMuscleCollapsed() {
+  try { localStorage.setItem(MUSCLE_COLLAPSED_KEY, JSON.stringify([...muscleCollapsedIds])); } catch { /* ignore */ }
+}
+
+function unfoldMuscleGroup(id) {
+  if (id && muscleCollapsedIds.delete(id)) saveMuscleCollapsed();
+}
 /** Groups open in the manage sheet (sheet-local; reset on open). */
 const muscleManageOpen = new Set();
 /** Live drag in the manage list (row, pointer, drop target) — null when idle. */
@@ -3556,8 +3570,8 @@ function paintMuscleSheet() {
     dates,
     selectedId: muscleSelectedId || '',
     todayKey,
-    expandAll: muscleExpandAll,
-    expandedIds: muscleExpandedIds,
+    expandAll: false,
+    expandedIds: muscleOpenGroupIds(),
   });
   fitMuscleNameColumn(host);
   fitMuscleScrollHeight();
@@ -3622,26 +3636,38 @@ function fitMuscleRestColumn(table) {
   table.style.setProperty('--mt-rest-w', `${Math.ceil(Math.max(max + 6, 34))}px`);
 }
 
+/** Table groups that can fold (roots with rows under them). */
+function muscleFoldableGroupIds() {
+  const nodes = muscleLayoutView().nodes;
+  const withKids = new Set(nodes.filter((n) => n.parentId).map((n) => n.parentId));
+  return nodes.filter((n) => !n.parentId && withKids.has(n.id)).map((n) => n.id);
+}
+
+function muscleOpenGroupIds() {
+  return new Set(muscleFoldableGroupIds().filter((id) => !muscleCollapsedIds.has(id)));
+}
+
 function syncMuscleExpandBtn() {
   if (!els.muscleExpandAllBtn) return;
-  els.muscleExpandAllBtn.textContent = muscleExpandAll ? 'หุบทั้งหมด' : 'ขยายทั้งหมด';
-  els.muscleExpandAllBtn.title = muscleExpandAll
-    ? 'หุบเหลือแค่หมวดกลุ่ม'
-    : 'ขยายรายการย่อยทุกหมวด';
+  const anyOpen = muscleOpenGroupIds().size > 0;
+  els.muscleExpandAllBtn.textContent = anyOpen ? 'หุบทั้งหมด' : 'กางทั้งหมด';
+  els.muscleExpandAllBtn.title = anyOpen ? 'หุบเหลือแค่หัวกลุ่ม · แตะชื่อกลุ่มเพื่อกางทีละกลุ่ม' : 'กางกล้ามย่อยทุกกลุ่ม';
+  els.muscleExpandAllBtn.setAttribute('aria-expanded', String(anyOpen));
 }
 
 function onMuscleToggleExpandAll() {
+  if (muscleOpenGroupIds().size) muscleFoldableGroupIds().forEach((id) => muscleCollapsedIds.add(id));
+  else muscleCollapsedIds.clear();
+  saveMuscleCollapsed();
   paintMuscleSheet();
 }
 
 function onMuscleToggleGroup(nodeId) {
   const id = String(nodeId || '');
-  if (!id || muscleExpandAll) return;
-  if (muscleExpandedIds.has(id)) {
-    muscleExpandedIds.delete(id);
-  } else {
-    muscleExpandedIds.add(id);
-  }
+  if (!id) return;
+  if (muscleCollapsedIds.has(id)) muscleCollapsedIds.delete(id);
+  else muscleCollapsedIds.add(id);
+  saveMuscleCollapsed();
   paintMuscleSheet();
 }
 
@@ -3789,7 +3815,7 @@ async function onMuscleAddChild() {
   }
   muscleSelectedId = node.id;
   muscleManageOpen.add(parent.id);
-  if (!muscleExpandAll) muscleExpandedIds.add(parent.id);
+  unfoldMuscleGroup(parent.id);
   persistMuscleTree(tree, { status: `เพิ่ม ${node.name}` });
   paintMuscleSheet();
   paintMuscleSettingsList();
@@ -3808,7 +3834,7 @@ async function onMuscleAddGroup() {
   }
   muscleSelectedId = node.id;
   muscleManageOpen.add(node.id);
-  if (!muscleExpandAll) muscleExpandedIds.add(node.id);
+  unfoldMuscleGroup(node.id);
   persistMuscleTree(tree, { status: `เพิ่มกลุ่ม ${node.name} · กด + ในกลุ่มเพื่อใส่กล้าม` });
   paintMuscleSheet();
   paintMuscleSettingsList();
@@ -3833,7 +3859,7 @@ async function onMuscleAddIn(parentId) {
   }
   muscleSelectedId = node.id;
   muscleManageOpen.add(parentId);
-  if (!muscleExpandAll) muscleExpandedIds.add(parentId);
+  unfoldMuscleGroup(parentId);
   persistMuscleTree(tree, { status: `เพิ่ม ${node.name}` });
   paintMuscleSheet();
   paintMuscleSettingsList();
@@ -3950,52 +3976,59 @@ function onMuscleManageRename(id) {
   paintMuscleSettingsList();
 }
 
-/** Fixed rows can't be deleted — hide/show them in the table instead (cells are kept). */
-async function onMuscleToggleHidden(id) {
+/** Bring back every deleted fixed row / fixed group (their cells were kept). */
+function onMuscleRestoreDeleted() {
   if (!requireSyncReady()) return;
   const tree0 = muscleLayoutForEdit();
   if (!tree0) return;
-  const rows = manageRows(tree0);
-  const row = rows.find((r) => r.id === id && r.fixed);
-  if (!row) return;
-  if (row.parentId && rows.find((r) => r.id === row.parentId)?.hidden) {
-    setStatus('ทั้งกลุ่มซ่อนอยู่ · กดแสดงที่กลุ่มก่อน', { forceToast: true, ms: 1800 });
-    return;
-  }
-  const hide = !isRowHidden(tree0, id);
-  if (hide) {
-    const ok = await showConfirm(`ซ่อน「${row.name}」จากตาราง?\nค่าที่บันทึกไว้ยังอยู่ · กดแสดงคืนได้ที่นี่`, { okLabel: 'ซ่อน' });
-    if (!ok) return;
-  }
-  // Re-read after the dialog: a sync may have landed meanwhile, and saving the old copy would erase it.
-  const fresh = hide ? muscleLayoutForEdit() : tree0;
-  if (!fresh) return;
-  const tree = setRowHidden(fresh, id, hide);
-  persistMuscleTree(tree, { touchDates: [], status: `${hide ? 'ซ่อน' : 'แสดง'} ${row.name}` });
+  const ids = manageRows(tree0).filter((r) => r.ownHidden).map((r) => r.id);
+  if (!ids.length) return;
+  let tree = tree0;
+  ids.forEach((id) => { tree = setRowHidden(tree, id, false); });
+  persistMuscleTree(tree, { touchDates: [], status: `คืน ${ids.length} แถว` });
   paintMuscleSheet();
   paintMuscleSettingsList();
 }
 
+/**
+ * Delete any row. A group must be empty first. Fixed rows / fixed groups can't leave the
+ * model, so they're dropped from the table via the hidden flag (cells kept, "คืนแถวที่ลบ").
+ */
 async function onMuscleDeleteNode(nodeId) {
   if (!requireSyncReady()) return;
-  if (regionOfLeaf(nodeId) || BEGINNER_GROUPS.some((g) => g.id === nodeId)) return;
   const tree0 = muscleLayoutForEdit();
   if (!tree0) return;
-  const node = tree0.nodes.find((n) => n.id === nodeId);
-  if (!node) return;
-  const kids = tree0.nodes.filter((n) => n.parentId === nodeId);
-  const homing = kids.filter((n) => regionOfLeaf(n.id)).length;
-  const lost = kids.length - homing;
-  const detail = !kids.length
-    ? 'ค่าที่บันทึกไว้ในแถวนี้จะหาย'
-    : `${lost ? `${lost} รายการในกลุ่มนี้และค่าที่บันทึกไว้จะหาย` : ''}${lost && homing ? '\n' : ''}${homing ? `กล้ามตั้งต้น ${homing} แถวจะกลับกลุ่มเดิม (ค่ายังอยู่)` : ''}`;
-  const ok = await showConfirm(`ลบ「${node.name}」?\n${detail}`, {
+  const row = manageRows(tree0).find((r) => r.id === nodeId);
+  if (!row) return;
+  const liveKids = (tree) => manageRows(tree).filter((r) => r.parentId === nodeId && !r.hidden);
+  const kids = liveKids(tree0);
+  if (!row.depth && kids.length) {
+    setStatus(`ลบ「${row.name}」ไม่ได้ · ย้ายหรือลบ ${kids.length} รายการในกลุ่มออกก่อน`, { forceToast: true, ms: 2600 });
+    return;
+  }
+  const detail = row.fixed ? 'ค่าที่บันทึกไว้ยังเก็บไว้ · กดคืนได้ท้ายรายการ' : 'ค่าที่บันทึกไว้ในแถวนี้จะหาย';
+  const ok = await showConfirm(`ลบ「${row.name}」?\n${detail}`, {
     okLabel: 'ลบ',
     danger: true,
   });
   if (!ok) return;
+  // Re-read after the dialog: a sync may have landed meanwhile, and saving the old copy would erase it.
   const fresh = muscleLayoutForEdit();
   if (!fresh) return;
+  if (!row.depth && liveKids(fresh).length) {
+    setStatus(`ลบ「${row.name}」ไม่ได้ · มีรายการในกลุ่มแล้ว`, { forceToast: true, ms: 2200 });
+    paintMuscleSettingsList();
+    return;
+  }
+  if (row.fixed) {
+    if (muscleSelectedId === nodeId) muscleSelectedId = null;
+    muscleManageOpen.delete(nodeId);
+    persistMuscleTree(setRowHidden(fresh, nodeId, true), { touchDates: [], status: `ลบ ${row.name}` });
+    paintMuscleSheet();
+    paintMuscleSettingsList();
+    return;
+  }
+  const node = { name: row.name };
   const { tree, changed, touchDates } = removeMuscleNode(fresh, nodeId);
   if (!changed) return;
   if (muscleSelectedId === nodeId || !tree.nodes.some((n) => n.id === muscleSelectedId)) muscleSelectedId = null;
@@ -4024,10 +4057,10 @@ function paintMuscleSettingsList() {
   }
   const KIND = { group: 'กลุ่ม', muscle: 'กล้าม', cardioGroup: 'คาร์ดิโอ', cardioMove: 'ท่า' };
   const byId = new Map(rows.map((r) => [r.id, r]));
-  const groups = rows.filter((r) => !r.depth && r.canAddChild);
+  const groups = rows.filter((r) => !r.depth && r.canAddChild && !r.hidden);
   const childCount = new Map();
   rows.forEach((r) => {
-    if (r.parentId) childCount.set(r.parentId, (childCount.get(r.parentId) || 0) + 1);
+    if (r.parentId && !r.hidden) childCount.set(r.parentId, (childCount.get(r.parentId) || 0) + 1);
   });
   const movable = (r) => r.depth > 0;
   const groupOptions = (r) => {
@@ -4035,19 +4068,20 @@ function paintMuscleSettingsList() {
     if (!targets.length) return [];
     return ['<option value="" selected>ย้าย</option>', ...targets.map((g) => `<option value="${escapeHtml(g.id)}">ไป ${escapeHtml(g.name)}</option>`)];
   };
+  const deletedCount = rows.filter((r) => r.ownHidden).length;
+  const restore = deletedCount
+    ? `<button type="button" class="btn btn-secondary muscle-settings-restore" data-muscle-restore>คืนแถวที่ลบ (${deletedCount})</button>`
+    : '';
   list.innerHTML = rows
-    .filter((r) => !r.depth || muscleManageOpen.has(r.parentId))
+    .filter((r) => !r.hidden && (!r.depth || muscleManageOpen.has(r.parentId)))
     .map((r) => {
       const id = escapeHtml(r.id);
       const name = escapeHtml(r.name);
-      const parentHidden = Boolean(r.parentId && byId.get(r.parentId)?.hidden);
-      const greyed = r.hidden || parentHidden;
       const open = !r.depth && muscleManageOpen.has(r.id);
       const cls = [
         'muscle-settings-row',
         r.depth ? 'is-child' : 'is-parent',
         r.fixed ? 'is-fixed' : '',
-        greyed ? 'is-hidden' : '',
         open ? 'is-open' : '',
         r.id === muscleSelectedId ? 'is-selected' : '',
       ].filter(Boolean).join(' ');
@@ -4060,14 +4094,8 @@ function paintMuscleSettingsList() {
       const move = opts.length > 1
         ? `<select class="muscle-settings-move" data-muscle-reparent="${id}" aria-label="ย้าย ${name} ไปกลุ่มอื่น" title="ย้ายไปกลุ่มอื่น">${opts.join('')}</select>`
         : '';
-      let del;
-      if (!r.fixed) {
-        del = `<button type="button" class="btn btn-secondary muscle-settings-del" data-muscle-del="${id}" title="ลบ">ลบ</button>`;
-      } else if (parentHidden) {
-        del = '<button type="button" class="btn btn-secondary muscle-settings-hide" disabled title="ทั้งกลุ่มซ่อนอยู่">ซ่อน</button>';
-      } else {
-        del = `<button type="button" class="btn btn-secondary muscle-settings-hide" data-muscle-hide="${id}" title="${r.hidden ? 'แสดงในตารางอีกครั้ง' : 'ซ่อนจากตาราง · ค่าที่บันทึกยังอยู่'}">${r.hidden ? 'แสดง' : 'ซ่อน'}</button>`;
-      }
+      const blocked = !r.depth && childCount.get(r.id) > 0;
+      const del = `<button type="button" class="btn btn-secondary muscle-settings-del${blocked ? ' is-blocked' : ''}" data-muscle-del="${id}" title="${blocked ? 'ย้ายหรือลบรายการในกลุ่มออกก่อน' : 'ลบ'}">ลบ</button>`;
       const grip = r.movable === false
         ? '<span class="muscle-settings-grip" aria-hidden="true"></span>'
         : `<button type="button" class="muscle-settings-grip" data-drag-handle="${id}" aria-label="ลากเพื่อย้าย" title="ลากเพื่อย้าย">⋮⋮</button>`;
@@ -4076,7 +4104,6 @@ function paintMuscleSettingsList() {
         <button type="button" class="muscle-settings-pick" data-muscle-pick="${id}"${r.depth ? '' : ` aria-expanded="${open}"`} title="${r.depth ? 'เลือก' : 'เลือก · เปิด/ปิดกลุ่ม'}">
           ${chev}<span class="muscle-settings-kind">${KIND[r.kind] || ''}</span>
           <span class="muscle-settings-name">${name}</span>${count}
-          ${greyed ? '<span class="muscle-settings-hidden-tag">ซ่อนอยู่</span>' : ''}
         </button>
         ${add}
         <button type="button" class="btn btn-secondary muscle-settings-rename" data-muscle-rename="${id}" title="แก้ชื่อ">แก้ชื่อ</button>
@@ -4084,7 +4111,7 @@ function paintMuscleSettingsList() {
         ${move}
       </div>`;
     })
-    .join('');
+    .join('') + restore;
 }
 
 /** Manage-list row tap: select (synced with the table); group rows also open/close in the sheet. */
@@ -4142,7 +4169,7 @@ async function onMusclePlaceRow(nodeId, parentId, beforeId) {
       return;
     }
     ({ tree } = removeMuscleNode(tree, from.id));
-    muscleExpandedIds.delete(from.id);
+    unfoldMuscleGroup(from.id);
     muscleManageOpen.delete(from.id);
   }
   const moved = new Set([nodeId]);
@@ -4156,7 +4183,7 @@ async function onMusclePlaceRow(nodeId, parentId, beforeId) {
   muscleSelectedId = nodeId;
   if (parentId) {
     muscleManageOpen.add(parentId);
-    if (!muscleExpandAll) muscleExpandedIds.add(parentId);
+    unfoldMuscleGroup(parentId);
   }
   persistMuscleTree(tree, { touchDates, status: `ย้าย ${label(nodeId)} ไป ${where}` });
   paintMuscleSheet();
@@ -11091,8 +11118,7 @@ async function init({ fromBoot = false } = {}) {
   });
   document.getElementById('muscle-add-group')?.addEventListener('click', () => { void onMuscleAddGroup(); });
   els.muscleManageBtn?.addEventListener('click', () => openMuscleManage());
-  els.muscleManageClose?.addEventListener('click', () => closeMuscleManage());
-  els.muscleManageBackdrop?.addEventListener('click', () => closeMuscleManage());
+  els.muscleManageClose?.addEventListener('click', () => closeMuscleManage());  els.muscleManageBackdrop?.addEventListener('click', () => closeMuscleManage());
   els.muscleRestBtn?.addEventListener('click', () => openMuscleRest());
   document.querySelectorAll('[data-close-overlay]').forEach((el) => {
     el.addEventListener('click', () => {
@@ -11189,9 +11215,8 @@ async function init({ fromBoot = false } = {}) {
       onMuscleManageRename(rename.getAttribute('data-muscle-rename'));
       return;
     }
-    const hide = e.target?.closest?.('[data-muscle-hide]');
-    if (hide) {
-      void onMuscleToggleHidden(hide.getAttribute('data-muscle-hide'));
+    if (e.target?.closest?.('[data-muscle-restore]')) {
+      onMuscleRestoreDeleted();
       return;
     }
     const del = e.target?.closest?.('[data-muscle-del]');
