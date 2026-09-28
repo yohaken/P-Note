@@ -5,8 +5,8 @@
  * ทำซ้ำประจำ (recurrence) = advances the note's due date when completed.
  * แจ้งเตือนซ้ำ (notifyRepeat) = nag interval until the note is done — separate.
  */
-import { notePriority, NOTE_PRIORITY } from './notes.js?v=333';
-import { appIconSrc, peekStoredAppIconId } from './app-icons.js?v=333';
+import { notePriority, NOTE_PRIORITY } from './notes.js?v=334';
+import { appIconSrc, peekStoredAppIconId } from './app-icons.js?v=334';
 import {
   advanceNotifyFireAt,
   normalizeNotifyRepeat,
@@ -14,7 +14,7 @@ import {
   notifyRepeatLabel,
   reminderFireAtMs,
   remindBeforeLabel,
-} from './schedule.js?v=333';
+} from './schedule.js?v=334';
 
 const NOTIFIED_KEY = 'pnote_notified_map';
 const SW_URL = './sw-notify.js';
