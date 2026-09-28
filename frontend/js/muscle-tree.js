@@ -193,10 +193,11 @@ function normalizeMuscleTreeFresh(raw) {
     const legacy = Object.keys(src.cells || {}).some((k) => k.startsWith('m-'));
     nodes = legacy ? legacyMuscleNodes() : defaultMuscleNodes();
   }
-  // Muscle rows take their name from the region table, which may rename them between builds.
+  const regionNames = normalizeRegionNames(src.regionNames);
+  // Muscle rows show the user's name for the region, else the region table's (which may change between builds).
   nodes = nodes.map((n) => {
     const rid = regionOfLeaf(n.id);
-    const name = rid ? clampName(regionById(rid).name) : n.name;
+    const name = rid ? clampName(regionNames?.[rid]?.name || regionById(rid).name) : n.name;
     return name && name !== n.name ? { ...n, name } : n;
   });
 
@@ -244,7 +245,37 @@ function normalizeMuscleTreeFresh(raw) {
   if (aliases) out.aliases = aliases;
   const moveLog = normalizeMoveLog(src.moveLog, cutoff);
   if (moveLog) out.moveLog = moveLog;
+  if (regionNames) out.regionNames = regionNames;
   return out;
+}
+
+/** User names for muscle rows: { regionId: { name, at } }; an empty name = back to the standard one. */
+function normalizeRegionNames(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  Object.keys(raw).forEach((rid) => {
+    if (!regionById(rid)) return;
+    const at = stampMs(raw[rid]?.at);
+    if (!at) return;
+    out[rid] = { name: clampName(raw[rid]?.name || ''), at };
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+/** Name shown for a muscle row (user's name, else standard). */
+export function regionLabel(tree, rid) {
+  const t = normalizeMuscleTree(tree);
+  return t.regionNames?.[rid]?.name || regionById(rid)?.name || '';
+}
+
+/** Rename a muscle row; '' or the standard name resets it. */
+export function setRegionName(tree, rid, name, nowMs = clockNowMs()) {
+  const t = normalizeMuscleTree(tree);
+  if (!regionById(rid)) return t;
+  const clean = clampName(name || '');
+  const value = clean === regionById(rid).name ? '' : clean;
+  const regionNames = { ...(t.regionNames || {}), [rid]: { name: value, at: nowMs } };
+  return normalizeMuscleTree({ ...t, regionNames, updatedAt: nowIsoLocal() });
 }
 
 const MOVE_LOG_MAX = 30;
@@ -594,6 +625,7 @@ function treeContentKey(tree) {
     t.restScale,
     t.restProfile,
     t.moveLog || null,
+    t.regionNames || null,
   ]);
 }
 
@@ -604,7 +636,7 @@ export function muscleTreeNeedsPush(localCalorie, remoteCalorie) {
   return treeContentKey(merged) !== treeContentKey(remoteCalorie?.muscleTree);
 }
 
-const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.nodes.some((n) => n.at));
+const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.regionNames || t.nodes.some((n) => n.at));
 
 /**
  * A tree from a build before stamps (it strips them) that was saved last: every row and cell
@@ -677,7 +709,9 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   Object.entries(a.aliases || {}).forEach(([k, v]) => { if (!aliases[k] || aliases[k].at <= v.at) aliases[k] = v; });
   const moveLog = { ...(b.moveLog || {}) };
   Object.entries(a.moveLog || {}).forEach(([k, v]) => { if (!moveLog[k] || moveLog[k].at <= v.at) moveLog[k] = v; });
-  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog });
+  const regionNames = { ...(b.regionNames || {}) };
+  Object.entries(a.regionNames || {}).forEach(([k, v]) => { if (!regionNames[k] || regionNames[k].at <= v.at) regionNames[k] = v; });
+  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, regionNames });
 }
 
 export function isLeafNode(node, nodes) {
@@ -1258,7 +1292,7 @@ export function muscleDaySummary(tree, dateKey) {
   BEGINNER_GROUPS.forEach((g) => g.regions.forEach((rid) => {
     const v = t.cells[cellKey(regionLeafId(rid), dateKey)];
     if (!(v > 0)) return;
-    (v === MARK_SECONDARY ? secondary : main).push(regionById(rid).name);
+    (v === MARK_SECONDARY ? secondary : main).push(regionLabel(t, rid));
   }));
   const cardio = muscleLeafIndex(t).leaves
     .filter((l) => l.cardio && t.cells[cellKey(l.id, dateKey)] > 0)
@@ -1302,7 +1336,7 @@ function regionRestCellHtml(t, regionIds, cls, id, restMap, anyRestMap) {
   const { info } = best;
   const step = restStep(t.restScale, info.days);
   const left = restRemaining(info.days, info.rest);
-  const who = regionIds.length > 1 ? `${regionById(best.rid)?.name || ''} · ` : '';
+  const who = regionIds.length > 1 ? `${regionLabel(t, best.rid)} · ` : '';
   const tip = `${who}${info.days === 0 ? 'เป็นกล้ามหลักวันนี้' : `พักมา ${info.days} วัน (ล่าสุด ${formatMuscleColDate(info.last)})`}`
     + `${left == null ? '' : ` · ${left > 0 ? `อีก ${fmtRest(left)} วัน` : 'พักครบแล้ว'}`} · ${step.label}`;
   const fadeCls = step.fade > 0 ? ' is-fading' : '';
@@ -1420,7 +1454,7 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
 
   const muscleRow = (g, rid, solo = false) => {
     const id = regionLeafId(rid);
-    const name = regionById(rid).name;
+    const name = regionLabel(t, rid);
     const sel = id === selectedId ? ' is-selected' : '';
     const pos = solo ? ' is-parent is-solo' : ' is-child';
     const cls = `${pos} is-leaf${sel}`;

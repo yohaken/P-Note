@@ -150,6 +150,8 @@ import {
   renderMuscleLogTableHtml,
   regionRestEquivDays,
   toMuscleLayout,
+  regionLabel,
+  setRegionName,
   nextMark,
   markMoveMuscles,
   muscleDaySummary,
@@ -3823,8 +3825,9 @@ function onMuscleScrollClick(e) {
   if (hit && els.muscleScroll?.contains(hit)) {
     const dk = hit.dataset.date;
     const g = BEGINNER_GROUPS.find((x) => x.id === hit.dataset.mvGroup);
-    const d = muscleDaySummary(muscleLayoutView(), dk);
-    const names = new Set((g?.regions || []).map((rid) => regionById(rid)?.name));
+    const view = muscleLayoutView();
+    const d = muscleDaySummary(view, dk);
+    const names = new Set((g?.regions || []).map((rid) => regionLabel(view, rid)));
     const list = [
       ...d.main.filter((n) => names.has(n)),
       ...d.secondary.filter((n) => names.has(n)).map((n) => `${n} (รอง)`),
@@ -4172,10 +4175,12 @@ function paintMuscleRegionSheet() {
       </div>`;
     })
     .join('');
-  if (els.muscleRegionTitle) els.muscleRegionTitle.textContent = region.name;
+  const label = regionLabel(tree, region.id);
+  if (els.muscleRegionTitle) els.muscleRegionTitle.textContent = label;
   const scrollTop = els.muscleRegionBody.scrollTop;
   els.muscleRegionBody.innerHTML = `
-    <p class="mr-sci">${escapeHtml(region.sci)} · กลุ่ม${escapeHtml(beginnerGroupOfRegion(region.id)?.name || '')}</p>
+    <p class="mr-sci">${label !== region.name ? `ชื่อมาตรฐาน ${escapeHtml(region.name)} · ` : ''}${escapeHtml(region.sci)} · กลุ่ม${escapeHtml(beginnerGroupOfRegion(region.id)?.name || '')}
+      <button type="button" class="btn btn-secondary mr-step mr-rename" data-region-rename="1" title="ตั้งชื่อแถวกล้ามนี้เอง · ว่าง = กลับชื่อมาตรฐาน">แก้ชื่อ</button></p>
     <div class="mr-today" role="group" aria-label="วันนี้">
       <span class="mr-rest-label">วันนี้</span>
       ${todayBtn(1, '● หลัก')}${todayBtn(2, '• รอง')}${todayBtn(0, 'ไม่ได้เล่น')}
@@ -4209,6 +4214,21 @@ function onMuscleRegionToday(value) {
   const { tree: next, changed } = setMuscleCellInTree(tree, regionLeafId(muscleRegionId), todayKey, v > 0 ? v : null);
   if (!changed) return;
   persistMuscleTree(next, { touchDates: [todayKey], status: '' });
+  paintMuscleSheet();
+}
+
+function onMuscleRegionRename() {
+  if (!requireSyncReady()) return;
+  const region = regionById(muscleRegionId);
+  if (!region) return;
+  const tree0 = normalizeMuscleTree(ensureCaloriePayload().muscleTree);
+  const input = window.prompt(`ชื่อแถวกล้าม (ว่าง = ${region.name})`, regionLabel(tree0, region.id));
+  if (input == null) return;
+  const tree = setRegionName(tree0, region.id, input.trim());
+  if (regionLabel(tree, region.id) === regionLabel(tree0, region.id)) return;
+  const leaf = regionLeafId(region.id);
+  const touch = [...new Set(Object.keys(tree.cells).filter((k) => k.startsWith(`${leaf}|`)).map((k) => k.split('|')[1]))];
+  persistMuscleTree(tree, { touchDates: touch, status: 'เปลี่ยนชื่อแล้ว' });
   paintMuscleSheet();
 }
 
@@ -10680,6 +10700,10 @@ async function init({ fromBoot = false } = {}) {
     const step = e.target?.closest?.('[data-region-rest]');
     if (step) {
       onMuscleRegionRest(step.dataset.regionRest);
+      return;
+    }
+    if (e.target?.closest?.('[data-region-rename]')) {
+      onMuscleRegionRename();
       return;
     }
     const today = e.target?.closest?.('[data-region-today]');
