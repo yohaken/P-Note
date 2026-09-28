@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=306';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=306';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=306';
-import { CONFIG } from './config.js?v=306';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=306';
-import { nowIso } from './clock.js?v=306';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=307';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=307';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=307';
+import { CONFIG } from './config.js?v=307';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=307';
+import { nowIso } from './clock.js?v=307';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=306';
+} from './auth.js?v=307';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=306';
+} from './notes.js?v=307';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=306';
+} from './sheet.js?v=307';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -132,7 +132,7 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
-} from './calorie.js?v=306';
+} from './calorie.js?v=307';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -146,8 +146,8 @@ import {
   renameMuscleNode,
   renderMuscleTableHtml,
   setMuscleCellInTree,
-} from './muscle-tree.js?v=306';
-import { mountDrumPicker } from './drum-picker.js?v=306';
+} from './muscle-tree.js?v=307';
+import { mountDrumPicker } from './drum-picker.js?v=307';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -155,8 +155,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=306';
-import { bindComposableInput } from './text-input.js?v=306';
+} from './note-text.js?v=307';
+import { bindComposableInput } from './text-input.js?v=307';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -197,14 +197,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=306';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=306';
+} from './schedule.js?v=307';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=307';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=306';
+} from './app-icons.js?v=307';
 import {
   allIcons,
   bestIconForLabel,
@@ -213,7 +213,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=306';
+} from './icons.js?v=307';
 import {
   notificationPermission,
   notificationSupported,
@@ -222,27 +222,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=306';
+} from './note-notify.js?v=307';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=306';
+} from './files.js?v=307';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=306');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=307');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=306');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=307');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=306');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=307');
   return userContextModPromise;
 }
 
@@ -266,7 +266,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=306';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=307';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -275,11 +275,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=306';
-import { normalizeNotesData } from './notes.js?v=306';
-import { SaveManager } from './sync.js?v=306';
-import { emptyDeletions } from './deletions.js?v=306';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=306';
+} from './remote.js?v=307';
+import { normalizeNotesData } from './notes.js?v=307';
+import { SaveManager } from './sync.js?v=307';
+import { emptyDeletions } from './deletions.js?v=307';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=307';
 
 const state = {
   notesData: {

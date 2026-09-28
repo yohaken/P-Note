@@ -445,9 +445,65 @@ export function countMuscleSessions(tree, nodeId) {
   return n;
 }
 
+/** Latest date (≤ today) with a mark for the leaf, or for any child of a group. */
+export function lastTrainedDate(tree, nodeId, todayKey = muscleToDateKey()) {
+  const t = normalizeMuscleTree(tree);
+  const kids = t.nodes.filter((n) => n.parentId === nodeId);
+  const ids = kids.length ? kids.map((k) => k.id) : [nodeId];
+  let last = '';
+  Object.keys(t.cells).forEach((k) => {
+    const [id, dk] = k.split('|');
+    if (!ids.includes(id) || !(t.cells[k] > 0) || !dk || dk > todayKey) return;
+    if (dk > last) last = dk;
+  });
+  return last;
+}
+
+/** Whole days between two YYYY-MM-DD keys (local calendar). */
+export function daysBetweenKeys(fromKey, toKey) {
+  const a = new Date(`${fromKey}T12:00:00`);
+  const b = new Date(`${toKey}T12:00:00`);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
+  return Math.round((b - a) / 86400000);
+}
+
+/** Recovery tier from rest days: hot 0–1 · warm 2 · ready 3–6 · stale 7+. */
+export function restTier(days) {
+  if (days == null) return 'none';
+  if (days <= 1) return 'hot';
+  if (days === 2) return 'warm';
+  if (days <= 6) return 'ready';
+  return 'stale';
+}
+
+const REST_TIER_TEXT = {
+  hot: 'ยังฟื้นไม่พอ',
+  warm: 'เริ่มพร้อม',
+  ready: 'พร้อมเล่น',
+  stale: 'ห่างนาน · ควรกลับมาเล่น',
+};
+
+function restCellHtml(t, r, todayKey, cardio, depthCls, leafCls) {
+  const base = `mt-col-rest${depthCls}${leafCls}`;
+  if (cardio) return `<td class="${base}" data-node-id="${esc(r.id)}"></td>`;
+  const last = lastTrainedDate(t, r.id, todayKey);
+  const days = last ? daysBetweenKeys(last, todayKey) : null;
+  const tier = restTier(days);
+  if (tier === 'none') {
+    return `<td class="${base} is-none" data-node-id="${esc(r.id)}" title="ยังไม่เคยเล่น"><span class="mt-rest-val">–</span></td>`;
+  }
+  const label = days === 0 ? 'วันนี้' : String(days);
+  const tip = days === 0
+    ? `เล่นวันนี้ · ${REST_TIER_TEXT[tier]}`
+    : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${REST_TIER_TEXT[tier]}`;
+  return `<td class="${base} is-${tier}" data-node-id="${esc(r.id)}" title="${esc(tip)}">
+    <span class="mt-rest-val${days === 0 ? ' is-today' : ''}">${esc(label)}</span>
+  </td>`;
+}
+
 /**
  * Compact sticky muscle matrix HTML.
- * Columns: name | ครั้ง (sticky) | dates newest→oldest
+ * Columns: name | ครั้ง | พัก (sticky) | dates newest→oldest
  * Collapsed by default: groups only; pass expandAll or expandedIds for children.
  * @param {object} tree
  * @param {{
@@ -536,7 +592,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
         })
         .join('');
 
-      return `<tr class="mt-row${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${cells}</tr>`;
+      return `<tr class="mt-row${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${restCellHtml(t, r, todayKey, cardio, depthCls, leafCls)}${cells}</tr>`;
     })
     .join('');
 
@@ -545,6 +601,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       <tr>
         <th class="mt-corner" scope="col">กล้ามเนื้อ</th>
         <th class="mt-col-count-head" scope="col" title="จำนวนครั้งที่เล่น (วันที่มีแคล)">ครั้ง</th>
+        <th class="mt-col-rest-head" scope="col" title="พักมากี่วันแล้วนับจากครั้งล่าสุด · หมวด = ส่วนที่เพิ่งเล่นล่าสุด">พัก</th>
         ${headDates}
       </tr>
     </thead>

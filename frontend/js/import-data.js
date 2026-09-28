@@ -1,12 +1,12 @@
-import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=306';
-import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=306';
-import { compareStamp, newerStampIso } from './clock.js?v=306';
+import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=307';
+import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=307';
+import { compareStamp, newerStampIso } from './clock.js?v=307';
 import {
   applyDeletionFilter,
   isEntityTombstoned,
   mergeDeletions,
   normalizeDeletions,
-} from './deletions.js?v=306';
+} from './deletions.js?v=307';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',

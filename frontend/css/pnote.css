@@ -9468,9 +9468,99 @@ body.calorie-muscle-pane #calorie-view {
   color: var(--text-muted);
 }
 
+/* พัก: days since last trained, sticky next to ครั้ง */
+.muscle-table .mt-col-rest-head,
+.muscle-table .mt-col-rest {
+  position: sticky;
+  left: calc(var(--mt-name-w) + 1.6rem);
+  z-index: 2;
+  min-width: 2.2rem;
+  width: 2.2rem;
+  max-width: 2.2rem;
+  padding: 0 0.12rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--border);
+}
+.muscle-table thead .mt-col-rest-head {
+  z-index: 5;
+  top: 0;
+  font-size: 0.58rem;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+.muscle-table .mt-col-rest.is-parent {
+  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+}
+.muscle-table .mt-rest-val {
+  display: block;
+  margin: 0.12rem 0;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.05rem;
+  color: var(--mt-rest-fg, var(--text-muted));
+  background: var(--mt-rest-bg, transparent);
+}
+.muscle-table .mt-rest-val.is-today {
+  font-size: 0.52rem;
+  letter-spacing: -0.01em;
+}
+.muscle-table tr.is-group .mt-rest-val {
+  margin: 0.05rem 0;
+  line-height: 0.9rem;
+  font-size: 0.6rem;
+}
+.muscle-table .mt-col-rest.is-none .mt-rest-val {
+  opacity: 0.45;
+  font-weight: 600;
+}
+.muscle-table .mt-col-rest.is-hot,
+.muscle-rest-legend .mrl-chip.is-hot {
+  --mt-rest-fg: #fff;
+  --mt-rest-bg: #dc2626;
+}
+.muscle-table .mt-col-rest.is-warm,
+.muscle-rest-legend .mrl-chip.is-warm {
+  --mt-rest-fg: #3b2a00;
+  --mt-rest-bg: #facc15;
+}
+.muscle-table .mt-col-rest.is-ready,
+.muscle-rest-legend .mrl-chip.is-ready {
+  --mt-rest-fg: #fff;
+  --mt-rest-bg: #16a34a;
+}
+.muscle-table .mt-col-rest.is-stale,
+.muscle-rest-legend .mrl-chip.is-stale {
+  --mt-rest-fg: var(--text-muted);
+  --mt-rest-bg: color-mix(in srgb, #94a3b8 22%, transparent);
+}
+
+.muscle-rest-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.6rem;
+}
+.muscle-rest-legend .mrl-title {
+  font-weight: 750;
+  color: var(--text-muted);
+}
+.muscle-rest-legend .mrl-chip {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--mt-rest-fg);
+  background: var(--mt-rest-bg);
+}
+
 /* Cardio = real kcal burned → cuts the day's calorie balance (orange burn tone) */
 .muscle-table tr.is-cardio .mt-row-name,
-.muscle-table tr.is-cardio .mt-col-count {
+.muscle-table tr.is-cardio .mt-col-count,
+.muscle-table tr.is-cardio .mt-col-rest {
   background: color-mix(in srgb, #ea580c 10%, var(--surface));
 }
 .muscle-table tr.is-cardio .mt-name-text {
