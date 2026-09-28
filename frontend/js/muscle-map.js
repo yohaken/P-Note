@@ -3,7 +3,7 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=311';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=313';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },
@@ -173,22 +173,23 @@ export function libraryExerciseByName(name) {
 const GUESS_RULES = [
   [/อกบน|upper chest|incline/i, ['chest-upper']],
   [/อกล่าง|อกกลาง|lower chest/i, ['chest-lower']],
-  [/ไหล่\s*·?\s*ข้าง|ไหล่ข้าง|lateral delt|side delt/i, ['delt-side']],
-  [/ไหล่\s*·?\s*หลัง|ไหล่หลัง|rear delt/i, ['delt-rear']],
+  [/ไหล่\s*·?\s*ข้าง|lateral delt|side delt/i, ['delt-side']],
+  [/ไหล่\s*·?\s*หลัง|rear delt/i, ['delt-rear']],
   [/ไหล่\s*·?\s*(หน้า|หลัก)|front delt/i, ['delt-front']],
-  [/หลังขา|ต้นขาหลัง|hamstring/i, ['hamstrings']],
-  [/หน้าขา|ต้นขาหน้า|quad/i, ['quads']],
+  [/หลัง\s*ขา|ขา\s*หลัง|ต้นขาหลัง|hamstring/i, ['hamstrings']],
+  [/หน้า\s*ขา|ขา\s*หน้า|ต้นขาหน้า|quad/i, ['quads']],
   [/ขาด้านใน|ขาหนีบ|adductor/i, ['adductors']],
+  [/ข้าง\s*ขา|ขา\s*ข้าง|ขาด้านนอก|abduct/i, ['glute-med']],
   [/หลังล่าง|lower back/i, ['lower-back']],
-  [/แขนหลัง|ไตรเซ|tricep/i, ['triceps']],
-  [/แขนหน้า|ไบเซ|bicep/i, ['biceps']],
+  [/แขน\s*หลัง|หลัง\s*แขน|ไตรเซ|tricep/i, ['triceps']],
+  [/แขน\s*หน้า|หน้า\s*แขน|ไบเซ|bicep/i, ['biceps']],
   [/แขนท่อนล่าง|แขนล่าง|ปลายแขน|forearm/i, ['forearms']],
-  [/ท้องข้าง|oblique/i, ['obliques']],
-  [/ก้นข้าง|glute med/i, ['glute-med']],
+  [/ท้อง\s*ข้าง|ข้าง\s*ท้อง|เอวข้าง|oblique/i, ['obliques']],
+  [/ก้น\s*ข้าง|glute med/i, ['glute-med']],
   [/ก้น|glute/i, ['glutes']],
   [/น่อง|calf|calves/i, ['calves']],
   [/หน้าแข้ง|tibialis/i, ['tibialis']],
-  [/บ่า|trap/i, ['traps-upper']],
+  [/บ่า|trap|shrug|ยักไหล่/i, ['traps-upper']],
   [/ปีก|\blats?\b/i, ['lats']],
   [/อก|chest|pec/i, ['chest-upper', 'chest-lower']],
   [/ไหล่|shoulder|delt/i, ['delt-front', 'delt-side']],
@@ -198,13 +199,20 @@ const GUESS_RULES = [
   [/แขน|arm/i, ['biceps', 'triceps']],
 ];
 
+/** Rules from here on are whole-area fallbacks (อก, ไหล่, หลัง …). */
+const GUESS_BROAD_FROM = GUESS_RULES.findIndex(([re]) => re.test('อก'));
+
+function matchGuess(text) {
+  const i = text ? GUESS_RULES.findIndex(([re]) => re.test(text)) : -1;
+  return i < 0 ? null : { i, p: [...GUESS_RULES[i][1]], s: [] };
+}
+
+/** The move name decides; the group name only helps when the move name alone is vague (e.g. แขน › หลัง). */
 export function guessMusclesFromName(name, parentName = '') {
-  const text = `${parentName || ''} ${name || ''}`.trim();
-  if (!text) return { p: [], s: [] };
-  for (const [re, p] of GUESS_RULES) {
-    if (re.test(text)) return { p: [...p], s: [] };
-  }
-  return { p: [], s: [] };
+  const own = matchGuess(String(name || '').trim());
+  const ctx = matchGuess(`${parentName || ''} ${name || ''}`.trim());
+  const pick = own && (own.i < GUESS_BROAD_FROM || !ctx || ctx.i >= GUESS_BROAD_FROM) ? own : ctx;
+  return pick ? { p: pick.p, s: pick.s } : { p: [], s: [] };
 }
 
 /**

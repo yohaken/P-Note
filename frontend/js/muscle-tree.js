@@ -13,7 +13,8 @@ import {
   resolveMoveMuscles,
   sanitizeRegionIds,
   restRemaining,
-} from './muscle-map.js?v=311';
+  regionById,
+} from './muscle-map.js?v=313';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -748,6 +749,25 @@ function fmtRest(n) {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
+/** Small mark beside a move whose muscles are missing (!) or only guessed (?); groups count missing ones. */
+function muscleLinkMarkHtml(r, moves, cardio) {
+  if (cardio) return '';
+  if (r.leaf) {
+    const m = moves.get(r.id);
+    if (!m || ((m.source === 'set' || m.source === 'library') && m.p.length)) return '';
+    if (m.source === 'guess' && m.name === UNSPECIFIED_MOVE) return '';
+    const none = !m.p.length;
+    const tip = none
+      ? 'ยังไม่ผูกกล้าม · ไม่นับวันพักให้กล้ามไหน · แตะเพื่อเลือกกล้าม'
+      : `เดากล้ามจากชื่อ (${m.p.map((id) => regionById(id)?.name).filter(Boolean).join(', ')}) · แตะเพื่อตรวจ/แก้`;
+    return `<button type="button" class="mt-link-mark ${none ? 'is-none' : 'is-guess'}" data-muscle-link="${esc(r.id)}" title="${esc(tip)}" aria-label="${esc(tip)}">${none ? '!' : '?'}</button>`;
+  }
+  const missing = (r.childIds || []).filter((id) => moves.get(id) && !moves.get(id).p.length).length;
+  if (!missing) return '';
+  const tip = `มี ${missing} ท่ายังไม่ผูกกล้าม · ขยายหมวดแล้วแตะ ! เพื่อเลือกกล้าม`;
+  return `<span class="mt-link-mark is-none is-count" title="${esc(tip)}" aria-label="${esc(tip)}">!${missing > 1 ? missing : ''}</span>`;
+}
+
 function restCellHtml(t, r, moves, cardio, depthCls, leafCls) {
   const base = `mt-col-rest${depthCls}${leafCls}`;
   if (cardio) return `<td class="${base}" data-node-id="${esc(r.id)}"></td>`;
@@ -832,7 +852,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
         <div class="mt-name-row">
           <button type="button" class="mt-name-btn${collapsible ? ' is-group-toggle' : ''}" data-node-id="${esc(r.id)}"${collapsible ? ' data-group-toggle="1"' : ''} title="${esc(nameTitle)}">
             <span class="mt-name-text">${esc(r.name)}</span>${cardioTag}
-          </button>
+          </button>${muscleLinkMarkHtml(r, moves, cardio)}
         </div>
       </th>`;
       const countCell = `<td class="mt-col-count${depthCls}${leafCls}${sessions ? ' is-filled' : ''}" data-node-id="${esc(r.id)}"${isGroup ? '' : ` title="เล่นไป ${sessions} ครั้ง"`}>
