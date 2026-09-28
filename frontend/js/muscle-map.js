@@ -3,8 +3,8 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=324';
-import { EXERCISE_DB, LIBRARY_IMAGE_IDS, exerciseImageUrls } from './exercise-db.js?v=324';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=325';
+import { EXERCISE_DB, LIBRARY_IMAGE_IDS, exerciseImageUrls } from './exercise-db.js?v=325';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },
@@ -101,16 +101,16 @@ export const EXERCISE_LIBRARY = [
   ex('incline-db-press', 'ดัมเบลเพรสเอียงขึ้น', 'Incline dumbbell press', 'db', ['chest-upper'], ['delt-front', 'triceps']),
   ex('smith-bench', 'สมิธเบนช์เพรส', 'Smith machine bench press', 'machine', ['chest-lower'], ['chest-upper', 'delt-front', 'triceps']),
   ex('smith-incline', 'สมิธเพรสเอียงขึ้น', 'Smith machine incline press', 'machine', ['chest-upper'], ['delt-front', 'triceps', 'chest-lower']),
-  ex('chest-press-machine', 'เครื่องดันอก', 'Machine chest press', 'machine', ['chest-lower'], ['chest-upper', 'delt-front', 'triceps']),
+  ex('chest-press-machine', 'เครื่องดันอก', 'Machine chest press', 'machine', ['chest-lower'], ['chest-upper', 'delt-front', 'triceps'], ['Chest press', 'Seated chest press']),
   ex('incline-chest-machine', 'เครื่องดันอกเอียงขึ้น', 'Incline machine chest press', 'machine', ['chest-upper'], ['delt-front', 'triceps']),
   ex('flat-db-fly', 'ดัมเบลฟลายม้าราบ', 'Flat dumbbell fly', 'db', ['chest-lower'], ['chest-upper', 'delt-front']),
   ex('incline-db-fly', 'ดัมเบลฟลายเอียงขึ้น', 'Incline dumbbell fly', 'db', ['chest-upper'], ['chest-lower', 'delt-front']),
-  ex('pec-deck', 'เครื่องบีบอก', 'Seated pec fly / pec deck', 'machine', ['chest-lower'], ['chest-upper', 'delt-front']),
+  ex('pec-deck', 'เครื่องบีบอก', 'Seated pec fly / pec deck', 'machine', ['chest-lower'], ['chest-upper', 'delt-front'], ['Pec deck', 'Pec fly', 'Machine fly']),
   ex('cable-fly', 'เคเบิลฟลาย', 'Cable fly', 'cable', ['chest-lower'], ['chest-upper', 'delt-front'], ['Cable / pec-deck fly']),
   ex('cable-fly-low-high', 'เคเบิลฟลายล่างขึ้นบน', 'Low-to-high cable fly', 'cable', ['chest-upper'], ['chest-lower', 'delt-front']),
   ex('cable-crossover', 'เคเบิลครอสโอเวอร์', 'Cable crossover', 'cable', ['chest-lower'], ['chest-upper', 'delt-front']),
   ex('db-pullover', 'ดัมเบลพูลโอเวอร์', 'Dumbbell pullover', 'db', ['chest-lower'], ['lats', 'triceps', 'serratus']),
-  ex('dips', 'ดิปบาร์คู่', 'Chest dip', 'bw', ['chest-lower'], ['triceps', 'delt-front', 'chest-upper'], ['ดิปอก', 'Parallel-bar dip']),
+  ex('dips', 'ดิปบาร์คู่', 'Chest dip', 'bw', ['chest-lower'], ['triceps', 'delt-front', 'chest-upper'], ['ดิปอก', 'ดิป', 'Parallel-bar dip', 'Dips', 'Dip']),
 
   ex('lat-pulldown', 'ดึงบาร์ลงหน้าอก', 'Lat pulldown', 'cable', ['lats'], ['biceps', 'mid-back', 'delt-rear', 'forearms']),
   ex('wide-pulldown', 'ดึงบาร์ลงมือกว้าง', 'Wide-grip lat pulldown', 'cable', ['lats'], ['mid-back', 'delt-rear', 'biceps']),
@@ -176,7 +176,7 @@ export const EXERCISE_LIBRARY = [
   ex('close-grip-push-up', 'วิดพื้นมือแคบ', 'Close-grip push-up', 'bw', ['triceps'], ['chest-lower', 'delt-front', 'chest-upper']),
   ex('wrist-curl', 'เคิร์ลข้อมือ', 'Wrist curl', 'db', ['forearms']),
   ex('reverse-wrist-curl', 'เคิร์ลข้อมือคว่ำ', 'Reverse wrist curl', 'db', ['forearms']),
-  ex('farmer-carry', 'เดินถือดัมเบล', "Farmer's carry", 'db', ['forearms', 'traps-upper'], ['obliques', 'glute-med']),
+  ex('farmer-carry', 'เดินถือดัมเบล', "Farmer's carry", 'db', ['forearms', 'traps-upper'], ['obliques', 'glute-med'], ['Farmer walk', "Farmer's walk", 'Farmers walk', 'Farmer carry', 'Farmers carry']),
 
   ex('plank', 'แพลงก์', 'Plank', 'bw', ['abs'], ['obliques', 'delt-front', 'glutes']),
   ex('crunch', 'ครันช์', 'Crunch', 'bw', ['abs'], ['obliques']),
@@ -213,7 +213,7 @@ export const EXERCISE_LIBRARY = [
   ex('bulgarian-split-squat', 'บัลแกเรียนสปลิทสควอท', 'Bulgarian split squat', 'db', ['quads', 'glutes'], ['adductors', 'glute-med']),
   ex('step-up', 'สเต็ปอัพ', 'Step-up', 'db', ['quads', 'glutes'], ['glute-med', 'adductors']),
   ex('leg-extension', 'เครื่องเหยียดขา', 'Leg extension', 'machine', ['quads']),
-  ex('hip-thrust', 'ฮิปทรัสต์', 'Hip thrust / glute bridge', 'bb', ['glutes'], ['hamstrings', 'quads', 'glute-med', 'adductors']),
+  ex('hip-thrust', 'ฮิปทรัสต์', 'Hip thrust / glute bridge', 'bb', ['glutes'], ['hamstrings', 'quads', 'glute-med', 'adductors'], ['Hip thrust', 'Barbell hip thrust']),
   ex('hip-thrust-machine', 'เครื่องฮิปทรัสต์', 'Hip thrust machine', 'machine', ['glutes'], ['hamstrings', 'adductors']),
   ex('glute-bridge', 'กลูทบริดจ์', 'Glute bridge', 'bw', ['glutes'], ['hamstrings', 'adductors']),
   ex('romanian-deadlift', 'โรมาเนียนเดดลิฟต์', 'Romanian deadlift', 'db', ['hamstrings', 'glutes'], ['lower-back', 'forearms', 'adductors']),
@@ -221,7 +221,15 @@ export const EXERCISE_LIBRARY = [
   ex('single-leg-rdl', 'เดดลิฟต์ขาเดียว', 'Single-leg Romanian deadlift', 'db', ['hamstrings', 'glutes'], ['glute-med', 'lower-back']),
   ex('sumo-deadlift', 'ซูโม่เดดลิฟต์', 'Sumo deadlift', 'bb', ['glutes', 'quads', 'adductors'], ['hamstrings', 'lower-back', 'traps-upper', 'forearms']),
   ex('good-morning', 'กู๊ดมอร์นิ่ง', 'Good morning', 'bb', ['hamstrings'], ['glutes', 'lower-back', 'adductors']),
-  ex('kb-swing', 'เคตเทิลเบลสวิง', 'Kettlebell swing', 'kb', ['glutes', 'hamstrings'], ['lower-back', 'forearms', 'abs']),
+  ex('kb-swing', 'เคตเทิลเบลสวิง', 'Kettlebell swing', 'kb', ['glutes', 'hamstrings'], ['lower-back', 'forearms', 'abs'], ['KB swing']),
+
+  ex('thruster', 'ธรัสเตอร์', 'Thruster', 'bb', ['quads', 'delt-front'], ['glutes', 'triceps', 'delt-side', 'abs']),
+  ex('wall-ball', 'วอลล์บอล', 'Wall ball', 'other', ['quads', 'delt-front'], ['glutes', 'triceps', 'abs'], ['Wall ball shot']),
+  ex('push-press', 'พุชเพรส', 'Push press', 'bb', ['delt-front'], ['triceps', 'delt-side', 'quads', 'glutes']),
+  ex('power-clean', 'พาวเวอร์คลีน', 'Power clean', 'bb', ['glutes', 'hamstrings', 'traps-upper'], ['quads', 'lower-back', 'delt-front', 'forearms'], ['Clean', 'Clean and press']),
+  ex('burpee', 'เบอร์พี', 'Burpee', 'bw', ['quads', 'chest-lower'], ['glutes', 'delt-front', 'triceps', 'abs'], ['Burpees']),
+  ex('box-jump', 'กระโดดขึ้นกล่อง', 'Box jump', 'bw', ['quads', 'glutes'], ['calves', 'hamstrings']),
+  ex('man-maker', 'แมนเมกเกอร์', 'Man maker', 'db', ['chest-lower', 'delt-front', 'quads'], ['triceps', 'mid-back', 'glutes', 'abs']),
   ex('leg-curl', 'เครื่องงอขา', 'Leg curl', 'machine', ['hamstrings'], ['calves']),
   ex('seated-leg-curl', 'เครื่องงอขานั่ง', 'Seated leg curl', 'machine', ['hamstrings'], ['calves']),
   ex('lying-leg-curl', 'เครื่องงอขานอนคว่ำ', 'Lying leg curl', 'machine', ['hamstrings'], ['calves']),
@@ -359,17 +367,44 @@ const GUESS_RULES = [
   [/อก|chest|pec/i, ['chest-upper', 'chest-lower'], ['delt-front', 'triceps']],
   [/ไหล่|shoulder|delt/i, ['delt-front', 'delt-side'], ['triceps', 'traps-upper']],
   [/ท้อง|\babs?\b|core|แกนกลาง/i, ['abs'], ['obliques']],
-  [/หลัง|back/i, ['lats', 'mid-back'], ['biceps', 'delt-rear']],
-  [/ขา|leg/i, ['quads', 'hamstrings', 'glutes'], ['adductors']],
-  [/แขน|arm/i, ['biceps', 'triceps'], ['forearms']],
+  [/หลัง|\bback\b/i, ['lats', 'mid-back'], ['biceps', 'delt-rear']],
+  [/ขา|\blegs?\b/i, ['quads', 'hamstrings', 'glutes'], ['adductors']],
+  [/แขน|\barms?\b/i, ['biceps', 'triceps'], ['forearms']],
 ];
 
 /** Rules from here on are whole-area fallbacks (อก, ไหล่, หลัง …). */
 const GUESS_BROAD_FROM = GUESS_RULES.findIndex(([re]) => re.test('อก'));
 
+const groupsOf = (ids) => new Set(ids.map((id) => beginnerGroupOfRegion(id)?.id).filter(Boolean));
+
+/**
+ * First matching rule decides; a combo name ("lunge with curl") also gets the muscles of
+ * other specific rules that match the rest of the name and work a different muscle group.
+ * Primaries are ordered by where each part appears in the name.
+ */
 function matchGuess(text) {
   const i = text ? GUESS_RULES.findIndex(([re]) => re.test(text)) : -1;
-  return i < 0 ? null : { i, p: [...GUESS_RULES[i][1]], s: [...(GUESS_RULES[i][2] || [])] };
+  if (i < 0) return null;
+  const hits = [];
+  let rest = text;
+  GUESS_RULES.slice(0, GUESS_BROAD_FROM).forEach(([re, p, s = []], j) => {
+    const m = rest.match(re);
+    if (!m) return;
+    rest = rest.replace(m[0], ' ');
+    hits.push({ j, pos: text.indexOf(m[0]), p, s });
+  });
+  const first = GUESS_RULES[i];
+  if (i >= GUESS_BROAD_FROM || hits.length < 2) return { i, p: [...first[1]], s: [...(first[2] || [])] };
+  const seen = new Set();
+  const kept = hits.filter((h) => {
+    const g = groupsOf(h.p);
+    if (h.j !== i && [...g].every((x) => seen.has(x))) return false;
+    g.forEach((x) => seen.add(x));
+    return true;
+  }).sort((a, b) => a.pos - b.pos);
+  const p = [...new Set(kept.flatMap((h) => h.p))];
+  const s = [...new Set(kept.flatMap((h) => h.s))].filter((x) => !p.includes(x));
+  return { i, p, s };
 }
 
 /** The move name decides; the group name only helps when the move name alone is vague (e.g. แขน › หลัง). */

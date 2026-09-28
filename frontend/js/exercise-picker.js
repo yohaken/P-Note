@@ -12,8 +12,8 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=324';
-import { regionRestMap, exerciseLeafIndex } from './muscle-tree.js?v=324';
+} from './muscle-map.js?v=325';
+import { regionRestMap, exerciseLeafIndex } from './muscle-tree.js?v=325';
 
 const FAVS_KEY = 'pnote_ex_favs';
 const FAV_GROUP = 'fav';
@@ -328,7 +328,7 @@ function showToast(text, undo) {
 }
 
 function addMove(name, logToday) {
-  const res = deps.onAdd(name, { logToday });
+  const res = deps.onAdd(name, { logToday, groupId: groupId === FAV_GROUP ? '' : groupId || '' });
   if (!res) return;
   const label = res.node?.name || name;
   if (res.logged) showToast(`เพิ่ม ${label} วันนี้แล้ว`, res.undo);

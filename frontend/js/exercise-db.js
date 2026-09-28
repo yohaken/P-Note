@@ -761,6 +761,9 @@ export const EXERCISE_DB = [
 
 /** EXERCISE_LIBRARY id (muscle-map.js) -> EXERCISE_DB id with a matching pose photo. */
 export const LIBRARY_IMAGE_IDS = {
+  'power-clean': 'Power_Clean',
+  'push-press': 'Push_Press',
+  'box-jump': 'Front_Box_Jump',
   'push-up': 'Pushups',
   'incline-push-up': 'Incline_Push-Up',
   'decline-push-up': 'Decline_Push-Up',

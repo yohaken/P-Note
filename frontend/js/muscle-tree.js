@@ -18,7 +18,7 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=324';
+} from './muscle-map.js?v=325';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -106,7 +106,27 @@ export function normalizeMuscleNode(raw) {
     node.p = sanitizeRegionIds(raw.p);
     node.s = sanitizeRegionIds(raw.s).filter((r) => !node.p.includes(r));
   }
+  const at = stampMs(raw.at);
+  if (at) node.at = at;
   return node;
+}
+
+function stampMs(raw) {
+  const n = Math.round(Number(raw));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Edit stamps older than this are forgotten (deleted rows/cells can no longer come back after that). */
+const TOMBSTONE_KEEP_MS = 180 * 86400000;
+
+function normalizeStampMap(raw, keep = () => true) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  Object.keys(raw).forEach((k) => {
+    const at = stampMs(raw[k]);
+    if (at && keep(k, at)) out[k] = at;
+  });
+  return out;
 }
 
 /** Flat cells map: `${nodeId}|${dateKey}` → kcal */
@@ -126,7 +146,17 @@ export function cellKey(nodeId, dateKey) {
   return `${nodeId}|${dateKey}`;
 }
 
+/** Trees returned by normalizeMuscleTree; they are never mutated, so re-normalizing is a no-op. */
+const NORMALIZED = new WeakSet();
+
 export function normalizeMuscleTree(raw) {
+  if (raw && NORMALIZED.has(raw)) return raw;
+  const out = normalizeMuscleTreeFresh(raw);
+  NORMALIZED.add(out);
+  return out;
+}
+
+function normalizeMuscleTreeFresh(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
   let nodes = (Array.isArray(src.nodes) ? src.nodes : [])
     .map(normalizeMuscleNode)
@@ -163,13 +193,56 @@ export function normalizeMuscleTree(raw) {
     if (!idSet.has(nodeId)) delete cells[k];
   });
 
-  return {
+  const cutoff = Date.now() - TOMBSTONE_KEEP_MS;
+  const out = {
     nodes: ordered,
     cells,
     restScale: normalizeRestScale(src.restScale),
     restProfile: normalizeRestProfile(src.restProfile),
     updatedAt: String(src.updatedAt || '').trim(),
   };
+  // Per-cell edit stamps (ms) let two devices merge cell by cell; a stamp without a value = cleared.
+  const cellAt = normalizeStampMap(src.cellAt, (k, at) => k.includes('|') && (cells[k] != null || at > cutoff));
+  const removed = normalizeStampMap(src.removed, (id, at) => !idSet.has(id) && at > cutoff);
+  if (Object.keys(cellAt).length) out.cellAt = cellAt;
+  if (Object.keys(removed).length) out.removed = removed;
+  return out;
+}
+
+const nodeSig = (n) => `${n.name}|${n.parentId || ''}|${n.order}|${n.p ? n.p.join(',') : '-'}|${n.s ? n.s.join(',') : '-'}`;
+
+/**
+ * Stamp what changed between two versions of the tree (nodes, cells, removed rows) so
+ * mergeMuscleTreeField can keep edits from both devices. Call once per local save.
+ */
+export function stampMuscleTreeChanges(prevRaw, nextRaw, nowMs = Date.now()) {
+  const prev = normalizeMuscleTree(prevRaw);
+  const next = normalizeMuscleTree(nextRaw);
+  if (prev === next) return next;
+  let changed = false;
+  const prevById = new Map(prev.nodes.map((n) => [n.id, n]));
+  const removed = { ...(next.removed || {}) };
+  const nodes = next.nodes.map((n) => {
+    const p = prevById.get(n.id);
+    if (p && nodeSig(p) === nodeSig(n)) return n.at || !p.at ? n : { ...n, at: p.at };
+    changed = true;
+    delete removed[n.id];
+    return { ...n, at: nowMs };
+  });
+  const nextIds = new Set(next.nodes.map((n) => n.id));
+  prev.nodes.forEach((n) => {
+    if (nextIds.has(n.id)) return;
+    removed[n.id] = nowMs;
+    changed = true;
+  });
+  const cellAt = { ...(prev.cellAt || {}), ...(next.cellAt || {}) };
+  new Set([...Object.keys(prev.cells), ...Object.keys(next.cells)]).forEach((k) => {
+    if (prev.cells[k] === next.cells[k]) return;
+    cellAt[k] = nowMs;
+    changed = true;
+  });
+  if (!changed) return next;
+  return normalizeMuscleTree({ ...next, nodes, cellAt, removed });
 }
 
 /** Rest scale: index = days since last trained (last slot = that many days or more). */
@@ -413,30 +486,53 @@ export function mergeMuscleTreeField(local, remote) {
   const rt = normalizeMuscleTree(remote?.muscleTree);
   const lAt = Date.parse(String(local?.muscleTreeAt || lt.updatedAt || '').trim()) || 0;
   const rAt = Date.parse(String(remote?.muscleTreeAt || rt.updatedAt || '').trim()) || 0;
-  if (rAt > lAt) {
-    return {
-      muscleTree: rt,
-      muscleTreeAt: remote?.muscleTreeAt || rt.updatedAt || '',
-    };
-  }
-  if (lAt > rAt) {
-    return {
-      muscleTree: lt,
-      muscleTreeAt: local?.muscleTreeAt || lt.updatedAt || '',
-    };
-  }
   const lScore = lt.nodes.length + Object.keys(lt.cells).length;
   const rScore = rt.nodes.length + Object.keys(rt.cells).length;
-  if (rScore > lScore) {
-    return {
-      muscleTree: rt,
-      muscleTreeAt: remote?.muscleTreeAt || rt.updatedAt || local?.muscleTreeAt || '',
-    };
-  }
-  return {
-    muscleTree: lt,
-    muscleTreeAt: local?.muscleTreeAt || lt.updatedAt || remote?.muscleTreeAt || '',
-  };
+  const rNewer = rAt > lAt || (rAt === lAt && rScore > lScore);
+  const [a, b] = rNewer ? [rt, lt] : [lt, rt];
+  const at = rNewer
+    ? (remote?.muscleTreeAt || rt.updatedAt || local?.muscleTreeAt || '')
+    : (local?.muscleTreeAt || lt.updatedAt || remote?.muscleTreeAt || '');
+  return { muscleTree: mergeMuscleTrees(a, b), muscleTreeAt: at };
+}
+
+const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.nodes.some((n) => n.at));
+
+/**
+ * Row by row and cell by cell, the newer stamp wins; unstamped items follow `a` (the tree
+ * saved last), so data from builds before stamps merges exactly as before.
+ */
+export function mergeMuscleTrees(aRaw, bRaw) {
+  const a = normalizeMuscleTree(aRaw);
+  const b = normalizeMuscleTree(bRaw);
+  if (a === b || (!hasStamps(a) && !hasStamps(b))) return a;
+  const aRemoved = a.removed || {};
+  const bRemoved = b.removed || {};
+  const aById = new Map(a.nodes.map((n) => [n.id, n]));
+  const bById = new Map(b.nodes.map((n) => [n.id, n]));
+  const nodes = [];
+  new Set([...aById.keys(), ...bById.keys(), ...Object.keys(aRemoved), ...Object.keys(bRemoved)]).forEach((id) => {
+    const an = aById.get(id);
+    const bn = bById.get(id);
+    const aStamp = an ? an.at || 0 : aRemoved[id] || 0;
+    const bStamp = bn ? bn.at || 0 : bRemoved[id] || 0;
+    const win = bStamp > aStamp ? bn : an;
+    if (win) nodes.push(win);
+  });
+  const removed = { ...aRemoved };
+  Object.keys(bRemoved).forEach((id) => { removed[id] = Math.max(removed[id] || 0, bRemoved[id]); });
+  const aCellAt = a.cellAt || {};
+  const bCellAt = b.cellAt || {};
+  const cells = {};
+  const cellAt = {};
+  new Set([...Object.keys(a.cells), ...Object.keys(b.cells), ...Object.keys(aCellAt), ...Object.keys(bCellAt)]).forEach((k) => {
+    const aStamp = aCellAt[k] || 0;
+    const bStamp = bCellAt[k] || 0;
+    const val = bStamp > aStamp ? b.cells[k] : a.cells[k];
+    if (val != null) cells[k] = val;
+    if (aStamp || bStamp) cellAt[k] = Math.max(aStamp, bStamp);
+  });
+  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed });
 }
 
 export function isLeafNode(node, nodes) {
@@ -500,11 +596,18 @@ export function leafLabelPath(tree, nodeId) {
  * Cardio rows log real kcal burned (feeds the calorie balance).
  * Every other row is a strength mark: counts sessions, burns 0 kcal.
  */
-export const CARDIO_NAME_RE = /คาดิโอ|คาร์ดิโอ|cardio|วิ่ง|เดิน|ปั่น|จักรยาน|ว่ายน้ำ|กระโดดเชือก/i;
+export const CARDIO_NAME_RE = new RegExp([
+  'คาดิโอ|คาร์ดิโอ|cardio|วิ่ง|เดิน|ปั่น|จักรยาน|ว่ายน้ำ|กระโดดเชือก|พายเรือ|เครื่องพาย|เอลลิป|ขึ้นบันได|สเต็ปเปอร์',
+  'treadmill|elliptical|cross[\\s-]*trainer|rowing|rower|ergometer|\\berg\\b|\\bbike\\b|bicycle|cycling|\\bspin(ning)?\\b',
+  'swim|jump[\\s-]*rope|skipping|stair|stepper|\\bjog|\\brun(ning)?\\b|\\bwalk(ing)?\\b|\\bhiit\\b|aerobic|zumba',
+].join('|'), 'i');
+
+/** Words that make an otherwise cardio-sounding name a lift (walking lunge, farmer walk…). */
+const STRENGTH_WORD_RE = /lunge|carry|farmer|curl|press|squat|raise|crunch|ลันจ์|ถือ/i;
 
 /** Cardio by name, except library strength moves that merely contain เดิน/ปั่น (เดินถือดัมเบล…). */
 export function isCardioName(name) {
-  return CARDIO_NAME_RE.test(name) && !libraryExerciseByName(name);
+  return CARDIO_NAME_RE.test(name) && !STRENGTH_WORD_RE.test(name) && !libraryExerciseByName(name);
 }
 
 /** Cardio for a leaf name under an optional parent name (a cardio parent makes every child cardio). */
@@ -522,14 +625,7 @@ export function isCardioNode(tree, nodeId) {
 
 /** Labels that belong to the current tree (used to rebuild day.exercises). */
 export function muscleTreeLabels(tree) {
-  const rows = flattenMuscleRows(tree);
-  const labels = new Set();
-  rows.forEach((r) => {
-    if (!r.leaf) return;
-    labels.add(r.name.slice(0, MUSCLE_NAME_MAX));
-    labels.add(leafLabelPath(tree, r.id).slice(0, MUSCLE_NAME_MAX));
-  });
-  return labels;
+  return new Set(muscleLeafIndex(tree).byLabel.keys());
 }
 
 /**
@@ -538,16 +634,63 @@ export function muscleTreeLabels(tree) {
  */
 export function muscleSlotsForDate(tree, dateKey) {
   const t = normalizeMuscleTree(tree);
-  const rows = flattenMuscleRows(t).filter((r) => r.leaf);
   const out = [];
-  rows.forEach((r) => {
-    const value = t.cells[cellKey(r.id, dateKey)];
+  muscleLeafIndex(t).leaves.forEach((leaf) => {
+    const value = t.cells[cellKey(leaf.id, dateKey)];
     if (!(value > 0)) return;
-    const label = r.depth === 1 ? leafLabelPath(t, r.id) : r.name;
-    const cardio = isCardioNode(t, r.id);
-    out.push({ burn: cardio ? value : 0, label, cardio, value });
+    out.push({ burn: leaf.cardio ? value : 0, label: leaf.label, cardio: leaf.cardio, value, id: leaf.id });
   });
   return out;
+}
+
+const LEAF_INDEX = new WeakMap();
+
+/**
+ * Loggable leaves in table order, built once per normalized tree.
+ * byLabel: day-cell label (40 chars) → leaves using it (a bare name maps only when unique).
+ */
+export function muscleLeafIndex(tree) {
+  const t = normalizeMuscleTree(tree);
+  const hit = LEAF_INDEX.get(t);
+  if (hit) return hit;
+  const byId = new Map(t.nodes.map((n) => [n.id, n]));
+  const leaves = [];
+  flattenMuscleRows(t).forEach((r) => {
+    if (!r.leaf) return;
+    const parent = r.parentId ? byId.get(r.parentId) : null;
+    leaves.push({
+      id: r.id,
+      name: r.name,
+      parentId: r.parentId || null,
+      parentName: parent?.name || '',
+      label: (parent ? `${parent.name} · ${r.name}` : r.name).slice(0, MUSCLE_NAME_MAX),
+      cardio: isCardioMove(r.name, parent?.name),
+    });
+  });
+  const byLabel = new Map();
+  const add = (key, leaf) => {
+    if (!byLabel.has(key)) byLabel.set(key, []);
+    if (!byLabel.get(key).includes(leaf)) byLabel.get(key).push(leaf);
+  };
+  leaves.forEach((leaf) => add(leaf.label, leaf));
+  const bare = new Map();
+  leaves.forEach((leaf) => {
+    const k = leaf.name.slice(0, MUSCLE_NAME_MAX);
+    bare.set(k, [...(bare.get(k) || []), leaf]);
+  });
+  bare.forEach((list, k) => { if (!byLabel.has(k)) list.forEach((leaf) => add(k, leaf)); });
+  const out = { leaves, byLabel };
+  LEAF_INDEX.set(t, out);
+  return out;
+}
+
+/** The leaf a day-cell label stands for on a date: one with a mark that day beats one without. */
+export function leafForLabel(tree, label, dateKey, skip = null) {
+  const t = normalizeMuscleTree(tree);
+  const list = (muscleLeafIndex(t).byLabel.get(String(label || '').slice(0, MUSCLE_NAME_MAX)) || [])
+    .filter((l) => !skip?.has(l.id));
+  if (!list.length) return null;
+  return (dateKey && list.find((l) => t.cells[cellKey(l.id, dateKey)] > 0)) || list[0];
 }
 
 /** Pure tree update — does not touch day rows. */
@@ -687,6 +830,9 @@ export function addExerciseMove(tree, name) {
   const lib = libraryExerciseByName(name);
   const label = clampName(lib ? lib.name : name);
   if (!label) return { tree: t, node: null, created: false };
+  const byId = new Map(t.nodes.map((n) => [n.id, n]));
+  const sameCardio = t.nodes.find((n) => n.parentId && nodeIsCardio(byId, n) && moveKey(n.name) === moveKey(label));
+  if (sameCardio) return { tree: t, node: sameCardio, created: false };
   if (!lib && isCardioName(label)) {
     let work = t;
     let cardioRoot = t.nodes.find((n) => !n.parentId && CARDIO_NAME_RE.test(n.name)) || null;
@@ -737,6 +883,21 @@ export function renameMuscleNode(tree, nodeId, name) {
     tree: normalizeMuscleTree({ ...t, nodes, updatedAt: nowIsoLocal() }),
     changed: true,
   };
+}
+
+/** Move a leaf under another group (cells stay keyed by id, so its history moves along). */
+export function reparentMuscleNode(tree, nodeId, parentId) {
+  const t = normalizeMuscleTree(tree);
+  const node = t.nodes.find((n) => n.id === nodeId && n.parentId);
+  const parent = t.nodes.find((n) => n.id === parentId && !n.parentId);
+  if (!node || !parent || node.parentId === parentId) return { tree: t, changed: false };
+  // A childless root with its own marks is itself a move and can't take children.
+  if (!t.nodes.some((n) => n.parentId === parentId) && Object.keys(t.cells).some((k) => k.startsWith(`${parentId}|`))) {
+    return { tree: t, changed: false };
+  }
+  const order = t.nodes.filter((n) => n.parentId === parentId).length;
+  const nodes = t.nodes.map((n) => (n.id === nodeId ? { ...n, parentId, order } : n));
+  return { tree: normalizeMuscleTree({ ...t, nodes, updatedAt: nowIsoLocal() }), changed: true };
 }
 
 export function removeMuscleNode(tree, nodeId) {
@@ -1090,28 +1251,114 @@ function groupRegions(t, r, moves) {
   return set;
 }
 
-/**
- * Per-day dose for a strength group: 1 per move of its own or any move with a primary in
- * its regions, SECONDARY_DOSE per move that only hits them as a secondary.
- * @returns {Map<string, { dose: number, full: boolean }>}
- */
-export function groupDoseByDate(t, r, moves) {
-  const own = new Set(r.childIds || []);
-  const regions = groupRegions(t, r, moves);
+/** move id → dates it has a mark on. */
+function datesByMoveId(t) {
   const out = new Map();
   Object.keys(t.cells).forEach((k) => {
     if (!(t.cells[k] > 0)) return;
     const [id, dk] = k.split('|');
-    const m = moves.get(id);
-    if (!m || !dk) return;
-    let w = 0;
-    if (own.has(id) || m.p.some((x) => regions.has(x))) w = 1;
-    else if (m.s.some((x) => regions.has(x))) w = SECONDARY_DOSE;
-    if (!w) return;
-    const prev = out.get(dk) || { dose: 0, full: false };
-    out.set(dk, { dose: prev.dose + w, full: prev.full || w >= 1 });
+    if (!out.has(id)) out.set(id, []);
+    out.get(id).push(dk);
   });
   return out;
+}
+
+/**
+ * Per-day count for a strength group in the move view: how many of its own moves were
+ * logged. Muscle overlap between groups is shown only in the muscle view.
+ * @returns {Map<string, number>}
+ */
+export function groupMovesByDate(r, datesById) {
+  const out = new Map();
+  (r.childIds || []).forEach((id) => {
+    (datesById.get(id) || []).forEach((dk) => out.set(dk, (out.get(dk) || 0) + 1));
+  });
+  return out;
+}
+
+/** Regions hit as a primary muscle only (secondary hits don't set the rest colour). */
+export function primaryRestMap(moves, profile) {
+  return computeRegionRest(moves.map((m) => ({ ...m, s: [] })), profile);
+}
+
+/** Least-recovered region of a set: most rest still to go, then most recent. */
+function leastRecovered(regionIds, restMap) {
+  let best = null;
+  regionIds.forEach((rid) => {
+    const info = restMap.get(rid);
+    if (!info) return;
+    const left = info.rest - info.days;
+    if (!best || left > best.left || (left === best.left && info.days < best.info.days)) best = { rid, info, left };
+  });
+  return best;
+}
+
+/**
+ * Beginner groups worked as a primary on one date, most moves first.
+ * @returns {{ name: string, n: number }[]}
+ */
+export function dayPrimaryGroups(moves, datesById, dateKey) {
+  const count = new Map();
+  moves.forEach((m) => {
+    if (!(datesById.get(m.id) || []).includes(dateKey)) return;
+    groupsOfRegions(m.p).forEach((gid) => count.set(gid, (count.get(gid) || 0) + 1));
+  });
+  return BEGINNER_GROUPS
+    .filter((g) => count.has(g.id))
+    .map((g) => ({ name: g.name, n: count.get(g.id) }))
+    .sort((a, b) => b.n - a.n);
+}
+
+function cardioKcalByDate(t, datesById) {
+  const out = new Map();
+  muscleLeafIndex(t).leaves.forEach((l) => {
+    if (!l.cardio) return;
+    (datesById.get(l.id) || []).forEach((dk) => out.set(dk, (out.get(dk) || 0) + t.cells[cellKey(l.id, dk)]));
+  });
+  return out;
+}
+
+/** Narrow date columns: shorter labels for the longer group names. */
+const DAY_GROUP_SHORT = { 'ต้นขาหน้า': 'ขาหน้า', 'ต้นขาหลัง': 'ขาหลัง', 'หน้าท้อง': 'ท้อง' };
+
+function groupsOfRegions(ids) {
+  return new Set(ids.map((id) => beginnerGroupOfRegion(id)?.id).filter(Boolean));
+}
+
+/** Top "เล่นหลัก" row: which muscle groups each day was mainly about (tap = that day's moves). */
+function daySummaryRowHtml(dates, todayKey, moves, datesById, cardioByDate) {
+  const cells = dates.map((dk) => {
+    const groups = dayPrimaryGroups(moves, datesById, dk);
+    const cut = cardioByDate.get(dk) || 0;
+    const shown = groups.slice(0, 2).map((g) => `<span class="mt-day-g">${esc(DAY_GROUP_SHORT[g.name] || g.name)}</span>`).join('');
+    const more = groups.length > 2 ? `<span class="mt-day-more">+${groups.length - 2}</span>` : '';
+    const cardio = cut > 0 ? '<span class="mt-day-cardio" aria-label="มีคาดิโอ">คาดิโอ</span>' : '';
+    const any = groups.length || cut > 0;
+    const tip = groups.map((g) => `${g.name} ${g.n} ท่า`).join(' · ') + (cut > 0 ? `${groups.length ? ' · ' : ''}คาดิโอ −${cut} kcal` : '');
+    return `<td class="mt-cell mt-day-cell${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}"${any ? ` data-day-sum="1" title="${esc(tip)} · แตะเพื่อดูท่า"` : ''}>${shown}${more}${cardio}</td>`;
+  }).join('');
+  return `<tr class="mt-row mt-day-row">
+    <th class="mt-row-name is-parent mt-day-name" scope="row"><div class="mt-name-row"><span class="mt-name-text">เล่นหลัก</span></div></th>
+    <td class="mt-col-count mt-day-blank"></td>
+    <td class="mt-col-rest mt-day-blank"></td>
+    ${cells}
+  </tr>`;
+}
+
+/** Legend line under the table, per view. */
+export function renderMuscleTableLegendHtml(view = 'move') {
+  const common = '<span class="mtl-item"><b>เล่นหลัก</b> กลุ่มกล้ามหลักของวันนั้น (แตะดูท่า)</span>'
+    + '<span class="mtl-item"><b>พัก</b> วันที่พักมา นับเฉพาะตอนเป็นกล้ามหลัก</span>';
+  if (view === 'muscle') {
+    return `<span class="mtl-item"><b class="mt-dose">2</b> ท่าที่ใช้เป็นกล้ามหลัก</span>`
+      + '<span class="mtl-item"><b class="mt-dose is-sec">•</b> โดนแค่กล้ามรอง</span>'
+      + '<span class="mtl-item"><b>วัน</b> จำนวนวันที่เป็นกล้ามหลัก</span>'
+      + common;
+  }
+  return '<span class="mtl-item"><b>1</b> เล่นท่านั้น (ท่ากล้าม)</span>'
+    + '<span class="mtl-item"><b class="mt-dose">2</b> แถวกลุ่ม = จำนวนท่าในกลุ่มที่เล่น</span>'
+    + '<span class="mtl-item"><b>ครั้ง</b> จำนวนวันที่เล่นท่านั้น</span>'
+    + common;
 }
 
 /** 1.5 → "1½", 0.5 → "½". */
@@ -1158,19 +1405,26 @@ function muscleLinkMarkHtml(r, moves, cardio) {
   return `<span class="mt-link-mark is-none is-count" title="${esc(tip)}" aria-label="${esc(tip)}">!${missing > 1 ? missing : ''}</span>`;
 }
 
-function restCellHtml(t, r, moves, cardio, depthCls, leafCls) {
+function restCellHtml(t, r, moves, cardio, depthCls, leafCls, restMap) {
   const base = `mt-col-rest${depthCls}${leafCls}`;
   if (cardio || !r.leaf) return `<td class="${base}" data-node-id="${esc(r.id)}"></td>`;
-  const info = rowRestInfo(t, r, moves);
+  const m = moves.get(r.id);
+  // A move is as rested as its most tired primary muscle, whichever move worked it.
+  const worst = m?.p.length ? leastRecovered(m.p, restMap) : null;
+  const info = worst
+    ? { days: worst.info.days, last: worst.info.last, rest: worst.info.rest }
+    : rowRestInfo(t, r, moves);
   const days = info ? info.days : null;
   const last = info ? info.last : '';
   const step = info ? restStep(t.restScale, days) : null;
   if (!step) {
     return `<td class="${base} is-none" data-node-id="${esc(r.id)}" title="ยังไม่เคยเล่น"><span class="mt-rest-val">–</span></td>`;
   }
-  const tip = days === 0
-    ? `เล่นวันนี้ · ${step.label}`
-    : `พักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${step.label}`;
+  const who = worst && m.p.length > 1 ? `${regionById(worst.rid)?.name || ''} · ` : '';
+  const own = worst && m.last && m.last !== last ? ` · ท่านี้เล่นล่าสุด ${formatMuscleColDate(m.last)}` : '';
+  const tip = `${who}${days === 0
+    ? `กล้ามหลักโดนวันนี้ · ${step.label}`
+    : `กล้ามหลักพักมา ${days} วัน (ล่าสุด ${formatMuscleColDate(last)}) · ${step.label}`}${own}`;
   const left = restRemaining(days, info.rest);
   const restTip = left == null ? ''
     : ` · กล้ามนี้ควรพัก ${fmtRest(info.rest)} วัน · ${left > 0 ? `อีก ${fmtRest(left)} วัน` : 'ครบแล้ว'}`;
@@ -1199,7 +1453,10 @@ export function renderMuscleTableHtml(tree, opts = {}) {
   const todayKey = opts.todayKey || muscleToDateKey();
   const dates = opts.dates || muscleDateKeys({ today: todayKey });
   const rows = flattenMuscleRows(t);
-  const moves = new Map(muscleMoveStates(t, todayKey).map((m) => [m.id, m]));
+  const moveList = muscleMoveStates(t, todayKey);
+  const moves = new Map(moveList.map((m) => [m.id, m]));
+  const restMap = primaryRestMap(moveList, t.restProfile);
+  const datesById = datesByMoveId(t);
   const sessionsById = new Map();
   Object.keys(t.cells).forEach((k) => {
     if (t.cells[k] > 0) sessionsById.set(k.split('|')[0], (sessionsById.get(k.split('|')[0]) || 0) + 1);
@@ -1236,7 +1493,7 @@ export function renderMuscleTableHtml(tree, opts = {}) {
       const depthCls = r.depth ? ' is-child' : ' is-parent';
       const leafCls = r.leaf ? ' is-leaf' : ' is-group';
       const cardio = nodeIsCardio(byId, byId.get(r.id));
-      const doses = isGroup && !cardio ? groupDoseByDate(t, r, moves) : null;
+      const doses = isGroup && !cardio ? groupMovesByDate(r, datesById) : null;
       const sessions = isGroup ? 0 : (sessionsById.get(r.id) || 0);
       const cardioCls = cardio ? ' is-cardio' : '';
       const nameTitle = collapsible
@@ -1268,10 +1525,8 @@ export function renderMuscleTableHtml(tree, opts = {}) {
               ? (r.childIds || []).reduce((s, id) => s + (t.cells[cellKey(id, dk)] || 0), 0)
               : 0;
             const cutHtml = cut > 0 ? `<span class="mt-cardio-cut" title="คาดิโอวันนี้ −${cut} kcal จากดุลแคล">−${cut}</span>` : '';
-            const d = doses?.get(dk);
-            const doseHtml = d
-              ? `<span class="mt-dose${d.full ? '' : ' is-half'}" title="${esc(d.full ? `รวม ${fmtDose(d.dose)} ครั้ง` : 'โดนเป็นกล้ามรองจากท่าอื่น (½)')}">${fmtDose(d.dose)}</span>`
-              : '';
+            const n = doses?.get(dk) || 0;
+            const doseHtml = n ? `<span class="mt-dose" title="${esc(`เล่น ${n} ท่าในกลุ่มนี้`)}">${n}</span>` : '';
             return `<td class="mt-cell is-sum${cardioCls}${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}">${cutHtml}${doseHtml}</td>`;
           }
           const val = t.cells[cellKey(r.id, dk)];
@@ -1288,20 +1543,22 @@ export function renderMuscleTableHtml(tree, opts = {}) {
         })
         .join('');
 
-      return `<tr class="mt-row${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${restCellHtml(t, r, moves, cardio, depthCls, leafCls)}${cells}</tr>`;
+      return `<tr class="mt-row${depthCls}${leafCls}${sel}${cardioCls}${openGroup ? ' is-open' : ''}" data-node-id="${esc(r.id)}"${r.parentId ? ` data-parent-id="${esc(r.parentId)}"` : ''}>${nameCell}${countCell}${restCellHtml(t, r, moves, cardio, depthCls, leafCls, restMap)}${cells}</tr>`;
     })
     .join('');
+
+  const cardioByDate = cardioKcalByDate(t, datesById);
 
   return `<table class="muscle-table" id="muscle-table" aria-label="ตารางกล้ามเนื้อรายวัน">
     <thead>
       <tr>
-        <th class="mt-corner" scope="col">กล้ามเนื้อ</th>
-        <th class="mt-col-count-head" scope="col" title="จำนวนครั้งที่เล่น (วันที่มีแคล)">ครั้ง</th>
-        <th class="mt-col-rest-head" scope="col" title="พักมากี่วันแล้วนับจากครั้งล่าสุดของท่านั้น">พัก</th>
+        <th class="mt-corner" scope="col">ท่า</th>
+        <th class="mt-col-count-head" scope="col" title="จำนวนวันที่เล่นท่านั้น">ครั้ง</th>
+        <th class="mt-col-rest-head" scope="col" title="วันที่พักมาของกล้ามหลักที่ล้าที่สุดของท่า (ท่าไหนเล่นก็นับ)">พัก</th>
         ${headDates}
       </tr>
     </thead>
-    <tbody>${body}</tbody>
+    <tbody>${daySummaryRowHtml(dates, todayKey, moveList, datesById, cardioByDate)}${body}</tbody>
   </table>`;
 }
 
@@ -1340,36 +1597,30 @@ export function renderMuscleRegionTableHtml(tree, opts = {}) {
   const todayKey = opts.todayKey || muscleToDateKey();
   const dates = opts.dates || muscleDateKeys({ today: todayKey });
   const moves = muscleMoveStates(t, todayKey);
-  const restMap = computeRegionRest(moves, t.restProfile);
+  const restMap = primaryRestMap(moves, t.restProfile);
+  const anyRestMap = computeRegionRest(moves, t.restProfile);
   const expandAll = Boolean(opts.expandAll);
   const expanded = opts.expandedIds instanceof Set
     ? opts.expandedIds
     : new Set(Array.isArray(opts.expandedIds) ? opts.expandedIds : []);
   const selectedId = opts.selectedId || '';
 
-  // move id → dates it was logged (strength moves only)
-  const datesByMove = new Map();
-  Object.keys(t.cells).forEach((k) => {
-    if (!(t.cells[k] > 0)) return;
-    const [id, dk] = k.split('|');
-    if (!datesByMove.has(id)) datesByMove.set(id, []);
-    datesByMove.get(id).push(dk);
-  });
+  const datesByMove = datesByMoveId(t);
+  // Per date: moves using the regions as a primary (whole count) and whether any hit them as a secondary.
   const doseFor = (regionIds) => {
     const regions = new Set(regionIds);
     const byDate = new Map();
-    const primaryDays = new Set();
     moves.forEach((m) => {
-      const w = m.p.some((x) => regions.has(x)) ? 1 : m.s.some((x) => regions.has(x)) ? SECONDARY_DOSE : 0;
-      if (!w) return;
+      const primary = m.p.some((x) => regions.has(x));
+      if (!primary && !m.s.some((x) => regions.has(x))) return;
       (datesByMove.get(m.id) || []).forEach((dk) => {
         if (dk > todayKey) return;
-        const prev = byDate.get(dk) || { dose: 0, full: false };
-        byDate.set(dk, { dose: prev.dose + w, full: prev.full || w >= 1 });
-        if (w >= 1) primaryDays.add(dk);
+        const prev = byDate.get(dk) || { p: 0, s: false };
+        byDate.set(dk, primary ? { ...prev, p: prev.p + 1 } : { ...prev, s: true });
       });
     });
-    return { byDate, count: primaryDays.size };
+    const count = [...byDate.values()].filter((d) => d.p > 0).length;
+    return { byDate, count };
   };
 
   const headDates = dates
@@ -1380,25 +1631,27 @@ export function renderMuscleRegionTableHtml(tree, opts = {}) {
     .join('');
 
   const restCell = (regionIds, cls, id) => {
-    // Group shows its least-recovered trained muscle.
-    let best = null;
-    regionIds.forEach((rid) => {
-      const info = restMap.get(rid);
-      const eq = regionRestEquivDays(info);
-      if (eq == null) return;
-      if (!best || eq < best.eq) best = { eq, info, rid };
-    });
+    // Group shows its least-recovered muscle; only primary hits set the colour.
+    const best = leastRecovered(regionIds, restMap);
     const base = `mt-col-rest${cls}`;
-    if (!best) return `<td class="${base} is-none" data-node-id="${esc(id)}" title="ยังไม่เคยโดน"><span class="mt-rest-val">–</span></td>`;
-    const step = restStep(t.restScale, best.eq);
-    const left = restRemaining(best.info.days, best.info.rest);
+    if (!best) {
+      const sec = leastRecovered(regionIds, anyRestMap);
+      if (!sec) return `<td class="${base} is-none" data-node-id="${esc(id)}" title="ยังไม่เคยโดน"><span class="mt-rest-val">–</span></td>`;
+      const tip = `ยังไม่เคยเป็นกล้ามหลัก · โดนเป็นกล้ามรอง${sec.info.days === 0 ? 'วันนี้' : `เมื่อ ${sec.info.days} วันก่อน`}`;
+      return `<td class="${base} is-secondary" data-node-id="${esc(id)}" title="${esc(tip)}">
+        <span class="mt-rest-val"><b class="mt-rest-n">${sec.info.days}</b><span class="mt-rest-lb">โดนรอง</span></span>
+      </td>`;
+    }
+    const { info } = best;
+    const step = restStep(t.restScale, info.days);
+    const left = restRemaining(info.days, info.rest);
     const who = regionIds.length > 1 ? `${regionById(best.rid)?.name || ''} · ` : '';
-    const tip = `${who}${best.info.days === 0 ? 'โดนวันนี้' : `พักมา ${best.info.days} วัน`}${best.info.via === 's' ? ' (กล้ามรอง พักครึ่งเดียว)' : ''}`
+    const tip = `${who}${info.days === 0 ? 'เป็นกล้ามหลักวันนี้' : `พักมา ${info.days} วัน (ล่าสุด ${formatMuscleColDate(info.last)})`}`
       + `${left == null ? '' : ` · ${left > 0 ? `อีก ${fmtRest(left)} วัน` : 'พักครบแล้ว'}`} · ${step.label}`;
     const fadeCls = step.fade > 0 ? ' is-fading' : '';
     const fadeStyle = step.fade > 0 ? ` style="--rest-fade:${Math.round(step.fade * 100)}%"` : '';
     return `<td class="${base} rest-tone-${esc(step.tone)}${fadeCls}"${fadeStyle} data-node-id="${esc(id)}" title="${esc(tip)}">
-      <span class="mt-rest-val"><b class="mt-rest-n">${best.eq}</b><span class="mt-rest-lb">${esc(step.label)}</span></span>
+      <span class="mt-rest-val"><b class="mt-rest-n">${info.days}</b><span class="mt-rest-lb">${esc(step.label)}</span></span>
     </td>`;
   };
 
@@ -1413,9 +1666,9 @@ export function renderMuscleRegionTableHtml(tree, opts = {}) {
       : ` data-muscle-region="${esc(regionIds[0])}" title="แตะเพื่อดูท่าที่ใช้กล้ามนี้และวันพัก"`;
     const cells = dates.map((dk) => {
       const d = byDate.get(dk);
-      const doseHtml = d
-        ? `<span class="mt-dose${d.full ? '' : ' is-half'}">${fmtDose(d.dose)}</span>`
-        : '';
+      let doseHtml = '';
+      if (d?.p) doseHtml = `<span class="mt-dose">${d.p}</span>`;
+      else if (d) doseHtml = '<span class="mt-dose is-sec" aria-label="โดนเป็นกล้ามรอง">•</span>';
       return `<td class="mt-cell is-sum${dk === todayKey ? ' is-today' : ''}${d ? ' is-hit' : ''}" data-date="${esc(dk)}"${d ? ` data-mv-hit="${esc(regionIds.join(','))}" data-mv-name="${esc(name)}"` : ''}>${doseHtml}</td>`;
     }).join('');
     return `<tr class="mt-row${depthCls}${leafCls}${sel}${open ? ' is-open' : ''}" data-node-id="${esc(id)}">
@@ -1450,10 +1703,10 @@ export function renderMuscleRegionTableHtml(tree, opts = {}) {
       <tr>
         <th class="mt-corner" scope="col">กล้ามเนื้อ</th>
         <th class="mt-col-count-head" scope="col" title="จำนวนวันที่โดนเป็นกล้ามหลัก">วัน</th>
-        <th class="mt-col-rest-head" scope="col" title="พักมากี่วันแล้ว (กลุ่ม = กล้ามที่ยังล้าที่สุด)">พัก</th>
+        <th class="mt-col-rest-head" scope="col" title="พักมากี่วันแล้ว นับเฉพาะตอนเป็นกล้ามหลัก (กลุ่ม = กล้ามที่ยังล้าที่สุด)">พัก</th>
         ${headDates}
       </tr>
     </thead>
-    <tbody>${body}</tbody>
+    <tbody>${daySummaryRowHtml(dates, todayKey, moves, datesByMove, cardioKcalByDate(t, datesByMove))}${body}</tbody>
   </table>`;
 }

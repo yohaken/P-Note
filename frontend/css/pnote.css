@@ -9313,9 +9313,21 @@ body.calorie-muscle-pane #calorie-view {
 
 .muscle-settings-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
   gap: 0.3rem;
   align-items: center;
+}
+
+.muscle-settings-move {
+  max-width: 5.2rem;
+  min-height: 2rem;
+  font: inherit;
+  font-size: 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  padding: 0 0.3rem;
 }
 
 .muscle-settings-row.is-child {
@@ -9669,9 +9681,83 @@ body.calorie-muscle-pane #calorie-view {
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
-.muscle-table .mt-dose.is-half {
+.muscle-table .mt-dose.is-half,
+.muscle-table .mt-dose.is-sec {
   color: var(--text-muted);
   font-weight: 700;
+}
+.muscle-table .mt-dose.is-sec {
+  opacity: 0.55;
+  font-size: 0.8rem;
+}
+.muscle-table .mt-col-rest.is-secondary {
+  --mt-rest-fg: var(--text-muted);
+  --mt-rest-bg: color-mix(in srgb, #94a3b8 18%, transparent);
+}
+.muscle-table .mt-col-rest.is-secondary .mt-rest-val {
+  background: var(--mt-rest-bg);
+  color: var(--mt-rest-fg);
+  font-weight: 650;
+}
+/* Top "เล่นหลัก" row: the day's main muscle groups */
+.muscle-table tr.mt-day-row > * {
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface, var(--bg)));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+.muscle-table .mt-day-name .mt-name-text {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.muscle-table .mt-day-cell {
+  vertical-align: top;
+  padding: 0.1rem 0;
+  line-height: 1;
+  cursor: pointer;
+}
+.muscle-table .mt-day-g,
+.muscle-table .mt-day-more,
+.muscle-table .mt-day-cardio {
+  display: block;
+  font-size: 0.52rem;
+  font-weight: 750;
+  line-height: 0.78rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  max-width: 2.6rem;
+  margin: 0 auto;
+}
+.muscle-table .mt-day-g {
+  color: var(--text);
+}
+.muscle-table .mt-day-more {
+  color: var(--text-muted);
+}
+.muscle-table .mt-day-cardio {
+  color: #c2410c;
+}
+.muscle-table-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.7rem;
+  padding: 0.1rem 0.25rem 0.35rem;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+.muscle-table-legend:empty {
+  display: none;
+}
+.muscle-table-legend b {
+  color: var(--text);
+  font-weight: 800;
+}
+.muscle-table-legend .mt-dose {
+  color: var(--accent);
+}
+.muscle-table-legend .mt-dose.is-sec {
+  color: var(--text-muted);
 }
 .muscle-table tr.is-group .mt-rest-val {
   margin: 0.05rem 0;

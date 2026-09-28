@@ -3,20 +3,20 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=324';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=325';
 import {
   cellKey,
   CARDIO_NAME_RE,
   flattenMuscleRows,
   isCardioMove,
   isCardioNode,
+  leafForLabel,
   leafLabelPath,
   mergeMuscleTreeField,
+  muscleLeafIndex,
   muscleSlotsForDate,
-  muscleTreeLabels,
   normalizeMuscleTree,
-  setMuscleCellInTree,
-} from './muscle-tree.js?v=324';
+} from './muscle-tree.js?v=325';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -1248,21 +1248,21 @@ export function normalizeCalorie(raw) {
   };
 }
 
-/** Tree move label (path and bare name) → { id, cardio }. */
+/** Day-cell label → tree leaves using it (see muscleLeafIndex). */
 function treeMoveIndex(tree) {
-  const rows = flattenMuscleRows(tree);
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const out = new Map();
-  rows.forEach((r) => {
-    if (!r.leaf) return;
-    const parent = r.parentId ? byId.get(r.parentId) : null;
-    const cardio = isCardioMove(r.name, parent?.name);
-    const info = { id: r.id, cardio };
-    const name = r.name.slice(0, 40);
-    out.set((parent ? `${parent.name} · ${r.name}` : r.name).slice(0, 40), info);
-    if (!out.has(name)) out.set(name, info);
-  });
-  return out;
+  return muscleLeafIndex(tree).byLabel;
+}
+
+/**
+ * Keep a day cell next to the table's slots? Freeform labels stay; a strength label is
+ * only a copy of the table; cardio kcal typed before the table had a cell for it stays too.
+ */
+function keepBesideSlots(cell, tree, moveIndex, dateKey) {
+  const p = parseExerciseCell(cell);
+  const leaves = moveIndex.get(p.label);
+  if (!leaves) return true;
+  if (!(p.burn > 0) || !leaves.some((l) => l.cardio)) return false;
+  return !leaves.some((l) => tree.cells[cellKey(l.id, dateKey)] > 0);
 }
 
 /**
@@ -1281,14 +1281,14 @@ function reconcileTreeExercises(day, tree, moveIndex) {
   let exercises;
   if (slots.length) {
     // The table is the source of truth for dates it has marks on.
-    const kept = list.filter((cell) => !moveIndex.has(parseExerciseCell(cell).label));
+    const kept = list.filter((cell) => keepBesideSlots(cell, tree, moveIndex, day.date));
     exercises = normalizeExercises([...slots.map((s) => formatExerciseCell(s.burn, s.label)), ...kept]);
   } else {
     if (!orig.length) return day;
     // No table marks this date: a strength move listed here was never logged.
     exercises = list.filter((cell) => {
-      const move = moveIndex.get(parseExerciseCell(cell).label);
-      return !move || move.cardio;
+      const leaves = moveIndex.get(parseExerciseCell(cell).label);
+      return !leaves || leaves.some((l) => l.cardio);
     });
   }
   const mus = sumExerciseBurn(exercises) || null;
@@ -1305,12 +1305,12 @@ export function applyMuscleDayExercises(sheet, tree, dateKey, { staleLabels = nu
   const muscleSlots = muscleSlotsForDate(t, dateKey).map((s) =>
     formatExerciseCell(s.burn, s.label),
   );
-  const treeLabels = muscleTreeLabels(t);
+  const moveIndex = treeMoveIndex(t);
   let { sheet: next, day } = ensureDay(sheet, dateKey);
   const kept = normalizeExercises(day.exercises).filter((cell) => {
     const p = parseExerciseCell(cell);
-    if (p.empty) return false;
-    return !treeLabels.has(p.label) && !staleLabels?.has(p.label);
+    if (p.empty || staleLabels?.has(p.label)) return false;
+    return keepBesideSlots(cell, t, moveIndex, dateKey);
   });
   const exercises = normalizeExercises([...muscleSlots, ...kept]);
   const mus = sumExerciseBurn(exercises) || null;
@@ -1353,38 +1353,34 @@ export function exercisePickerCatalog(tree) {
  */
 export function dayExerciseEntries(calorie, day) {
   const t = normalizeMuscleTree(calorie?.muscleTree);
-  const catalog = exercisePickerCatalog(t);
-  const byLabel = new Map();
-  catalog.forEach((g) => g.moves.forEach((m) => {
-    byLabel.set(m.label, m);
-    if (!byLabel.has(m.name) && g.moves.length === 1) byLabel.set(m.name, m);
-  }));
+  const { leaves } = muscleLeafIndex(t);
   const dateKey = day?.date;
   const out = [];
   const seen = new Set();
   normalizeExercises(day?.exercises).forEach((cell) => {
     const p = parseExerciseCell(cell);
     if (p.empty) return;
-    const move = byLabel.get(p.label) || null;
-    if (move) {
-      if (seen.has(move.id)) return;
+    const known = leafForLabel(t, p.label, dateKey);
+    const move = leafForLabel(t, p.label, dateKey, seen);
+    if (known) {
+      if (!move) return;
       // Strength rows store the mark in the table cell; the day row holds 0 kcal.
       const value = dateKey ? t.cells[cellKey(move.id, dateKey)] : null;
-      if (!move.cardio && !(value > 0) && !(p.burn > 0)) return;
+      if (!move.cardio && !(value > 0)) return;
+      if (move.cardio && !(value > 0) && !(p.burn > 0)) return;
       seen.add(move.id);
-      const burn = value > 0 ? value : (p.burn > 0 ? p.burn : 1);
-      out.push({ nodeId: move.id, label: move.label, burn, cardio: move.cardio });
+      out.push({ nodeId: move.id, label: move.label, burn: value > 0 ? value : p.burn, cardio: move.cardio });
       return;
     }
     out.push({ nodeId: null, label: p.label || `ออกกำลัง ${p.burn}`, burn: p.burn, cardio: isCardioLabel(p.label) });
   });
   if (dateKey) {
-    catalog.forEach((g) => g.moves.forEach((m) => {
+    leaves.forEach((m) => {
       const burn = t.cells[cellKey(m.id, dateKey)];
       if (!(burn > 0) || seen.has(m.id)) return;
       seen.add(m.id);
       out.push({ nodeId: m.id, label: m.label, burn, cardio: m.cardio });
-    }));
+    });
   }
   return out;
 }
@@ -1407,14 +1403,17 @@ export function setDayExerciseEntries(calorie, dateKey, entries) {
     const cell = formatExerciseCell(burn, e?.label);
     if (cell) freeform.push(cell);
   });
+  const cells = { ...tree.cells };
   let treeChanged = false;
-  exercisePickerCatalog(tree).forEach((g) => g.moves.forEach((m) => {
-    const res = setMuscleCellInTree(tree, m.id, dateKey, want.get(m.id) ?? null);
-    if (res.changed) {
-      tree = res.tree;
-      treeChanged = true;
-    }
-  }));
+  muscleLeafIndex(tree).leaves.forEach((m) => {
+    const key = cellKey(m.id, dateKey);
+    const val = want.has(m.id) ? Math.min(5000, want.get(m.id)) : null;
+    if ((cells[key] ?? null) === val) return;
+    if (val == null) delete cells[key];
+    else cells[key] = val;
+    treeChanged = true;
+  });
+  if (treeChanged) tree = normalizeMuscleTree({ ...tree, cells, updatedAt: nowIso() });
   const next = treeChanged
     ? { ...sheet, muscleTree: tree, muscleTreeAt: nowIso() }
     : sheet;
