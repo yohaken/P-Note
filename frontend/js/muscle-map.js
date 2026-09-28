@@ -3,8 +3,8 @@
  * (primary/secondary muscles), per-region recovery defaults and readiness math.
  * Pure data + string rendering; no DOM and no imports from muscle-tree.js.
  */
-import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=331';
-import { EXERCISE_DB, LIBRARY_IMAGE_IDS, exerciseImageUrls } from './exercise-db.js?v=331';
+import { BODY_FRONT, BODY_BACK } from './vendor/body-muscles.js?v=332';
+import { EXERCISE_DB, LIBRARY_IMAGE_IDS, exerciseImageUrls } from './exercise-db.js?v=332';
 
 export const MUSCLE_GROUPS = [
   { id: 'chest', name: 'อก' },

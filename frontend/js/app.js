@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=331';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=331';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=331';
-import { CONFIG } from './config.js?v=331';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=331';
-import { nowIso } from './clock.js?v=331';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=332';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=332';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=332';
+import { CONFIG } from './config.js?v=332';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=332';
+import { nowIso } from './clock.js?v=332';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=331';
+} from './auth.js?v=332';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=331';
+} from './notes.js?v=332';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=331';
+} from './sheet.js?v=332';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -135,7 +135,7 @@ import {
   dayExerciseEntries,
   setDayExerciseEntries,
   parseExerciseCell,
-} from './calorie.js?v=331';
+} from './calorie.js?v=332';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -183,7 +183,7 @@ import {
   manageRows,
   isRowHidden,
   setRowHidden,
-} from './muscle-tree.js?v=331';
+} from './muscle-tree.js?v=332';
 import {
   EQUIPMENT_TH,
   BEGINNER_GROUPS,
@@ -202,9 +202,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=331';
-import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=331';
-import { mountDrumPicker } from './drum-picker.js?v=331';
+} from './muscle-map.js?v=332';
+import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=332';
+import { mountDrumPicker } from './drum-picker.js?v=332';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -212,8 +212,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=331';
-import { bindComposableInput } from './text-input.js?v=331';
+} from './note-text.js?v=332';
+import { bindComposableInput } from './text-input.js?v=332';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -254,14 +254,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=331';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=331';
+} from './schedule.js?v=332';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=332';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=331';
+} from './app-icons.js?v=332';
 import {
   allIcons,
   bestIconForLabel,
@@ -270,7 +270,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=331';
+} from './icons.js?v=332';
 import {
   notificationPermission,
   notificationSupported,
@@ -279,27 +279,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=331';
+} from './note-notify.js?v=332';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=331';
+} from './files.js?v=332';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=331');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=332');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=331');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=332');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=331');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=332');
   return userContextModPromise;
 }
 
@@ -323,7 +323,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=331';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=332';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -332,11 +332,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=331';
-import { normalizeNotesData } from './notes.js?v=331';
-import { SaveManager } from './sync.js?v=331';
-import { emptyDeletions } from './deletions.js?v=331';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=331';
+} from './remote.js?v=332';
+import { normalizeNotesData } from './notes.js?v=332';
+import { SaveManager } from './sync.js?v=332';
+import { emptyDeletions } from './deletions.js?v=332';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=332';
 
 const state = {
   notesData: {
