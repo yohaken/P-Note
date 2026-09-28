@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=319';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=319';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=319';
-import { CONFIG } from './config.js?v=319';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=319';
-import { nowIso } from './clock.js?v=319';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=320';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=320';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=320';
+import { CONFIG } from './config.js?v=320';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=320';
+import { nowIso } from './clock.js?v=320';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=319';
+} from './auth.js?v=320';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=319';
+} from './notes.js?v=320';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=319';
+} from './sheet.js?v=320';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -135,7 +135,7 @@ import {
   dayExerciseEntries,
   setDayExerciseEntries,
   parseExerciseCell,
-} from './calorie.js?v=319';
+} from './calorie.js?v=320';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -148,6 +148,9 @@ import {
   moveMuscleNode,
   renameMuscleNode,
   renderMuscleTableHtml,
+  renderMuscleRegionTableHtml,
+  regionRestEquivDays,
+  muscleHitsOn,
   setMuscleCellInTree,
   defaultRestScale,
   nextRestTone,
@@ -169,7 +172,7 @@ import {
   legacyRowPlans,
   convertLegacyRows,
   resolveTreeMove,
-} from './muscle-tree.js?v=319';
+} from './muscle-tree.js?v=320';
 import {
   EQUIPMENT_TH,
   beginnerGroupOfRegion,
@@ -188,9 +191,9 @@ import {
   renderBodyStatsHtml,
   ALL_EXERCISES,
   exerciseImages,
-} from './muscle-map.js?v=319';
-import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=319';
-import { mountDrumPicker } from './drum-picker.js?v=319';
+} from './muscle-map.js?v=320';
+import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=320';
+import { mountDrumPicker } from './drum-picker.js?v=320';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -198,8 +201,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=319';
-import { bindComposableInput } from './text-input.js?v=319';
+} from './note-text.js?v=320';
+import { bindComposableInput } from './text-input.js?v=320';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -240,14 +243,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=319';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=319';
+} from './schedule.js?v=320';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=320';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=319';
+} from './app-icons.js?v=320';
 import {
   allIcons,
   bestIconForLabel,
@@ -256,7 +259,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=319';
+} from './icons.js?v=320';
 import {
   notificationPermission,
   notificationSupported,
@@ -265,27 +268,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=319';
+} from './note-notify.js?v=320';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=319';
+} from './files.js?v=320';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=319');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=320');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=319');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=320');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=319');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=320');
   return userContextModPromise;
 }
 
@@ -309,7 +312,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=319';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=320';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -318,11 +321,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=319';
-import { normalizeNotesData } from './notes.js?v=319';
-import { SaveManager } from './sync.js?v=319';
-import { emptyDeletions } from './deletions.js?v=319';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=319';
+} from './remote.js?v=320';
+import { normalizeNotesData } from './notes.js?v=320';
+import { SaveManager } from './sync.js?v=320';
+import { emptyDeletions } from './deletions.js?v=320';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=320';
 
 const state = {
   notesData: {
@@ -702,6 +705,7 @@ const els = {
   muscleFreeform: document.getElementById('muscle-freeform'),
   muscleAddExercise: document.getElementById('muscle-add-exercise'),
   muscleStaleToggle: document.getElementById('muscle-stale-toggle'),
+  muscleViewSwitch: document.getElementById('muscle-view-switch'),
   muscleConvertBtn: document.getElementById('muscle-convert-btn'),
   muscleConvertOverlay: document.getElementById('muscle-convert-overlay'),
   muscleConvertBody: document.getElementById('muscle-convert-body'),
@@ -3451,21 +3455,31 @@ function paintMuscleSheet() {
   const stale = staleMoveIds(tree, todayKey);
   if (muscleSelectedId) stale.delete(muscleSelectedId);
   const showStale = localStorage.getItem(MUSCLE_SHOW_STALE_KEY) === '1';
-  host.innerHTML = renderMuscleTableHtml(tree, {
-    dates,
-    selectedId: muscleSelectedId || '',
-    todayKey,
-    expandAll: muscleExpandAll,
-    expandedIds: muscleExpandedIds,
-    hideIds: showStale ? null : stale,
-  });
+  const muscleView = muscleViewMode() === 'muscle';
+  host.innerHTML = muscleView
+    ? renderMuscleRegionTableHtml(tree, {
+      dates,
+      selectedId: muscleSelectedId || '',
+      todayKey,
+      expandAll: muscleExpandAll,
+      expandedIds: muscleExpandedIds,
+    })
+    : renderMuscleTableHtml(tree, {
+      dates,
+      selectedId: muscleSelectedId || '',
+      todayKey,
+      expandAll: muscleExpandAll,
+      expandedIds: muscleExpandedIds,
+      hideIds: showStale ? null : stale,
+    });
+  syncMuscleViewSwitch();
   if (els.muscleConvertBtn) {
-    const n = legacyRowPlans(tree, todayKey).length;
+    const n = muscleView ? 0 : legacyRowPlans(tree, todayKey).length;
     els.muscleConvertBtn.hidden = !n;
     els.muscleConvertBtn.textContent = `แปลงแถวเก่า (${n})`;
   }
   if (els.muscleStaleToggle) {
-    els.muscleStaleToggle.hidden = !stale.size;
+    els.muscleStaleToggle.hidden = muscleView || !stale.size;
     els.muscleStaleToggle.textContent = showStale ? `ซ่อนท่าเก่า (${stale.size})` : `แสดงท่าเก่า (${stale.size})`;
   }
   fitMuscleNameColumn(host);
@@ -3546,6 +3560,29 @@ function onMuscleMove(direction) {
 
 const MUSCLE_TREE_BACKUP_KEY = 'pnote_muscle_tree_v1_backup';
 const MUSCLE_SHOW_STALE_KEY = 'pnote_muscle_show_stale';
+const MUSCLE_VIEW_KEY = 'pnote_muscle_view';
+
+/** 'move' (exercise rows) or 'muscle' (group → small muscle rows); remembered per device. */
+function muscleViewMode() {
+  return localStorage.getItem(MUSCLE_VIEW_KEY) === 'muscle' ? 'muscle' : 'move';
+}
+
+function syncMuscleViewSwitch() {
+  const mode = muscleViewMode();
+  els.muscleViewSwitch?.querySelectorAll('[data-muscle-view]').forEach((b) => {
+    const on = b.dataset.muscleView === mode;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+function onMuscleViewSwitch(e) {
+  const btn = e.target?.closest?.('[data-muscle-view]');
+  if (!btn || btn.dataset.muscleView === muscleViewMode()) return;
+  try { localStorage.setItem(MUSCLE_VIEW_KEY, btn.dataset.muscleView); } catch { /* ignore */ }
+  muscleSelectedId = '';
+  paintMuscleSheet();
+}
 
 function openMuscleConvert() {
   if (!requireSyncReady() || !els.muscleConvertOverlay || !els.muscleConvertBody) return;
@@ -3750,6 +3787,21 @@ async function onMuscleAddChild() {
 }
 
 function onMuscleScrollClick(e) {
+  const hit = e.target?.closest?.('[data-mv-hit]');
+  if (hit && els.muscleScroll?.contains(hit)) {
+    const dk = hit.dataset.date;
+    const hits = muscleHitsOn(ensureCaloriePayload().muscleTree, hit.dataset.mvHit.split(','), dk);
+    const list = hits.map((h) => `${h.name}${h.w < 1 ? ' (รอง)' : ''}`).join(', ');
+    setStatus(`${hit.dataset.mvName} ${formatDateDisplay(dk)}: ${list || '–'}`, { forceToast: true, ms: 4000 });
+    return;
+  }
+  const region = e.target?.closest?.('[data-muscle-region]');
+  if (region && els.muscleScroll?.contains(region)) {
+    e.preventDefault();
+    muscleSelectedId = region.dataset.nodeId;
+    openMuscleRegion(region.dataset.muscleRegion);
+    return;
+  }
   const photo = e.target?.closest?.('[data-ex-photo]');
   if (photo && els.muscleScroll?.contains(photo)) {
     e.preventDefault();
@@ -3878,12 +3930,6 @@ function musclePaintRoles(p = [], s = [], focus = '') {
     if (id === focus) cls.push('bm-focus');
     return { cls: cls.join(' ') };
   };
-}
-
-/** Days on the full-rest clock: a secondary hit needs only part of the rest, so it ages faster. */
-function regionRestEquivDays(info) {
-  if (info.via !== 's' || !(info.rest > 0) || !(info.full > 0)) return info.days;
-  return Math.floor((info.days * info.full) / info.rest);
 }
 
 function musclePaintRest(tree, restMap, focus = '') {
@@ -10667,6 +10713,7 @@ async function init({ fromBoot = false } = {}) {
     openExercisePicker();
   });
   els.muscleStaleToggle?.addEventListener('click', onMuscleToggleStale);
+  els.muscleViewSwitch?.addEventListener('click', onMuscleViewSwitch);
   els.muscleConvertBtn?.addEventListener('click', openMuscleConvert);
   els.muscleConvertApply?.addEventListener('click', applyMuscleConvert);
   els.muscleConvertBody?.addEventListener('change', (e) => {

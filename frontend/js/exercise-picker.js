@@ -12,8 +12,8 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=319';
-import { regionRestMap, exerciseLeafIndex } from './muscle-tree.js?v=319';
+} from './muscle-map.js?v=320';
+import { regionRestMap, exerciseLeafIndex } from './muscle-tree.js?v=320';
 
 const FAVS_KEY = 'pnote_ex_favs';
 const FAV_GROUP = 'fav';

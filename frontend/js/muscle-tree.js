@@ -18,7 +18,7 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=319';
+} from './muscle-map.js?v=320';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -1298,6 +1298,159 @@ export function renderMuscleTableHtml(tree, opts = {}) {
         <th class="mt-corner" scope="col">กล้ามเนื้อ</th>
         <th class="mt-col-count-head" scope="col" title="จำนวนครั้งที่เล่น (วันที่มีแคล)">ครั้ง</th>
         <th class="mt-col-rest-head" scope="col" title="พักมากี่วันแล้วนับจากครั้งล่าสุดของท่านั้น">พัก</th>
+        ${headDates}
+      </tr>
+    </thead>
+    <tbody>${body}</tbody>
+  </table>`;
+}
+
+/** Rest days as a primary-hit equivalent, so a ½-rest secondary hit is toned by what's left. */
+export function regionRestEquivDays(info) {
+  if (!info) return null;
+  if (info.via !== 's' || !(info.rest > 0) || !(info.full > 0)) return info.days;
+  return Math.floor((info.days * info.full) / info.rest);
+}
+
+const muscleGroupRowId = (g) => `mg-${g.id}`;
+
+/**
+ * Moves that hit the given regions on one date: per move, primary (1) beats secondary (½).
+ * @returns {{ name: string, w: number }[]}
+ */
+export function muscleHitsOn(tree, regionIds, dateKey, moves = null) {
+  const t = normalizeMuscleTree(tree);
+  const regions = new Set(regionIds);
+  const list = moves || muscleMoveStates(t);
+  const out = [];
+  list.forEach((m) => {
+    if (!(t.cells[cellKey(m.id, dateKey)] > 0)) return;
+    const w = m.p.some((x) => regions.has(x)) ? 1 : m.s.some((x) => regions.has(x)) ? SECONDARY_DOSE : 0;
+    if (w) out.push({ name: m.name, w });
+  });
+  return out.sort((a, b) => b.w - a.w);
+}
+
+/**
+ * Muscle-first matrix: beginner groups → small muscles × dates.
+ * Cell = sessions that day (primary 1, secondary ½ per move); ครั้ง = days hit as a primary.
+ */
+export function renderMuscleRegionTableHtml(tree, opts = {}) {
+  const t = normalizeMuscleTree(tree);
+  const todayKey = opts.todayKey || muscleToDateKey();
+  const dates = opts.dates || muscleDateKeys({ today: todayKey });
+  const moves = muscleMoveStates(t, todayKey);
+  const restMap = computeRegionRest(moves, t.restProfile);
+  const expandAll = Boolean(opts.expandAll);
+  const expanded = opts.expandedIds instanceof Set
+    ? opts.expandedIds
+    : new Set(Array.isArray(opts.expandedIds) ? opts.expandedIds : []);
+  const selectedId = opts.selectedId || '';
+
+  // move id → dates it was logged (strength moves only)
+  const datesByMove = new Map();
+  Object.keys(t.cells).forEach((k) => {
+    if (!(t.cells[k] > 0)) return;
+    const [id, dk] = k.split('|');
+    if (!datesByMove.has(id)) datesByMove.set(id, []);
+    datesByMove.get(id).push(dk);
+  });
+  const doseFor = (regionIds) => {
+    const regions = new Set(regionIds);
+    const byDate = new Map();
+    const primaryDays = new Set();
+    moves.forEach((m) => {
+      const w = m.p.some((x) => regions.has(x)) ? 1 : m.s.some((x) => regions.has(x)) ? SECONDARY_DOSE : 0;
+      if (!w) return;
+      (datesByMove.get(m.id) || []).forEach((dk) => {
+        if (dk > todayKey) return;
+        const prev = byDate.get(dk) || { dose: 0, full: false };
+        byDate.set(dk, { dose: prev.dose + w, full: prev.full || w >= 1 });
+        if (w >= 1) primaryDays.add(dk);
+      });
+    });
+    return { byDate, count: primaryDays.size };
+  };
+
+  const headDates = dates
+    .map((dk) => `<th class="mt-col-date${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}">
+        <span class="mt-col-wd">${esc(weekdayShortTh(dk))}</span>
+        <span class="mt-col-dm">${esc(formatMuscleColDate(dk))}</span>
+      </th>`)
+    .join('');
+
+  const restCell = (regionIds, cls, id) => {
+    // Group shows its least-recovered trained muscle.
+    let best = null;
+    regionIds.forEach((rid) => {
+      const info = restMap.get(rid);
+      const eq = regionRestEquivDays(info);
+      if (eq == null) return;
+      if (!best || eq < best.eq) best = { eq, info, rid };
+    });
+    const base = `mt-col-rest${cls}`;
+    if (!best) return `<td class="${base} is-none" data-node-id="${esc(id)}" title="ยังไม่เคยโดน"><span class="mt-rest-val">–</span></td>`;
+    const step = restStep(t.restScale, best.eq);
+    const left = restRemaining(best.info.days, best.info.rest);
+    const who = regionIds.length > 1 ? `${regionById(best.rid)?.name || ''} · ` : '';
+    const tip = `${who}${best.info.days === 0 ? 'โดนวันนี้' : `พักมา ${best.info.days} วัน`}${best.info.via === 's' ? ' (กล้ามรอง พักครึ่งเดียว)' : ''}`
+      + `${left == null ? '' : ` · ${left > 0 ? `อีก ${fmtRest(left)} วัน` : 'พักครบแล้ว'}`} · ${step.label}`;
+    const fadeCls = step.fade > 0 ? ' is-fading' : '';
+    const fadeStyle = step.fade > 0 ? ` style="--rest-fade:${Math.round(step.fade * 100)}%"` : '';
+    return `<td class="${base} rest-tone-${esc(step.tone)}${fadeCls}"${fadeStyle} data-node-id="${esc(id)}" title="${esc(tip)}">
+      <span class="mt-rest-val"><b class="mt-rest-n">${best.eq}</b><span class="mt-rest-lb">${esc(step.label)}</span></span>
+    </td>`;
+  };
+
+  const rowHtml = ({ id, name, regionIds, isGroup, open }) => {
+    const depthCls = isGroup ? ' is-parent' : ' is-child';
+    const leafCls = isGroup ? ' is-group' : ' is-leaf';
+    const sel = id === selectedId ? ' is-selected' : '';
+    const { byDate, count } = doseFor(regionIds);
+    const toggle = isGroup && !expandAll;
+    const nameAttrs = isGroup
+      ? (toggle ? ` data-group-toggle="1" title="${open ? 'แตะเพื่อหุบ' : 'แตะเพื่อขยายเป็นกล้ามเล็ก'}"` : '')
+      : ` data-muscle-region="${esc(regionIds[0])}" title="แตะเพื่อดูท่าที่ใช้กล้ามนี้และวันพัก"`;
+    const cells = dates.map((dk) => {
+      const d = byDate.get(dk);
+      const doseHtml = d
+        ? `<span class="mt-dose${d.full ? '' : ' is-half'}">${fmtDose(d.dose)}</span>`
+        : '';
+      return `<td class="mt-cell is-sum${dk === todayKey ? ' is-today' : ''}${d ? ' is-hit' : ''}" data-date="${esc(dk)}"${d ? ` data-mv-hit="${esc(regionIds.join(','))}" data-mv-name="${esc(name)}"` : ''}>${doseHtml}</td>`;
+    }).join('');
+    return `<tr class="mt-row${depthCls}${leafCls}${sel}${open ? ' is-open' : ''}" data-node-id="${esc(id)}">
+      <th class="mt-row-name${depthCls}${leafCls}${sel}${open ? ' is-open' : ''}" scope="row" data-node-id="${esc(id)}">
+        <div class="mt-name-row">
+          <button type="button" class="mt-name-btn${toggle ? ' is-group-toggle' : ''}" data-node-id="${esc(id)}"${nameAttrs}>
+            <span class="mt-name-text">${esc(name)}</span>
+          </button>
+        </div>
+      </th>
+      <td class="mt-col-count${depthCls}${leafCls}${count ? ' is-filled' : ''}" data-node-id="${esc(id)}" title="โดนเป็นกล้ามหลัก ${count} วัน"><span class="mt-count-val">${count || ''}</span></td>
+      ${restCell(regionIds, `${depthCls}${leafCls}`, id)}
+      ${cells}
+    </tr>`;
+  };
+
+  const body = BEGINNER_GROUPS.map((g) => {
+    const id = muscleGroupRowId(g);
+    const open = expandAll || expanded.has(id);
+    let html = rowHtml({ id, name: g.name, regionIds: g.regions, isGroup: true, open });
+    if (open) {
+      g.regions.forEach((rid) => {
+        const region = regionById(rid);
+        if (region) html += rowHtml({ id: `mr-${rid}`, name: region.name, regionIds: [rid], isGroup: false, open: false });
+      });
+    }
+    return html;
+  }).join('');
+
+  return `<table class="muscle-table is-muscle-view" id="muscle-table" aria-label="ตารางกล้ามเนื้อรายวัน (มุมมองกล้าม)">
+    <thead>
+      <tr>
+        <th class="mt-corner" scope="col">กล้ามเนื้อ</th>
+        <th class="mt-col-count-head" scope="col" title="จำนวนวันที่โดนเป็นกล้ามหลัก">วัน</th>
+        <th class="mt-col-rest-head" scope="col" title="พักมากี่วันแล้ว (กลุ่ม = กล้ามที่ยังล้าที่สุด)">พัก</th>
         ${headDates}
       </tr>
     </thead>

@@ -9014,6 +9014,34 @@ body.calorie-muscle-pane #calorie-view {
   gap: 0.28rem;
 }
 
+.muscle-view-switch {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--surface-2, rgba(0, 0, 0, 0.06));
+}
+
+.mvs-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 650;
+  padding: 0.3rem 0.8rem;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.mvs-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.muscle-table.is-muscle-view .mt-cell.is-hit {
+  cursor: pointer;
+}
+
 .muscle-range {
   margin-left: auto;
   font-size: 0.64rem;
