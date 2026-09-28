@@ -170,7 +170,6 @@ import {
   resolveTreeMove,
   stampMuscleTreeChanges,
   recordMuscleLabelAliases,
-  renderMuscleTableLegendHtml,
   reparentMuscleNode,
   canReparentMuscleNode,
   muscleLeafIndex,
@@ -719,7 +718,6 @@ const els = {
   muscleRestList: document.getElementById('muscle-rest-list'),
   muscleRestReset: document.getElementById('muscle-rest-reset'),
   muscleRestLegend: document.getElementById('muscle-rest-legend'),
-  muscleTableLegend: document.getElementById('muscle-table-legend'),
   muscleBodyCard: document.getElementById('muscle-body-card'),
   muscleBodyCollapse: document.getElementById('muscle-body-collapse'),
   muscleBodyMap: document.getElementById('muscle-body-map'),
@@ -3545,7 +3543,6 @@ function paintMuscleSheet() {
   host.scrollLeft = prevLeft;
   host.scrollTop = prevTop;
   if (els.muscleRestLegend) els.muscleRestLegend.innerHTML = renderRestLegendHtml(tree.restScale);
-  if (els.muscleTableLegend) els.muscleTableLegend.innerHTML = renderMuscleTableLegendHtml();
   paintMuscleBodyMap(tree, todayKey);
   if (els.muscleRegionOverlay && !els.muscleRegionOverlay.hidden) paintMuscleRegionSheet();
   if (focusNode && focusDate) {

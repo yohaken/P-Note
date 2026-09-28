@@ -1288,15 +1288,6 @@ function daySummaryRowHtml(t, dates, todayKey, marks, cardioIds) {
   </tr>`;
 }
 
-export function renderMuscleTableLegendHtml() {
-  return '<span class="mtl-item"><b class="mt-mark is-main">●</b> เล่นเป็นกล้ามหลัก</span>'
-    + '<span class="mtl-item"><b class="mt-mark is-sec">•</b> โดนเป็นกล้ามรอง</span>'
-    + '<span class="mtl-item">แตะช่อง = หลัก → รอง → ว่าง</span>'
-    + '<span class="mtl-item"><b class="mt-dose">2</b> แถวกลุ่ม = กล้ามหลักที่เล่นวันนั้น</span>'
-    + '<span class="mtl-item"><b>ชื่อกล้าม</b> แตะดูท่าไกด์ + ตั้งวันพัก</span>'
-    + '<span class="mtl-item"><b>พัก</b> วันที่พักมา นับเฉพาะตอนเป็นกล้ามหลัก</span>';
-}
-
 function regionRestCellHtml(t, regionIds, cls, id, restMap, anyRestMap) {
   const best = leastRecovered(regionIds, restMap);
   const base = `mt-col-rest${cls}`;

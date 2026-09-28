@@ -9714,27 +9714,6 @@ body.calorie-muscle-pane #calorie-view {
 .muscle-table .mt-day-cardio {
   color: color-mix(in srgb, #ea580c 78%, var(--text));
 }
-.muscle-table-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.15rem 0.7rem;
-  padding: 0.1rem 0.25rem 0.35rem;
-  font-size: 0.66rem;
-  color: var(--text-muted);
-}
-.muscle-table-legend:empty {
-  display: none;
-}
-.muscle-table-legend b {
-  color: var(--text);
-  font-weight: 800;
-}
-.muscle-table-legend .mt-dose {
-  color: var(--accent);
-}
-.muscle-table-legend .mt-dose.is-sec {
-  color: var(--text-muted);
-}
 .muscle-table tr.is-group .mt-rest-val {
   margin: 0.05rem 0;
   line-height: 0.9rem;
@@ -10698,13 +10677,6 @@ body.light .bm-halo {
   color: var(--text-muted);
   font-size: 1rem;
 }
-.muscle-table-legend .mt-mark.is-main {
-  color: var(--accent);
-}
-.muscle-table-legend .mt-mark.is-sec {
-  color: var(--text-muted);
-}
-
 /* Muscle guide sheet: today buttons + move photos */
 .mr-today {
   display: flex;
