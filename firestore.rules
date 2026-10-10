@@ -1,4 +1,7 @@
 rules_version = '2';
+// SHARED RULES for Firebase project mynote-f1bbc.
+// This exact file must be identical in: p-note, myApps/iRich iLucky, myApps/TL-Chart.
+// Any deploy of firestore:rules from one repo replaces the rules for ALL apps.
 service cloud.firestore {
   match /databases/{database}/documents {
     // App gate is a local PIN; cloud sync uses Firebase Auth (anonymous or Google).
@@ -6,14 +9,60 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Personal notes payload (client SDK writes here directly).
+    // P-Note: personal notes payload (client SDK writes here directly).
     match /spaces/{spaceId} {
       allow read, write: if isSignedIn();
     }
 
-    // TellTea login tickets (existing helper page) — signed-in only.
+    // P-Note / TellTea login tickets — signed-in only.
     match /loginTickets/{ticketId} {
       allow read, write: if isSignedIn();
+    }
+
+    // iRich iLucky vault — doc id = sha256("irich:"+accessCode)[:32]
+    match /irichIlucky/{docId} {
+      allow read: if docId == '9bdec800cbc33f09bfe2e362c324cf57';
+      allow create, update: if docId == '9bdec800cbc33f09bfe2e362c324cf57'
+        && request.resource.data.keys().hasOnly(['state', 'updatedAt', 'version'])
+        && request.resource.data.state is map
+        && request.resource.data.updatedAt is string
+        && request.resource.data.version is string;
+      allow delete: if false;
+    }
+
+    // TL-Chart device unlock — cloud-first remember (phone allowlist)
+    // doc id = opaque device UUID from the browser
+    match /tlChartDevices/{deviceId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.phoneE164 == '+66884818817'
+        && request.resource.data.remember == true
+        && request.resource.data.app == 'tl-chart'
+        && request.resource.data.unlockedAt is string;
+      allow delete: if false;
+    }
+
+    // TL-Chart AI keys — cloud-first (DeepSeek etc.)
+    match /tlChartSecrets/{docId} {
+      allow read: if docId == 'ai';
+      allow create, update: if docId == 'ai'
+        && request.resource.data.app == 'tl-chart'
+        && request.resource.data.ownerPhone == '+66884818817'
+        && request.resource.data.deepseekApiKey is string
+        && request.resource.data.deepseekModel is string
+        && request.resource.data.deepseekEnabled is bool;
+      allow delete: if false;
+    }
+
+    // TL-Chart EN→TH headline / summary cache — never re-translate
+    match /tlChartI18n/{hash} {
+      allow read: if true;
+      allow create, update: if request.resource.data.app == 'tl-chart'
+        && request.resource.data.source is string
+        && (
+          request.resource.data.th is string
+          || request.resource.data.summaryTh is string
+        );
+      allow delete: if false;
     }
 
     match /{document=**} {

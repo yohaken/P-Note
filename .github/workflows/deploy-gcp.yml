@@ -21,6 +21,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Guard shared Firestore rules
+        run: |
+          set -euo pipefail
+          for block in "match /spaces/" "match /irichIlucky/" "match /tlChartDevices/" "match /tlChartSecrets/" "match /tlChartI18n/"; do
+            if ! grep -qF "$block" firestore.rules; then
+              echo "::error::firestore.rules is missing '$block' — rules are shared with iRich iLucky and TL-Chart"
+              exit 1
+            fi
+          done
+
       - name: Deploy Firebase Hosting
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
