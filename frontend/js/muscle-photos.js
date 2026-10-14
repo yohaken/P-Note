@@ -155,33 +155,63 @@ export async function compressPhoto(file) {
   }
 }
 
+function abortError() {
+  const err = new Error('upload_aborted');
+  err.name = 'AbortError';
+  return err;
+}
+
+/** PUT with upload progress (fetch has none). */
+function putWithProgress(url, blob, { onProgress, signal }) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(abortError());
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Content-Type', 'image/jpeg');
+    xhr.timeout = 90000;
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded / e.total);
+    };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`upload_failed_${xhr.status}`)));
+    xhr.onerror = () => reject(new Error('upload_network'));
+    xhr.ontimeout = () => reject(new Error('upload_timeout'));
+    xhr.onabort = () => reject(abortError());
+    signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(blob);
+  });
+}
+
 /**
- * Compress and upload one photo for a row/day; the index updates right away.
- * @returns {Promise<MusclePhoto>}
+ * Upload an already compressed JPEG for a row/day, then re-list from the server so
+ * success means the photo is really stored. `onStage` gets 'upload' | 'verify'.
+ * @returns {Promise<{ photo: MusclePhoto, verified: boolean }>}
  */
-export async function uploadMusclePhoto(file, { rowId, date }) {
-  const blob = await compressPhoto(file);
+export async function uploadMusclePhoto(blob, { rowId, date }, { onStage, onProgress, signal } = {}) {
+  onStage?.('upload');
   const meta = await fetchJson(spaceUrl('muscle-photos/upload-url'), {
     method: 'POST',
     body: JSON.stringify({ rowId, date, size: blob.size }),
   });
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60000);
-  try {
-    const res = await fetch(meta.uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'image/jpeg' },
-      body: blob,
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`upload_failed_${res.status}`);
-  } finally {
-    clearTimeout(timer);
-  }
+  if (signal?.aborted) throw abortError();
+  await putWithProgress(meta.uploadUrl, blob, { onProgress, signal });
   const photo = { storagePath: meta.storagePath, rowId, date, at: meta.at || Date.now(), size: blob.size };
   pendingAdds.set(photo.storagePath, photo);
   setIndex([photo, ...index.filter((p) => p.storagePath !== photo.storagePath)]);
-  return photo;
+  onStage?.('verify');
+  let listing = null;
+  try {
+    listing = await fetchJson(spaceUrl('muscle-photos'));
+  } catch {
+    return { photo, verified: false };
+  }
+  const photos = Array.isArray(listing?.photos) ? listing.photos : [];
+  if (!photos.some((p) => p.storagePath === photo.storagePath)) {
+    pendingAdds.delete(photo.storagePath);
+    setIndex(index.filter((p) => p.storagePath !== photo.storagePath));
+    throw new Error('upload_not_listed');
+  }
+  setIndex(mergeListing(photos));
+  return { photo, verified: true };
 }
 
 /** Throws when the server did not confirm, so the photo stays listed. */

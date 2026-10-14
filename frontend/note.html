@@ -432,12 +432,27 @@
       </div>
     </div>
 
+    <div id="mphoto-up-overlay" class="muscle-manage-overlay" hidden>
+      <div class="muscle-manage-backdrop" id="mphoto-up-backdrop"></div>
+      <div class="muscle-manage-sheet mphoto-sheet" role="dialog" aria-modal="true" aria-labelledby="mphoto-up-title">
+        <div class="muscle-manage-head">
+          <h3 id="mphoto-up-title" class="muscle-manage-title">เพิ่มรูป</h3>
+          <button type="button" class="btn btn-secondary muscle-tool-btn" id="mphoto-up-close">ปิด</button>
+        </div>
+        <div id="mphoto-up-body" class="mphoto-body"></div>
+      </div>
+    </div>
+
     <div id="mphoto-prompt" class="mphoto-prompt" role="status" aria-live="polite" hidden>
       <span class="mphoto-prompt-text" id="mphoto-prompt-text"></span>
-      <button type="button" class="btn btn-primary mphoto-prompt-btn" id="mphoto-prompt-take">📷 ถ่ายรูป</button>
-      <button type="button" class="btn btn-secondary mphoto-prompt-btn" id="mphoto-prompt-skip">ข้าม</button>
+      <div class="mphoto-prompt-actions">
+        <button type="button" class="btn btn-primary mphoto-prompt-btn" id="mphoto-prompt-take">📷 ถ่ายรูป</button>
+        <button type="button" class="btn btn-secondary mphoto-prompt-btn" id="mphoto-prompt-album">🖼 อัลบั้ม</button>
+        <button type="button" class="btn btn-secondary mphoto-prompt-btn" id="mphoto-prompt-skip">ข้าม</button>
+      </div>
     </div>
     <input type="file" id="mphoto-input" accept="image/*" capture="environment" hidden>
+    <input type="file" id="mphoto-album-input" accept="image/*" hidden>
 
     <div id="muscle-picker-overlay" class="muscle-manage-overlay" hidden>
       <div class="muscle-manage-backdrop" data-close-overlay="muscle-picker-overlay"></div>

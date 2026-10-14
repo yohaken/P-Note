@@ -190,6 +190,7 @@ import {
   hasMusclePhoto,
   refreshMusclePhotos,
   onMusclePhotosChange,
+  compressPhoto,
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
@@ -3944,35 +3945,188 @@ function showMusclePhotoPrompt(rowId, date) {
   mphotoPromptTimer = setTimeout(hideMusclePhotoPrompt, 7000);
 }
 
-/** Must run inside a tap so iOS opens the camera. */
-function pickMusclePhoto(rowId, date) {
-  mphotoTarget = { rowId, date };
+/** Must run inside a tap so iOS opens the camera / photo library. */
+function pickMusclePhoto(rowId, date, source = 'camera') {
+  if (mphotoUp && (mphotoUp.phase === 'uploading' || mphotoUp.phase === 'verifying')) return;
+  mphotoTarget = { rowId, date, source };
   hideMusclePhotoPrompt();
-  const input = document.getElementById('mphoto-input');
+  const input = document.getElementById(source === 'album' ? 'mphoto-album-input' : 'mphoto-input');
   if (!input) return;
   input.value = '';
   input.click();
 }
 
+/**
+ * Add-photo sheet: preview → upload (progress) → verified on the server.
+ * phase: 'preparing' | 'preview' | 'uploading' | 'verifying' | 'done' | 'error'
+ */
+let mphotoUp = null;
+
+function mphotoUpBusy() {
+  return mphotoUp?.phase === 'uploading' || mphotoUp?.phase === 'verifying';
+}
+
+function releaseMusclePhotoUpload() {
+  if (mphotoUp?.url) URL.revokeObjectURL(mphotoUp.url);
+  mphotoUp = null;
+}
+
 async function onMusclePhotoPicked(file) {
   const target = mphotoTarget;
   if (!file || !target) return;
+  const overlay = document.getElementById('mphoto-up-overlay');
+  if (!overlay) return;
+  releaseMusclePhotoUpload();
+  const job = { ...target, phase: 'preparing', blob: null, url: '', progress: 0, error: '', controller: null, photo: null };
+  mphotoUp = job;
+  overlay.hidden = false;
+  paintMusclePhotoUpload();
+  try {
+    const blob = await compressPhoto(file);
+    if (mphotoUp !== job) return;
+    job.blob = blob;
+    job.url = URL.createObjectURL(blob);
+    job.phase = 'preview';
+  } catch (err) {
+    console.warn('muscle photo decode failed', err);
+    if (mphotoUp !== job) return;
+    job.phase = 'error';
+    job.error = 'เปิดรูปนี้ไม่ได้ · ลองเลือกรูป JPG/PNG หรือถ่ายใหม่';
+  }
+  paintMusclePhotoUpload();
+}
+
+async function startMusclePhotoUpload() {
+  const job = mphotoUp;
+  if (!job?.blob || mphotoUpBusy()) return;
   if (!navigator.onLine) {
-    setStatus('ต้องต่อเน็ตก่อนจึงจะบันทึกรูปได้', { forceToast: true, ms: 2600 });
+    job.phase = 'error';
+    job.error = 'ยังไม่ได้ต่อเน็ต · ต่อเน็ตแล้วกด "ลองใหม่" (รูปยังอยู่ ไม่ต้องถ่ายใหม่)';
+    paintMusclePhotoUpload();
     return;
   }
-  const label = musclePhotoRowLabel(target.rowId);
-  setStatus(`กำลังบันทึกรูป ${label}…`, { forceToast: true, ms: 20000 });
+  job.controller = new AbortController();
+  job.phase = 'uploading';
+  job.progress = 0;
+  job.error = '';
+  paintMusclePhotoUpload();
   try {
-    const photo = await uploadMusclePhoto(file, target);
-    setStatus(`บันทึกรูป ${label} แล้ว · แตะ 📷 ข้างชื่อกล้ามเพื่อดู`, { forceToast: true, ms: 2800 });
-    if (els.mphotoOverlay && !els.mphotoOverlay.hidden && mphotoView.rowId === target.rowId) {
-      mphotoView.index = Math.max(0, musclePhotosFor(target.rowId).findIndex((p) => p.storagePath === photo.storagePath));
+    const { photo, verified } = await uploadMusclePhoto(job.blob, job, {
+      signal: job.controller.signal,
+      onProgress: (p) => {
+        if (mphotoUp !== job) return;
+        job.progress = p;
+        syncMusclePhotoUploadProgress();
+      },
+      onStage: (stage) => {
+        if (mphotoUp !== job || stage !== 'verify') return;
+        job.phase = 'verifying';
+        paintMusclePhotoUpload();
+      },
+    });
+    if (mphotoUp !== job) return;
+    job.photo = photo;
+    job.verified = verified;
+    job.phase = 'done';
+  } catch (err) {
+    if (mphotoUp !== job) return;
+    if (err?.name === 'AbortError') {
+      job.phase = 'preview';
+    } else {
+      console.warn('muscle photo upload failed', err);
+      job.phase = 'error';
+      job.error = err?.message === 'upload_not_listed'
+        ? 'อัปโหลดแล้วแต่ระบบไม่พบรูปบนคลาวด์ · กด "ลองใหม่"'
+        : 'อัปโหลดไม่สำเร็จ · ตรวจเน็ตแล้วกด "ลองใหม่" (รูปยังอยู่ ไม่ต้องถ่ายใหม่)';
+    }
+  } finally {
+    if (mphotoUp === job) job.controller = null;
+  }
+  paintMusclePhotoUpload();
+}
+
+function syncMusclePhotoUploadProgress() {
+  const pct = Math.round((mphotoUp?.progress || 0) * 100);
+  const bar = document.getElementById('mphoto-up-bar');
+  const txt = document.getElementById('mphoto-up-pct');
+  if (bar) bar.style.width = `${pct}%`;
+  if (txt) txt.textContent = `${pct}%`;
+}
+
+function paintMusclePhotoUpload() {
+  const body = document.getElementById('mphoto-up-body');
+  const title = document.getElementById('mphoto-up-title');
+  const closeBtn = document.getElementById('mphoto-up-close');
+  const job = mphotoUp;
+  if (!body || !job) return;
+  const label = musclePhotoRowLabel(job.rowId);
+  if (title) title.textContent = `เพิ่มรูป · ${label} · ${formatDateDisplay(job.date)}`;
+  if (closeBtn) closeBtn.textContent = job.phase === 'uploading' ? 'ยกเลิก' : 'ปิด';
+  const busy = mphotoUpBusy();
+  const preview = job.url
+    ? `<div class="mphoto-frame is-loaded${busy ? ' is-busy' : ''}"><img src="${escapeHtml(job.url)}" alt="พรีวิวรูป ${escapeHtml(label)}"></div>`
+    : `<div class="mphoto-frame"><span class="mphoto-loading">${job.phase === 'preparing' ? 'กำลังเตรียมรูป…' : 'ไม่มีพรีวิว'}</span></div>`;
+  const kb = job.blob ? `${Math.max(1, Math.round(job.blob.size / 1024))} KB` : '';
+  const changeLabel = job.source === 'album' ? '🖼 เลือกรูปอื่น' : '📷 ถ่ายใหม่';
+  let status = '';
+  let actions = '';
+  if (job.phase === 'preparing') {
+    status = '<p class="mphoto-up-status" role="status">กำลังย่อรูปให้พร้อมอัปโหลด…</p>';
+  } else if (job.phase === 'preview') {
+    status = `<p class="mphoto-up-status">ตรวจรูปให้เห็นแผ่นน้ำหนักชัดก่อนอัปโหลด · ${escapeHtml(kb)}</p>`;
+    actions = `<button type="button" class="btn btn-secondary" data-mphoto-up="change">${changeLabel}</button>
+      <button type="button" class="btn btn-primary" data-mphoto-up="upload">⬆ อัปโหลด</button>`;
+  } else if (busy) {
+    const verifying = job.phase === 'verifying';
+    const pct = verifying ? 100 : Math.round(job.progress * 100);
+    status = `<div class="mphoto-up-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+        <div class="mphoto-up-track"><div class="mphoto-up-bar${verifying ? ' is-verify' : ''}" id="mphoto-up-bar" style="width:${pct}%"></div></div>
+        <p class="mphoto-up-status" role="status">${verifying ? 'อัปโหลดแล้ว · กำลังตรวจว่ารูปอยู่บนคลาวด์…' : `กำลังอัปโหลด… <span id="mphoto-up-pct">${pct}%</span>`}</p>
+      </div>`;
+    if (!verifying) actions = '<button type="button" class="btn btn-secondary" data-mphoto-up="cancel">ยกเลิกการอัปโหลด</button>';
+  } else if (job.phase === 'done') {
+    status = job.verified
+      ? '<p class="mphoto-up-status is-ok" role="status">✓ บันทึกแล้ว · ซิงค์ขึ้นคลาวด์เรียบร้อย ดูได้ทุกเครื่อง</p>'
+      : '<p class="mphoto-up-status is-ok" role="status">✓ อัปโหลดแล้ว · ยังตรวจซ้ำไม่ได้ (เน็ตหลุด) ระบบจะเช็กอีกครั้งเมื่อเปิดตาราง</p>';
+    actions = `<button type="button" class="btn btn-secondary" data-mphoto-up="view">ดูรูปทั้งหมด</button>
+      <button type="button" class="btn btn-primary" data-mphoto-up="close">เสร็จ</button>`;
+  } else if (job.phase === 'error') {
+    status = `<p class="mphoto-up-status is-err" role="alert">${escapeHtml(job.error)}</p>`;
+    actions = job.blob
+      ? `<button type="button" class="btn btn-secondary" data-mphoto-up="change">${changeLabel}</button>
+        <button type="button" class="btn btn-primary" data-mphoto-up="upload">ลองใหม่</button>`
+      : `<button type="button" class="btn btn-primary" data-mphoto-up="change">${changeLabel}</button>`;
+  }
+  body.innerHTML = `${preview}${status}${actions ? `<div class="mphoto-actions">${actions}</div>` : ''}`;
+}
+
+function closeMusclePhotoUpload() {
+  const overlay = document.getElementById('mphoto-up-overlay');
+  if (mphotoUp?.phase === 'uploading') {
+    mphotoUp.controller?.abort();
+    return;
+  }
+  if (overlay) overlay.hidden = true;
+  releaseMusclePhotoUpload();
+}
+
+function onMusclePhotoUploadClick(e) {
+  const btn = e.target?.closest?.('[data-mphoto-up]');
+  if (!btn || !mphotoUp) return;
+  const act = btn.getAttribute('data-mphoto-up');
+  if (act === 'upload') void startMusclePhotoUpload();
+  else if (act === 'cancel') mphotoUp.controller?.abort();
+  else if (act === 'change') pickMusclePhoto(mphotoUp.rowId, mphotoUp.date, mphotoUp.source);
+  else if (act === 'close') closeMusclePhotoUpload();
+  else if (act === 'view') {
+    const { rowId, photo } = mphotoUp;
+    closeMusclePhotoUpload();
+    openMusclePhotos(rowId);
+    const i = musclePhotosFor(rowId).findIndex((p) => p.storagePath === photo?.storagePath);
+    if (i > 0) {
+      mphotoView.index = i;
       void paintMusclePhotoViewer();
     }
-  } catch (err) {
-    console.warn('muscle photo upload failed', err);
-    setStatus('บันทึกรูปไม่สำเร็จ · ลองใหม่อีกครั้ง', { forceToast: true, ms: 2800 });
   }
 }
 
@@ -3992,7 +4146,8 @@ async function paintMusclePhotoViewer() {
   const list = musclePhotosFor(rowId);
   const label = musclePhotoRowLabel(rowId);
   if (els.mphotoTitle) els.mphotoTitle.textContent = `รูป · ${label}`;
-  const takeBtn = `<button type="button" class="btn btn-primary mphoto-take" data-mphoto-take="${escapeHtml(rowId)}">📷 ถ่ายรูปวันนี้</button>`;
+  const takeBtn = `<button type="button" class="btn btn-primary mphoto-take" data-mphoto-take="${escapeHtml(rowId)}">📷 ถ่ายรูป</button>
+    <button type="button" class="btn btn-secondary mphoto-take" data-mphoto-take="${escapeHtml(rowId)}" data-src="album">🖼 อัลบั้ม</button>`;
   if (!list.length) {
     body.innerHTML = `<p class="settings-hint">ยังไม่มีรูปของ${escapeHtml(label)} · ติ๊กช่องหลักในตารางแล้วกด "ถ่ายรูป" หรือถ่ายจากปุ่มนี้</p>
       <div class="mphoto-actions">${takeBtn}</div>`;
@@ -4054,7 +4209,7 @@ function onMusclePhotoClick(e) {
   const t = e.target;
   const take = t?.closest?.('[data-mphoto-take]');
   if (take) {
-    pickMusclePhoto(take.getAttribute('data-mphoto-take'), toDateKey());
+    pickMusclePhoto(take.getAttribute('data-mphoto-take'), toDateKey(), take.getAttribute('data-src') || 'camera');
     return;
   }
   const open = t?.closest?.('[data-mphoto-open]');
@@ -4824,7 +4979,8 @@ function paintMuscleRegionSheet() {
       ${photos.length
     ? `<button type="button" class="btn btn-secondary mr-photo-open" data-mphoto-open="${escapeHtml(leafId)}">📷 รูปล่าสุด ${escapeHtml(formatDateDisplay(photos[0].date))}${photos.length > 1 ? ` · ทั้งหมด ${photos.length}` : ''}</button>`
     : '<span class="mr-status-sub">ยังไม่มีรูปแผ่นน้ำหนัก</span>'}
-      <button type="button" class="btn btn-secondary mr-photo-take" data-mphoto-take="${escapeHtml(leafId)}">ถ่ายรูปวันนี้</button>
+      <button type="button" class="btn btn-secondary mr-photo-take" data-mphoto-take="${escapeHtml(leafId)}" aria-label="ถ่ายรูปวันนี้">📷 ถ่าย</button>
+      <button type="button" class="btn btn-secondary mr-photo-take" data-mphoto-take="${escapeHtml(leafId)}" data-src="album" aria-label="เลือกรูปจากอัลบั้ม">🖼 อัลบั้ม</button>
     </div>`;
   if (els.muscleRegionTitle) els.muscleRegionTitle.textContent = label;
   const scrollTop = els.muscleRegionBody.scrollTop;
@@ -11345,11 +11501,21 @@ async function init({ fromBoot = false } = {}) {
   els.mphotoBody?.addEventListener('click', onMusclePhotoClick);
   els.muscleRegionBody?.addEventListener('click', onMusclePhotoClick);
   document.getElementById('mphoto-prompt-take')?.addEventListener('click', () => {
-    if (mphotoTarget) pickMusclePhoto(mphotoTarget.rowId, mphotoTarget.date);
+    if (mphotoTarget) pickMusclePhoto(mphotoTarget.rowId, mphotoTarget.date, 'camera');
+  });
+  document.getElementById('mphoto-prompt-album')?.addEventListener('click', () => {
+    if (mphotoTarget) pickMusclePhoto(mphotoTarget.rowId, mphotoTarget.date, 'album');
   });
   document.getElementById('mphoto-prompt-skip')?.addEventListener('click', hideMusclePhotoPrompt);
-  document.getElementById('mphoto-input')?.addEventListener('change', (e) => {
-    void onMusclePhotoPicked(e.target.files?.[0] || null);
+  ['mphoto-input', 'mphoto-album-input'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', (e) => {
+      void onMusclePhotoPicked(e.target.files?.[0] || null);
+    });
+  });
+  document.getElementById('mphoto-up-body')?.addEventListener('click', onMusclePhotoUploadClick);
+  document.getElementById('mphoto-up-close')?.addEventListener('click', closeMusclePhotoUpload);
+  document.getElementById('mphoto-up-backdrop')?.addEventListener('click', () => {
+    if (mphotoUp?.phase !== 'uploading') closeMusclePhotoUpload();
   });
   onMusclePhotosChange(onMusclePhotosChanged);
   els.muscleBodyCard?.addEventListener('click', (e) => {
@@ -11404,6 +11570,12 @@ async function init({ fromBoot = false } = {}) {
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) return;
+    const upOverlay = document.getElementById('mphoto-up-overlay');
+    if (upOverlay && !upOverlay.hidden) {
+      e.preventDefault();
+      closeMusclePhotoUpload();
+      return;
+    }
     for (const ov of [els.mphotoOverlay, els.muscleRegionOverlay]) {
       if (ov && !ov.hidden) {
         e.preventDefault();
