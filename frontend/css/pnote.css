@@ -10904,16 +10904,28 @@ body.light .bm-halo {
 .muscle-table .mt-cell.has-photo {
   position: relative;
 }
-.muscle-table .mt-cell.has-photo::after {
+.muscle-table .mt-photo-dot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  z-index: 1;
+}
+.muscle-table .mt-photo-dot::after {
   content: '';
   position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 5px;
-  height: 5px;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #2563eb;
-  pointer-events: none;
+  box-shadow: 0 0 0 1.5px #fff;
 }
 
 .mr-photo {

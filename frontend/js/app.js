@@ -3975,10 +3975,10 @@ async function onMusclePhotoPicked(file) {
   }
 }
 
-function openMusclePhotos(rowId) {
+function openMusclePhotos(rowId, date = '') {
   if (!rowId || !els.mphotoOverlay) return;
   mphotoView.rowId = rowId;
-  mphotoView.index = 0;
+  mphotoView.index = date ? Math.max(0, musclePhotosFor(rowId).findIndex((p) => p.date === date)) : 0;
   void paintMusclePhotoViewer();
   els.mphotoOverlay.hidden = false;
   void refreshMusclePhotos({ minAgeMs: 30000 });
@@ -4081,7 +4081,7 @@ function onMuscleScrollClick(e) {
   const photoRow = e.target?.closest?.('[data-photo-row]');
   if (photoRow && els.muscleScroll?.contains(photoRow)) {
     e.preventDefault();
-    openMusclePhotos(photoRow.dataset.photoRow);
+    openMusclePhotos(photoRow.dataset.photoRow, photoRow.dataset.photoDate || '');
     return;
   }
   const mark = e.target?.closest?.('[data-mark-node]');

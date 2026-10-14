@@ -1842,9 +1842,13 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
       const v = marks.get(rid)?.get(dk) || 0;
       const state = v === MARK_MAIN ? ' is-main' : v === MARK_SECONDARY ? ' is-sec' : '';
       const label = v === MARK_MAIN ? 'หลัก' : v === MARK_SECONDARY ? 'รอง' : 'ว่าง';
-      const pic = photoCells.has(`${id}|${dk}`) ? ' has-photo' : '';
+      const hasPic = photoCells.has(`${id}|${dk}`);
+      const pic = hasPic ? ' has-photo' : '';
+      const dot = hasPic
+        ? `<button type="button" class="mt-photo-dot" data-photo-row="${esc(id)}" data-photo-date="${esc(dk)}" aria-label="${esc(`ดูรูป ${name} ${dk}`)}" title="ดูรูปวันนี้"></button>`
+        : '';
       return `<td class="mt-cell is-mark${state}${pic}${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}">
-        <button type="button" class="mt-mark-btn" data-mark-node="${esc(id)}" data-date="${esc(dk)}" aria-label="${esc(`${name} ${dk} ${label} · แตะเพื่อเปลี่ยน`)}">${v === MARK_MAIN ? '●' : v === MARK_SECONDARY ? '•' : ''}</button>
+        <button type="button" class="mt-mark-btn" data-mark-node="${esc(id)}" data-date="${esc(dk)}" aria-label="${esc(`${name} ${dk} ${label} · แตะเพื่อเปลี่ยน`)}">${v === MARK_MAIN ? '●' : v === MARK_SECONDARY ? '•' : ''}</button>${dot}
       </td>`;
     }).join('');
     return `<tr class="mt-row${cls}" data-node-id="${esc(id)}"${solo ? '' : ` data-parent-id="${esc(g.id)}"`}>
