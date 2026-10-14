@@ -12,7 +12,20 @@ function apiBase() {
   return String(CONFIG.API_BASE_URL || '').replace(/\/$/, '');
 }
 
+/** Hosting → Cloud Run occasionally answers 502/503/504 or drops the connection; every call here is safe to repeat. */
 async function fetchJson(url, options = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await fetchJsonOnce(url, options);
+    } catch (err) {
+      const transient = [502, 503, 504].includes(err?.status) || err?.name === 'TypeError';
+      if (!transient || attempt >= 3) throw err;
+      await new Promise((r) => setTimeout(r, 500 * attempt));
+    }
+  }
+}
+
+async function fetchJsonOnce(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {

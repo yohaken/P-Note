@@ -173,6 +173,14 @@ jobs:
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Cloud Run URL: $URL"
 
+      # Signing an upload URL writes nothing, but fails if the runtime SA lost signBlob (photos then can't upload).
+      - name: Smoke test photo upload signing
+        run: |
+          RES=$(curl -s -X POST -H 'Content-Type: application/json' \
+            -d '{"rowId":"r-ci-probe","date":"2000-01-01","size":100}' \
+            "${{ steps.run-url.outputs.url }}/api/spaces/sp-ci-probe/muscle-photos/upload-url")
+          echo "$RES" | grep -q '"uploadUrl"' || { echo "::error::Photo upload signing failed: $RES"; exit 1; }
+
       - name: Fix Google Auth IdP (redirect_uri_mismatch)
         continue-on-error: true
         run: |

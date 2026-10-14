@@ -26,6 +26,9 @@ app.use((error, _req, res, _next) => {
   res.status(status).json({ error: error.message || 'Internal server error' });
 });
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`P-Note API listening on port ${config.port}`);
 });
+// Google's front end reuses idle connections longer than Node's 5s default; closing first yields 502s.
+server.keepAliveTimeout = 620 * 1000;
+server.headersTimeout = 630 * 1000;
