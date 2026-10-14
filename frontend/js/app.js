@@ -2578,6 +2578,7 @@ function setCaloriePane(pane) {
   const next = pane === 'health' ? 'health' : pane === 'muscle' ? 'muscle' : 'log';
   if (next === 'muscle' && state.caloriePane !== 'muscle') muscleDateCount = MUSCLE_DATE_COLS;
   state.caloriePane = next;
+  if (next !== 'muscle') hideMusclePhotoPrompt();
   document.body.classList.toggle('calorie-health-pane', next === 'health');
   document.body.classList.toggle('calorie-muscle-pane', next === 'muscle');
   syncCaloriePaneButtons(next);
@@ -3963,10 +3964,10 @@ async function onMusclePhotoPicked(file) {
   const label = musclePhotoRowLabel(target.rowId);
   setStatus(`กำลังบันทึกรูป ${label}…`, { forceToast: true, ms: 20000 });
   try {
-    await uploadMusclePhoto(file, target);
+    const photo = await uploadMusclePhoto(file, target);
     setStatus(`บันทึกรูป ${label} แล้ว · แตะ 📷 ข้างชื่อกล้ามเพื่อดู`, { forceToast: true, ms: 2800 });
     if (els.mphotoOverlay && !els.mphotoOverlay.hidden && mphotoView.rowId === target.rowId) {
-      mphotoView.index = 0;
+      mphotoView.index = Math.max(0, musclePhotosFor(target.rowId).findIndex((p) => p.storagePath === photo.storagePath));
       void paintMusclePhotoViewer();
     }
   } catch (err) {
@@ -4019,6 +4020,7 @@ async function paintMusclePhotoViewer() {
     </div>
     ${list.length > 1 ? `<div class="mphoto-chips">${dates}</div>` : ''}
     <div class="mphoto-actions">${takeBtn}<button type="button" class="btn btn-secondary mphoto-del" data-mphoto-del="${escapeHtml(photo.storagePath)}">ลบรูปนี้</button></div>`;
+  body.querySelector('.mphoto-chip.is-on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   try {
     const url = await musclePhotoUrl(photo.storagePath);
     const img = document.getElementById('mphoto-img');
@@ -4038,8 +4040,13 @@ async function paintMusclePhotoViewer() {
 async function onMusclePhotoDelete(storagePath) {
   const ok = await showConfirm('ลบรูปนี้?\nลบแล้วกู้คืนไม่ได้', { okLabel: 'ลบ', danger: true });
   if (!ok) return;
-  await deleteMusclePhoto(storagePath);
-  setStatus('ลบรูปแล้ว', { forceToast: true, ms: 1400 });
+  try {
+    await deleteMusclePhoto(storagePath);
+    setStatus('ลบรูปแล้ว', { forceToast: true, ms: 1400 });
+  } catch (err) {
+    console.warn('muscle photo delete failed', err);
+    setStatus('ลบรูปไม่สำเร็จ · ต่อเน็ตแล้วลองใหม่', { forceToast: true, ms: 2800 });
+  }
   void paintMusclePhotoViewer();
 }
 
@@ -4068,7 +4075,10 @@ function onMusclePhotoClick(e) {
     return;
   }
   const del = t?.closest?.('[data-mphoto-del]');
-  if (del) void onMusclePhotoDelete(del.getAttribute('data-mphoto-del'));
+  if (del && !del.disabled) {
+    del.disabled = true;
+    void onMusclePhotoDelete(del.getAttribute('data-mphoto-del')).finally(() => { del.disabled = false; });
+  }
 }
 
 function onMusclePhotosChanged() {
@@ -11393,7 +11403,8 @@ async function init({ fromBoot = false } = {}) {
   els.muscleRestList?.addEventListener('click', onMuscleRestToneClick);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    for (const ov of [els.muscleRegionOverlay]) {
+    if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) return;
+    for (const ov of [els.mphotoOverlay, els.muscleRegionOverlay]) {
       if (ov && !ov.hidden) {
         e.preventDefault();
         ov.hidden = true;

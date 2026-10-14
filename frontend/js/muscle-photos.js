@@ -5,7 +5,7 @@
  */
 import { CONFIG } from './config.js?v=334';
 import { getSpaceId } from './remote.js?v=334';
-import { deleteCloudFile, getDownloadUrl } from './files.js?v=334';
+import { getDownloadUrl } from './files.js?v=334';
 
 const INDEX_KEY = 'pnote_mphoto_index';
 const REQUEST_TIMEOUT_MS = 20000;
@@ -18,6 +18,9 @@ const JPEG_QUALITY = 0.82;
 let index = readCachedIndex();
 let refreshing = null;
 const listeners = new Set();
+/** Local adds/deletes a listing may not reflect yet (it can start before them and land after). */
+const pendingAdds = new Map();
+const pendingDeletes = new Set();
 
 function readCachedIndex() {
   try {
@@ -108,7 +111,7 @@ export function refreshMusclePhotos({ minAgeMs = 0 } = {}) {
   refreshing = (async () => {
     try {
       const { photos } = await fetchJson(spaceUrl('muscle-photos'));
-      if (Array.isArray(photos)) setIndex(photos);
+      if (Array.isArray(photos)) setIndex(mergeListing(photos));
       return true;
     } catch {
       return false;
@@ -117,6 +120,14 @@ export function refreshMusclePhotos({ minAgeMs = 0 } = {}) {
     }
   })();
   return refreshing;
+}
+
+function mergeListing(photos) {
+  const listed = new Set(photos.map((p) => p.storagePath));
+  for (const path of pendingAdds.keys()) if (listed.has(path)) pendingAdds.delete(path);
+  for (const path of pendingDeletes) if (!listed.has(path)) pendingDeletes.delete(path);
+  const kept = photos.filter((p) => !pendingDeletes.has(p.storagePath));
+  return [...pendingAdds.values(), ...kept];
 }
 
 /** Downscale to a JPEG that still shows the plate numbers clearly (~200–500 KB). */
@@ -168,12 +179,19 @@ export async function uploadMusclePhoto(file, { rowId, date }) {
     clearTimeout(timer);
   }
   const photo = { storagePath: meta.storagePath, rowId, date, at: meta.at || Date.now(), size: blob.size };
+  pendingAdds.set(photo.storagePath, photo);
   setIndex([photo, ...index.filter((p) => p.storagePath !== photo.storagePath)]);
   return photo;
 }
 
+/** Throws when the server did not confirm, so the photo stays listed. */
 export async function deleteMusclePhoto(storagePath) {
-  await deleteCloudFile(storagePath);
+  await fetchJson(spaceUrl('files/delete'), {
+    method: 'POST',
+    body: JSON.stringify({ storagePath }),
+  });
+  pendingAdds.delete(storagePath);
+  pendingDeletes.add(storagePath);
   setIndex(index.filter((p) => p.storagePath !== storagePath));
 }
 
