@@ -421,6 +421,24 @@
       </div>
     </div>
 
+    <div id="mphoto-overlay" class="muscle-manage-overlay" hidden>
+      <div class="muscle-manage-backdrop" data-close-overlay="mphoto-overlay"></div>
+      <div class="muscle-manage-sheet mphoto-sheet" role="dialog" aria-modal="true" aria-labelledby="mphoto-title">
+        <div class="muscle-manage-head">
+          <h3 id="mphoto-title" class="muscle-manage-title">รูปที่ถ่ายไว้</h3>
+          <button type="button" class="btn btn-secondary muscle-tool-btn" data-close-overlay="mphoto-overlay" aria-label="ปิด">ปิด</button>
+        </div>
+        <div id="mphoto-body" class="mphoto-body"></div>
+      </div>
+    </div>
+
+    <div id="mphoto-prompt" class="mphoto-prompt" role="status" aria-live="polite" hidden>
+      <span class="mphoto-prompt-text" id="mphoto-prompt-text"></span>
+      <button type="button" class="btn btn-primary mphoto-prompt-btn" id="mphoto-prompt-take">📷 ถ่ายรูป</button>
+      <button type="button" class="btn btn-secondary mphoto-prompt-btn" id="mphoto-prompt-skip">ข้าม</button>
+    </div>
+    <input type="file" id="mphoto-input" accept="image/*" capture="environment" hidden>
+
     <div id="muscle-picker-overlay" class="muscle-manage-overlay" hidden>
       <div class="muscle-manage-backdrop" data-close-overlay="muscle-picker-overlay"></div>
       <div class="muscle-manage-sheet mr-sheet xp-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-picker-title">

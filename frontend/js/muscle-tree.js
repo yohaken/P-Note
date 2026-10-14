@@ -1718,12 +1718,15 @@ function regionRestCellHtml(t, regionIds, cls, id, restMap, anyRestMap) {
   </td>`;
 }
 
-function nameCellHtml({ id, name, cls, attrs = '', toggle = false, extra = '' }) {
+function nameCellHtml({ id, name, cls, attrs = '', toggle = false, extra = '', photo = false }) {
+  const photoBtn = photo
+    ? `<button type="button" class="mt-photo-btn" data-photo-row="${esc(id)}" aria-label="${esc(`ดูรูปล่าสุดของ ${name}`)}" title="ดูรูปล่าสุด">📷</button>`
+    : '';
   return `<th class="mt-row-name${cls}" scope="row" data-node-id="${esc(id)}">
     <div class="mt-name-row">
       <button type="button" class="mt-name-btn${toggle ? ' is-group-toggle' : ''}" data-node-id="${esc(id)}"${attrs}>
         <span class="mt-name-text">${esc(name)}</span>${extra}
-      </button>
+      </button>${photoBtn}
     </div>
   </th>`;
 }
@@ -1776,7 +1779,8 @@ function cardioRowsHtml(t, dates, todayKey, { expandAll, expanded, selectedId })
  * The muscle log: 10 groups → small muscles × dates (newest → oldest), then cardio.
  * Muscle cell: ● main / • secondary (tap cycles). Group cell: main muscles worked that day.
  * Old move rows are shown folded in (toMuscleLayout) until the tree is saved that way.
- * @param {{ dates?: string[], todayKey?: string, selectedId?: string, expandAll?: boolean, expandedIds?: string[]|Set<string> }} opts
+ * @param {{ dates?: string[], todayKey?: string, selectedId?: string, expandAll?: boolean, expandedIds?: string[]|Set<string>,
+ *   photoRows?: Set<string>, photoCells?: Set<string> }} opts  photoCells keys are "rowId|date"
  */
 export function renderMuscleLogTableHtml(tree, opts = {}) {
   const t = toMuscleLayout(tree).tree;
@@ -1787,6 +1791,8 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
     ? opts.expandedIds
     : new Set(Array.isArray(opts.expandedIds) ? opts.expandedIds : []);
   const selectedId = opts.selectedId || '';
+  const photoRows = opts.photoRows instanceof Set ? opts.photoRows : new Set();
+  const photoCells = opts.photoCells instanceof Set ? opts.photoCells : new Set();
   const states = restStates(t, todayKey);
   const restMap = primaryRestMap(states, t.restProfile);
   const anyRestMap = computeRegionRest(states, t.restProfile);
@@ -1836,12 +1842,13 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
       const v = marks.get(rid)?.get(dk) || 0;
       const state = v === MARK_MAIN ? ' is-main' : v === MARK_SECONDARY ? ' is-sec' : '';
       const label = v === MARK_MAIN ? 'หลัก' : v === MARK_SECONDARY ? 'รอง' : 'ว่าง';
-      return `<td class="mt-cell is-mark${state}${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}">
+      const pic = photoCells.has(`${id}|${dk}`) ? ' has-photo' : '';
+      return `<td class="mt-cell is-mark${state}${pic}${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}">
         <button type="button" class="mt-mark-btn" data-mark-node="${esc(id)}" data-date="${esc(dk)}" aria-label="${esc(`${name} ${dk} ${label} · แตะเพื่อเปลี่ยน`)}">${v === MARK_MAIN ? '●' : v === MARK_SECONDARY ? '•' : ''}</button>
       </td>`;
     }).join('');
     return `<tr class="mt-row${cls}" data-node-id="${esc(id)}"${solo ? '' : ` data-parent-id="${esc(g.id)}"`}>
-      ${nameCellHtml({ id, name, cls, attrs: region ? ` data-muscle-region="${esc(rid)}" title="แตะเพื่อดูท่าไกด์และตั้งวันพัก"` : ' title="กล้ามที่เพิ่มเอง · แก้ชื่อ/ลบ ที่ปุ่มจัดการ"' })}
+      ${nameCellHtml({ id, name, cls, photo: photoRows.has(id), attrs: region ? ` data-muscle-region="${esc(rid)}" title="แตะเพื่อดูท่าไกด์และตั้งวันพัก"` : ' title="กล้ามที่เพิ่มเอง · แก้ชื่อ/ลบ ที่ปุ่มจัดการ"' })}
       <td class="mt-col-count${pos} is-leaf${count ? ' is-filled' : ''}" data-node-id="${esc(id)}" title="เป็นกล้ามหลัก ${count} วัน"><span class="mt-count-val">${count || ''}</span></td>
       ${regionRestCellHtml(t, [rid], `${pos} is-leaf`, id, restMap, anyRestMap)}
       ${cells}

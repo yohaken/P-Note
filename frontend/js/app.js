@@ -182,7 +182,18 @@ import {
   muscleLeafIndex,
   manageRows,
   setRowHidden,
+  MARK_MAIN,
 } from './muscle-tree.js?v=334';
+import {
+  musclePhotoKeys,
+  musclePhotosFor,
+  hasMusclePhoto,
+  refreshMusclePhotos,
+  onMusclePhotosChange,
+  uploadMusclePhoto,
+  deleteMusclePhoto,
+  musclePhotoUrl,
+} from './muscle-photos.js?v=334';
 import {
   EQUIPMENT_TH,
   BEGINNER_GROUPS,
@@ -734,6 +745,9 @@ const els = {
   muscleBodyFatNote: document.getElementById('muscle-body-fat-note'),
   muscleBodyFatToggle: document.getElementById('muscle-body-fat-toggle'),
   muscleRegionOverlay: document.getElementById('muscle-region-overlay'),
+  mphotoOverlay: document.getElementById('mphoto-overlay'),
+  mphotoBody: document.getElementById('mphoto-body'),
+  mphotoTitle: document.getElementById('mphoto-title'),
   muscleRegionTitle: document.getElementById('muscle-region-title'),
   muscleRegionBody: document.getElementById('muscle-region-body'),
   cqExMap: document.getElementById('cq-ex-map'),
@@ -3572,10 +3586,15 @@ function paintMuscleSheet() {
     todayKey,
     expandAll: false,
     expandedIds: muscleOpenGroupIds(),
+    ...(() => {
+      const { rows, cells } = musclePhotoKeys();
+      return { photoRows: rows, photoCells: cells };
+    })(),
   });
   fitMuscleNameColumn(host);
   fitMuscleScrollHeight();
   syncMuscleExpandBtn();
+  if (host.offsetParent && navigator.onLine) void refreshMusclePhotos({ minAgeMs: 60000 });
   syncMuscleRangeUi(dates);
   host.scrollLeft = prevLeft;
   host.scrollTop = prevTop;
@@ -3612,7 +3631,8 @@ function fitMuscleNameColumn(host) {
   let max = 0;
   let thumbs = 0;
   table.querySelectorAll('.mt-name-text').forEach((el) => {
-    const thumb = el.closest('.mt-name-row')?.querySelector('.mt-ex-thumb') ? 34 : 0;
+    const nameRow = el.closest('.mt-name-row');
+    const thumb = (nameRow?.querySelector('.mt-ex-thumb') ? 34 : 0) + (nameRow?.querySelector('.mt-photo-btn') ? 24 : 0);
     thumbs = Math.max(thumbs, thumb);
     max = Math.max(max, (el.scrollWidth || 0) + thumb);
   });
@@ -3886,9 +3906,184 @@ async function onMuscleMarkTap(nodeId, dateKey) {
   muscleSelectedId = nodeId;
   persistMuscleTree(updated, { touchDates: [dateKey], status: '' });
   paintMuscleSheet();
+  if (next === MARK_MAIN && !hasMusclePhoto(nodeId, dateKey)) showMusclePhotoPrompt(nodeId, dateKey);
+  else if (mphotoTarget?.rowId === nodeId && mphotoTarget?.date === dateKey) hideMusclePhotoPrompt();
+}
+
+/* ---- Gym photos (weight stack per muscle row / day), stored in Cloud Storage ---- */
+
+/** Row + day the next picked photo belongs to. */
+let mphotoTarget = null;
+let mphotoPromptTimer = 0;
+/** Viewer: row shown and position in its newest-first list. */
+const mphotoView = { rowId: '', index: 0 };
+
+function musclePhotoRowLabel(rowId) {
+  const view = muscleLayoutView();
+  const rid = regionOfLeaf(rowId);
+  return rid ? regionLabel(view, rid) : view.nodes.find((n) => n.id === rowId)?.name || '';
+}
+
+function hideMusclePhotoPrompt() {
+  clearTimeout(mphotoPromptTimer);
+  const el = document.getElementById('mphoto-prompt');
+  if (el) el.hidden = true;
+}
+
+/** Non-blocking ask after a tick; fades by itself so quick ticking isn't interrupted. */
+function showMusclePhotoPrompt(rowId, date) {
+  const el = document.getElementById('mphoto-prompt');
+  const text = document.getElementById('mphoto-prompt-text');
+  if (!el || !text) return;
+  mphotoTarget = { rowId, date };
+  const day = date === toDateKey() ? '' : ` (${formatDateDisplay(date)})`;
+  text.textContent = `ถ่ายรูปแผ่นน้ำหนัก「${musclePhotoRowLabel(rowId)}」${day}ไว้ไหม?`;
+  el.hidden = false;
+  clearTimeout(mphotoPromptTimer);
+  mphotoPromptTimer = setTimeout(hideMusclePhotoPrompt, 7000);
+}
+
+/** Must run inside a tap so iOS opens the camera. */
+function pickMusclePhoto(rowId, date) {
+  mphotoTarget = { rowId, date };
+  hideMusclePhotoPrompt();
+  const input = document.getElementById('mphoto-input');
+  if (!input) return;
+  input.value = '';
+  input.click();
+}
+
+async function onMusclePhotoPicked(file) {
+  const target = mphotoTarget;
+  if (!file || !target) return;
+  if (!navigator.onLine) {
+    setStatus('ต้องต่อเน็ตก่อนจึงจะบันทึกรูปได้', { forceToast: true, ms: 2600 });
+    return;
+  }
+  const label = musclePhotoRowLabel(target.rowId);
+  setStatus(`กำลังบันทึกรูป ${label}…`, { forceToast: true, ms: 20000 });
+  try {
+    await uploadMusclePhoto(file, target);
+    setStatus(`บันทึกรูป ${label} แล้ว · แตะ 📷 ข้างชื่อกล้ามเพื่อดู`, { forceToast: true, ms: 2800 });
+    if (els.mphotoOverlay && !els.mphotoOverlay.hidden && mphotoView.rowId === target.rowId) {
+      mphotoView.index = 0;
+      void paintMusclePhotoViewer();
+    }
+  } catch (err) {
+    console.warn('muscle photo upload failed', err);
+    setStatus('บันทึกรูปไม่สำเร็จ · ลองใหม่อีกครั้ง', { forceToast: true, ms: 2800 });
+  }
+}
+
+function openMusclePhotos(rowId) {
+  if (!rowId || !els.mphotoOverlay) return;
+  mphotoView.rowId = rowId;
+  mphotoView.index = 0;
+  void paintMusclePhotoViewer();
+  els.mphotoOverlay.hidden = false;
+  void refreshMusclePhotos({ minAgeMs: 30000 });
+}
+
+async function paintMusclePhotoViewer() {
+  const body = els.mphotoBody;
+  if (!body) return;
+  const { rowId } = mphotoView;
+  const list = musclePhotosFor(rowId);
+  const label = musclePhotoRowLabel(rowId);
+  if (els.mphotoTitle) els.mphotoTitle.textContent = `รูป · ${label}`;
+  const takeBtn = `<button type="button" class="btn btn-primary mphoto-take" data-mphoto-take="${escapeHtml(rowId)}">📷 ถ่ายรูปวันนี้</button>`;
+  if (!list.length) {
+    body.innerHTML = `<p class="settings-hint">ยังไม่มีรูปของ${escapeHtml(label)} · ติ๊กช่องหลักในตารางแล้วกด "ถ่ายรูป" หรือถ่ายจากปุ่มนี้</p>
+      <div class="mphoto-actions">${takeBtn}</div>`;
+    return;
+  }
+  mphotoView.index = Math.max(0, Math.min(mphotoView.index, list.length - 1));
+  const idx = mphotoView.index;
+  const photo = list[idx];
+  const sameDay = (p) => list.filter((q) => q.date === p.date).length > 1;
+  const when = (p) => {
+    const d = formatDateDisplay(p.date);
+    if (!sameDay(p) || !p.at) return d;
+    const t = new Date(p.at);
+    return `${d} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+  };
+  const dates = list.map((p, i) => `<button type="button" class="mphoto-chip${i === idx ? ' is-on' : ''}" data-mphoto-go="${i}">${escapeHtml(when(p))}</button>`).join('');
+  body.innerHTML = `
+    <figure class="mphoto-figure">
+      <div class="mphoto-frame"><img id="mphoto-img" alt="${escapeHtml(`${label} ${photo.date}`)}"><span class="mphoto-loading">กำลังโหลดรูป…</span></div>
+      <figcaption>${escapeHtml(when(photo))}${idx === 0 ? ' · ล่าสุด' : ''} · ${idx + 1}/${list.length}</figcaption>
+    </figure>
+    <div class="mphoto-nav">
+      <button type="button" class="btn btn-secondary" data-mphoto-step="-1"${idx === 0 ? ' disabled' : ''}>‹ ใหม่กว่า</button>
+      <button type="button" class="btn btn-secondary" data-mphoto-step="1"${idx >= list.length - 1 ? ' disabled' : ''}>เก่ากว่า ›</button>
+    </div>
+    ${list.length > 1 ? `<div class="mphoto-chips">${dates}</div>` : ''}
+    <div class="mphoto-actions">${takeBtn}<button type="button" class="btn btn-secondary mphoto-del" data-mphoto-del="${escapeHtml(photo.storagePath)}">ลบรูปนี้</button></div>`;
+  try {
+    const url = await musclePhotoUrl(photo.storagePath);
+    const img = document.getElementById('mphoto-img');
+    if (!img || mphotoView.rowId !== rowId || musclePhotosFor(rowId)[mphotoView.index]?.storagePath !== photo.storagePath) return;
+    img.onload = () => img.closest('.mphoto-frame')?.classList.add('is-loaded');
+    img.onerror = () => {
+      const msg = img.closest('.mphoto-frame')?.querySelector('.mphoto-loading');
+      if (msg) msg.textContent = 'โหลดรูปไม่ได้ · ต่อเน็ตแล้วเปิดใหม่';
+    };
+    img.src = url;
+  } catch {
+    const msg = body.querySelector('.mphoto-loading');
+    if (msg) msg.textContent = 'โหลดรูปไม่ได้ · ต่อเน็ตแล้วเปิดใหม่';
+  }
+}
+
+async function onMusclePhotoDelete(storagePath) {
+  const ok = await showConfirm('ลบรูปนี้?\nลบแล้วกู้คืนไม่ได้', { okLabel: 'ลบ', danger: true });
+  if (!ok) return;
+  await deleteMusclePhoto(storagePath);
+  setStatus('ลบรูปแล้ว', { forceToast: true, ms: 1400 });
+  void paintMusclePhotoViewer();
+}
+
+function onMusclePhotoClick(e) {
+  const t = e.target;
+  const take = t?.closest?.('[data-mphoto-take]');
+  if (take) {
+    pickMusclePhoto(take.getAttribute('data-mphoto-take'), toDateKey());
+    return;
+  }
+  const open = t?.closest?.('[data-mphoto-open]');
+  if (open) {
+    openMusclePhotos(open.getAttribute('data-mphoto-open'));
+    return;
+  }
+  const step = t?.closest?.('[data-mphoto-step]');
+  if (step) {
+    mphotoView.index += Number(step.getAttribute('data-mphoto-step')) || 0;
+    void paintMusclePhotoViewer();
+    return;
+  }
+  const go = t?.closest?.('[data-mphoto-go]');
+  if (go) {
+    mphotoView.index = Number(go.getAttribute('data-mphoto-go')) || 0;
+    void paintMusclePhotoViewer();
+    return;
+  }
+  const del = t?.closest?.('[data-mphoto-del]');
+  if (del) void onMusclePhotoDelete(del.getAttribute('data-mphoto-del'));
+}
+
+function onMusclePhotosChanged() {
+  if (els.muscleScroll?.offsetParent) paintMuscleSheet();
+  if (els.muscleRegionOverlay && !els.muscleRegionOverlay.hidden) paintMuscleRegionSheet();
+  if (els.mphotoOverlay && !els.mphotoOverlay.hidden) void paintMusclePhotoViewer();
 }
 
 function onMuscleScrollClick(e) {
+  const photoRow = e.target?.closest?.('[data-photo-row]');
+  if (photoRow && els.muscleScroll?.contains(photoRow)) {
+    e.preventDefault();
+    openMusclePhotos(photoRow.dataset.photoRow);
+    return;
+  }
   const mark = e.target?.closest?.('[data-mark-node]');
   if (mark && els.muscleScroll?.contains(mark)) {
     e.preventDefault();
@@ -4613,6 +4808,14 @@ function paintMuscleRegionSheet() {
     })
     .join('');
   const label = regionLabel(tree, region.id);
+  const leafId = regionLeafId(region.id);
+  const photos = musclePhotosFor(leafId);
+  const photoBar = `<div class="mr-photo">
+      ${photos.length
+    ? `<button type="button" class="btn btn-secondary mr-photo-open" data-mphoto-open="${escapeHtml(leafId)}">📷 รูปล่าสุด ${escapeHtml(formatDateDisplay(photos[0].date))}${photos.length > 1 ? ` · ทั้งหมด ${photos.length}` : ''}</button>`
+    : '<span class="mr-status-sub">ยังไม่มีรูปแผ่นน้ำหนัก</span>'}
+      <button type="button" class="btn btn-secondary mr-photo-take" data-mphoto-take="${escapeHtml(leafId)}">ถ่ายรูปวันนี้</button>
+    </div>`;
   if (els.muscleRegionTitle) els.muscleRegionTitle.textContent = label;
   const scrollTop = els.muscleRegionBody.scrollTop;
   els.muscleRegionBody.innerHTML = `
@@ -4622,6 +4825,7 @@ function paintMuscleRegionSheet() {
       <span class="mr-rest-label">วันนี้</span>
       ${todayBtn(1, '● หลัก')}${todayBtn(2, '• รอง')}${todayBtn(0, 'ไม่ได้เล่น')}
     </div>
+    ${photoBar}
     <div class="mr-status">${status}</div>
     <div class="mr-rest">
       <span class="mr-rest-label">พักให้พร้อม</span>
@@ -4648,10 +4852,12 @@ function onMuscleRegionToday(value) {
   const tree = muscleLayoutForEdit();
   if (!tree) return;
   const v = Number(value);
-  const { tree: next, changed } = setMuscleCellInTree(tree, regionLeafId(muscleRegionId), todayKey, v > 0 ? v : null);
+  const leafId = regionLeafId(muscleRegionId);
+  const { tree: next, changed } = setMuscleCellInTree(tree, leafId, todayKey, v > 0 ? v : null);
   if (!changed) return;
   persistMuscleTree(next, { touchDates: [todayKey], status: '' });
   paintMuscleSheet();
+  if (v === MARK_MAIN && !hasMusclePhoto(leafId, todayKey)) showMusclePhotoPrompt(leafId, todayKey);
 }
 
 function onMuscleRegionRename() {
@@ -11126,6 +11332,16 @@ async function init({ fromBoot = false } = {}) {
       if (ov) ov.hidden = true;
     });
   });
+  els.mphotoBody?.addEventListener('click', onMusclePhotoClick);
+  els.muscleRegionBody?.addEventListener('click', onMusclePhotoClick);
+  document.getElementById('mphoto-prompt-take')?.addEventListener('click', () => {
+    if (mphotoTarget) pickMusclePhoto(mphotoTarget.rowId, mphotoTarget.date);
+  });
+  document.getElementById('mphoto-prompt-skip')?.addEventListener('click', hideMusclePhotoPrompt);
+  document.getElementById('mphoto-input')?.addEventListener('change', (e) => {
+    void onMusclePhotoPicked(e.target.files?.[0] || null);
+  });
+  onMusclePhotosChange(onMusclePhotosChanged);
   els.muscleBodyCard?.addEventListener('click', (e) => {
     const part = e.target?.closest?.('[data-region]');
     if (part) openMuscleRegion(part.getAttribute('data-region'));

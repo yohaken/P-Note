@@ -19,6 +19,8 @@ export const config = {
   gcpProjectId: process.env.GCP_PROJECT_ID || 'mynote-f1bbc',
   /** GCS bucket for full-size note attachments (empty = disabled, base64 fallback). */
   filesBucket: String(process.env.FILES_BUCKET || 'mynote-f1bbc-pnote-files').trim(),
+  /** Local dev only: keep files on disk here instead of GCS (never set on Cloud Run). */
+  filesLocalDir: String(process.env.FILES_LOCAL_DIR || '').trim(),
 };
 
 export function isAllowedOrigin(origin) {
