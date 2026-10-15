@@ -53,6 +53,7 @@ export class SaveManager {
    * Rapid saves (pin reorder, meal taps) coalesce into one cloud batch:
    * onCloudBatchStart once at the first enqueue, onCloudSaved once when
    * the queue drains after a successful push.
+   * @returns {Promise<boolean>} true when this save reached the cloud
    */
   saveNow(getNotesData) {
     const startingBatch = this._inflight === 0;
@@ -78,14 +79,14 @@ export class SaveManager {
 
   async _performSave(getNotesData) {
     const notesData = this.resolveData(getNotesData);
-    if (!notesData) return;
+    if (!notesData) return false;
 
     // Disk first — UI already paints from memory; confirm local immediately.
     saveNotes(notesData);
     this._typingStatusActive = false;
     this.onStatus('บันทึกแล้ว');
 
-    if (typeof this.remotePush !== 'function') return;
+    if (typeof this.remotePush !== 'function') return false;
 
     try {
       // Re-read memory right before cloud push (edits may have landed mid-queue).
@@ -94,10 +95,12 @@ export class SaveManager {
       clearCloudPending();
       this.onStatus('บันทึกคลาวด์แล้ว');
       this._batchHadCloudSuccess = true;
+      return true;
     } catch {
       this.onStatus('ซิงค์ไม่สำเร็จ');
       markCloudPending();
       try { this.onCloudFailed('ซิงค์ไม่สำเร็จ'); } catch { /* ignore */ }
+      return false;
     }
   }
 }

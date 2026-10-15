@@ -183,6 +183,9 @@ import {
   manageRows,
   setRowHidden,
   MARK_MAIN,
+  CELL_NOTE_MAX,
+  getCellNote,
+  setCellNote,
 } from './muscle-tree.js?v=336';
 import {
   musclePhotoKeys,
@@ -2055,28 +2058,26 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
   } catch { /* ignore quota */ }
   // Cloud queue resolves getNotesData() at write time (never a stale snap).
   armSyncToast();
+  let cloud = null;
   if (immediate) {
-    void saveManager.saveNow(() => state.notesData).catch(() => {
-      /* cloud failure handled via onCloudFailed → sync gate */
-    });
+    cloud = saveManager.saveNow(() => state.notesData).catch(() => false);
   } else {
     saveManager.scheduleSave(() => state.notesData);
   }
   // Quiet status → sync dot only; cloud confirm shows "อัปเดตแล้ว" popup.
   if (status) setStatus(status);
-  if (!isCalorieMode()) return;
+  if (!isCalorieMode()) return cloud;
   if (state.caloriePane === 'health') {
     paintCalorieHealthSheet(ensureCaloriePayload());
-    return;
-  }
-  if (state.caloriePane === 'muscle') {
+  } else if (state.caloriePane === 'muscle') {
     paintMuscleSheet();
-    return;
+  } else {
+    const nextCols = mealColumnCount(state.notesData.calorie);
+    const needFull = fullRender || nextCols !== prevCols;
+    if (needFull) renderCalorieSheet({ preserveScroll: true });
+    else refreshCalorieDerived();
   }
-  const nextCols = mealColumnCount(state.notesData.calorie);
-  const needFull = fullRender || nextCols !== prevCols;
-  if (needFull) renderCalorieSheet({ preserveScroll: true });
-  else refreshCalorieDerived();
+  return cloud;
 }
 
 /** Read body-profile / goals from Settings inputs (invalid/empty = keep sheet). */
@@ -3798,7 +3799,7 @@ function persistMuscleTree(nextTree, { touchDates = [], status = '' } = {}) {
     if (d) next = applyMuscleDayExercises(next, tree, d, { staleLabels, prevTree: prev });
   });
   saveMusclePins(tree);
-  persistCalorie(next, { status, fullRender: false, immediate: true });
+  return persistCalorie(next, { status, fullRender: false, immediate: true });
 }
 
 function openMusclePane() {
@@ -3917,8 +3918,124 @@ async function onMuscleMarkTap(nodeId, dateKey) {
 /** Row + day the next picked photo belongs to. */
 let mphotoTarget = null;
 let mphotoPromptTimer = 0;
-/** Viewer: row shown and position in its newest-first list. */
-const mphotoView = { rowId: '', index: 0 };
+/** Viewer: row shown, position in its newest-first entries, and a day opened just to write a note. */
+const mphotoView = { rowId: '', index: 0, noteDate: '' };
+
+/* Row/day notes ("4 sets × 10"): stored in muscleTree.cellNotes, synced with the rest of the log. */
+/** Unsaved text by "rowId|date", kept across repaints until saved or discarded. */
+const mnoteDrafts = new Map();
+/** Last save result by key: 'saving' | 'cloud' | 'local'. */
+const mnoteSaveState = new Map();
+
+const mnoteKey = (rowId, date) => `${rowId}|${date}`;
+
+function savedMuscleNote(rowId, date) {
+  return getCellNote(ensureCaloriePayload().muscleTree, rowId, date);
+}
+
+function mnoteDirty(key) {
+  const draft = mnoteDrafts.get(key);
+  if (draft == null) return false;
+  const [rowId, date] = key.split('|');
+  return draft.trim() !== savedMuscleNote(rowId, date);
+}
+
+function muscleNoteHtml(rowId, date, idPrefix) {
+  const key = mnoteKey(rowId, date);
+  const text = mnoteDrafts.get(key) ?? savedMuscleNote(rowId, date);
+  return `<div class="mnote" data-mnote-key="${escapeHtml(key)}">
+      <label class="mnote-label" for="${idPrefix}-note">📝 โน้ต · ${escapeHtml(formatDateDisplay(date))}</label>
+      <textarea id="${idPrefix}-note" class="mnote-input" rows="3" maxlength="${CELL_NOTE_MAX}"
+        placeholder="เช่น 4 เซ็ต × 10 ครั้ง · 50 กก. · เซ็ตสุดท้ายหนัก">${escapeHtml(text)}</textarea>
+      <div class="mnote-foot">
+        <span class="mnote-status" role="status" aria-live="polite"></span>
+        <button type="button" class="btn btn-primary mnote-save" data-mnote-save>บันทึกโน้ต</button>
+      </div>
+    </div>`;
+}
+
+function syncMuscleNoteUi() {
+  document.querySelectorAll('.mnote[data-mnote-key]').forEach((box) => {
+    const key = box.dataset.mnoteKey;
+    const dirty = mnoteDirty(key);
+    const st = mnoteSaveState.get(key);
+    const status = box.querySelector('.mnote-status');
+    const btn = box.querySelector('[data-mnote-save]');
+    let msg = '';
+    let cls = '';
+    if (dirty) [msg, cls] = ['ยังไม่บันทึก', 'is-dirty'];
+    else if (st === 'saving') msg = 'กำลังบันทึก…';
+    else if (st === 'cloud') [msg, cls] = ['✓ บันทึกแล้ว · ซิงค์ขึ้นคลาวด์', 'is-ok'];
+    else if (st === 'local') [msg, cls] = ['บันทึกในเครื่องแล้ว · จะซิงค์เมื่อต่อเน็ต', 'is-warn'];
+    if (status) {
+      status.textContent = msg;
+      status.className = `mnote-status${cls ? ` ${cls}` : ''}`;
+    }
+    if (btn) btn.disabled = !dirty || st === 'saving';
+  });
+}
+
+function onMuscleNoteInput(e) {
+  const input = e.target?.closest?.('.mnote-input');
+  const key = input?.closest('.mnote')?.dataset.mnoteKey;
+  if (!key) return;
+  mnoteDrafts.set(key, input.value);
+  if (mnoteSaveState.get(key) !== 'saving') mnoteSaveState.delete(key);
+  syncMuscleNoteUi();
+}
+
+/** @returns {Promise<boolean>} false when nothing could be saved (sync not ready) */
+async function saveMuscleNote(key) {
+  if (!mnoteDirty(key) || mnoteSaveState.get(key) === 'saving') return true;
+  if (!requireSyncReady()) return false;
+  const tree = muscleLayoutForEdit();
+  if (!tree) return false;
+  const [rowId, date] = key.split('|');
+  const text = mnoteDrafts.get(key).trim();
+  mnoteDrafts.delete(key);
+  mnoteSaveState.set(key, 'saving');
+  syncMuscleNoteUi();
+  const ok = await persistMuscleTree(setCellNote(tree, rowId, date, text), { status: '' });
+  mnoteSaveState.set(key, ok ? 'cloud' : 'local');
+  syncMuscleNoteUi();
+  return true;
+}
+
+function dirtyMuscleNoteKeys() {
+  return [...mnoteDrafts.keys()].filter(mnoteDirty);
+}
+
+/** Before a sheet with note boxes closes: save or drop unsaved text. Resolves false to stay open. */
+async function settleMuscleNotes() {
+  const keys = dirtyMuscleNoteKeys();
+  if (!keys.length) return true;
+  const save = await showConfirm('มีโน้ตที่ยังไม่บันทึก\nบันทึกก่อนปิดไหม?', { okLabel: 'บันทึก', cancelLabel: 'ไม่บันทึก' });
+  if (save) {
+    for (const key of keys) {
+      if (!(await saveMuscleNote(key))) return false;
+    }
+  } else {
+    keys.forEach((key) => mnoteDrafts.delete(key));
+  }
+  return true;
+}
+
+async function closeMusclePhotoViewer() {
+  if (!(await settleMuscleNotes())) return;
+  if (els.mphotoOverlay) els.mphotoOverlay.hidden = true;
+  mphotoView.noteDate = '';
+}
+
+/** Note-only path (no photo): open the row's viewer on that day with the note box focused. */
+function openMuscleNote(rowId, date) {
+  hideMusclePhotoPrompt();
+  openMusclePhotos(rowId, date, { note: true });
+  const input = document.getElementById('mphoto-note');
+  if (input) {
+    input.focus();
+    input.scrollIntoView({ block: 'nearest' });
+  }
+}
 
 function musclePhotoRowLabel(rowId) {
   const view = muscleLayoutView();
@@ -3939,7 +4056,7 @@ function showMusclePhotoPrompt(rowId, date) {
   if (!el || !text) return;
   mphotoTarget = { rowId, date };
   const day = date === toDateKey() ? '' : ` (${formatDateDisplay(date)})`;
-  text.textContent = `ถ่ายรูปแผ่นน้ำหนัก「${musclePhotoRowLabel(rowId)}」${day}ไว้ไหม?`;
+  text.textContent = `เก็บรูปแผ่นน้ำหนักหรือโน้ต「${musclePhotoRowLabel(rowId)}」${day}ไว้ไหม?`;
   el.hidden = false;
   clearTimeout(mphotoPromptTimer);
   mphotoPromptTimer = setTimeout(hideMusclePhotoPrompt, 7000);
@@ -4005,6 +4122,8 @@ async function startMusclePhotoUpload() {
     paintMusclePhotoUpload();
     return;
   }
+  const noteKey = mnoteKey(job.rowId, job.date);
+  if (mnoteDirty(noteKey)) void saveMuscleNote(noteKey);
   job.controller = new AbortController();
   job.phase = 'uploading';
   job.progress = 0;
@@ -4097,15 +4216,24 @@ function paintMusclePhotoUpload() {
         <button type="button" class="btn btn-primary" data-mphoto-up="upload">ลองใหม่</button>`
       : `<button type="button" class="btn btn-primary" data-mphoto-up="change">${changeLabel}</button>`;
   }
-  body.innerHTML = `${preview}${status}${actions ? `<div class="mphoto-actions">${actions}</div>` : ''}`;
+  let note = '';
+  if (job.phase === 'preview' || job.phase === 'error' || job.phase === 'done') {
+    note = muscleNoteHtml(job.rowId, job.date, 'mphoto-up');
+  } else if (busy) {
+    const text = savedMuscleNote(job.rowId, job.date);
+    if (text) note = `<p class="mnote-static">📝 ${escapeHtml(text)}</p>`;
+  }
+  body.innerHTML = `${preview}${status}${note}${actions ? `<div class="mphoto-actions">${actions}</div>` : ''}`;
+  syncMuscleNoteUi();
 }
 
-function closeMusclePhotoUpload() {
+async function closeMusclePhotoUpload({ keepNote = false } = {}) {
   const overlay = document.getElementById('mphoto-up-overlay');
   if (mphotoUp?.phase === 'uploading') {
     mphotoUp.controller?.abort();
     return;
   }
+  if (!keepNote && !(await settleMuscleNotes())) return;
   if (overlay) overlay.hidden = true;
   releaseMusclePhotoUpload();
 }
@@ -4117,12 +4245,12 @@ function onMusclePhotoUploadClick(e) {
   if (act === 'upload') void startMusclePhotoUpload();
   else if (act === 'cancel') mphotoUp.controller?.abort();
   else if (act === 'change') pickMusclePhoto(mphotoUp.rowId, mphotoUp.date, mphotoUp.source);
-  else if (act === 'close') closeMusclePhotoUpload();
+  else if (act === 'close') void closeMusclePhotoUpload();
   else if (act === 'view') {
     const { rowId, photo } = mphotoUp;
-    closeMusclePhotoUpload();
+    void closeMusclePhotoUpload({ keepNote: true });
     openMusclePhotos(rowId);
-    const i = musclePhotosFor(rowId).findIndex((p) => p.storagePath === photo?.storagePath);
+    const i = musclePhotoEntries(rowId).findIndex((e) => e.photo?.storagePath === photo?.storagePath);
     if (i > 0) {
       mphotoView.index = i;
       void paintMusclePhotoViewer();
@@ -4130,10 +4258,31 @@ function onMusclePhotoUploadClick(e) {
   }
 }
 
-function openMusclePhotos(rowId, date = '') {
+/**
+ * Viewer entries for a row, newest first: every photo, plus days that only have a note
+ * (and the day opened to write one). Each day's note shows with its photos.
+ */
+function musclePhotoEntries(rowId) {
+  const photos = musclePhotosFor(rowId);
+  const notes = normalizeMuscleTree(ensureCaloriePayload().muscleTree).cellNotes || {};
+  const photoDays = new Set(photos.map((p) => p.date));
+  const noteDays = new Set(Object.keys(notes)
+    .filter((k) => notes[k].text && k.startsWith(`${rowId}|`))
+    .map((k) => k.slice(rowId.length + 1)));
+  if (mphotoView.noteDate) noteDays.add(mphotoView.noteDate);
+  const entries = [
+    ...photos.map((p) => ({ date: p.date, at: p.at || 0, photo: p })),
+    ...[...noteDays].filter((d) => !photoDays.has(d)).map((date) => ({ date, at: 0, photo: null })),
+  ];
+  return entries.sort((a, b) => (b.date === a.date ? b.at - a.at : b.date < a.date ? -1 : 1));
+}
+
+function openMusclePhotos(rowId, date = '', { note = false } = {}) {
   if (!rowId || !els.mphotoOverlay) return;
+  mphotoView.noteDate = note ? date : '';
+  mphotoView.repaintOnBlur = false;
   mphotoView.rowId = rowId;
-  mphotoView.index = date ? Math.max(0, musclePhotosFor(rowId).findIndex((p) => p.date === date)) : 0;
+  mphotoView.index = date ? Math.max(0, musclePhotoEntries(rowId).findIndex((e) => e.date === date)) : 0;
   void paintMusclePhotoViewer();
   els.mphotoOverlay.hidden = false;
   void refreshMusclePhotos({ minAgeMs: 30000 });
@@ -4143,43 +4292,50 @@ async function paintMusclePhotoViewer() {
   const body = els.mphotoBody;
   if (!body) return;
   const { rowId } = mphotoView;
-  const list = musclePhotosFor(rowId);
+  const list = musclePhotoEntries(rowId);
   const label = musclePhotoRowLabel(rowId);
-  if (els.mphotoTitle) els.mphotoTitle.textContent = `รูป · ${label}`;
+  if (els.mphotoTitle) els.mphotoTitle.textContent = `รูปและโน้ต · ${label}`;
   const takeBtn = `<button type="button" class="btn btn-primary mphoto-take" data-mphoto-take="${escapeHtml(rowId)}">📷 ถ่ายรูป</button>
     <button type="button" class="btn btn-secondary mphoto-take" data-mphoto-take="${escapeHtml(rowId)}" data-src="album">🖼 อัลบั้ม</button>`;
   if (!list.length) {
-    body.innerHTML = `<p class="settings-hint">ยังไม่มีรูปของ${escapeHtml(label)} · ติ๊กช่องหลักในตารางแล้วกด "ถ่ายรูป" หรือถ่ายจากปุ่มนี้</p>
-      <div class="mphoto-actions">${takeBtn}</div>`;
+    body.innerHTML = `<p class="settings-hint">ยังไม่มีรูปหรือโน้ตของ${escapeHtml(label)} · ติ๊กช่องหลักในตารางแล้วกด "ถ่ายรูป" หรือ "โน้ต"</p>
+      <div class="mphoto-actions">${takeBtn}<button type="button" class="btn btn-secondary mphoto-take" data-mnote-open="${escapeHtml(rowId)}">📝 โน้ตวันนี้</button></div>`;
     return;
   }
   mphotoView.index = Math.max(0, Math.min(mphotoView.index, list.length - 1));
   const idx = mphotoView.index;
-  const photo = list[idx];
-  const sameDay = (p) => list.filter((q) => q.date === p.date).length > 1;
-  const when = (p) => {
-    const d = formatDateDisplay(p.date);
-    if (!sameDay(p) || !p.at) return d;
-    const t = new Date(p.at);
+  const entry = list[idx];
+  const { photo } = entry;
+  const sameDay = (e) => list.filter((q) => q.date === e.date).length > 1;
+  const when = (e) => {
+    const d = formatDateDisplay(e.date);
+    if (!sameDay(e) || !e.at) return d;
+    const t = new Date(e.at);
     return `${d} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
   };
-  const dates = list.map((p, i) => `<button type="button" class="mphoto-chip${i === idx ? ' is-on' : ''}" data-mphoto-go="${i}">${escapeHtml(when(p))}</button>`).join('');
+  const dates = list.map((e, i) => `<button type="button" class="mphoto-chip${i === idx ? ' is-on' : ''}" data-mphoto-go="${i}">${e.photo ? '' : '📝 '}${escapeHtml(when(e))}</button>`).join('');
+  const frame = photo
+    ? `<div class="mphoto-frame"><img id="mphoto-img" alt="${escapeHtml(`${label} ${entry.date}`)}"><span class="mphoto-loading">กำลังโหลดรูป…</span></div>`
+    : '<div class="mphoto-noimg">ไม่มีรูปของวันนี้ · มีแต่โน้ต</div>';
   body.innerHTML = `
     <figure class="mphoto-figure">
-      <div class="mphoto-frame"><img id="mphoto-img" alt="${escapeHtml(`${label} ${photo.date}`)}"><span class="mphoto-loading">กำลังโหลดรูป…</span></div>
-      <figcaption>${escapeHtml(when(photo))}${idx === 0 ? ' · ล่าสุด' : ''} · ${idx + 1}/${list.length}</figcaption>
+      ${frame}
+      <figcaption>${escapeHtml(when(entry))}${idx === 0 ? ' · ล่าสุด' : ''} · ${idx + 1}/${list.length}</figcaption>
     </figure>
     <div class="mphoto-nav">
       <button type="button" class="btn btn-secondary" data-mphoto-step="-1"${idx === 0 ? ' disabled' : ''}>‹ ใหม่กว่า</button>
       <button type="button" class="btn btn-secondary" data-mphoto-step="1"${idx >= list.length - 1 ? ' disabled' : ''}>เก่ากว่า ›</button>
     </div>
     ${list.length > 1 ? `<div class="mphoto-chips">${dates}</div>` : ''}
-    <div class="mphoto-actions">${takeBtn}<button type="button" class="btn btn-secondary mphoto-del" data-mphoto-del="${escapeHtml(photo.storagePath)}">ลบรูปนี้</button></div>`;
+    ${muscleNoteHtml(rowId, entry.date, 'mphoto')}
+    <div class="mphoto-actions">${takeBtn}${photo ? `<button type="button" class="btn btn-secondary mphoto-del" data-mphoto-del="${escapeHtml(photo.storagePath)}">ลบรูปนี้</button>` : ''}</div>`;
+  syncMuscleNoteUi();
   body.querySelector('.mphoto-chip.is-on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  if (!photo) return;
   try {
     const url = await musclePhotoUrl(photo.storagePath);
     const img = document.getElementById('mphoto-img');
-    if (!img || mphotoView.rowId !== rowId || musclePhotosFor(rowId)[mphotoView.index]?.storagePath !== photo.storagePath) return;
+    if (!img || mphotoView.rowId !== rowId || musclePhotoEntries(rowId)[mphotoView.index]?.photo?.storagePath !== photo.storagePath) return;
     img.onload = () => img.closest('.mphoto-frame')?.classList.add('is-loaded');
     img.onerror = () => {
       const msg = img.closest('.mphoto-frame')?.querySelector('.mphoto-loading');
@@ -4207,6 +4363,23 @@ async function onMusclePhotoDelete(storagePath) {
 
 function onMusclePhotoClick(e) {
   const t = e.target;
+  const save = t?.closest?.('[data-mnote-save]');
+  if (save) {
+    const key = save.closest('.mnote')?.dataset.mnoteKey;
+    if (key) {
+      void saveMuscleNote(key).then(() => {
+        if (!mphotoView.repaintOnBlur || dirtyMuscleNoteKeys().length || els.mphotoOverlay?.hidden) return;
+        mphotoView.repaintOnBlur = false;
+        void paintMusclePhotoViewer();
+      });
+    }
+    return;
+  }
+  const noteOpen = t?.closest?.('[data-mnote-open]');
+  if (noteOpen) {
+    openMuscleNote(noteOpen.getAttribute('data-mnote-open'), toDateKey());
+    return;
+  }
   const take = t?.closest?.('[data-mphoto-take]');
   if (take) {
     pickMusclePhoto(take.getAttribute('data-mphoto-take'), toDateKey(), take.getAttribute('data-src') || 'camera');
@@ -4239,7 +4412,17 @@ function onMusclePhotoClick(e) {
 function onMusclePhotosChanged() {
   if (els.muscleScroll?.offsetParent) paintMuscleSheet();
   if (els.muscleRegionOverlay && !els.muscleRegionOverlay.hidden) paintMuscleRegionSheet();
-  if (els.mphotoOverlay && !els.mphotoOverlay.hidden) void paintMusclePhotoViewer();
+  if (els.mphotoOverlay && !els.mphotoOverlay.hidden) repaintMusclePhotoViewer();
+}
+
+/** Repainting replaces the note box, which would drop the keyboard mid-typing; wait until it's left. */
+function repaintMusclePhotoViewer() {
+  if (document.activeElement?.id === 'mphoto-note') {
+    mphotoView.repaintOnBlur = true;
+    return;
+  }
+  mphotoView.repaintOnBlur = false;
+  void paintMusclePhotoViewer();
 }
 
 function onMuscleScrollClick(e) {
@@ -4981,6 +5164,7 @@ function paintMuscleRegionSheet() {
     : '<span class="mr-status-sub">ยังไม่มีรูปแผ่นน้ำหนัก</span>'}
       <button type="button" class="btn btn-secondary mr-photo-take" data-mphoto-take="${escapeHtml(leafId)}" aria-label="ถ่ายรูปวันนี้">📷 ถ่าย</button>
       <button type="button" class="btn btn-secondary mr-photo-take" data-mphoto-take="${escapeHtml(leafId)}" data-src="album" aria-label="เลือกรูปจากอัลบั้ม">🖼 อัลบั้ม</button>
+      <button type="button" class="btn btn-secondary mr-photo-take" data-mnote-open="${escapeHtml(leafId)}" aria-label="เขียนโน้ตวันนี้">📝 โน้ต</button>
     </div>`;
   if (els.muscleRegionTitle) els.muscleRegionTitle.textContent = label;
   const scrollTop = els.muscleRegionBody.scrollTop;
@@ -11494,17 +11678,32 @@ async function init({ fromBoot = false } = {}) {
   els.muscleRestBtn?.addEventListener('click', () => openMuscleRest());
   document.querySelectorAll('[data-close-overlay]').forEach((el) => {
     el.addEventListener('click', () => {
-      const ov = document.getElementById(el.getAttribute('data-close-overlay'));
+      const id = el.getAttribute('data-close-overlay');
+      if (id === 'mphoto-overlay') {
+        void closeMusclePhotoViewer();
+        return;
+      }
+      const ov = document.getElementById(id);
       if (ov) ov.hidden = true;
     });
   });
   els.mphotoBody?.addEventListener('click', onMusclePhotoClick);
+  els.mphotoBody?.addEventListener('input', onMuscleNoteInput);
+  els.mphotoBody?.addEventListener('focusout', () => {
+    if (!mphotoView.repaintOnBlur) return;
+    setTimeout(() => {
+      if (mphotoView.repaintOnBlur && !els.mphotoOverlay?.hidden) repaintMusclePhotoViewer();
+    }, 400);
+  });
   els.muscleRegionBody?.addEventListener('click', onMusclePhotoClick);
   document.getElementById('mphoto-prompt-take')?.addEventListener('click', () => {
     if (mphotoTarget) pickMusclePhoto(mphotoTarget.rowId, mphotoTarget.date, 'camera');
   });
   document.getElementById('mphoto-prompt-album')?.addEventListener('click', () => {
     if (mphotoTarget) pickMusclePhoto(mphotoTarget.rowId, mphotoTarget.date, 'album');
+  });
+  document.getElementById('mphoto-prompt-note')?.addEventListener('click', () => {
+    if (mphotoTarget) openMuscleNote(mphotoTarget.rowId, mphotoTarget.date);
   });
   document.getElementById('mphoto-prompt-skip')?.addEventListener('click', hideMusclePhotoPrompt);
   ['mphoto-input', 'mphoto-album-input'].forEach((id) => {
@@ -11513,9 +11712,10 @@ async function init({ fromBoot = false } = {}) {
     });
   });
   document.getElementById('mphoto-up-body')?.addEventListener('click', onMusclePhotoUploadClick);
-  document.getElementById('mphoto-up-close')?.addEventListener('click', closeMusclePhotoUpload);
+  document.getElementById('mphoto-up-body')?.addEventListener('input', onMuscleNoteInput);
+  document.getElementById('mphoto-up-close')?.addEventListener('click', () => { void closeMusclePhotoUpload(); });
   document.getElementById('mphoto-up-backdrop')?.addEventListener('click', () => {
-    if (mphotoUp?.phase !== 'uploading') closeMusclePhotoUpload();
+    if (mphotoUp?.phase !== 'uploading') void closeMusclePhotoUpload();
   });
   onMusclePhotosChange(onMusclePhotosChanged);
   els.muscleBodyCard?.addEventListener('click', (e) => {
@@ -11573,15 +11773,18 @@ async function init({ fromBoot = false } = {}) {
     const upOverlay = document.getElementById('mphoto-up-overlay');
     if (upOverlay && !upOverlay.hidden) {
       e.preventDefault();
-      closeMusclePhotoUpload();
+      void closeMusclePhotoUpload();
       return;
     }
-    for (const ov of [els.mphotoOverlay, els.muscleRegionOverlay]) {
-      if (ov && !ov.hidden) {
-        e.preventDefault();
-        ov.hidden = true;
-        return;
-      }
+    if (els.mphotoOverlay && !els.mphotoOverlay.hidden) {
+      e.preventDefault();
+      void closeMusclePhotoViewer();
+      return;
+    }
+    if (els.muscleRegionOverlay && !els.muscleRegionOverlay.hidden) {
+      e.preventDefault();
+      els.muscleRegionOverlay.hidden = true;
+      return;
     }
     if (els.muscleRestOverlay && !els.muscleRestOverlay.hidden) {
       e.preventDefault();

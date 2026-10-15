@@ -277,6 +277,8 @@ function normalizeMuscleTreeFresh(raw) {
   if (aliases) out.aliases = aliases;
   const moveLog = normalizeMoveLog(src.moveLog, cutoff);
   if (moveLog) out.moveLog = moveLog;
+  const cellNotes = normalizeCellNotes(src.cellNotes, cutoff);
+  if (cellNotes) out.cellNotes = cellNotes;
   if (regionNames) out.regionNames = regionNames;
   if (groupNames) out.groupNames = groupNames;
   const hidden = normalizeHidden(src.hidden);
@@ -547,6 +549,37 @@ export function setMoveLogNames(tree, dateKey, names, nowMs = clockNowMs()) {
   const t = normalizeMuscleTree(tree);
   const moveLog = { ...(t.moveLog || {}), [dateKey]: { names, at: nowMs } };
   return normalizeMuscleTree({ ...t, moveLog, updatedAt: nowIsoLocal() });
+}
+
+export const CELL_NOTE_MAX = 500;
+
+/**
+ * Free-text note per muscle row and day (sets, reps, how it felt): { 'rowId|YYYY-MM-DD': { text, at } }.
+ * An entry with empty text is a cleared note, kept until its stamp is old.
+ */
+function normalizeCellNotes(raw, cutoff) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  Object.keys(raw).forEach((k) => {
+    if (!/^[^|]+\|\d{4}-\d{2}-\d{2}$/.test(k)) return;
+    const at = stampMs(raw[k]?.at);
+    if (!at) return;
+    const text = String(raw[k]?.text || '').replace(/\r\n?/g, '\n').trim().slice(0, CELL_NOTE_MAX);
+    if (!text && !(at > cutoff)) return;
+    out[k] = { text, at };
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+export function getCellNote(tree, rowId, dateKey) {
+  return normalizeMuscleTree(tree).cellNotes?.[cellKey(rowId, dateKey)]?.text || '';
+}
+
+/** Set a row/day note (empty text clears it). */
+export function setCellNote(tree, rowId, dateKey, text, nowMs = clockNowMs()) {
+  const t = normalizeMuscleTree(tree);
+  const cellNotes = { ...(t.cellNotes || {}), [cellKey(rowId, dateKey)]: { text: String(text || ''), at: nowMs } };
+  return normalizeMuscleTree({ ...t, cellNotes, updatedAt: nowIsoLocal() });
 }
 
 function normalizeAliases(raw, idSet, cutoff) {
@@ -880,6 +913,7 @@ function treeContentKey(tree) {
     t.restScale,
     t.restProfile,
     t.moveLog || null,
+    t.cellNotes || null,
     t.regionNames || null,
     t.groupNames || null,
     t.hidden || null,
@@ -895,7 +929,7 @@ export function muscleTreeNeedsPush(localCalorie, remoteCalorie) {
   return treeContentKey(merged) !== treeContentKey(remoteCalorie?.muscleTree);
 }
 
-const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.regionNames || t.groupNames || t.hidden || t.orderMap || t.parentMap || t.nodes.some((n) => n.at));
+const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.cellNotes || t.regionNames || t.groupNames || t.hidden || t.orderMap || t.parentMap || t.nodes.some((n) => n.at));
 
 /**
  * A tree from a build before stamps (it strips them) that was saved last: every row and cell
@@ -968,6 +1002,8 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   Object.entries(a.aliases || {}).forEach(([k, v]) => { if (!aliases[k] || aliases[k].at <= v.at) aliases[k] = v; });
   const moveLog = { ...(b.moveLog || {}) };
   Object.entries(a.moveLog || {}).forEach(([k, v]) => { if (!moveLog[k] || moveLog[k].at <= v.at) moveLog[k] = v; });
+  const cellNotes = { ...(b.cellNotes || {}) };
+  Object.entries(a.cellNotes || {}).forEach(([k, v]) => { if (!cellNotes[k] || cellNotes[k].at <= v.at) cellNotes[k] = v; });
   const regionNames = { ...(b.regionNames || {}) };
   Object.entries(a.regionNames || {}).forEach(([k, v]) => { if (!regionNames[k] || regionNames[k].at <= v.at) regionNames[k] = v; });
   const groupNames = { ...(b.groupNames || {}) };
@@ -978,7 +1014,7 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   Object.entries(a.orderMap || {}).forEach(([k, v]) => { if (!orderMap[k] || orderMap[k].at <= v.at) orderMap[k] = v; });
   const parentMap = { ...(b.parentMap || {}) };
   Object.entries(a.parentMap || {}).forEach(([k, v]) => { if (!parentMap[k] || parentMap[k].at <= v.at) parentMap[k] = v; });
-  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, regionNames, groupNames, hidden, orderMap, parentMap });
+  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, cellNotes, regionNames, groupNames, hidden, orderMap, parentMap });
 }
 
 export function isLeafNode(node, nodes) {
@@ -1720,7 +1756,7 @@ function regionRestCellHtml(t, regionIds, cls, id, restMap, anyRestMap) {
 
 function nameCellHtml({ id, name, cls, attrs = '', toggle = false, extra = '', photo = false }) {
   const photoBtn = photo
-    ? `<button type="button" class="mt-photo-btn" data-photo-row="${esc(id)}" aria-label="${esc(`ดูรูปล่าสุดของ ${name}`)}" title="ดูรูปล่าสุด">📷</button>`
+    ? `<button type="button" class="mt-photo-btn" data-photo-row="${esc(id)}" aria-label="${esc(`ดูรูปและโน้ตของ ${name}`)}" title="ดูรูปและโน้ต">📷</button>`
     : '';
   return `<th class="mt-row-name${cls}" scope="row" data-node-id="${esc(id)}">
     <div class="mt-name-row">
@@ -1793,6 +1829,7 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
   const selectedId = opts.selectedId || '';
   const photoRows = opts.photoRows instanceof Set ? opts.photoRows : new Set();
   const photoCells = opts.photoCells instanceof Set ? opts.photoCells : new Set();
+  const noteRows = new Set(Object.keys(t.cellNotes || {}).filter((k) => t.cellNotes[k].text).map((k) => k.split('|')[0]));
   const states = restStates(t, todayKey);
   const restMap = primaryRestMap(states, t.restProfile);
   const anyRestMap = computeRegionRest(states, t.restProfile);
@@ -1843,16 +1880,18 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
       const state = v === MARK_MAIN ? ' is-main' : v === MARK_SECONDARY ? ' is-sec' : '';
       const label = v === MARK_MAIN ? 'หลัก' : v === MARK_SECONDARY ? 'รอง' : 'ว่าง';
       const hasPic = photoCells.has(`${id}|${dk}`);
-      const pic = hasPic ? ' has-photo' : '';
-      const dot = hasPic
-        ? `<button type="button" class="mt-photo-dot" data-photo-row="${esc(id)}" data-photo-date="${esc(dk)}" aria-label="${esc(`ดูรูป ${name} ${dk}`)}" title="ดูรูปวันนี้"></button>`
+      const hasNote = Boolean(t.cellNotes?.[cellKey(id, dk)]?.text);
+      const pic = hasPic || hasNote ? ' has-photo' : '';
+      const what = hasPic && hasNote ? 'รูปและโน้ต' : hasPic ? 'รูป' : 'โน้ต';
+      const dot = hasPic || hasNote
+        ? `<button type="button" class="mt-photo-dot${hasPic ? '' : ' is-note'}" data-photo-row="${esc(id)}" data-photo-date="${esc(dk)}" aria-label="${esc(`ดู${what} ${name} ${dk}`)}" title="ดู${what}วันนี้"></button>`
         : '';
       return `<td class="mt-cell is-mark${state}${pic}${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}">
         <button type="button" class="mt-mark-btn" data-mark-node="${esc(id)}" data-date="${esc(dk)}" aria-label="${esc(`${name} ${dk} ${label} · แตะเพื่อเปลี่ยน`)}">${v === MARK_MAIN ? '●' : v === MARK_SECONDARY ? '•' : ''}</button>${dot}
       </td>`;
     }).join('');
     return `<tr class="mt-row${cls}" data-node-id="${esc(id)}"${solo ? '' : ` data-parent-id="${esc(g.id)}"`}>
-      ${nameCellHtml({ id, name, cls, photo: photoRows.has(id), attrs: region ? ` data-muscle-region="${esc(rid)}" title="แตะเพื่อดูท่าไกด์และตั้งวันพัก"` : ' title="กล้ามที่เพิ่มเอง · แก้ชื่อ/ลบ ที่ปุ่มจัดการ"' })}
+      ${nameCellHtml({ id, name, cls, photo: photoRows.has(id) || noteRows.has(id), attrs: region ? ` data-muscle-region="${esc(rid)}" title="แตะเพื่อดูท่าไกด์และตั้งวันพัก"` : ' title="กล้ามที่เพิ่มเอง · แก้ชื่อ/ลบ ที่ปุ่มจัดการ"' })}
       <td class="mt-col-count${pos} is-leaf${count ? ' is-filled' : ''}" data-node-id="${esc(id)}" title="เป็นกล้ามหลัก ${count} วัน"><span class="mt-count-val">${count || ''}</span></td>
       ${regionRestCellHtml(t, [rid], `${pos} is-leaf`, id, restMap, anyRestMap)}
       ${cells}
