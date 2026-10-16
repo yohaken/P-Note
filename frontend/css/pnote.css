@@ -4270,6 +4270,91 @@ body.light .notify-field input[type='number'] {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
+.ack-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0.35rem 0 0;
+}
+.ack-note-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, var(--surface));
+}
+.ack-note-row-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+.ack-note-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  min-height: 3.2rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+  resize: vertical;
+}
+.ack-note-remove {
+  flex: 0 0 auto;
+  width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ack-note-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+}
+.ack-note-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.ack-note-page input {
+  width: 1rem;
+  height: 1rem;
+}
+.ack-note-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.ack-note-count {
+  margin: 0.35rem 0 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.ack-note-pop .note-confirm-actions {
+  justify-content: stretch;
+}
+.ack-note-pop .note-confirm-actions .btn {
+  flex: 1 1 auto;
+  min-height: 2.6rem;
+}
+
 .note-confirm-body {
   font-size: 0.95rem;
   font-weight: 500;

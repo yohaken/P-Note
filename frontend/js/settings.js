@@ -116,7 +116,49 @@ const DEFAULTS = {
   calorieHomePins: [],
   /** Brand / PWA install icon id (see app-icons.js) */
   appIconId: DEFAULT_APP_ICON_ID,
+  /** Must-ack reminder notes shown when entering a page (see ACK_NOTE_PAGES). */
+  ackNotes: [],
 };
+
+/** Pages that can show ack-notes. Add an id here when a new screen should support them. */
+export const ACK_NOTE_PAGES = {
+  muscle: 'ตารางกล้ามเนื้อ',
+  gallery: 'บันทึกแกลเลอรี่',
+};
+
+export const ACK_NOTE_TEXT_MAX = 200;
+export const ACK_NOTES_MAX = 20;
+
+export function normalizeAckNotes(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const text = String(item.text || '').replace(/\r\n?/g, '\n').trim().slice(0, ACK_NOTE_TEXT_MAX);
+    if (!text) continue;
+    const pages = [...new Set(
+      (Array.isArray(item.pages) ? item.pages : [])
+        .map((p) => String(p || '').trim())
+        .filter((p) => Object.prototype.hasOwnProperty.call(ACK_NOTE_PAGES, p)),
+    )];
+    // Empty pages kept so settings UI does not delete a note when every page is unchecked.
+    let id = String(item.id || '').trim().slice(0, 40);
+    if (!id || seen.has(id)) id = `ack${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, text, pages });
+    if (out.length >= ACK_NOTES_MAX) break;
+  }
+  return out;
+}
+
+/** Notes assigned to a page, in settings order. */
+export function ackNotesForPage(settings, pageId) {
+  const page = String(pageId || '');
+  if (!Object.prototype.hasOwnProperty.call(ACK_NOTE_PAGES, page)) return [];
+  return normalizeAckNotes(settings?.ackNotes).filter((n) => n.pages.includes(page));
+}
 
 function withFixedUi(settings) {
   return {
@@ -528,6 +570,7 @@ export function loadSettings() {
         calorieTrendDays: normalizeCalorieTrendDays(null),
         calorieHomePins: normalizeCalorieHomePins(null),
         appIconId: DEFAULT_APP_ICON_ID,
+        ackNotes: [],
       });
     }
     const parsed = JSON.parse(raw);
@@ -561,6 +604,7 @@ export function loadSettings() {
       calorieTrendDays: normalizeCalorieTrendDays(parsed.calorieTrendDays),
       calorieHomePins: normalizeCalorieHomePins(parsed.calorieHomePins),
       appIconId: normalizeAppIconId(parsed.appIconId),
+      ackNotes: normalizeAckNotes(parsed.ackNotes),
     });
   } catch {
     return withFixedUi({
@@ -585,6 +629,7 @@ export function loadSettings() {
       calorieTrendDays: normalizeCalorieTrendDays(null),
       calorieHomePins: normalizeCalorieHomePins(null),
       appIconId: DEFAULT_APP_ICON_ID,
+      ackNotes: [],
     });
   }
 }
@@ -620,6 +665,7 @@ export function saveSettings(settings) {
     calorieTrendDays: normalizeCalorieTrendDays(settings.calorieTrendDays),
     calorieHomePins: normalizeCalorieHomePins(settings.calorieHomePins),
     appIconId: normalizeAppIconId(settings.appIconId),
+    ackNotes: normalizeAckNotes(settings.ackNotes),
   });
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
 }
@@ -658,6 +704,7 @@ export function normalizeSettingsSync(raw) {
     calorieTrendDays: normalizeCalorieTrendDays(raw.calorieTrendDays),
     calorieHomePins: normalizeCalorieHomePins(raw.calorieHomePins),
     appIconId: normalizeAppIconId(raw.appIconId),
+    ackNotes: normalizeAckNotes(raw.ackNotes),
   };
 }
 
@@ -675,6 +722,9 @@ export function settingsForCloud(settings) {
 
 /** Apply newer cloud settings into local state; preserve API key. */
 export function mergeSettingsFromCloud(localSettings, cloudRaw) {
+  // Fields added later: if the cloud blob never had them, keep the local value
+  // so an older client / seed cannot wipe a newer local preference.
+  const cloudHadAckNotes = Boolean(cloudRaw && typeof cloudRaw === 'object' && 'ackNotes' in cloudRaw);
   const cloud = normalizeSettingsSync(cloudRaw);
   if (!cloud) return localSettings;
   const localAt = String(localSettings?.cloudUpdatedAt || '').trim();
@@ -711,6 +761,7 @@ export function mergeSettingsFromCloud(localSettings, cloudRaw) {
     calorieTrendDays: cloud.calorieTrendDays,
     calorieHomePins: cloud.calorieHomePins,
     appIconId: cloud.appIconId,
+    ackNotes: cloudHadAckNotes ? cloud.ackNotes : normalizeAckNotes(localSettings?.ackNotes),
     cloudUpdatedAt: cloud.updatedAt,
   });
   return merged;

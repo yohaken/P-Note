@@ -269,7 +269,7 @@ import {
   notesOnDate,
   dateKeyFromDate,
 } from './schedule.js?v=337';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId } from './settings.js?v=337';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage } from './settings.js?v=337';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
@@ -658,6 +658,13 @@ const els = {
   noteContextOverlay: document.getElementById('note-context-overlay'),
   noteContextMenu: document.getElementById('note-context-menu'),
   noteConfirmOverlay: document.getElementById('note-confirm-overlay'),
+  ackNoteOverlay: document.getElementById('ack-note-overlay'),
+  ackNoteTitle: document.getElementById('ack-note-title'),
+  ackNoteBody: document.getElementById('ack-note-body'),
+  ackNoteCount: document.getElementById('ack-note-count'),
+  ackNoteOk: document.getElementById('ack-note-ok'),
+  ackNotesList: document.getElementById('ack-notes-list'),
+  ackNotesAdd: document.getElementById('ack-notes-add'),
   noteConfirmBody: document.getElementById('note-confirm-body'),
   noteConfirmCancel: document.getElementById('note-confirm-cancel'),
   noteConfirmOk: document.getElementById('note-confirm-ok'),
@@ -2578,7 +2585,8 @@ function syncCaloriePaneButtons(pane) {
 
 function setCaloriePane(pane) {
   const next = pane === 'health' ? 'health' : pane === 'muscle' ? 'muscle' : 'log';
-  if (next === 'muscle' && state.caloriePane !== 'muscle') muscleDateCount = MUSCLE_DATE_COLS;
+  const enteringMuscle = next === 'muscle' && state.caloriePane !== 'muscle';
+  if (enteringMuscle) muscleDateCount = MUSCLE_DATE_COLS;
   state.caloriePane = next;
   if (next !== 'muscle') hideMusclePhotoPrompt();
   document.body.classList.toggle('calorie-health-pane', next === 'health');
@@ -2600,6 +2608,7 @@ function setCaloriePane(pane) {
     if (els.calorieScroll) els.calorieScroll.hidden = true;
     paintMuscleSheet();
     syncCalorieFabs();
+    if (enteringMuscle) startAckNotes('muscle');
   } else {
     if (els.calorieScroll) els.calorieScroll.hidden = false;
     renderCalorieSheet();
@@ -8948,6 +8957,139 @@ function openSettings() {
   applyBarThickness();
   refreshScheduleSelectOptions();
   syncTitlesOnlyListClass();
+  renderAckNotesSettings();
+}
+
+/* ---- Must-ack page notes (settings → popup on enter) ---- */
+
+/** @type {{ pageId: string, notes: {id:string,text:string}[], index: number }|null} */
+let ackNoteQueue = null;
+
+function persistAckNotes(next, { quiet = false } = {}) {
+  state.settings.ackNotes = normalizeAckNotes(next);
+  saveSettings(state.settings);
+  try {
+    saveManager.scheduleSave(() => state.notesData);
+  } catch { /* save manager may not be ready */ }
+  if (!quiet) renderAckNotesSettings();
+}
+
+function newAckNoteId() {
+  return `ack${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function renderAckNotesSettings() {
+  const list = els.ackNotesList;
+  if (!list) return;
+  const notes = normalizeAckNotes(state.settings.ackNotes);
+  state.settings.ackNotes = notes;
+  if (!notes.length) {
+    list.innerHTML = '<p class="settings-hint" style="margin:0">ยังไม่มีโน้ต — กด "+ เพิ่มโน้ต" ได้ · ไม่มีโน้ต = ไม่ขึ้นป๊อปอัพ</p>';
+    return;
+  }
+  const pageOpts = Object.entries(ACK_NOTE_PAGES)
+    .map(([id, label]) => {
+      return { id, label };
+    });
+  list.innerHTML = notes.map((note) => {
+    const pages = pageOpts.map(({ id, label }) => {
+      const on = note.pages.includes(id) ? ' checked' : '';
+      return `<label class="ack-note-page"><input type="checkbox" data-ack-page="${escapeHtml(id)}"${on}>${escapeHtml(label)}</label>`;
+    }).join('');
+    return `<div class="ack-note-row" data-ack-id="${escapeHtml(note.id)}">
+      <div class="ack-note-row-head">
+        <textarea class="ack-note-text" rows="2" maxlength="${ACK_NOTE_TEXT_MAX}" aria-label="ข้อความโน้ตตอบรับ">${escapeHtml(note.text)}</textarea>
+        <button type="button" class="ack-note-remove" data-ack-remove aria-label="ลบโน้ต">×</button>
+      </div>
+      <div class="ack-note-pages" role="group" aria-label="แสดงที่หน้า">${pages}</div>
+    </div>`;
+  }).join('');
+}
+
+function readAckNotesFromUi() {
+  const rows = [...(els.ackNotesList?.querySelectorAll('.ack-note-row') || [])];
+  return normalizeAckNotes(rows.map((row) => {
+    const text = row.querySelector('.ack-note-text')?.value || '';
+    const pages = [...row.querySelectorAll('[data-ack-page]:checked')].map((el) => el.getAttribute('data-ack-page'));
+    return { id: row.dataset.ackId, text, pages };
+  }));
+}
+
+function onAckNotesSettingsClick(e) {
+  const rm = e.target?.closest?.('[data-ack-remove]');
+  if (!rm) return;
+  const row = rm.closest('.ack-note-row');
+  if (!row) return;
+  const id = row.dataset.ackId;
+  persistAckNotes((state.settings.ackNotes || []).filter((n) => n.id !== id));
+}
+
+function onAckNotesSettingsChange(e) {
+  if (!e.target?.closest?.('.ack-note-row')) return;
+  persistAckNotes(readAckNotesFromUi(), { quiet: true });
+}
+
+function onAckNotesSettingsInput(e) {
+  if (!e.target?.classList?.contains('ack-note-text')) return;
+  persistAckNotes(readAckNotesFromUi(), { quiet: true });
+}
+
+function addAckNoteFromSettings() {
+  const cur = normalizeAckNotes(state.settings.ackNotes);
+  if (cur.length >= ACK_NOTES_MAX) {
+    setStatus(`ตั้งโน้ตตอบรับได้สูงสุด ${ACK_NOTES_MAX} ข้อ`, { forceToast: true, ms: 2000 });
+    return;
+  }
+  persistAckNotes([...cur, { id: newAckNoteId(), text: 'โน้ตใหม่', pages: ['muscle'] }]);
+  const last = els.ackNotesList?.querySelector('.ack-note-row:last-child .ack-note-text');
+  last?.focus();
+  last?.select();
+}
+
+function paintAckNotePopup() {
+  const q = ackNoteQueue;
+  if (!q || !els.ackNoteOverlay) return;
+  const note = q.notes[q.index];
+  if (!note) {
+    closeAckNotes();
+    return;
+  }
+  const pageLabel = ACK_NOTE_PAGES[q.pageId] || q.pageId;
+  if (els.ackNoteTitle) els.ackNoteTitle.textContent = `โน้ตตอบรับ · ${pageLabel}`;
+  if (els.ackNoteBody) els.ackNoteBody.textContent = note.text;
+  if (els.ackNoteCount) {
+    const many = q.notes.length > 1;
+    els.ackNoteCount.hidden = !many;
+    els.ackNoteCount.textContent = many ? `${q.index + 1} / ${q.notes.length}` : '';
+  }
+  els.ackNoteOverlay.hidden = false;
+  els.ackNoteOk?.focus();
+}
+
+function closeAckNotes() {
+  ackNoteQueue = null;
+  if (els.ackNoteOverlay) els.ackNoteOverlay.hidden = true;
+}
+
+/** Show must-ack notes for a page, one at a time. No-op when none are configured. */
+function startAckNotes(pageId) {
+  const notes = ackNotesForPage(state.settings, pageId);
+  if (!notes.length) {
+    closeAckNotes();
+    return;
+  }
+  ackNoteQueue = { pageId, notes, index: 0 };
+  paintAckNotePopup();
+}
+
+function onAckNoteOk() {
+  if (!ackNoteQueue) return;
+  ackNoteQueue.index += 1;
+  if (ackNoteQueue.index >= ackNoteQueue.notes.length) {
+    closeAckNotes();
+    return;
+  }
+  paintAckNotePopup();
 }
 
 function renderAppIconSettings() {
@@ -11537,6 +11679,11 @@ async function init({ fromBoot = false } = {}) {
   els.aiProfile?.addEventListener('change', persistAiProfileFromUi);
   els.aiProfile?.addEventListener('blur', persistAiProfileFromUi);
   els.aiTagRuleForm?.addEventListener('submit', addAiTagRuleFromForm);
+  els.ackNotesAdd?.addEventListener('click', addAckNoteFromSettings);
+  els.ackNotesList?.addEventListener('click', onAckNotesSettingsClick);
+  els.ackNotesList?.addEventListener('change', onAckNotesSettingsChange);
+  els.ackNotesList?.addEventListener('input', onAckNotesSettingsInput);
+  els.ackNoteOk?.addEventListener('click', onAckNoteOk);
   els.aiContextRefreshBtn?.addEventListener('click', async () => {
     persistAiProfileFromUi();
     const ctx = await refreshUserContextLazy(state.notesData);
@@ -11770,6 +11917,10 @@ async function init({ fromBoot = false } = {}) {
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (els.noteConfirmOverlay && !els.noteConfirmOverlay.hidden) return;
+    if (els.ackNoteOverlay && !els.ackNoteOverlay.hidden) {
+      e.preventDefault();
+      return;
+    }
     const upOverlay = document.getElementById('mphoto-up-overlay');
     if (upOverlay && !upOverlay.hidden) {
       e.preventDefault();
@@ -12572,6 +12723,7 @@ async function init({ fromBoot = false } = {}) {
       if (event.target === els.noteConfirmOverlay) finishConfirm(false);
     });
   }
+  // Ack overlay: backdrop / Esc must not dismiss — only รับทราบ advances.
 
   els.manageTagsBtn?.addEventListener('click', openTagManager);
   els.backBtn.addEventListener('click', backToList);
