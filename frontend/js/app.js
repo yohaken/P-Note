@@ -9971,6 +9971,15 @@ async function applyImportedNotes(text, { merge } = {}) {
  * would otherwise replace the whole shared doc and drop the other device's
  * newer notes / meals.
  */
+/**
+ * Settings blob for a cloud write. Adopt the cloud copy first when it is newer, so a device
+ * pushing meals with stale local settings can't overwrite another device's newer settings.
+ */
+function settingsSyncForPush(remoteRaw) {
+  if (remoteRaw?.settingsSync) applySettingsFromCloudPayload(remoteRaw);
+  return settingsForCloud(state.settings);
+}
+
 async function safePushRemote(data) {
   const spaceId = state.spaceId || getSpaceId();
   let result;
@@ -9995,13 +10004,13 @@ async function safePushRemote(data) {
         return {
           write: true,
           data: freshest,
-          settingsSync: settingsForCloud(state.settings),
+          settingsSync: settingsSyncForPush(remoteRaw),
         };
       }
       return {
         write: true,
         data: live,
-        settingsSync: settingsForCloud(state.settings),
+        settingsSync: settingsSyncForPush(remoteRaw),
       };
     });
   } catch (err) {
@@ -11307,13 +11316,13 @@ async function loadSpaceData(spaceId, localData) {
           return {
             write: true,
             data: mergeNotesByUpdatedAt(localData, latest),
-            settingsSync: settingsForCloud(state.settings),
+            settingsSync: settingsSyncForPush(latestRaw),
           };
         }
         return {
           write: true,
           data: normalizeNotesData(localData),
-          settingsSync: settingsForCloud(state.settings),
+          settingsSync: settingsSyncForPush(latestRaw),
         };
       });
       return {
@@ -11344,7 +11353,7 @@ async function loadSpaceData(spaceId, localData) {
           return {
             write: true,
             data: mergeNotesByUpdatedAt(live, latest),
-            settingsSync: settingsForCloud(state.settings),
+            settingsSync: settingsSyncForPush(latestRaw),
           };
         });
         return {
