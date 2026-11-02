@@ -123,7 +123,7 @@ const DEFAULTS = {
 /** Pages that can show ack-notes. Add an id here when a new screen should support them. */
 export const ACK_NOTE_PAGES = {
   muscle: 'ตารางกล้ามเนื้อ',
-  gallery: 'บันทึกแกลเลอรี่',
+  gallery: 'บันทึกแกลเลอรี่ (เร็วๆ นี้)',
 };
 
 export const ACK_NOTE_TEXT_MAX = 200;
@@ -135,8 +135,8 @@ export function normalizeAckNotes(raw) {
   const seen = new Set();
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
+    // Empty text is kept (row being retyped in settings); ackNotesForPage never shows it.
     const text = String(item.text || '').replace(/\r\n?/g, '\n').trim().slice(0, ACK_NOTE_TEXT_MAX);
-    if (!text) continue;
     const pages = [...new Set(
       (Array.isArray(item.pages) ? item.pages : [])
         .map((p) => String(p || '').trim())
@@ -157,7 +157,7 @@ export function normalizeAckNotes(raw) {
 export function ackNotesForPage(settings, pageId) {
   const page = String(pageId || '');
   if (!Object.prototype.hasOwnProperty.call(ACK_NOTE_PAGES, page)) return [];
-  return normalizeAckNotes(settings?.ackNotes).filter((n) => n.pages.includes(page));
+  return normalizeAckNotes(settings?.ackNotes).filter((n) => n.text && n.pages.includes(page));
 }
 
 function withFixedUi(settings) {
@@ -639,12 +639,18 @@ export function normalizeAppMode(_mode) {
   return 'calorie';
 }
 
-export function saveSettings(settings) {
+/**
+ * @param {{ fromCloud?: boolean }} [opts] fromCloud: storing values just merged from the cloud —
+ *   keep their stamp; re-stamping would make every device echo the same settings back forever.
+ */
+export function saveSettings(settings, { fromCloud = false } = {}) {
   const notifyPrefs = normalizeNotifyPrefs(
     settings.notifyPrefs,
     settings.notificationsEnabled,
   );
-  const stamped = touchSettingsCloudStamp(settings);
+  const stamped = fromCloud ? settings : touchSettingsCloudStamp(settings);
+  // The in-memory object is what settingsForCloud() sends, so it must carry the new stamp too.
+  if (!fromCloud && settings && typeof settings === 'object') settings.cloudUpdatedAt = stamped.cloudUpdatedAt;
   const next = withFixedUi({
     ...stamped,
     notifyPrefs,

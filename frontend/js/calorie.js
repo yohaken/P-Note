@@ -34,9 +34,9 @@ export const DEFAULT_AGE = 30;
 export const DEFAULT_SEX = 'male';
 /** Default birthday ≈ age 30 on Jan 1 (only used when migrating old `age`). */
 export const DEFAULT_BIRTH_DATE = `${new Date().getFullYear() - DEFAULT_AGE}-01-01`;
-/** Visible meal columns start at 7; grow when full up to max. */
+/** Visible meal columns start at 7 and grow one at a time as they fill; the max only guards the doc size. */
 export const MIN_MEAL_SLOTS = 7;
-export const MAX_MEAL_SLOTS = 14;
+export const MAX_MEAL_SLOTS = 99;
 /** Exercise burn slots per day (label + kcal each); mus = sum of slots. */
 export const MIN_EXERCISE_SLOTS = 3;
 export const MAX_EXERCISE_SLOTS = 30;
@@ -389,8 +389,11 @@ export function ensureDay(calorie, dateKey = toDateKey(new Date())) {
   return { sheet, day, created };
 }
 
-/** Put meal into the first empty slot; grow slots up to MAX_MEAL_SLOTS. */
-export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date())) {
+/**
+ * Put meal into the first empty slot; grow slots up to MAX_MEAL_SLOTS.
+ * opts.label: name for the day note instead of the one in `text` (e.g. several foods joined, longer than 80).
+ */
+export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date()), opts = {}) {
   const parsed = parseQuickMeal(text);
   if (!parsed) {
     const err = new Error(MEAL_PATTERN_HINT);
@@ -411,8 +414,9 @@ export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date())) 
   }
   meals[slot] = formatMealCell(parsed.cal, parsed.prot);
   let note = String(day.note || '');
-  if (parsed.label) {
-    note = note ? `${note} · ${parsed.label}` : parsed.label;
+  const label = opts.label != null ? String(opts.label).trim() : parsed.label;
+  if (label) {
+    note = note ? `${note} · ${label}` : label;
     note = note.slice(0, 200);
   }
   const textKey = String(text || '').trim().slice(0, 48);
@@ -3738,7 +3742,7 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
         const cell = rawMeals[i] || '';
         const has = cell ? ' has-value' : '';
         mealInputs.push(
-          `<span class="cal-input-wrap cal-input-wrap-meal${has}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="${cellTitle}"></span>`,
+          `<span class="cal-input-wrap cal-input-wrap-meal${has}" data-n="${i + 1}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="${cellTitle}"></span>`,
         );
       }
       const id = esc(row.id);

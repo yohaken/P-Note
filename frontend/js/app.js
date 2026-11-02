@@ -800,6 +800,10 @@ const els = {
   cqDrumProt: document.getElementById('cq-drum-prot'),
   cqDrumReadout: document.getElementById('cq-drum-readout'),
   cqDrumReadoutVal: document.getElementById('cq-drum-readout-val'),
+  cqMealBar: document.getElementById('cq-meal-bar'),
+  cqMealBarText: document.getElementById('cq-meal-bar-text'),
+  cqMealAdd: document.getElementById('cq-meal-add'),
+  cqMealList: document.getElementById('cq-meal-list'),
   calorieExDrums: document.getElementById('calorie-ex-drums'),
   cqDrumGroup: document.getElementById('cq-drum-group'),
   cqDrumMove: document.getElementById('cq-drum-move'),
@@ -943,7 +947,7 @@ function applySettingsFromCloudPayload(remoteRaw) {
   const merged = mergeSettingsFromCloud(state.settings, sync);
   if (String(merged.cloudUpdatedAt || '') === beforeAt) return false;
   state.settings = merged;
-  saveSettings(state.settings);
+  saveSettings(state.settings, { fromCloud: true });
   applyTheme();
   applyAppIcon(state.settings.appIconId);
   applyCardDensity();
@@ -2111,23 +2115,34 @@ function readCalorieProfileFromUi(sheet) {
   const fixedProtRaw = String(els.calorieFixedProt?.value || '').trim();
   const fixedCarbRaw = String(els.calorieFixedCarb?.value || '').trim();
   const fixedFatRaw = String(els.calorieFixedFat?.value || '').trim();
+  // Empty = cleared on purpose; out of the field's min/max = typo, keep the saved value.
+  const optional = (raw, min, max, prev) => {
+    if (raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= min && n <= max ? n : prev ?? null;
+  };
+  const birthOk = /^\d{4}-\d{2}-\d{2}$/.test(birthDate)
+    && (() => {
+      const age = ageFromBirthDate(birthDate, new Date());
+      return Number.isFinite(age) && age >= 10 && age <= 110;
+    })();
   return {
     ...sheet,
     proteinFactor: pfOk ? pf : sheet.proteinFactor,
     heightCm: heightOk ? height : sheet.heightCm,
-    birthDate: /^\d{4}-\d{2}-\d{2}$/.test(birthDate) ? birthDate : sheet.birthDate,
+    birthDate: birthOk ? birthDate : sheet.birthDate,
     sex,
-    goalWaistCm: goalWaistRaw === '' || !Number.isFinite(goalWaistCm) ? null : goalWaistCm,
-    goalWeightKg: goalWeightRaw === '' || !Number.isFinite(goalWeightKg) ? null : goalWeightKg,
+    goalWaistCm: optional(goalWaistRaw, 40, 200, sheet.goalWaistCm),
+    goalWeightKg: optional(goalWeightRaw, 30, 300, sheet.goalWeightKg),
     goalMode,
-    bodyFatPct: bfRaw === '' || !Number.isFinite(bodyFatPct) ? null : bodyFatPct,
+    bodyFatPct: optional(bfRaw, 3, 60, sheet.bodyFatPct),
     activityLevel: els.calorieActivity?.value || sheet.activityLevel || 'moderate',
     tdeeBias: els.calorieTdeeBias?.value || sheet.tdeeBias || 'maintain',
     tdeeProteinFactor: tdeePfOk ? tdeePf : sheet.tdeeProteinFactor,
-    fixedKcal: fixedKcalRaw === '' || !Number.isFinite(Number(fixedKcalRaw)) ? null : Number(fixedKcalRaw),
-    fixedProtG: fixedProtRaw === '' || !Number.isFinite(Number(fixedProtRaw)) ? null : Number(fixedProtRaw),
-    fixedCarbG: fixedCarbRaw === '' || !Number.isFinite(Number(fixedCarbRaw)) ? null : Number(fixedCarbRaw),
-    fixedFatG: fixedFatRaw === '' || !Number.isFinite(Number(fixedFatRaw)) ? null : Number(fixedFatRaw),
+    fixedKcal: optional(fixedKcalRaw, 800, 6000, sheet.fixedKcal),
+    fixedProtG: optional(fixedProtRaw, 1, 400, sheet.fixedProtG),
+    fixedCarbG: optional(fixedCarbRaw, 0, 800, sheet.fixedCarbG),
+    fixedFatG: optional(fixedFatRaw, 0, 300, sheet.fixedFatG),
   };
 }
 
@@ -3011,6 +3026,7 @@ function ensureMealDrums(cal = MEAL_DRUM_KCAL_DEFAULT, prot = MEAL_DRUM_PROT_DEF
       if (v !== c) mealDrumExactCal = null;
       mealDrumCleared = false;
       if (els.calorieMealDrums) delete els.calorieMealDrums.dataset.cleared;
+      markMealDrumDirty();
       syncMealDrumReadout();
     },
   });
@@ -3026,12 +3042,181 @@ function ensureMealDrums(cal = MEAL_DRUM_KCAL_DEFAULT, prot = MEAL_DRUM_PROT_DEF
       if (v !== p) mealDrumExactProt = null;
       mealDrumCleared = false;
       if (els.calorieMealDrums) delete els.calorieMealDrums.dataset.cleared;
+      markMealDrumDirty();
       syncMealDrumReadout();
     },
   });
   mealDrumCleared = false;
   if (els.calorieMealDrums) delete els.calorieMealDrums.dataset.cleared;
+  resetMealDrumBaseline();
   syncMealDrumReadout();
+  syncMealBatchChrome();
+}
+
+/*
+ * Meal batch: several foods eaten in one sitting, parked with "+ ใส่รวม" and saved as a
+ * single meal (kcal / protein summed). Kept on this device so it survives closing the sheet.
+ */
+const MEAL_BATCH_KEY = 'pnote_meal_batch';
+const MEAL_BATCH_MAX = 30;
+const MEAL_LABEL_MAX = 80;
+/** @type {{ cal: number, prot: number, label: string }[]} */
+let mealBatch = loadMealBatch();
+/**
+ * Pick shown when the wheels were last reset or parked. A different pick now → saving
+ * includes it (moving a wheel away and back, or typing then erasing a name, does not count).
+ */
+let mealDrumBaseline = '';
+
+function loadMealBatch() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MEAL_BATCH_KEY) || '[]');
+    return (Array.isArray(raw) ? raw : [])
+      .map((x) => ({
+        cal: Math.round(Number(x?.cal)),
+        prot: Math.max(0, Math.round(Number(x?.prot) || 0)),
+        label: String(x?.label || '').trim().slice(0, MEAL_LABEL_MAX),
+      }))
+      .filter((x) => x.cal > 0)
+      .slice(0, MEAL_BATCH_MAX);
+  } catch {
+    return [];
+  }
+}
+
+function saveMealBatch() {
+  try {
+    if (mealBatch.length) localStorage.setItem(MEAL_BATCH_KEY, JSON.stringify(mealBatch));
+    else localStorage.removeItem(MEAL_BATCH_KEY);
+  } catch { /* quota */ }
+}
+
+/** Batch UI applies only when adding a new meal, not when editing an existing cell. */
+function mealBatchActive() {
+  return calorieQuickMode === 'meal' && !calorieQuickEdit;
+}
+
+function markMealDrumDirty() {
+  syncMealBatchChrome();
+}
+
+function currentMealPick() {
+  if (!mealDrumKcal) return null;
+  const cal = Math.round(mealDrumCal());
+  const prot = Math.max(0, Math.round(mealDrumProtG()));
+  if (!(cal > 0)) return null;
+  return { cal, prot, label: String(els.calorieQuickLabel?.value || '').trim().slice(0, MEAL_LABEL_MAX) };
+}
+
+const mealPickKey = (p) => (p ? `${p.cal}|${p.prot}|${p.label}` : '');
+
+function resetMealDrumBaseline() {
+  mealDrumBaseline = mealPickKey(currentMealPick());
+}
+
+function mealDrumIsDirty() {
+  return mealPickKey(currentMealPick()) !== mealDrumBaseline;
+}
+
+/** Foods that the next save turns into one meal. */
+function mealBatchItemsToSave() {
+  const pick = currentMealPick();
+  if (!mealBatch.length) return pick ? [pick] : [];
+  return mealDrumIsDirty() && pick ? [...mealBatch, pick] : [...mealBatch];
+}
+
+function mealBatchSum(items) {
+  return items.reduce((s, x) => ({ cal: s.cal + x.cal, prot: s.prot + x.prot }), { cal: 0, prot: 0 });
+}
+
+/** One meal "cal,prot" from batched foods; names go to the day note separately (no length cut here). */
+function mealBatchPair(items) {
+  const { cal, prot } = mealBatchSum(items);
+  return `${cal},${prot}`;
+}
+
+function mealBatchLabel(items) {
+  return items.map((x) => x.label).filter(Boolean).join(' + ');
+}
+
+function addMealToBatch() {
+  if (!mealBatchActive()) return;
+  const pick = currentMealPick();
+  if (!pick) {
+    setStatus('เลื่อนลูกกลิ้งแคลก่อน', { forceToast: true, ms: 1600 });
+    return;
+  }
+  if (mealBatch.length >= MEAL_BATCH_MAX) {
+    setStatus(`พักไว้ได้สูงสุด ${MEAL_BATCH_MAX} อย่างต่อมื้อ`, { forceToast: true, ms: 1800 });
+    return;
+  }
+  mealBatch.push(pick);
+  saveMealBatch();
+  if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
+  resetMealDrumBaseline();
+  paintMealBatch(mealBatch.length - 1);
+  syncMealBatchChrome();
+}
+
+function removeMealFromBatch(i) {
+  if (!Number.isInteger(i) || !mealBatch[i]) return;
+  mealBatch.splice(i, 1);
+  saveMealBatch();
+  paintMealBatch();
+  syncMealBatchChrome();
+}
+
+async function clearMealBatch() {
+  if (!mealBatch.length) return;
+  const ok = await showConfirm(`ล้างอาหารที่พักไว้ ${mealBatch.length} อย่าง?`, { okLabel: 'ล้าง', cancelLabel: 'ยกเลิก', danger: true });
+  if (!ok) return;
+  mealBatch = [];
+  saveMealBatch();
+  paintMealBatch();
+  syncMealBatchChrome();
+}
+
+function paintMealBatch(flashIndex = -1) {
+  const host = els.cqMealList;
+  if (!host) return;
+  if (!mealBatchActive() || !mealBatch.length) {
+    host.hidden = true;
+    host.innerHTML = '';
+    return;
+  }
+  host.hidden = false;
+  const { cal, prot } = mealBatchSum(mealBatch);
+  const rows = mealBatch.map((x, i) => {
+    const name = x.label || `อย่างที่ ${i + 1}`;
+    return `<div class="cq-ex-row${i === flashIndex ? ' is-flash' : ''}"><span class="cq-ex-pick cq-meal-item"><span class="cq-ex-name">${escapeHtml(name)}</span><span class="cq-ex-kcal">${x.cal} · ${x.prot} ก</span></span><button type="button" class="cq-ex-del" data-meal-del="${i}" aria-label="เอา ${escAttr(name)} ออก">×</button></div>`;
+  }).join('');
+  host.innerHTML = `<div class="cq-ex-head"><span>พักไว้ ${mealBatch.length} อย่าง · <button type="button" class="cq-meal-clear" data-meal-clear>ล้าง</button></span><strong>${cal} kcal · ${prot} ก</strong></div>${rows}`;
+  // Scroll only the list (not the sheet) so the newest row shows under the pinned header.
+  if (flashIndex >= 0) host.scrollTop = host.scrollHeight;
+}
+
+function syncMealBatchChrome() {
+  const active = mealBatchActive();
+  if (els.cqMealBar) els.cqMealBar.hidden = !active;
+  if (!active) {
+    if (els.cqMealList) els.cqMealList.hidden = true;
+    return;
+  }
+  const items = mealBatchItemsToSave();
+  const dirty = mealDrumIsDirty();
+  if (els.cqMealBarText) {
+    els.cqMealBarText.textContent = mealBatch.length
+      ? (dirty ? 'ค่าบนลูกกลิ้งจะรวมด้วยตอนบันทึก' : 'หมุนเพิ่มอย่างต่อไป หรือกดบันทึก')
+      : 'กินหลายอย่างใน 1 มื้อ? กด + พักไว้ก่อน';
+  }
+  if (els.calorieQuickHint) {
+    els.calorieQuickHint.textContent = mealBatch.length
+      ? `พักไว้ ${mealBatch.length} อย่าง · หมุนอย่างต่อไปแล้วกด + หรือกดบันทึกรวมเป็น 1 มื้อ`
+      : 'เลื่อนลูกกลิ้งแคล (ทีละ 10) และโปรตีน (ทีละ 1) · กินหลายอย่างกด + ใส่รวมเป็น 1 มื้อ';
+  }
+  if (els.calorieQuickOk) {
+    els.calorieQuickOk.textContent = mealBatch.length ? `บันทึกรวม ${items.length} อย่าง` : 'เพิ่ม';
+  }
 }
 
 function setMealQuickChrome(visible) {
@@ -3051,10 +3236,14 @@ function applyMealTextToDrums(text) {
       return { cal: m.cal, prot: m.prot, label: '' };
     })();
   if (!parsed) return false;
+  // A chip is a new pick: keep the pre-chip baseline so it counts as changed.
+  const baseline = mealDrumBaseline;
   ensureMealDrums(parsed.cal, parsed.prot);
   if (els.calorieQuickLabel) {
     els.calorieQuickLabel.value = parsed.label || '';
   }
+  mealDrumBaseline = baseline;
+  markMealDrumDirty();
   return true;
 }
 
@@ -3493,6 +3682,7 @@ function syncCalorieQuickChrome() {
   if (els.calorieQuickOk) {
     els.calorieQuickOk.textContent = editing || mus ? 'บันทึก' : 'เพิ่ม';
   }
+  syncMealBatchChrome();
 }
 
 function musQuickHintText() {
@@ -5404,12 +5594,10 @@ function openCalorieQuick(mode, opts = {}) {
       : 'เพิ่มมื้อ';
   }
   if (calorieQuickMode === 'meal') {
-    if (els.calorieQuickHint) {
-      els.calorieQuickHint.textContent = 'เลื่อนลูกกลิ้งแคล (ทีละ 10) และโปรตีน (ทีละ 1) · ปัดเร็วเพื่อกระโดดไกล';
-    }
     setMealQuickChrome(true);
-    ensureMealDrums(MEAL_DRUM_KCAL_DEFAULT, MEAL_DRUM_PROT_DEFAULT);
     if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
+    ensureMealDrums(MEAL_DRUM_KCAL_DEFAULT, MEAL_DRUM_PROT_DEFAULT);
+    paintMealBatch();
   } else {
     openExerciseWheels(toDateKey());
   }
@@ -5508,7 +5696,11 @@ async function openCalorieCellEditor(opts) {
   els.calorieQuickOverlay.hidden = false;
 }
 
+/** When the quick sheet last closed (ms) — see afterSheetClose in init. */
+let calorieQuickClosedAt = 0;
+
 function closeCalorieQuick() {
+  if (els.calorieQuickOverlay && !els.calorieQuickOverlay.hidden) calorieQuickClosedAt = Date.now();
   calorieQuickMode = null;
   calorieQuickEdit = null;
   mealDrumCleared = false;
@@ -5521,6 +5713,7 @@ function closeCalorieQuick() {
   if (els.cqExList) els.cqExList.innerHTML = '';
   if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
   if (els.calorieQuickOverlay) els.calorieQuickOverlay.hidden = true;
+  paintMealBatch();
   syncCalorieQuickChrome();
 }
 
@@ -5639,8 +5832,8 @@ async function clearCalorieQuickInput() {
       syncMealDrumReadout();
       setStatus('ว่างแล้ว · กดบันทึกเพื่อลบมื้อ', { forceToast: true, ms: 1600 });
     } else {
-      ensureMealDrums(MEAL_DRUM_KCAL_DEFAULT, MEAL_DRUM_PROT_DEFAULT);
       if (els.calorieQuickLabel) els.calorieQuickLabel.value = '';
+      ensureMealDrums(MEAL_DRUM_KCAL_DEFAULT, MEAL_DRUM_PROT_DEFAULT);
     }
     return;
   }
@@ -5711,6 +5904,8 @@ function findCalorieDay(sheet, dayId, dateKey = '') {
 }
 
 function submitCalorieQuick() {
+  // A second tap that arrives after the first already saved and closed the sheet.
+  if (!calorieQuickMode || els.calorieQuickOverlay?.hidden) return;
   if (!requireSyncReady()) return;
   if (calorieQuickMode === 'mus') {
     submitExerciseWheels();
@@ -5808,14 +6003,22 @@ function submitCalorieQuick() {
     return;
   }
 
-  // Meal append (non-edit)
+  // Meal append (non-edit): parked foods + current pick become one meal.
   try {
-    const { sheet, slot } = appendQuickMeal(ensureCaloriePayload(), text);
+    const items = mealBatchItemsToSave();
+    const { sheet, slot } = mealBatch.length
+      ? appendQuickMeal(ensureCaloriePayload(), mealBatchPair(items), toDateKey(), { label: mealBatchLabel(items) })
+      : appendQuickMeal(ensureCaloriePayload(), text);
     state.calorieActiveMonth = monthKeyFromDate(toDateKey());
+    const sum = mealBatchSum(items);
     persistCalorie(sheet, {
-      status: `เพิ่มมื้อ ${slot} แล้ว`,
+      status: mealBatch.length
+        ? `เพิ่มมื้อ ${slot} แล้ว · รวม ${items.length} อย่าง ${sum.cal} kcal`
+        : `เพิ่มมื้อ ${slot} แล้ว`,
       fullRender: true,
     });
+    mealBatch = [];
+    saveMealBatch();
     closeCalorieQuick();
     requestAnimationFrame(() => {
       if (els.calorieScroll) els.calorieScroll.scrollTop = 0;
@@ -11684,6 +11887,12 @@ async function init({ fromBoot = false } = {}) {
   els.ackNotesList?.addEventListener('change', onAckNotesSettingsChange);
   els.ackNotesList?.addEventListener('input', onAckNotesSettingsInput);
   els.ackNoteOk?.addEventListener('click', onAckNoteOk);
+  // Only รับทราบ is reachable while the popup is up (Tab would reach controls behind it).
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || !els.ackNoteOverlay || els.ackNoteOverlay.hidden) return;
+    e.preventDefault();
+    els.ackNoteOk?.focus();
+  }, true);
   els.aiContextRefreshBtn?.addEventListener('click', async () => {
     persistAiProfileFromUi();
     const ctx = await refreshUserContextLazy(state.notesData);
@@ -11809,12 +12018,20 @@ async function init({ fromBoot = false } = {}) {
       collapseCalendarNotes();
     }
   });
-  els.calorieFabMeal?.addEventListener('click', () => openCalorieQuick('meal'));
+  // The dock buttons sit right under the sheet's save button: a fast second tap on save
+  // must not land on them and reopen the sheet.
+  const afterSheetClose = () => Date.now() - calorieQuickClosedAt < 450;
+  els.calorieFabMeal?.addEventListener('click', () => {
+    if (!afterSheetClose()) openCalorieQuick('meal');
+  });
   els.calorieFabMus?.addEventListener('click', () => {
+    if (afterSheetClose()) return;
     if (state.caloriePane === 'muscle') openCalorieQuick('mus');
     else openMusclePane();
   });
-  els.calorieFabBody?.addEventListener('click', () => openCalorieBodyQuick());
+  els.calorieFabBody?.addEventListener('click', () => {
+    if (!afterSheetClose()) openCalorieBodyQuick();
+  });
   els.dockCalorieMuscleBtn?.addEventListener('click', () => setCaloriePane('muscle'));
   els.muscleAddChild?.addEventListener('click', () => {
     void onMuscleAddChild();
@@ -12001,6 +12218,18 @@ async function init({ fromBoot = false } = {}) {
   els.calorieQuickCancel?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickBackdrop?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickClear?.addEventListener('click', clearCalorieQuickInput);
+  els.cqMealAdd?.addEventListener('click', addMealToBatch);
+  els.calorieQuickLabel?.addEventListener('input', () => {
+    if (mealBatchActive()) markMealDrumDirty();
+  });
+  els.cqMealList?.addEventListener('click', (e) => {
+    if (e.target?.closest?.('[data-meal-clear]')) {
+      void clearMealBatch();
+      return;
+    }
+    const del = e.target?.closest?.('[data-meal-del]');
+    if (del) removeMealFromBatch(Number(del.dataset.mealDel));
+  });
   els.cqExAdd?.addEventListener('click', () => {
     if (calorieQuickMode === 'mus') upsertExerciseFromDrums();
   });
@@ -12169,8 +12398,20 @@ async function init({ fromBoot = false } = {}) {
             : null;
     if (!field) return;
     const num = String(input.value || '').trim();
-    const parsed = num === '' ? null : Number(num);
+    let parsed = num === '' ? null : Number(num);
     if (num !== '' && !Number.isFinite(parsed)) return;
+    if (field === 'weight' || field === 'waist') {
+      // Same limits as the body sheet; a typo shows the saved value again.
+      const check = parseBodyMeasure(num, field === 'weight'
+        ? { min: 20, max: 300, label: 'น้ำหนัก' }
+        : { min: 40, max: 200, label: 'รอบเอว' });
+      if (!check.ok) {
+        setStatus(check.error, { forceToast: true });
+        input.value = cardDay[field] ?? '';
+        return;
+      }
+      parsed = check.value;
+    }
     let next = patchDay(sheet, dayId, { [field]: parsed });
     if (field === 'mus' && (parsed == null || parsed === 0)) {
       next = pruneFrequentMus(clearDayExercises(next, dayId));
