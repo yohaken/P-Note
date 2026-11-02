@@ -3192,7 +3192,16 @@ function paintMealBatch(flashIndex = -1) {
   }).join('');
   host.innerHTML = `<div class="cq-ex-head"><span>พักไว้ ${mealBatch.length} อย่าง · <button type="button" class="cq-meal-clear" data-meal-clear>ล้าง</button></span><strong>${cal} kcal · ${prot} ก</strong></div>${rows}`;
   // Scroll only the list (not the sheet) so the newest row shows under the pinned header.
-  if (flashIndex >= 0) host.scrollTop = host.scrollHeight;
+  if (flashIndex >= 0) {
+    host.scrollTop = host.scrollHeight;
+    // Short phones: lift the sheet so the list's last row isn't under the pinned save bar.
+    const sheet = host.closest('.calorie-quick-sheet');
+    const bar = sheet?.querySelector('.calorie-quick-actions');
+    if (sheet && bar) {
+      const over = host.getBoundingClientRect().bottom - bar.getBoundingClientRect().top + 6;
+      if (over > 0) sheet.scrollTop += over;
+    }
+  }
 }
 
 function syncMealBatchChrome() {
@@ -5696,11 +5705,10 @@ async function openCalorieCellEditor(opts) {
   els.calorieQuickOverlay.hidden = false;
 }
 
-/** When the quick sheet last closed (ms) — see afterSheetClose in init. */
+/** Last tap on the sheet's save button (ms) — see afterSheetClose in init. */
 let calorieQuickClosedAt = 0;
 
 function closeCalorieQuick() {
-  if (els.calorieQuickOverlay && !els.calorieQuickOverlay.hidden) calorieQuickClosedAt = Date.now();
   calorieQuickMode = null;
   calorieQuickEdit = null;
   mealDrumCleared = false;
@@ -5906,6 +5914,7 @@ function findCalorieDay(sheet, dayId, dateKey = '') {
 function submitCalorieQuick() {
   // A second tap that arrives after the first already saved and closed the sheet.
   if (!calorieQuickMode || els.calorieQuickOverlay?.hidden) return;
+  calorieQuickClosedAt = Date.now();
   if (!requireSyncReady()) return;
   if (calorieQuickMode === 'mus') {
     submitExerciseWheels();
@@ -12028,7 +12037,7 @@ async function init({ fromBoot = false } = {}) {
     }
   });
   // The dock buttons sit right under the sheet's save button: a fast second tap on save
-  // must not land on them and reopen the sheet.
+  // must not land on them and reopen the sheet (cancel is not guarded).
   const afterSheetClose = () => Date.now() - calorieQuickClosedAt < 450;
   els.calorieFabMeal?.addEventListener('click', () => {
     if (!afterSheetClose()) openCalorieQuick('meal');
