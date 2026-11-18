@@ -118,6 +118,7 @@ import {
   resolveDayBodyFat,
   renderHealthSheetHtml,
   renderHomeDashHtml,
+  bindCalorieChartScrub,
   resolveNutritionGoals,
   normalizeGoalMode,
   lastKnownBody,
@@ -2440,6 +2441,7 @@ function paintCalorieDash(sheet) {
   el.innerHTML = renderHomeDashHtml(snap, getHomePins(), {
     rangeOpen: state.homeDashRangeOpen,
   });
+  bindCalorieChartScrub(el);
   ensureHomePinSortable();
 }
 
@@ -2451,6 +2453,8 @@ function ensureHomePinSortable() {
     gridSelector: '.cd-pin-grid',
     itemSelector: '[data-pin-id]',
     getItemId: (el) => el?.dataset?.pinId || '',
+    ignoreSelector:
+      'button, a, input, [data-cd-range-toggle], [data-cd-range], [data-calorie-action], [data-chs-chart], .chs-chart-wrap, .chs-chart-svg',
     isEnabled: () => state.caloriePane === 'log' && isSyncReady() && Boolean(els.calorieDash && !els.calorieDash.hidden),
     onTap: (pinId) => {
       if (pinId === 'ex-poses' || pinId === 'ex-mus') {
@@ -2478,6 +2482,8 @@ function ensureHealthPinLongPress() {
   initLongPressTap(els.calorieHealthSheet, {
     itemSelector: '[data-pin-id]',
     getItemId: (el) => el?.dataset?.pinId || '',
+    ignoreSelector:
+      'button, a, input, textarea, select, [data-chs-range], [data-calorie-action], [data-chs-chart], .chs-chart-wrap, .chs-chart-svg',
     isEnabled: () => state.caloriePane === 'health' && Boolean(els.calorieHealthSheet && !els.calorieHealthSheet.hidden),
     onAction: (pinId) => openHealthPinMenu(pinId),
   });
@@ -2586,6 +2592,8 @@ function paintCalorieHealthSheet(sheet) {
   const snap = computeHealthSnapshot(sheet, toDateKey(), days);
   el.hidden = false;
   el.innerHTML = renderHealthSheetHtml(snap);
+  bindCalorieChartScrub(el);
+  ensureHealthPinLongPress();
 }
 
 function syncCaloriePaneButtons(pane) {

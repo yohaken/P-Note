@@ -167,7 +167,16 @@
         <div class="calorie-app-title" id="calorie-app-title">
           <img class="app-logo" src="icons/app/leaf-192.png?v=339" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
-          <span class="mode-switch-ver" id="calorie-app-ver">v257</span>
+          <span class="mode-switch-ver" id="calorie-app-ver"></span>
+          <script>
+            /* Version label from meta pnote-build before first paint (same source as JS). */
+            (function () {
+              var n = (document.querySelector('meta[name="pnote-build"]') || {}).content || '';
+              n = String(n).replace(/^v/i, '');
+              var el = document.getElementById('calorie-app-ver');
+              if (el && n) el.textContent = 'v' + n;
+            })();
+          </script>
           <span class="topbar-meta-sep" aria-hidden="true">·</span>
           <span id="app-built" class="app-built">อัปเดต —</span>
         </div>

@@ -2482,7 +2482,264 @@ export function renderSeriesChartSvg(
     ? ''
     : `<p class="chs-chart-scale"><span>Y: ${esc(yAxisName || 'ค่า')} (${esc(formatAxisTick(min, digits))}–${esc(formatAxisTick(max, digits))})</span>${refLegendHtml}<span>X: ${esc(xLabel || 'วัน')}</span></p>`;
   const axesClass = compact ? '' : ' has-axes';
-  return `<svg class="${esc(className)}${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${compact ? ' is-compact' : axesClass}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dots}${valLabels}${yTickLabels}${xTickLabels}</svg>${scaleBlock}`;
+  const scrubPts = pts.map((p) => {
+    const dateKey = Array.isArray(dates) ? dates[p.i] : null;
+    const dayName = Array.isArray(labels) ? labels[p.i] : '';
+    const dateLabel = dateKey ? shortDateTick(dateKey) : String(dayName || p.i + 1);
+    return {
+      i: p.i,
+      x: Number(xAt(p.i).toFixed(1)),
+      y: Number(yAt(p.v).toFixed(1)),
+      v: p.v,
+      d: dateKey || '',
+      t: dateLabel,
+    };
+  });
+  const hit = `<rect class="chs-chart-hit" x="${padL}" y="${padT}" width="${plotW.toFixed(1)}" height="${plotH.toFixed(1)}" fill="transparent" tabindex="-1" />`;
+  const cross = `<g class="chs-chart-cross" hidden aria-hidden="true">
+    <line class="chs-chart-cross-v" x1="0" y1="${padT}" x2="0" y2="${(padT + plotH).toFixed(1)}" />
+    <line class="chs-chart-cross-h" x1="${padL}" y1="0" x2="${(padL + plotW).toFixed(1)}" y2="0" />
+    <circle class="chs-chart-cross-dot" cx="0" cy="0" r="${compact ? 3.2 : 3.8}" />
+  </g>`;
+  const metaAttr = ` data-chs-digits="${digits}" data-chs-signed="${signed ? '1' : '0'}" data-chs-unit="${esc(unit || yAxisName || '')}" data-chs-points="${esc(JSON.stringify(scrubPts))}"`;
+  return `<div class="chs-chart-wrap" data-chs-chart="1"${metaAttr}>
+    <svg class="${esc(className)} is-interactive${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${compact ? ' is-compact' : axesClass}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dots}${valLabels}${yTickLabels}${xTickLabels}${cross}${hit}</svg>
+    <div class="chs-chart-tip" hidden></div>
+    ${scaleBlock}
+  </div>`;
+}
+
+/**
+ * Touch/hover scrub for line charts: crosshair + tip with date/value.
+ * Vertical page scroll stays free until a mostly-horizontal drag locks scrubbing.
+ */
+export function bindCalorieChartScrub(root) {
+  if (!root || root.dataset.chsScrubBound === '1') return;
+  root.dataset.chsScrubBound = '1';
+
+  const MOVE_LOCK_PX = 8;
+  let active = null;
+  let pointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let locked = false;
+  let hovering = false;
+
+  const parsePts = (wrap) => {
+    try {
+      const raw = wrap.getAttribute('data-chs-points') || '[]';
+      const pts = JSON.parse(raw);
+      return Array.isArray(pts) ? pts : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const formatTip = (wrap, p) => {
+    const digits = Number(wrap.getAttribute('data-chs-digits')) || 0;
+    const signed = wrap.getAttribute('data-chs-signed') === '1';
+    const unit = wrap.getAttribute('data-chs-unit') || '';
+    const val = signed ? formatSigned(p.v, digits) : String(round(p.v, digits));
+    const unitBit = unit ? ` ${unit}` : '';
+    const dateBit = p.d || p.t || '';
+    return dateBit ? `${dateBit} · ${val}${unitBit}` : `${val}${unitBit}`;
+  };
+
+  const clientToSvg = (svg, clientX, clientY) => {
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return null;
+    try {
+      const pt = svg.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      const local = pt.matrixTransform(ctm.inverse());
+      return { x: local.x, y: local.y };
+    } catch {
+      const rect = svg.getBoundingClientRect();
+      const vb = svg.viewBox?.baseVal;
+      if (!vb || !rect.width) return null;
+      return {
+        x: ((clientX - rect.left) / rect.width) * vb.width,
+        y: ((clientY - rect.top) / rect.height) * vb.height,
+      };
+    }
+  };
+
+  const nearest = (pts, x) => {
+    let best = null;
+    let bestD = Infinity;
+    for (const p of pts) {
+      if (p == null || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+      const d = Math.abs(p.x - x);
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    return best;
+  };
+
+  const hideScrub = (wrap) => {
+    if (!wrap) return;
+    wrap.classList.remove('is-scrubbing');
+    const cross = wrap.querySelector('.chs-chart-cross');
+    const tip = wrap.querySelector('.chs-chart-tip');
+    if (cross) cross.setAttribute('hidden', '');
+    if (tip) {
+      tip.hidden = true;
+      tip.textContent = '';
+    }
+  };
+
+  const showScrub = (wrap, clientX, clientY) => {
+    const svg = wrap.querySelector('svg.chs-chart-svg');
+    const cross = wrap.querySelector('.chs-chart-cross');
+    const tip = wrap.querySelector('.chs-chart-tip');
+    if (!svg || !cross || !tip) return;
+    const pts = parsePts(wrap);
+    if (!pts.length) return;
+    const local = clientToSvg(svg, clientX, clientY);
+    if (!local) return;
+    const p = nearest(pts, local.x);
+    if (!p) return;
+
+    const vLine = cross.querySelector('.chs-chart-cross-v');
+    const hLine = cross.querySelector('.chs-chart-cross-h');
+    const dot = cross.querySelector('.chs-chart-cross-dot');
+    if (vLine) {
+      vLine.setAttribute('x1', String(p.x));
+      vLine.setAttribute('x2', String(p.x));
+    }
+    if (hLine) {
+      hLine.setAttribute('y1', String(p.y));
+      hLine.setAttribute('y2', String(p.y));
+    }
+    if (dot) {
+      dot.setAttribute('cx', String(p.x));
+      dot.setAttribute('cy', String(p.y));
+    }
+    cross.removeAttribute('hidden');
+
+    tip.textContent = formatTip(wrap, p);
+    tip.hidden = false;
+    const rect = wrap.getBoundingClientRect();
+    const svgRect = svg.getBoundingClientRect();
+    const frac = svgRect.width ? (p.x / (svg.viewBox?.baseVal?.width || 1)) : 0.5;
+    const tipX = Math.min(
+      Math.max((svgRect.left - rect.left) + frac * svgRect.width, 8),
+      Math.max(8, rect.width - 8),
+    );
+    tip.style.left = `${tipX}px`;
+    tip.style.top = '0px';
+    tip.dataset.side = frac > 0.62 ? 'left' : 'right';
+  };
+
+  const endPointer = (event) => {
+    if (pointerId !== null && event.pointerId !== pointerId) return;
+    if (active && pointerId !== null) {
+      try {
+        active.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (active && !hovering) hideScrub(active);
+    active = null;
+    pointerId = null;
+    locked = false;
+  };
+
+  root.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      const wrap = event.target?.closest?.('[data-chs-chart="1"]');
+      if (!wrap || !root.contains(wrap)) return;
+      if (active && active !== wrap) hideScrub(active);
+      active = wrap;
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      startY = event.clientY;
+      locked = event.pointerType === 'mouse';
+      if (locked) {
+        wrap.classList.add('is-scrubbing');
+        showScrub(wrap, event.clientX, event.clientY);
+        try {
+          wrap.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+      }
+    },
+    { passive: true },
+  );
+
+  root.addEventListener(
+    'pointermove',
+    (event) => {
+      const wrap =
+        active && event.pointerId === pointerId
+          ? active
+          : event.pointerType === 'mouse'
+            ? event.target?.closest?.('[data-chs-chart="1"]')
+            : null;
+      if (!wrap || !root.contains(wrap)) {
+        if (hovering && event.pointerType === 'mouse') {
+          const still = event.target?.closest?.('[data-chs-chart="1"]');
+          if (!still) {
+            hovering = false;
+            if (!active) hideScrub(root.querySelector('.chs-chart-wrap.is-scrubbing'));
+          }
+        }
+        return;
+      }
+
+      if (event.pointerType === 'mouse' && (!active || event.pointerId !== pointerId)) {
+        hovering = true;
+        wrap.classList.add('is-scrubbing');
+        showScrub(wrap, event.clientX, event.clientY);
+        return;
+      }
+
+      if (!active || event.pointerId !== pointerId) return;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      if (!locked) {
+        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > MOVE_LOCK_PX) {
+          hideScrub(active);
+          active = null;
+          pointerId = null;
+          return;
+        }
+        if (Math.abs(dx) > MOVE_LOCK_PX && Math.abs(dx) >= Math.abs(dy)) {
+          locked = true;
+          active.classList.add('is-scrubbing');
+          try {
+            active.setPointerCapture(pointerId);
+          } catch {
+            /* ignore */
+          }
+        } else {
+          return;
+        }
+      }
+      if (event.cancelable) event.preventDefault();
+      showScrub(active, event.clientX, event.clientY);
+    },
+    { passive: false },
+  );
+
+  root.addEventListener('pointerup', endPointer);
+  root.addEventListener('pointercancel', endPointer);
+  root.addEventListener('pointerout', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    const from = event.target?.closest?.('[data-chs-chart="1"]');
+    if (!from) return;
+    const to = event.relatedTarget?.closest?.('[data-chs-chart="1"]');
+    if (from === to) return;
+    hovering = false;
+    if (!active || active !== from) hideScrub(from);
+  });
 }
 
 /** Horizontal bar list for exercise poses (count bar + cumulative kcal column). */
