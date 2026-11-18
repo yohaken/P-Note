@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=339';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=339';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=339';
-import { CONFIG } from './config.js?v=339';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=339';
-import { nowIso } from './clock.js?v=339';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=341';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=341';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=341';
+import { CONFIG } from './config.js?v=341';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=341';
+import { nowIso } from './clock.js?v=341';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=339';
+} from './auth.js?v=341';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=339';
+} from './notes.js?v=341';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=339';
+} from './sheet.js?v=341';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -136,7 +136,7 @@ import {
   dayExerciseEntries,
   setDayExerciseEntries,
   parseExerciseCell,
-} from './calorie.js?v=339';
+} from './calorie.js?v=341';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -187,7 +187,7 @@ import {
   CELL_NOTE_MAX,
   getCellNote,
   setCellNote,
-} from './muscle-tree.js?v=339';
+} from './muscle-tree.js?v=341';
 import {
   musclePhotoKeys,
   musclePhotosFor,
@@ -198,7 +198,7 @@ import {
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
-} from './muscle-photos.js?v=339';
+} from './muscle-photos.js?v=341';
 import {
   EQUIPMENT_TH,
   BEGINNER_GROUPS,
@@ -217,9 +217,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=339';
-import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=339';
-import { mountDrumPicker } from './drum-picker.js?v=339';
+} from './muscle-map.js?v=341';
+import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=341';
+import { mountDrumPicker } from './drum-picker.js?v=341';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -227,8 +227,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=339';
-import { bindComposableInput } from './text-input.js?v=339';
+} from './note-text.js?v=341';
+import { bindComposableInput } from './text-input.js?v=341';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -269,14 +269,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=339';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage } from './settings.js?v=339';
+} from './schedule.js?v=341';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin } from './settings.js?v=341';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=339';
+} from './app-icons.js?v=341';
 import {
   allIcons,
   bestIconForLabel,
@@ -285,7 +285,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=339';
+} from './icons.js?v=341';
 import {
   notificationPermission,
   notificationSupported,
@@ -294,27 +294,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=339';
+} from './note-notify.js?v=341';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=339';
+} from './files.js?v=341';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=339');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=341');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=339');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=341');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=339');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=341');
   return userContextModPromise;
 }
 
@@ -338,7 +338,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=339';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=341';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -347,11 +347,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=339';
-import { normalizeNotesData } from './notes.js?v=339';
-import { SaveManager } from './sync.js?v=339';
-import { emptyDeletions } from './deletions.js?v=339';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=339';
+} from './remote.js?v=341';
+import { normalizeNotesData } from './notes.js?v=341';
+import { SaveManager } from './sync.js?v=341';
+import { emptyDeletions } from './deletions.js?v=341';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=341';
 
 const state = {
   notesData: {
@@ -796,6 +796,9 @@ const els = {
   calorieQuickHint: document.getElementById('calorie-quick-hint'),
   calorieQuickInput: document.getElementById('calorie-quick-input'),
   calorieQuickLabel: document.getElementById('calorie-quick-label'),
+  calorieQuickPins: document.getElementById('calorie-quick-pins'),
+  cqMealLabelRow: document.getElementById('cq-meal-label-row'),
+  cqMealPinLabel: document.getElementById('cq-meal-pin-label'),
   calorieMealDrums: document.getElementById('calorie-meal-drums'),
   cqDrumKcal: document.getElementById('cq-drum-kcal'),
   cqDrumProt: document.getElementById('cq-drum-prot'),
@@ -956,6 +959,11 @@ function applySettingsFromCloudPayload(remoteRaw) {
   applyFilterOrder();
   applyBarThickness();
   reapplyBarLayout();
+  if (calorieQuickMode === 'meal' && els.calorieQuickOverlay && !els.calorieQuickOverlay.hidden) {
+    paintCalorieMealPins();
+    paintMealBatch();
+    syncMealPinButton();
+  }
   return true;
 }
 
@@ -3164,6 +3172,7 @@ function addMealToBatch() {
   resetMealDrumBaseline();
   paintMealBatch(mealBatch.length - 1);
   syncMealBatchChrome();
+  syncMealPinButton();
 }
 
 function removeMealFromBatch(i) {
@@ -3193,10 +3202,17 @@ function paintMealBatch(flashIndex = -1) {
     return;
   }
   host.hidden = false;
+  const pins = getCalorieMealPins();
+  const pinKeys = new Set(pins.map((p) => mealPinKey(p.name)));
   const { cal, prot } = mealBatchSum(mealBatch);
   const rows = mealBatch.map((x, i) => {
     const name = x.label || `อย่างที่ ${i + 1}`;
-    return `<div class="cq-ex-row${i === flashIndex ? ' is-flash' : ''}"><span class="cq-ex-pick cq-meal-item"><span class="cq-ex-name">${escapeHtml(name)}</span><span class="cq-ex-kcal">${x.cal} · ${x.prot} ก</span></span><button type="button" class="cq-ex-del" data-meal-del="${i}" aria-label="เอา ${escAttr(name)} ออก">×</button></div>`;
+    const hasName = Boolean(String(x.label || '').trim());
+    const pinned = hasName && pinKeys.has(mealPinKey(x.label));
+    const pinBtn = hasName
+      ? `<button type="button" class="cq-ex-pin${pinned ? ' is-pinned' : ''}" data-meal-pin="${i}" aria-label="${pinned ? 'เลิกปักหมุด' : 'ปักหมุด'} ${escAttr(name)}" aria-pressed="${pinned ? 'true' : 'false'}">📌</button>`
+      : '';
+    return `<div class="cq-ex-row${i === flashIndex ? ' is-flash' : ''}"><span class="cq-ex-pick cq-meal-item"><span class="cq-ex-name">${escapeHtml(name)}</span><span class="cq-ex-kcal">${x.cal} · ${x.prot} ก</span></span>${pinBtn}<button type="button" class="cq-ex-del" data-meal-del="${i}" aria-label="เอา ${escAttr(name)} ออก">×</button></div>`;
   }).join('');
   host.innerHTML = `<div class="cq-ex-head"><span>พักไว้ ${mealBatch.length} อย่าง · <button type="button" class="cq-meal-clear" data-meal-clear>ล้าง</button></span><strong>${cal} kcal · ${prot} ก</strong></div>${rows}`;
   // Scroll only the list (not the sheet) so the newest row shows under the pinned header.
@@ -3241,8 +3257,14 @@ function setMealQuickChrome(visible) {
   sheet?.classList.toggle('is-meal-drums', Boolean(visible));
   if (els.calorieMealDrums) els.calorieMealDrums.hidden = !visible;
   if (els.cqDrumReadout) els.cqDrumReadout.hidden = !visible;
-  if (els.calorieQuickLabel) els.calorieQuickLabel.hidden = !visible;
+  if (els.cqMealLabelRow) els.cqMealLabelRow.hidden = !visible;
+  else if (els.calorieQuickLabel) els.calorieQuickLabel.hidden = !visible;
   if (els.calorieQuickInput) els.calorieQuickInput.hidden = Boolean(visible);
+  if (!visible && els.calorieQuickPins) {
+    els.calorieQuickPins.hidden = true;
+    els.calorieQuickPins.innerHTML = '';
+  }
+  if (visible) syncMealPinButton();
 }
 
 function applyMealTextToDrums(text) {
@@ -3261,7 +3283,149 @@ function applyMealTextToDrums(text) {
   }
   mealDrumBaseline = baseline;
   markMealDrumDirty();
+  syncMealPinButton();
   return true;
+}
+
+function getCalorieMealPins() {
+  if (!state.settings) state.settings = loadSettings();
+  return normalizeCalorieMealPins(state.settings.calorieMealPins);
+}
+
+function persistCalorieMealPins(next, status) {
+  if (!state.settings) state.settings = loadSettings();
+  state.settings.calorieMealPins = normalizeCalorieMealPins(next);
+  saveSettings(state.settings);
+  paintCalorieMealPins();
+  paintMealBatch();
+  syncMealPinButton();
+  if (status) setStatus(status, { forceToast: true, ms: 1400 });
+}
+
+function isMealNamePinned(name) {
+  const key = mealPinKey(name);
+  if (!key) return false;
+  return getCalorieMealPins().some((p) => mealPinKey(p.name) === key);
+}
+
+function syncMealPinButton() {
+  const btn = els.cqMealPinLabel;
+  if (!btn) return;
+  const name = String(els.calorieQuickLabel?.value || '').trim();
+  const pinned = Boolean(name) && isMealNamePinned(name);
+  btn.classList.toggle('is-pinned', pinned);
+  btn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+  btn.setAttribute('aria-label', pinned ? 'เลิกปักหมุดมื้อนี้' : 'ปักหมุดมื้อนี้');
+}
+
+function toggleCurrentMealPin() {
+  const name = String(els.calorieQuickLabel?.value || '').trim();
+  if (!name) {
+    setStatus('ใส่ชื่อก่อนปักหมุด', { forceToast: true, ms: 1600 });
+    return;
+  }
+  if (isMealNamePinned(name)) {
+    persistCalorieMealPins(removeCalorieMealPin(getCalorieMealPins(), name), 'เลิกปักหมุดแล้ว');
+    return;
+  }
+  const pick = currentMealPick();
+  if (!pick) {
+    setStatus('เลื่อนลูกกลิ้งแคลก่อน', { forceToast: true, ms: 1600 });
+    return;
+  }
+  const { list, action } = upsertCalorieMealPin(getCalorieMealPins(), {
+    name,
+    cal: pick.cal,
+    prot: pick.prot,
+  });
+  if (action === 'need-name') {
+    setStatus('ใส่ชื่อก่อนปักหมุด', { forceToast: true, ms: 1600 });
+    return;
+  }
+  const msg = action === 'updated' ? 'อัปเดตหมุดแล้ว' : action === 'exists' ? 'ปักหมุดไว้แล้ว' : 'ปักหมุดแล้ว';
+  persistCalorieMealPins(list, msg);
+}
+
+function pinMealBatchItem(index) {
+  const item = mealBatch[index];
+  if (!item) return;
+  const name = String(item.label || '').trim();
+  if (!name) {
+    setStatus('ใส่ชื่อก่อนปักหมุด', { forceToast: true, ms: 1600 });
+    return;
+  }
+  if (isMealNamePinned(name)) {
+    persistCalorieMealPins(removeCalorieMealPin(getCalorieMealPins(), name), 'เลิกปักหมุดแล้ว');
+    return;
+  }
+  const { list, action } = upsertCalorieMealPin(getCalorieMealPins(), {
+    name,
+    cal: item.cal,
+    prot: item.prot,
+  });
+  if (action === 'need-name') {
+    setStatus('ใส่ชื่อก่อนปักหมุด', { forceToast: true, ms: 1600 });
+    return;
+  }
+  const msg = action === 'updated' ? 'อัปเดตหมุดแล้ว' : action === 'exists' ? 'ปักหมุดไว้แล้ว' : 'ปักหมุดแล้ว';
+  persistCalorieMealPins(list, msg);
+}
+
+function unpinMealByName(name) {
+  const key = mealPinKey(name);
+  if (!key) return;
+  persistCalorieMealPins(removeCalorieMealPin(getCalorieMealPins(), name), 'เลิกปักหมุดแล้ว');
+}
+
+/** Pin chip → add to parked batch (or fill drums when editing an existing cell). */
+function applyPinnedMeal(pin) {
+  const name = String(pin?.name || '').trim();
+  const cal = Math.round(Number(pin?.cal));
+  const prot = Math.max(0, Math.round(Number(pin?.prot)));
+  if (!name || !(cal > 0) || !Number.isFinite(prot)) return;
+  if (mealBatchActive()) {
+    if (mealBatch.length >= MEAL_BATCH_MAX) {
+      setStatus(`พักไว้ได้สูงสุด ${MEAL_BATCH_MAX} อย่างต่อมื้อ`, { forceToast: true, ms: 1800 });
+      return;
+    }
+    mealBatch.push({
+      cal,
+      prot,
+      label: name.slice(0, MEAL_LABEL_MAX),
+    });
+    saveMealBatch();
+    paintMealBatch(mealBatch.length - 1);
+    syncMealBatchChrome();
+    return;
+  }
+  const baseline = mealDrumBaseline;
+  ensureMealDrums(cal, prot);
+  if (els.calorieQuickLabel) els.calorieQuickLabel.value = name.slice(0, MEAL_LABEL_MAX);
+  mealDrumBaseline = baseline;
+  markMealDrumDirty();
+  syncMealPinButton();
+}
+
+function paintCalorieMealPins() {
+  const wrap = els.calorieQuickPins;
+  if (!wrap) return;
+  if (calorieQuickMode !== 'meal') {
+    wrap.hidden = true;
+    wrap.innerHTML = '';
+    return;
+  }
+  const pins = getCalorieMealPins();
+  if (!pins.length) {
+    wrap.hidden = true;
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.hidden = false;
+  const chips = pins.map((p) => {
+    const label = `${p.name} · ${p.cal}/${p.prot}`;
+    return `<div class="cq-pin-chip-wrap"><button type="button" class="cq-freq-chip cq-pin-chip" data-meal-pin-add="${escAttr(p.name)}" data-pin-cal="${p.cal}" data-pin-prot="${p.prot}" title="${escAttr(label)}" aria-label="เพิ่ม ${escAttr(p.name)}">${escapeHtml(label)}</button><button type="button" class="cq-pin-chip-x" data-meal-pin-remove="${escAttr(p.name)}" aria-label="เลิกปักหมุด ${escAttr(p.name)}">×</button></div>`;
+  }).join('');
+  wrap.innerHTML = `<div class="cq-freq-grid" aria-label="มื้อที่ปักหมุด">${chips}</div>`;
 }
 
 /* ---- Exercise wheels: หมวด · ท่า · แคล (same sheet/layout as meal wheels) ---- */
@@ -3608,6 +3772,10 @@ function paintCalorieQuickFreq() {
     `<button type="button" class="cq-freq-chip" data-freq-text="${escAttr(item.text)}" title="${escAttr(item.text)} · ${item.count || 0} ครั้ง">${escapeHtml(String(item.label || item.text).slice(0, 22))}</button>`;
 
   if (calorieQuickMode === 'mus') {
+    if (els.calorieQuickPins) {
+      els.calorieQuickPins.hidden = true;
+      els.calorieQuickPins.innerHTML = '';
+    }
     const moves = new Map();
     exercisePickerCatalog(sheet.muscleTree).forEach((g) => g.moves.forEach((m) => moves.set(m.label, m)));
     const chips = [];
@@ -3629,6 +3797,7 @@ function paintCalorieQuickFreq() {
       : '';
     return;
   }
+  paintCalorieMealPins();
   const list = listMealHistoryFrequent(sheet, 18);
   if (!list.length) {
     wrap.hidden = true;
@@ -5620,15 +5789,14 @@ function openCalorieQuick(mode, opts = {}) {
   }
   syncCalorieQuickInputMode();
   syncCalorieQuickChrome();
+  paintCalorieMealPins();
   paintCalorieQuickFreq();
+  syncMealPinButton();
   els.calorieQuickOverlay.hidden = false;
+  // Meal mode: do not autofocus #calorie-quick-label (avoids soft keyboard on phones).
+  if (calorieQuickMode === 'meal' || calorieQuickMode === 'mus') return;
   requestAnimationFrame(() => {
     try {
-      if (calorieQuickMode === 'meal') {
-        els.calorieQuickLabel?.focus?.({ preventScroll: true });
-        return;
-      }
-      if (calorieQuickMode === 'mus') return;
       const el = els.calorieQuickInput;
       if (!el) return;
       el.focus({ preventScroll: false });
@@ -5709,7 +5877,9 @@ async function openCalorieCellEditor(opts) {
 
   syncCalorieQuickInputMode();
   syncCalorieQuickChrome();
+  paintCalorieMealPins();
   paintCalorieQuickFreq();
+  syncMealPinButton();
   els.calorieQuickOverlay.hidden = false;
 }
 
@@ -12245,17 +12415,75 @@ async function init({ fromBoot = false } = {}) {
   els.calorieQuickBackdrop?.addEventListener('click', closeCalorieQuick);
   els.calorieQuickClear?.addEventListener('click', clearCalorieQuickInput);
   els.cqMealAdd?.addEventListener('click', addMealToBatch);
+  els.cqMealPinLabel?.addEventListener('click', () => toggleCurrentMealPin());
   els.calorieQuickLabel?.addEventListener('input', () => {
     if (mealBatchActive()) markMealDrumDirty();
+    syncMealPinButton();
   });
   els.cqMealList?.addEventListener('click', (e) => {
     if (e.target?.closest?.('[data-meal-clear]')) {
       void clearMealBatch();
       return;
     }
+    const pin = e.target?.closest?.('[data-meal-pin]');
+    if (pin && els.cqMealList.contains(pin)) {
+      pinMealBatchItem(Number(pin.dataset.mealPin));
+      return;
+    }
     const del = e.target?.closest?.('[data-meal-del]');
     if (del) removeMealFromBatch(Number(del.dataset.mealDel));
   });
+  // Long-press a pin chip to unpin (× still works as the primary control).
+  {
+    let pinHoldTimer = 0;
+    let pinHoldName = '';
+    let pinHoldFired = false;
+    const clearPinHold = () => {
+      if (pinHoldTimer) window.clearTimeout(pinHoldTimer);
+      pinHoldTimer = 0;
+      pinHoldName = '';
+    };
+    els.calorieQuickPins?.addEventListener('pointerdown', (e) => {
+      if (calorieQuickMode !== 'meal') return;
+      if (e.target?.closest?.('[data-meal-pin-remove]')) return;
+      const chip = e.target?.closest?.('[data-meal-pin-add]');
+      if (!chip || !els.calorieQuickPins.contains(chip)) return;
+      pinHoldFired = false;
+      pinHoldName = chip.dataset.mealPinAdd || '';
+      pinHoldTimer = window.setTimeout(() => {
+        const name = pinHoldName;
+        pinHoldFired = true;
+        clearPinHold();
+        if (name) unpinMealByName(name);
+      }, 550);
+    });
+    els.calorieQuickPins?.addEventListener('pointerup', clearPinHold);
+    els.calorieQuickPins?.addEventListener('pointercancel', clearPinHold);
+    els.calorieQuickPins?.addEventListener('pointerleave', (e) => {
+      if (e.target === els.calorieQuickPins) clearPinHold();
+    });
+    els.calorieQuickPins?.addEventListener('click', (e) => {
+      if (calorieQuickMode !== 'meal') return;
+      const removeBtn = e.target?.closest?.('[data-meal-pin-remove]');
+      if (removeBtn && els.calorieQuickPins.contains(removeBtn)) {
+        e.preventDefault();
+        unpinMealByName(removeBtn.dataset.mealPinRemove || '');
+        return;
+      }
+      const addBtn = e.target?.closest?.('[data-meal-pin-add]');
+      if (!addBtn || !els.calorieQuickPins.contains(addBtn)) return;
+      e.preventDefault();
+      if (pinHoldFired) {
+        pinHoldFired = false;
+        return;
+      }
+      applyPinnedMeal({
+        name: addBtn.dataset.mealPinAdd || '',
+        cal: Number(addBtn.dataset.pinCal),
+        prot: Number(addBtn.dataset.pinProt),
+      });
+    });
+  }
   els.cqExAdd?.addEventListener('click', () => {
     if (calorieQuickMode === 'mus') upsertExerciseFromDrums();
   });

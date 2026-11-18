@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=339';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=341';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -20,7 +20,7 @@ import {
   normalizeMuscleTree,
   setMoveLogNames,
   toMuscleLayout,
-} from './muscle-tree.js?v=339';
+} from './muscle-tree.js?v=341';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -1941,6 +1941,7 @@ function renderBurnChartCardHtml(ex, t, { pinId = 'ex-mus', className = '', wide
       dates: t?.dates,
       yLabel: 'kcal',
       xLabel: 'วัน',
+      title: compact ? compactTitle : 'เบิร์นคาดิโอ',
       compact,
       valueLabels: true,
     })}
@@ -2280,12 +2281,56 @@ function shortDateTick(dateKey) {
 }
 
 /** Pick start / mid / end indices for X ticks. */
-function xTickIndices(n) {
+function xTickIndices(n, { enlarged = false, plotW = 240 } = {}) {
   if (n <= 1) return [0];
   if (n === 2) return [0, 1];
+  if (enlarged) {
+    // ~48px per "14/11" label at enlarged 11px — avoid packing too many candidates.
+    const maxTicks = Math.max(3, Math.min(7, Math.floor(plotW / 48) + 1));
+    if (n <= maxTicks) return Array.from({ length: n }, (_, i) => i);
+    const count = Math.min(maxTicks, n);
+    const out = [];
+    for (let k = 0; k < count; k += 1) {
+      out.push(Math.round((k / (count - 1)) * (n - 1)));
+    }
+    return [...new Set(out)].sort((a, b) => a - b);
+  }
   if (n <= 5) return Array.from({ length: n }, (_, i) => i);
   const mid = Math.floor((n - 1) / 2);
   return [...new Set([0, mid, n - 1])].sort((a, b) => a - b);
+}
+
+/** Approx SVG text width for short date ticks (tabular-nums). */
+function estimateXTickWidth(text, fontSize) {
+  return Math.max(22, String(text || '').length * fontSize * 0.62);
+}
+
+function xTickLabelBounds(i, n, x, text, fontSize) {
+  const w = estimateXTickWidth(text, fontSize);
+  if (i === 0) return { left: x, right: x + w };
+  if (i === n - 1) return { left: x - w, right: x };
+  return { left: x - w / 2, right: x + w / 2 };
+}
+
+/** Drop crowded mid ticks; always keep start + end. Prefer gap over overlap. */
+function thinCrowdedXTicks(indices, n, xAt, labelAt, { fontSize = 8, minGap = 6 } = {}) {
+  if (!indices?.length) return [];
+  if (indices.length <= 2) return indices.slice();
+  const first = indices[0];
+  const last = indices[indices.length - 1];
+  const lastBounds = xTickLabelBounds(last, n, xAt(last), labelAt(last), fontSize);
+  const out = [first];
+  let prevBounds = xTickLabelBounds(first, n, xAt(first), labelAt(first), fontSize);
+  for (const i of indices.slice(1, -1)) {
+    const b = xTickLabelBounds(i, n, xAt(i), labelAt(i), fontSize);
+    if (b.left < prevBounds.right + minGap) continue;
+    if (b.right + minGap > lastBounds.left) continue;
+    out.push(i);
+    prevBounds = b;
+  }
+  // If start/end themselves collide (very narrow), still keep both — caller prefers ends visible.
+  out.push(last);
+  return out;
 }
 
 /** Pick which data points get tiny value labels (first/last/extrema/changes). */
@@ -2341,9 +2386,12 @@ export function renderSeriesChartSvg(
     dates = null,
     xLabel = 'วัน',
     yLabel = '',
+    title = '',
     referenceValues = null,
     referenceLegend = '',
     compact = false,
+    /** Large stock-style chart (overlay). */
+    enlarged = false,
     /** Tiny numbers above sparse data points. */
     valueLabels = true,
   } = {},
@@ -2360,7 +2408,7 @@ export function renderSeriesChartSvg(
   const h = compact ? 72 : height;
   const yAxisName = yLabel || unit || '';
   if (pts.length < 1 && refPts.length < 1) {
-    return `<svg class="${esc(className)}${compact ? ' is-compact' : ''}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="ยังไม่มีข้อมูลกราฟ">
+    return `<svg class="${esc(className)}${compact ? ' is-compact' : ''}${enlarged ? ' is-enlarged' : ''}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="ยังไม่มีข้อมูลกราฟ">
       <text class="chs-chart-empty-text" x="${w / 2}" y="${h / 2}" text-anchor="middle">ไม่มีข้อมูล</text>
     </svg>`;
   }
@@ -2368,7 +2416,8 @@ export function renderSeriesChartSvg(
   const allV = [...pts.map((p) => p.v), ...refPts.map((p) => p.v)];
   const rawMin = Math.min(...allV);
   const rawMax = Math.max(...allV);
-  const scale = niceAxisScale(rawMin, rawMax, { signed, tickTarget: compact ? 2 : 3 });
+  const tickTarget = compact ? 2 : enlarged ? 5 : 3;
+  const scale = niceAxisScale(rawMin, rawMax, { signed, tickTarget });
   let { min, max, ticks: yTicks } = scale;
   if (compact && yTicks.length > 2) {
     yTicks = [yTicks[0], yTicks[yTicks.length - 1]];
@@ -2376,12 +2425,14 @@ export function renderSeriesChartSvg(
   const span = max - min || 1;
   const n = Math.max((values || []).length, 2);
 
-  const padL = compact ? 28 : 30;
-  const padR = compact ? 4 : 6;
+  const padL = compact ? 28 : enlarged ? 44 : 30;
+  const padR = compact ? 4 : enlarged ? 14 : 6;
   const padT = compact
     ? valueLabels ? 14 : 10
-    : valueLabels ? 18 : 14;
-  const padB = compact ? 16 : 18;
+    : enlarged
+      ? valueLabels ? 22 : 18
+      : valueLabels ? 18 : 14;
+  const padB = compact ? 16 : enlarged ? 30 : 18;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
   const xAt = (i) => padL + (i / (n - 1)) * plotW;
@@ -2405,12 +2456,19 @@ export function renderSeriesChartSvg(
     })
     .join('');
 
-  const xIdx = compact ? (n <= 1 ? [0] : [0, n - 1]) : xTickIndices(n);
+  const xLabelAt = (i) => {
+    const dateKey = Array.isArray(dates) ? dates[i] : null;
+    const dayName = Array.isArray(labels) ? labels[i] : '';
+    return dateKey ? shortDateTick(dateKey) : String(dayName || i + 1);
+  };
+  const xIdxRaw = compact ? (n <= 1 ? [0] : [0, n - 1]) : xTickIndices(n, { enlarged, plotW });
+  const xTickFont = enlarged ? 11 : 8;
+  const xIdx = compact
+    ? xIdxRaw
+    : thinCrowdedXTicks(xIdxRaw, n, xAt, xLabelAt, { fontSize: xTickFont, minGap: enlarged ? 8 : 4 });
   const xTickLabels = xIdx
     .map((i) => {
-      const dateKey = Array.isArray(dates) ? dates[i] : null;
-      const dayName = Array.isArray(labels) ? labels[i] : '';
-      const text = dateKey ? shortDateTick(dateKey) : String(dayName || i + 1);
+      const text = xLabelAt(i);
       if (!text) return '';
       const x = xAt(i).toFixed(1);
       const anchor = i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle';
@@ -2423,7 +2481,7 @@ export function renderSeriesChartSvg(
     <line class="chs-chart-axis" x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${(padT + plotH).toFixed(1)}" />`;
 
   const yTitle = !compact && yAxisName
-    ? `<text class="chs-chart-axis-label chs-chart-axis-y" x="${padL}" y="9">${esc(`Y · ${yAxisName}`)}</text>`
+    ? `<text class="chs-chart-axis-label chs-chart-axis-y" x="${padL}" y="${enlarged ? 11 : 9}">${esc(`Y · ${yAxisName}`)}</text>`
     : '';
 
   let zeroLine = '';
@@ -2448,11 +2506,12 @@ export function renderSeriesChartSvg(
     pts.length >= 2
       ? `<polyline class="chs-chart-line" fill="none" points="${coords.join(' ')}" />`
       : '';
-  const dotR = compact ? 2 : 2.4;
-  const labeledPts = valueLabels
+  const dotR = compact ? 2 : enlarged ? 2.8 : 2.4;
+  const showValueLabels = valueLabels && !enlarged;
+  const labeledPts = showValueLabels
     ? pickValueLabelPts(pts, { maxLabels: compact ? 5 : 8 })
     : [];
-  const dotPts = valueLabels
+  const dotPts = showValueLabels
     ? labeledPts
     : pts.length
       ? [last]
@@ -2460,7 +2519,7 @@ export function renderSeriesChartSvg(
   const dots = dotPts
     .map((p) => `<circle class="chs-chart-dot" cx="${xAt(p.i).toFixed(1)}" cy="${yAt(p.v).toFixed(1)}" r="${dotR}" />`)
     .join('');
-  const valLabels = valueLabels
+  const valLabels = showValueLabels
     ? labeledPts
       .map((p) => {
         const x = xAt(p.i);
@@ -2478,7 +2537,7 @@ export function renderSeriesChartSvg(
     : '';
 
   const scaleHint = `${yAxisName || 'ค่า'} ${formatAxisTick(min, digits)}–${formatAxisTick(max, digits)} · แกน X วัน`;
-  const scaleBlock = compact
+  const scaleBlock = compact || enlarged
     ? ''
     : `<p class="chs-chart-scale"><span>Y: ${esc(yAxisName || 'ค่า')} (${esc(formatAxisTick(min, digits))}–${esc(formatAxisTick(max, digits))})</span>${refLegendHtml}<span>X: ${esc(xLabel || 'วัน')}</span></p>`;
   const axesClass = compact ? '' : ' has-axes';
@@ -2495,146 +2554,283 @@ export function renderSeriesChartSvg(
       t: dateLabel,
     };
   });
+  const seriesPayload = {
+    values: Array.isArray(values) ? values.map((v) => (v == null || !Number.isFinite(v) ? null : v)) : [],
+    dates: Array.isArray(dates) ? dates : null,
+    labels: Array.isArray(labels) ? labels : null,
+    unit: unit || yAxisName || '',
+    digits,
+    signed: Boolean(signed),
+    referenceValues: Array.isArray(referenceValues)
+      ? referenceValues.map((v) => (v == null || !Number.isFinite(v) ? null : v))
+      : null,
+    referenceLegend: referenceLegend || '',
+    title: title || '',
+    className: String(className || 'chs-chart-svg').replace(/\bis-compact\b/g, '').trim(),
+    xLabel: xLabel || 'วัน',
+    yLabel: yAxisName,
+  };
+  const geom = { padL, padT, padR, padB, plotW, plotH, w, h };
+  const crossR = compact ? 3.2 : enlarged ? 5 : 3.8;
   const hit = `<rect class="chs-chart-hit" x="${padL}" y="${padT}" width="${plotW.toFixed(1)}" height="${plotH.toFixed(1)}" fill="transparent" tabindex="-1" />`;
   const cross = `<g class="chs-chart-cross" hidden aria-hidden="true">
     <line class="chs-chart-cross-v" x1="0" y1="${padT}" x2="0" y2="${(padT + plotH).toFixed(1)}" />
     <line class="chs-chart-cross-h" x1="${padL}" y1="0" x2="${(padL + plotW).toFixed(1)}" y2="0" />
-    <circle class="chs-chart-cross-dot" cx="0" cy="0" r="${compact ? 3.2 : 3.8}" />
+    <circle class="chs-chart-cross-dot" cx="0" cy="0" r="${crossR}" />
+    <g class="chs-chart-cross-xlabel">
+      <rect class="chs-chart-cross-xlabel-bg" x="0" y="0" width="0" height="0" rx="3.5" ry="3.5" />
+      <text class="chs-chart-cross-xlabel-t" x="0" y="0" text-anchor="middle" dominant-baseline="middle"></text>
+    </g>
+    <g class="chs-chart-cross-ylabel">
+      <rect class="chs-chart-cross-ylabel-bg" x="0" y="0" width="0" height="0" rx="3.5" ry="3.5" />
+      <text class="chs-chart-cross-ylabel-t" x="0" y="0" text-anchor="middle" dominant-baseline="middle"></text>
+    </g>
   </g>`;
-  const metaAttr = ` data-chs-digits="${digits}" data-chs-signed="${signed ? '1' : '0'}" data-chs-unit="${esc(unit || yAxisName || '')}" data-chs-points="${esc(JSON.stringify(scrubPts))}"`;
-  return `<div class="chs-chart-wrap" data-chs-chart="1"${metaAttr}>
-    <svg class="${esc(className)} is-interactive${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${compact ? ' is-compact' : axesClass}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dots}${valLabels}${yTickLabels}${xTickLabels}${cross}${hit}</svg>
+  const wrapClass = `chs-chart-wrap${enlarged ? ' is-enlarged' : ''}${compact ? ' is-compact' : ''}`;
+  const metaAttr = ` data-chs-digits="${digits}" data-chs-signed="${signed ? '1' : '0'}" data-chs-unit="${esc(unit || yAxisName || '')}" data-chs-points="${esc(JSON.stringify(scrubPts))}" data-chs-geom="${esc(JSON.stringify(geom))}" data-chs-series="${esc(JSON.stringify(seriesPayload))}"`;
+  return `<div class="${wrapClass}" data-chs-chart="1"${metaAttr}>
+    <svg class="${esc(className)} is-interactive${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${compact ? ' is-compact' : axesClass}${enlarged ? ' is-enlarged' : ''}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dots}${valLabels}${yTickLabels}${xTickLabels}${cross}${hit}</svg>
     <div class="chs-chart-tip" hidden></div>
     ${scaleBlock}
   </div>`;
 }
 
-/**
- * Touch/hover scrub for line charts: crosshair + tip with date/value.
- * Vertical page scroll stays free until a mostly-horizontal drag locks scrubbing.
- */
-export function bindCalorieChartScrub(root) {
-  if (!root || root.dataset.chsScrubBound === '1') return;
-  root.dataset.chsScrubBound = '1';
+function parseChsJsonAttr(wrap, name, fallback) {
+  try {
+    const raw = wrap.getAttribute(name);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
 
-  const MOVE_LOCK_PX = 8;
+function formatChsTip(wrap, p) {
+  const digits = Number(wrap.getAttribute('data-chs-digits')) || 0;
+  const signed = wrap.getAttribute('data-chs-signed') === '1';
+  const unit = wrap.getAttribute('data-chs-unit') || '';
+  const val = signed ? formatSigned(p.v, digits) : String(round(p.v, digits));
+  const unitBit = unit ? ` ${unit}` : '';
+  // Prefer short axis date (14/11) over raw ISO key (2026-11-14).
+  const dateBit = p.t || (p.d ? shortDateTick(p.d) : '') || '';
+  return dateBit ? `${dateBit} · ${val}${unitBit}` : `${val}${unitBit}`;
+}
+
+function clientToSvgPoint(svg, clientX, clientY) {
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  try {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const local = pt.matrixTransform(ctm.inverse());
+    return { x: local.x, y: local.y };
+  } catch {
+    const rect = svg.getBoundingClientRect();
+    const vb = svg.viewBox?.baseVal;
+    if (!vb || !rect.width) return null;
+    return {
+      x: ((clientX - rect.left) / rect.width) * vb.width,
+      y: ((clientY - rect.top) / rect.height) * vb.height,
+    };
+  }
+}
+
+function nearestChsPoint(pts, x) {
+  let best = null;
+  let bestD = Infinity;
+  for (const p of pts) {
+    if (p == null || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+    const d = Math.abs(p.x - x);
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best;
+}
+
+function layoutAxisBadge(textEl, bgEl, cx, cy, { padX = 5, padY = 3, minW = 22, h = 14 } = {}) {
+  if (!textEl || !bgEl) return;
+  textEl.setAttribute('x', String(cx));
+  textEl.setAttribute('y', String(cy));
+  let tw = minW;
+  try {
+    const box = textEl.getBBox();
+    if (box && Number.isFinite(box.width) && box.width > 0) tw = box.width;
+  } catch {
+    tw = Math.max(minW, String(textEl.textContent || '').length * 5.2);
+  }
+  const bw = Math.max(minW, tw + padX * 2);
+  const bh = h;
+  bgEl.setAttribute('x', String(cx - bw / 2));
+  bgEl.setAttribute('y', String(cy - bh / 2));
+  bgEl.setAttribute('width', String(bw));
+  bgEl.setAttribute('height', String(bh));
+}
+
+function hideChsScrub(wrap) {
+  if (!wrap) return;
+  wrap.classList.remove('is-scrubbing');
+  const cross = wrap.querySelector('.chs-chart-cross');
+  const tip = wrap.querySelector('.chs-chart-tip');
+  if (cross) cross.setAttribute('hidden', '');
+  if (tip) {
+    tip.hidden = true;
+    tip.textContent = '';
+  }
+}
+
+function showChsScrub(wrap, clientX, clientY, { keepClass = true } = {}) {
+  const svg = wrap.querySelector('svg.chs-chart-svg');
+  const cross = wrap.querySelector('.chs-chart-cross');
+  const tip = wrap.querySelector('.chs-chart-tip');
+  if (!svg || !cross || !tip) return false;
+  const pts = parseChsJsonAttr(wrap, 'data-chs-points', []);
+  if (!Array.isArray(pts) || !pts.length) return false;
+  const local = clientToSvgPoint(svg, clientX, clientY);
+  if (!local) return false;
+  const p = nearestChsPoint(pts, local.x);
+  if (!p) return false;
+
+  const geom = parseChsJsonAttr(wrap, 'data-chs-geom', null) || {};
+  const padL = Number(geom.padL) || 30;
+  const padT = Number(geom.padT) || 14;
+  const plotW = Number(geom.plotW) || 1;
+  const plotH = Number(geom.plotH) || 1;
+  const svgH = Number(geom.h) || (svg.viewBox?.baseVal?.height || 96);
+
+  const vLine = cross.querySelector('.chs-chart-cross-v');
+  const hLine = cross.querySelector('.chs-chart-cross-h');
+  const dot = cross.querySelector('.chs-chart-cross-dot');
+  if (vLine) {
+    vLine.setAttribute('x1', String(p.x));
+    vLine.setAttribute('x2', String(p.x));
+  }
+  if (hLine) {
+    hLine.setAttribute('y1', String(p.y));
+    hLine.setAttribute('y2', String(p.y));
+  }
+  if (dot) {
+    dot.setAttribute('cx', String(p.x));
+    dot.setAttribute('cy', String(p.y));
+  }
+
+  const digits = Number(wrap.getAttribute('data-chs-digits')) || 0;
+  const signed = wrap.getAttribute('data-chs-signed') === '1';
+  const xLabel = p.t || (p.d ? shortDateTick(p.d) : '') || String(p.i + 1);
+  const yLabel = signed ? formatSigned(p.v, digits) : String(round(p.v, digits));
+
+  const xlabelT = cross.querySelector('.chs-chart-cross-xlabel-t');
+  const xlabelBg = cross.querySelector('.chs-chart-cross-xlabel-bg');
+  const ylabelT = cross.querySelector('.chs-chart-cross-ylabel-t');
+  const ylabelBg = cross.querySelector('.chs-chart-cross-ylabel-bg');
+  if (xlabelT) xlabelT.textContent = xLabel;
+  if (ylabelT) ylabelT.textContent = yLabel;
+
+  const xBadgeY = Math.min(svgH - 8, padT + plotH + 10);
+  let xBadgeX = p.x;
+  xBadgeX = Math.min(Math.max(xBadgeX, padL + 16), padL + plotW - 16);
+  layoutAxisBadge(xlabelT, xlabelBg, xBadgeX, xBadgeY, { padX: 5, padY: 2, minW: 28, h: 14 });
+
+  let yBadgeX = Math.max(14, padL / 2);
+  let yBadgeY = p.y;
+  yBadgeY = Math.min(Math.max(yBadgeY, padT + 8), padT + plotH - 8);
+  layoutAxisBadge(ylabelT, ylabelBg, yBadgeX, yBadgeY, { padX: 5, padY: 2, minW: 24, h: 14 });
+
+  cross.removeAttribute('hidden');
+  if (keepClass) wrap.classList.add('is-scrubbing');
+
+  tip.textContent = formatChsTip(wrap, p);
+  tip.hidden = false;
+  const rect = wrap.getBoundingClientRect();
+  const svgRect = svg.getBoundingClientRect();
+  const frac = svgRect.width ? (p.x / (svg.viewBox?.baseVal?.width || 1)) : 0.5;
+  const tipX = Math.min(
+    Math.max((svgRect.left - rect.left) + frac * svgRect.width, 8),
+    Math.max(8, rect.width - 8),
+  );
+  tip.style.left = `${tipX}px`;
+  tip.style.top = '0px';
+  tip.dataset.side = frac > 0.62 ? 'left' : 'right';
+  return true;
+}
+
+let chsOverlayEl = null;
+let chsOverlayOpen = false;
+let chsOverlayPushed = false;
+let chsOverlayScrubBound = false;
+/** Ignore backdrop/close clicks briefly after open (same-tap synthetic click). */
+let chsOverlayIgnoreCloseUntil = 0;
+
+function readSeriesFromWrap(wrap) {
+  const series = parseChsJsonAttr(wrap, 'data-chs-series', null);
+  if (!series || !Array.isArray(series.values)) return null;
+  const hasPoint = series.values.some((v) => v != null && Number.isFinite(v));
+  const hasRef =
+    Array.isArray(series.referenceValues) &&
+    series.referenceValues.some((v) => v != null && Number.isFinite(v));
+  if (!hasPoint && !hasRef) return null;
+  return series;
+}
+
+function chartTitleFromWrap(wrap, series) {
+  if (series?.title) return String(series.title);
+  const card = wrap.closest?.('.chs-chart-card');
+  const fromCard = card?.querySelector?.('h3, .chs-compact-title')?.textContent?.trim();
+  return fromCard || 'กราฟ';
+}
+
+function closeCalorieChartOverlay({ fromPopstate = false } = {}) {
+  if (!chsOverlayOpen) return;
+  chsOverlayOpen = false;
+  if (chsOverlayEl) {
+    chsOverlayEl.remove();
+    chsOverlayEl = null;
+  }
+  document.body.classList.remove('chs-chart-overlay-open');
+  if (!fromPopstate && chsOverlayPushed) {
+    chsOverlayPushed = false;
+    try {
+      history.back();
+    } catch {
+      /* ignore */
+    }
+  } else {
+    chsOverlayPushed = false;
+  }
+}
+
+function bindOverlayChartScrub(overlay) {
+  if (!overlay || overlay.dataset.chsOverlayScrub === '1') return;
+  overlay.dataset.chsOverlayScrub = '1';
+
   let active = null;
   let pointerId = null;
-  let startX = 0;
-  let startY = 0;
-  let locked = false;
-  let hovering = false;
 
-  const parsePts = (wrap) => {
+  const onDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    const wrap = event.target?.closest?.('.chs-chart-overlay [data-chs-chart="1"]');
+    if (!wrap || !overlay.contains(wrap)) return;
+    active = wrap;
+    pointerId = event.pointerId;
+    wrap.classList.add('is-scrubbing');
+    showChsScrub(wrap, event.clientX, event.clientY);
     try {
-      const raw = wrap.getAttribute('data-chs-points') || '[]';
-      const pts = JSON.parse(raw);
-      return Array.isArray(pts) ? pts : [];
+      wrap.setPointerCapture(pointerId);
     } catch {
-      return [];
+      /* ignore */
     }
+    if (event.cancelable && event.pointerType !== 'mouse') event.preventDefault();
   };
 
-  const formatTip = (wrap, p) => {
-    const digits = Number(wrap.getAttribute('data-chs-digits')) || 0;
-    const signed = wrap.getAttribute('data-chs-signed') === '1';
-    const unit = wrap.getAttribute('data-chs-unit') || '';
-    const val = signed ? formatSigned(p.v, digits) : String(round(p.v, digits));
-    const unitBit = unit ? ` ${unit}` : '';
-    const dateBit = p.d || p.t || '';
-    return dateBit ? `${dateBit} · ${val}${unitBit}` : `${val}${unitBit}`;
+  const onMove = (event) => {
+    if (!active || event.pointerId !== pointerId) return;
+    if (event.cancelable) event.preventDefault();
+    showChsScrub(active, event.clientX, event.clientY);
   };
 
-  const clientToSvg = (svg, clientX, clientY) => {
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return null;
-    try {
-      const pt = svg.createSVGPoint();
-      pt.x = clientX;
-      pt.y = clientY;
-      const local = pt.matrixTransform(ctm.inverse());
-      return { x: local.x, y: local.y };
-    } catch {
-      const rect = svg.getBoundingClientRect();
-      const vb = svg.viewBox?.baseVal;
-      if (!vb || !rect.width) return null;
-      return {
-        x: ((clientX - rect.left) / rect.width) * vb.width,
-        y: ((clientY - rect.top) / rect.height) * vb.height,
-      };
-    }
-  };
-
-  const nearest = (pts, x) => {
-    let best = null;
-    let bestD = Infinity;
-    for (const p of pts) {
-      if (p == null || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
-      const d = Math.abs(p.x - x);
-      if (d < bestD) {
-        bestD = d;
-        best = p;
-      }
-    }
-    return best;
-  };
-
-  const hideScrub = (wrap) => {
-    if (!wrap) return;
-    wrap.classList.remove('is-scrubbing');
-    const cross = wrap.querySelector('.chs-chart-cross');
-    const tip = wrap.querySelector('.chs-chart-tip');
-    if (cross) cross.setAttribute('hidden', '');
-    if (tip) {
-      tip.hidden = true;
-      tip.textContent = '';
-    }
-  };
-
-  const showScrub = (wrap, clientX, clientY) => {
-    const svg = wrap.querySelector('svg.chs-chart-svg');
-    const cross = wrap.querySelector('.chs-chart-cross');
-    const tip = wrap.querySelector('.chs-chart-tip');
-    if (!svg || !cross || !tip) return;
-    const pts = parsePts(wrap);
-    if (!pts.length) return;
-    const local = clientToSvg(svg, clientX, clientY);
-    if (!local) return;
-    const p = nearest(pts, local.x);
-    if (!p) return;
-
-    const vLine = cross.querySelector('.chs-chart-cross-v');
-    const hLine = cross.querySelector('.chs-chart-cross-h');
-    const dot = cross.querySelector('.chs-chart-cross-dot');
-    if (vLine) {
-      vLine.setAttribute('x1', String(p.x));
-      vLine.setAttribute('x2', String(p.x));
-    }
-    if (hLine) {
-      hLine.setAttribute('y1', String(p.y));
-      hLine.setAttribute('y2', String(p.y));
-    }
-    if (dot) {
-      dot.setAttribute('cx', String(p.x));
-      dot.setAttribute('cy', String(p.y));
-    }
-    cross.removeAttribute('hidden');
-
-    tip.textContent = formatTip(wrap, p);
-    tip.hidden = false;
-    const rect = wrap.getBoundingClientRect();
-    const svgRect = svg.getBoundingClientRect();
-    const frac = svgRect.width ? (p.x / (svg.viewBox?.baseVal?.width || 1)) : 0.5;
-    const tipX = Math.min(
-      Math.max((svgRect.left - rect.left) + frac * svgRect.width, 8),
-      Math.max(8, rect.width - 8),
-    );
-    tip.style.left = `${tipX}px`;
-    tip.style.top = '0px';
-    tip.dataset.side = frac > 0.62 ? 'left' : 'right';
-  };
-
-  const endPointer = (event) => {
+  const onUp = (event) => {
     if (pointerId !== null && event.pointerId !== pointerId) return;
     if (active && pointerId !== null) {
       try {
@@ -2643,33 +2839,165 @@ export function bindCalorieChartScrub(root) {
         /* ignore */
       }
     }
-    if (active && !hovering) hideScrub(active);
+    // Keep last crosshair visible (stock-app style).
+    if (active) active.classList.add('is-scrubbing');
     active = null;
     pointerId = null;
-    locked = false;
   };
+
+  overlay.addEventListener('pointerdown', onDown, { passive: false });
+  overlay.addEventListener('pointermove', onMove, { passive: false });
+  overlay.addEventListener('pointerup', onUp);
+  overlay.addEventListener('pointercancel', onUp);
+}
+
+export function openCalorieChartOverlay(wrap) {
+  if (!wrap) return false;
+  const series = readSeriesFromWrap(wrap);
+  if (!series) return false;
+
+  closeCalorieChartOverlay({ fromPopstate: true });
+
+  const title = chartTitleFromWrap(wrap, series);
+  const bodyW = Math.min(window.innerWidth - 24, 720);
+  const chartW = Math.max(280, Math.floor(bodyW - 28));
+  // ~55vh, but leave room for overlay header/close + safe-area padding.
+  const overlayChrome = 96; // head (~52) + panel pad/safe (~44)
+  const chartH = Math.max(
+    240,
+    Math.min(
+      Math.round(window.innerHeight * 0.55),
+      window.innerHeight - overlayChrome,
+    ),
+  );
+
+  const chartHtml = renderSeriesChartSvg(series.values, {
+    width: chartW,
+    height: chartH,
+    signed: Boolean(series.signed),
+    className: series.className || 'chs-chart-svg',
+    unit: series.unit || '',
+    digits: Number(series.digits) || 0,
+    labels: series.labels,
+    dates: series.dates,
+    xLabel: series.xLabel || 'วัน',
+    yLabel: series.yLabel || series.unit || '',
+    title,
+    referenceValues: series.referenceValues,
+    referenceLegend: series.referenceLegend || '',
+    compact: false,
+    enlarged: true,
+    valueLabels: false,
+  });
+
+  const overlay = document.createElement('div');
+  overlay.className = 'chs-chart-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', title);
+  overlay.innerHTML = `
+    <div class="chs-chart-overlay-backdrop" data-chs-overlay-close="1"></div>
+    <div class="chs-chart-overlay-panel">
+      <header class="chs-chart-overlay-head">
+        <h2 class="chs-chart-overlay-title">${esc(title)}</h2>
+        <button type="button" class="chs-chart-overlay-close" data-chs-overlay-close="1" aria-label="ปิด">✕</button>
+      </header>
+      <div class="chs-chart-overlay-body">${chartHtml}</div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.classList.add('chs-chart-overlay-open');
+  chsOverlayEl = overlay;
+  chsOverlayOpen = true;
+  chsOverlayIgnoreCloseUntil = Date.now() + 450;
+  bindOverlayChartScrub(overlay);
+
+  try {
+    history.pushState({ chsChartOverlay: 1 }, '');
+    chsOverlayPushed = true;
+  } catch {
+    chsOverlayPushed = false;
+  }
+
+  const closeBtn = overlay.querySelector('.chs-chart-overlay-close');
+  if (closeBtn) {
+    try {
+      closeBtn.focus({ preventScroll: true });
+    } catch {
+      /* ignore */
+    }
+  }
+  return true;
+}
+
+function ensureCalorieChartOverlayChrome() {
+  if (chsOverlayScrubBound) return;
+  chsOverlayScrubBound = true;
+
+  document.addEventListener('click', (event) => {
+    if (!chsOverlayOpen || !chsOverlayEl) return;
+    if (Date.now() < chsOverlayIgnoreCloseUntil) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    const closer = event.target?.closest?.('[data-chs-overlay-close="1"]');
+    if (!closer || !chsOverlayEl.contains(closer)) return;
+    event.preventDefault();
+    closeCalorieChartOverlay();
+  }, true);
+
+  document.addEventListener('keydown', (event) => {
+    if (!chsOverlayOpen) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeCalorieChartOverlay();
+    }
+  });
+
+  window.addEventListener('popstate', () => {
+    if (!chsOverlayOpen) return;
+    closeCalorieChartOverlay({ fromPopstate: true });
+  });
+}
+
+/**
+ * Small-card: tap plot to enlarge; mouse hover may show a light crosshair.
+ * Enlarged overlay: immediate scrub with stock-style axis badges (bound inside overlay).
+ */
+export function bindCalorieChartScrub(root) {
+  ensureCalorieChartOverlayChrome();
+  if (!root) return;
+  if (root.dataset.chsScrubBound === '1') return;
+  root.dataset.chsScrubBound = '1';
+
+  const TAP_PX = 10;
+  let tapWrap = null;
+  let pointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let moved = false;
+  let hovering = false;
+
+  const isCardChart = (wrap) =>
+    Boolean(wrap) &&
+    root.contains(wrap) &&
+    !wrap.closest('.chs-chart-overlay') &&
+    wrap.getAttribute('data-chs-chart') === '1';
 
   root.addEventListener(
     'pointerdown',
     (event) => {
       if (event.button !== undefined && event.button !== 0) return;
+      if (chsOverlayOpen) return;
       const wrap = event.target?.closest?.('[data-chs-chart="1"]');
-      if (!wrap || !root.contains(wrap)) return;
-      if (active && active !== wrap) hideScrub(active);
-      active = wrap;
+      if (!isCardChart(wrap)) return;
+      if (!readSeriesFromWrap(wrap)) return;
+      tapWrap = wrap;
       pointerId = event.pointerId;
       startX = event.clientX;
       startY = event.clientY;
-      locked = event.pointerType === 'mouse';
-      if (locked) {
-        wrap.classList.add('is-scrubbing');
-        showScrub(wrap, event.clientX, event.clientY);
-        try {
-          wrap.setPointerCapture(pointerId);
-        } catch {
-          /* ignore */
-        }
-      }
+      moved = false;
     },
     { passive: true },
   );
@@ -2677,68 +3005,60 @@ export function bindCalorieChartScrub(root) {
   root.addEventListener(
     'pointermove',
     (event) => {
-      const wrap =
-        active && event.pointerId === pointerId
-          ? active
-          : event.pointerType === 'mouse'
-            ? event.target?.closest?.('[data-chs-chart="1"]')
-            : null;
-      if (!wrap || !root.contains(wrap)) {
-        if (hovering && event.pointerType === 'mouse') {
-          const still = event.target?.closest?.('[data-chs-chart="1"]');
-          if (!still) {
-            hovering = false;
-            if (!active) hideScrub(root.querySelector('.chs-chart-wrap.is-scrubbing'));
-          }
+      if (chsOverlayOpen) return;
+
+      if (event.pointerType === 'mouse' && (!tapWrap || event.pointerId !== pointerId)) {
+        const wrap = event.target?.closest?.('[data-chs-chart="1"]');
+        if (isCardChart(wrap) && readSeriesFromWrap(wrap)) {
+          hovering = true;
+          showChsScrub(wrap, event.clientX, event.clientY);
+        } else if (hovering) {
+          hovering = false;
+          const scrubbing = root.querySelector('.chs-chart-wrap.is-scrubbing');
+          if (scrubbing && !scrubbing.closest('.chs-chart-overlay')) hideChsScrub(scrubbing);
         }
-        return;
       }
 
-      if (event.pointerType === 'mouse' && (!active || event.pointerId !== pointerId)) {
-        hovering = true;
-        wrap.classList.add('is-scrubbing');
-        showScrub(wrap, event.clientX, event.clientY);
-        return;
-      }
-
-      if (!active || event.pointerId !== pointerId) return;
+      if (!tapWrap || event.pointerId !== pointerId) return;
       const dx = event.clientX - startX;
       const dy = event.clientY - startY;
-      if (!locked) {
-        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > MOVE_LOCK_PX) {
-          hideScrub(active);
-          active = null;
-          pointerId = null;
-          return;
-        }
-        if (Math.abs(dx) > MOVE_LOCK_PX && Math.abs(dx) >= Math.abs(dy)) {
-          locked = true;
-          active.classList.add('is-scrubbing');
-          try {
-            active.setPointerCapture(pointerId);
-          } catch {
-            /* ignore */
-          }
-        } else {
-          return;
-        }
-      }
-      if (event.cancelable) event.preventDefault();
-      showScrub(active, event.clientX, event.clientY);
+      if (Math.abs(dx) > TAP_PX || Math.abs(dy) > TAP_PX) moved = true;
     },
-    { passive: false },
+    { passive: true },
   );
 
+  const endPointer = (event) => {
+    if (pointerId !== null && event.pointerId !== pointerId) return;
+    const wrap = tapWrap;
+    const wasTap = Boolean(wrap) && !moved;
+    tapWrap = null;
+    pointerId = null;
+    if (chsOverlayOpen) return;
+    if (wasTap && isCardChart(wrap)) {
+      hideChsScrub(wrap);
+      openCalorieChartOverlay(wrap);
+      return;
+    }
+    if (wrap && event.pointerType !== 'mouse') hideChsScrub(wrap);
+  };
+
   root.addEventListener('pointerup', endPointer);
-  root.addEventListener('pointercancel', endPointer);
+  root.addEventListener('pointercancel', (event) => {
+    if (pointerId !== null && event.pointerId !== pointerId) return;
+    tapWrap = null;
+    pointerId = null;
+    moved = false;
+  });
+
   root.addEventListener('pointerout', (event) => {
     if (event.pointerType !== 'mouse') return;
+    if (chsOverlayOpen) return;
     const from = event.target?.closest?.('[data-chs-chart="1"]');
-    if (!from) return;
+    if (!from || !isCardChart(from)) return;
     const to = event.relatedTarget?.closest?.('[data-chs-chart="1"]');
     if (from === to) return;
     hovering = false;
-    if (!active || active !== from) hideScrub(from);
+    if (!tapWrap || tapWrap !== from) hideChsScrub(from);
   });
 }
 
@@ -2938,6 +3258,7 @@ function chartCardHtml(
     dates,
     yLabel: unit,
     xLabel: 'วัน',
+    title,
     referenceValues,
     referenceLegend: compact ? '' : referenceLegend,
     compact,

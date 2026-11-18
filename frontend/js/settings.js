@@ -1,12 +1,12 @@
-import { STORAGE_KEYS } from './config.js?v=339';
-import { compareStamp, nowIso } from './clock.js?v=339';
-import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=339';
+import { STORAGE_KEYS } from './config.js?v=341';
+import { compareStamp, nowIso } from './clock.js?v=341';
+import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=341';
 import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
-} from './schedule.js?v=339';
-import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=339';
-import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=339';
+} from './schedule.js?v=341';
+import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=341';
+import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=341';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -114,11 +114,78 @@ const DEFAULTS = {
   calorieTrendDays: 7,
   /** Pinned health widgets on home dash (unique ids, synced to cloud) */
   calorieHomePins: [],
+  /** Favorite foods for the meal-add sheet (name + kcal + protein) */
+  calorieMealPins: [],
   /** Brand / PWA install icon id (see app-icons.js) */
   appIconId: DEFAULT_APP_ICON_ID,
   /** Must-ack reminder notes shown when entering a page (see ACK_NOTE_PAGES). */
   ackNotes: [],
 };
+
+export const CALORIE_MEAL_PINS_MAX = 30;
+export const CALORIE_MEAL_PIN_NAME_MAX = 80;
+
+/** Identity key for a pinned meal name (trim + lowercase). */
+export function mealPinKey(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+/** Normalize pinned foods: [{ name, cal, prot }] — cap ~30, drop invalid. */
+export function normalizeCalorieMealPins(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const name = String(item.name || '').trim().slice(0, CALORIE_MEAL_PIN_NAME_MAX);
+    if (!name) continue;
+    const key = mealPinKey(name);
+    if (!key || seen.has(key)) continue;
+    const cal = Math.round(Number(item.cal));
+    const prot = Math.round(Number(item.prot));
+    if (!Number.isFinite(cal) || !(cal > 0)) continue;
+    if (!Number.isFinite(prot) || prot < 0) continue;
+    seen.add(key);
+    out.push({ name, cal, prot });
+    if (out.length >= CALORIE_MEAL_PINS_MAX) break;
+  }
+  return out;
+}
+
+/**
+ * Upsert a meal pin by normalized name.
+ * @returns {{ list: Array<{name:string,cal:number,prot:number}>, action: 'added'|'updated'|'exists'|'need-name' }}
+ */
+export function upsertCalorieMealPin(list, item) {
+  const pins = normalizeCalorieMealPins(list);
+  const name = String(item?.name || '').trim().slice(0, CALORIE_MEAL_PIN_NAME_MAX);
+  if (!name) return { list: pins, action: 'need-name' };
+  const cal = Math.round(Number(item?.cal));
+  const prot = Math.max(0, Math.round(Number(item?.prot)));
+  if (!Number.isFinite(cal) || !(cal > 0) || !Number.isFinite(prot)) {
+    return { list: pins, action: 'need-name' };
+  }
+  const key = mealPinKey(name);
+  const idx = pins.findIndex((p) => mealPinKey(p.name) === key);
+  if (idx >= 0) {
+    if (pins[idx].cal === cal && pins[idx].prot === prot) {
+      return { list: pins, action: 'exists' };
+    }
+    const next = pins.slice();
+    next[idx] = { name, cal, prot };
+    return { list: next, action: 'updated' };
+  }
+  const next = [...pins, { name, cal, prot }];
+  if (next.length > CALORIE_MEAL_PINS_MAX) next.shift();
+  return { list: next, action: 'added' };
+}
+
+/** Remove a meal pin by name (identity via mealPinKey). */
+export function removeCalorieMealPin(list, name) {
+  const key = mealPinKey(name);
+  if (!key) return normalizeCalorieMealPins(list);
+  return normalizeCalorieMealPins(list).filter((p) => mealPinKey(p.name) !== key);
+}
 
 /** Pages that can show ack-notes. Add an id here when a new screen should support them. */
 export const ACK_NOTE_PAGES = {
@@ -569,6 +636,7 @@ export function loadSettings() {
         calorieTones: normalizeCalorieTones(null),
         calorieTrendDays: normalizeCalorieTrendDays(null),
         calorieHomePins: normalizeCalorieHomePins(null),
+        calorieMealPins: normalizeCalorieMealPins(null),
         appIconId: DEFAULT_APP_ICON_ID,
         ackNotes: [],
       });
@@ -603,6 +671,7 @@ export function loadSettings() {
       calorieTones: normalizeCalorieTones(parsed.calorieTones),
       calorieTrendDays: normalizeCalorieTrendDays(parsed.calorieTrendDays),
       calorieHomePins: normalizeCalorieHomePins(parsed.calorieHomePins),
+      calorieMealPins: normalizeCalorieMealPins(parsed.calorieMealPins),
       appIconId: normalizeAppIconId(parsed.appIconId),
       ackNotes: normalizeAckNotes(parsed.ackNotes),
     });
@@ -628,6 +697,7 @@ export function loadSettings() {
       calorieTones: normalizeCalorieTones(null),
       calorieTrendDays: normalizeCalorieTrendDays(null),
       calorieHomePins: normalizeCalorieHomePins(null),
+      calorieMealPins: normalizeCalorieMealPins(null),
       appIconId: DEFAULT_APP_ICON_ID,
       ackNotes: [],
     });
@@ -670,6 +740,7 @@ export function saveSettings(settings, { fromCloud = false } = {}) {
     calorieTones: normalizeCalorieTones(settings.calorieTones),
     calorieTrendDays: normalizeCalorieTrendDays(settings.calorieTrendDays),
     calorieHomePins: normalizeCalorieHomePins(settings.calorieHomePins),
+    calorieMealPins: normalizeCalorieMealPins(settings.calorieMealPins),
     appIconId: normalizeAppIconId(settings.appIconId),
     ackNotes: normalizeAckNotes(settings.ackNotes),
   });
@@ -709,6 +780,7 @@ export function normalizeSettingsSync(raw) {
     calorieTones: normalizeCalorieTones(raw.calorieTones),
     calorieTrendDays: normalizeCalorieTrendDays(raw.calorieTrendDays),
     calorieHomePins: normalizeCalorieHomePins(raw.calorieHomePins),
+    calorieMealPins: normalizeCalorieMealPins(raw.calorieMealPins),
     appIconId: normalizeAppIconId(raw.appIconId),
     ackNotes: normalizeAckNotes(raw.ackNotes),
   };
@@ -731,6 +803,7 @@ export function mergeSettingsFromCloud(localSettings, cloudRaw) {
   // Fields added later: if the cloud blob never had them, keep the local value
   // so an older client / seed cannot wipe a newer local preference.
   const cloudHadAckNotes = Boolean(cloudRaw && typeof cloudRaw === 'object' && 'ackNotes' in cloudRaw);
+  const cloudHadCalorieMealPins = Boolean(cloudRaw && typeof cloudRaw === 'object' && 'calorieMealPins' in cloudRaw);
   const cloud = normalizeSettingsSync(cloudRaw);
   if (!cloud) return localSettings;
   const localAt = String(localSettings?.cloudUpdatedAt || '').trim();
@@ -766,6 +839,9 @@ export function mergeSettingsFromCloud(localSettings, cloudRaw) {
     calorieTones: cloud.calorieTones,
     calorieTrendDays: cloud.calorieTrendDays,
     calorieHomePins: cloud.calorieHomePins,
+    calorieMealPins: cloudHadCalorieMealPins
+      ? cloud.calorieMealPins
+      : normalizeCalorieMealPins(localSettings?.calorieMealPins),
     appIconId: cloud.appIconId,
     ackNotes: cloudHadAckNotes ? cloud.ackNotes : normalizeAckNotes(localSettings?.ackNotes),
     cloudUpdatedAt: cloud.updatedAt,

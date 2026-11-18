@@ -7442,7 +7442,8 @@ body:not(.calorie-only) .cal-topnav {
   user-select: none;
 }
 
-.chs-chart-wrap.is-scrubbing {
+.chs-chart-wrap.is-enlarged,
+.chs-chart-overlay .chs-chart-wrap {
   touch-action: none;
 }
 
@@ -7486,13 +7487,29 @@ body:not(.calorie-only) .cal-topnav {
 .chs-chart-svg.is-interactive {
   pointer-events: auto;
   touch-action: pan-y;
+  cursor: pointer;
+}
+
+.chs-chart-svg.is-enlarged,
+.chs-chart-overlay .chs-chart-svg {
+  height: auto;
+  min-height: 240px;
+  max-height: 55vh;
+  touch-action: none;
+  cursor: crosshair;
 }
 
 .chs-chart-svg .chs-chart-hit {
   pointer-events: auto;
-  cursor: crosshair;
+  cursor: pointer;
   touch-action: pan-y;
   fill: transparent;
+}
+
+.chs-chart-overlay .chs-chart-svg .chs-chart-hit,
+.chs-chart-svg.is-enlarged .chs-chart-hit {
+  cursor: crosshair;
+  touch-action: none;
 }
 
 .chs-chart-svg .chs-chart-cross {
@@ -7506,10 +7523,48 @@ body:not(.calorie-only) .cal-topnav {
   stroke-dasharray: 3 2;
 }
 
+.chs-chart-svg.is-enlarged .chs-chart-cross-v,
+.chs-chart-svg.is-enlarged .chs-chart-cross-h,
+.chs-chart-overlay .chs-chart-cross-v,
+.chs-chart-overlay .chs-chart-cross-h {
+  stroke: color-mix(in srgb, #0f766e 70%, #1c1917);
+  stroke-width: 1.15;
+  stroke-dasharray: none;
+}
+
 .chs-chart-svg .chs-chart-cross-dot {
   fill: currentColor;
   stroke: #fff;
   stroke-width: 1.5;
+}
+
+.chs-chart-svg .chs-chart-cross-xlabel-bg,
+.chs-chart-svg .chs-chart-cross-ylabel-bg {
+  fill: color-mix(in srgb, #134e4a 92%, #000);
+  stroke: color-mix(in srgb, #5eead4 35%, transparent);
+  stroke-width: 0.8;
+}
+
+.chs-chart-svg .chs-chart-cross-xlabel-t,
+.chs-chart-svg .chs-chart-cross-ylabel-t {
+  fill: #ecfdf5;
+  font-size: 8px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.chs-chart-svg.is-enlarged .chs-chart-cross-xlabel-t,
+.chs-chart-svg.is-enlarged .chs-chart-cross-ylabel-t,
+.chs-chart-overlay .chs-chart-cross-xlabel-t,
+.chs-chart-overlay .chs-chart-cross-ylabel-t {
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.chs-chart-wrap.is-compact .chs-chart-cross-xlabel,
+.chs-chart-wrap.is-compact .chs-chart-cross-ylabel {
+  display: none;
 }
 
 .chs-chart-svg .chs-chart-line {
@@ -7585,16 +7640,146 @@ body:not(.calorie-only) .cal-topnav {
   font-variant-numeric: tabular-nums;
 }
 
+.chs-chart-svg.is-enlarged .chs-chart-tick,
+.chs-chart-overlay .chs-chart-tick {
+  fill: color-mix(in srgb, var(--text, #1c1917) 72%, #57534e);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.chs-chart-svg.is-enlarged .chs-chart-grid,
+.chs-chart-overlay .chs-chart-grid {
+  stroke: color-mix(in srgb, var(--border) 70%, #a8a29e);
+  stroke-width: 1;
+  stroke-dasharray: none;
+}
+
 .chs-chart-svg .chs-chart-axis-label {
   fill: var(--text-muted, #6b7280);
   font-size: 8px;
   font-weight: 800;
 }
 
+.chs-chart-svg.is-enlarged .chs-chart-axis-label,
+.chs-chart-overlay .chs-chart-axis-label {
+  font-size: 11px;
+}
+
 .chs-chart-svg .chs-chart-empty-text {
   fill: var(--text-muted, #6b7280);
   font-size: 10px;
   font-weight: 600;
+}
+
+/* Stock-style enlarged chart overlay (below settings 13000 / auth 14000) */
+.chs-chart-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0;
+  color: var(--text, #1c1917);
+}
+
+.chs-chart-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, #0c1a14 55%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.chs-chart-overlay-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: max(0.65rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  background: color-mix(in srgb, #f3f7f2 92%, #fff);
+  box-shadow: 0 -8px 28px color-mix(in srgb, #000 22%, transparent);
+}
+
+.chs-chart-overlay-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+  margin-bottom: 0.55rem;
+}
+
+.chs-chart-overlay-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: #134e4a;
+}
+
+.chs-chart-overlay-close {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid color-mix(in srgb, #0f766e 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 80%, #ecfdf5);
+  color: #134e4a;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chs-chart-overlay-close:active {
+  transform: scale(0.96);
+}
+
+.chs-chart-overlay-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.chs-chart-overlay-body .chs-chart-wrap {
+  width: 100%;
+}
+
+.chs-chart-overlay-body .chs-chart-tip {
+  top: 0.35rem;
+  font-size: 0.78rem;
+  padding: 0.28rem 0.55rem;
+  background: color-mix(in srgb, #134e4a 94%, #000);
+}
+
+body.chs-chart-overlay-open {
+  overflow: hidden;
+}
+
+@media (min-width: 720px) {
+  .chs-chart-overlay {
+    align-items: center;
+    padding: 1.25rem;
+  }
+
+  .chs-chart-overlay-panel {
+    width: min(720px, 100%);
+    height: auto;
+    max-height: min(88vh, 720px);
+    margin: 0 auto;
+    padding: 1rem 1.1rem 1.15rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, #0f766e 18%, transparent);
+  }
 }
 
 .chs-chart-scale {
@@ -8707,6 +8892,7 @@ body:not(.calorie-only) .cal-topnav {
   color: var(--text);
 }
 
+.calorie-quick-pins,
 .calorie-quick-freq {
   display: flex;
   flex-direction: column;
@@ -8714,8 +8900,104 @@ body:not(.calorie-only) .cal-topnav {
   margin: 0;
 }
 
+.calorie-quick-pins[hidden],
 .calorie-quick-freq[hidden] {
   display: none !important;
+}
+
+.cq-pin-chip-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.cq-pin-chip-wrap .cq-freq-chip {
+  flex: 1 1 auto;
+  text-align: left;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.cq-pin-chip-x {
+  appearance: none;
+  flex: 0 0 2.1rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 9px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cq-pin-chip-x:active {
+  background: color-mix(in srgb, #b91c1c 12%, #fff);
+  color: #b91c1c;
+}
+
+.cq-meal-label-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.cq-meal-label-row[hidden] {
+  display: none !important;
+}
+
+.cq-meal-label-row .calorie-quick-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cq-meal-pin {
+  appearance: none;
+  flex: 0 0 2.5rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-muted);
+  border-radius: 8px;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cq-meal-pin[aria-pressed="true"],
+.cq-meal-pin.is-pinned {
+  background: color-mix(in srgb, var(--accent) 14%, #fff);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--text);
+}
+
+.cq-meal-pin:active,
+.cq-ex-pin:active {
+  transform: scale(0.96);
+}
+
+.cq-ex-pin {
+  appearance: none;
+  flex: 0 0 2.1rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 9px;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cq-ex-pin[aria-pressed="true"],
+.cq-ex-pin.is-pinned {
+  background: color-mix(in srgb, var(--accent) 14%, #fff);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--text);
 }
 
 .cq-freq-row {
