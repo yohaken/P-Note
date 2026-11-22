@@ -1,13 +1,13 @@
-import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=342';
-import { bestIconForLabel, normalizeIconId } from './icons.js?v=342';
-import { createEmptyCalorie, normalizeCalorie, normalizeHomePins } from './calorie.js?v=342';
-import { nowIso } from './clock.js?v=342';
+import { normalizeNotifyRepeat, normalizeRecurrence, normalizeCycleAnchor } from './schedule.js?v=343';
+import { bestIconForLabel, normalizeIconId } from './icons.js?v=343';
+import { createEmptyCalorie, normalizeCalorie, normalizeHomePins } from './calorie.js?v=343';
+import { nowIso } from './clock.js?v=343';
 import {
   applyDeletionFilter,
   emptyDeletions,
   normalizeDeletions,
   recordHardDelete,
-} from './deletions.js?v=342';
+} from './deletions.js?v=343';
 
 /** Lite notepad helpers — keep notes.js free of sheet.js / note-text.js on boot. */
 function normalizeTextPrefs(raw) {
