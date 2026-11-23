@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=343';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=344';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -20,7 +20,7 @@ import {
   normalizeMuscleTree,
   setMoveLogNames,
   toMuscleLayout,
-} from './muscle-tree.js?v=343';
+} from './muscle-tree.js?v=344';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -1510,16 +1510,21 @@ export function computeDayMetrics(day, sheet = {}) {
   const pRm = protTarget != null ? prot - protTarget : null;
   const goalKcal = goals.goalKcal;
   const kcalToGoal = goalKcal != null ? addCal - goalKcal : null;
-  const balance = addCal - bsum;
-  const blKg = kpkg ? balance / kpkg : null;
-  const pctBl = bsum ? (balance / bsum) * 100 : null;
+  const classicBalance = addCal - bsum;
+  const useGoal = (goals.mode === 'tdee' || goals.mode === 'fixed') && goalKcal != null;
+  // Spreadsheet / charts: vs day's energy goal in tdee|fixed; vs BMR+mus in classic.
+  const balance = useGoal ? kcalToGoal : classicBalance;
+  const blKg = kpkg && balance != null ? balance / kpkg : null;
+  // %bl stays relative to BMR+mus (classic burn), not the diet goal.
+  const pctBl = bsum ? (classicBalance / bsum) * 100 : null;
+  const goalLineKcal = useGoal ? Math.round(goalKcal) : round(bsum, 0);
   const bmi = computeBmi(resolveDayWeight(day, sheet), sheet.heightCm);
 
   return {
     addCal: round(addCal, 0),
     prot: round(prot, 1),
     pRm: pRm == null ? null : round(pRm, 1),
-    balance: round(balance, 0),
+    balance: balance == null ? null : round(balance, 0),
     blKg: blKg == null ? null : round(blKg, 2),
     mus: round(mus, 0),
     base: round(base, 0),
@@ -1532,6 +1537,9 @@ export function computeDayMetrics(day, sheet = {}) {
     goalMode: goals.mode,
     goalKcal: goalKcal == null ? null : Math.round(goalKcal),
     kcalToGoal: kcalToGoal == null ? null : round(kcalToGoal, 0),
+    /** Middle/threshold kcal for that day: goalKcal (tdee|fixed) or BMR+mus (classic). */
+    goalLineKcal,
+    goalLineKind: useGoal ? 'goal' : 'base',
     goalCarbG: goals.goalCarbG,
     goalFatG: goals.goalFatG,
     tdee: goals.tdee,
@@ -1804,6 +1812,8 @@ export function computeTrendSeries(calorie, dayCount = 14, endKey = toDateKey())
   const balance = [];
   const blKg = [];
   const mus = [];
+  const goalLineKcal = [];
+  const goalLineKind = [];
   let logged = 0;
   keys.forEach((date) => {
     const day = byDate.get(date) || null;
@@ -1819,6 +1829,8 @@ export function computeTrendSeries(calorie, dayCount = 14, endKey = toDateKey())
     balance.push(m ? m.balance : null);
     blKg.push(m ? m.blKg : null);
     mus.push(m && (m.mus || 0) > 0 ? m.mus : day ? 0 : null);
+    goalLineKcal.push(m && m.goalLineKcal != null ? m.goalLineKcal : null);
+    goalLineKind.push(m ? m.goalLineKind || null : null);
   });
   return {
     dayCount: n,
@@ -1832,6 +1844,8 @@ export function computeTrendSeries(calorie, dayCount = 14, endKey = toDateKey())
     balance,
     blKg,
     mus,
+    goalLineKcal,
+    goalLineKind,
     logged,
     startLabel: formatDateDisplay(keys[0]),
     endLabel: formatDateDisplay(keys[keys.length - 1]),
@@ -2369,6 +2383,45 @@ function pickValueLabelPts(pts, { maxLabels = 8 } = {}) {
   return [picked[0], ...picked.slice(1, -1).slice(0, maxLabels - 2), picked[picked.length - 1]];
 }
 
+/** Thai label for the balance chart's middle/threshold line (เป้า / ฐาน). */
+function formatGoalLineLabel(kcal, kind) {
+  if (kcal == null || !Number.isFinite(kcal)) return '';
+  const prefix = kind === 'goal' ? 'เป้า' : 'ฐาน';
+  return `${prefix} ${Math.round(kcal)}`;
+}
+
+/**
+ * Zero-at-goal reference series for Balance / blKg charts.
+ * Values are already (intake − goal), so the threshold sits at y=0.
+ */
+function balanceGoalRefConfig(t) {
+  const kcals = t?.goalLineKcal || [];
+  const kinds = t?.goalLineKind || [];
+  const referenceValues = kcals.map((g) => (g != null && Number.isFinite(g) ? 0 : null));
+  const goalLineLabels = kcals.map((g, i) => formatGoalLineLabel(g, kinds[i]));
+  const finite = [];
+  kcals.forEach((g, i) => {
+    if (g != null && Number.isFinite(g)) finite.push({ g, k: kinds[i] || 'base' });
+  });
+  let referenceLegend = '';
+  if (finite.length) {
+    const same = finite.every((x) => x.g === finite[0].g && x.k === finite[0].k);
+    if (same) {
+      referenceLegend = `— — ${formatGoalLineLabel(finite[0].g, finite[0].k)}`;
+    } else {
+      // Goals vary in the window — no frozen stale number on the card legend.
+      const anyGoal = finite.some((x) => x.k === 'goal');
+      referenceLegend = anyGoal ? '— — เป้า' : '— — ฐาน';
+    }
+  }
+  return {
+    referenceValues,
+    referenceLegend,
+    goalLineKcal: kcals,
+    goalLineLabels,
+  };
+}
+
 /**
  * Line / area SVG with labeled X/Y axes and a readable value scale.
  * nulls in values = gaps. X = day; Y = metric unit (กก. / ซม. / kcal / …).
@@ -2389,6 +2442,10 @@ export function renderSeriesChartSvg(
     title = '',
     referenceValues = null,
     referenceLegend = '',
+    /** Per-day absolute goal/base kcal (for tip / scrub label when ref is at y=0). */
+    goalLineKcal = null,
+    /** Per-day Thai labels e.g. "เป้า 2450" / "ฐาน 1807". */
+    goalLineLabels = null,
     compact = false,
     /** Large stock-style chart (overlay). */
     enlarged = false,
@@ -2496,12 +2553,29 @@ export function renderSeriesChartSvg(
     area = `<polygon class="chs-chart-area" points="${xAt(pts[0].i).toFixed(1)},${baseY.toFixed(1)} ${coords.join(' ')} ${xAt(last.i).toFixed(1)},${baseY.toFixed(1)}" />`;
   }
   const refCoords = refPts.map((p) => `${xAt(p.i).toFixed(1)},${yAt(p.v).toFixed(1)}`);
+  const refsAreFlatZero =
+    refPts.length > 0 && refPts.every((p) => p.v === 0) && signed;
   const refLine =
     refPts.length >= 2
-      ? `<polyline class="chs-chart-refline" fill="none" points="${refCoords.join(' ')}" />`
+      ? `<polyline class="chs-chart-refline${refsAreFlatZero ? ' is-goal-zero' : ''}" fill="none" points="${refCoords.join(' ')}" />`
       : refPts.length === 1
-        ? `<circle class="chs-chart-refline-dot" cx="${xAt(refPts[0].i).toFixed(1)}" cy="${yAt(refPts[0].v).toFixed(1)}" r="2.2" />`
+        ? `<circle class="chs-chart-refline-dot${refsAreFlatZero ? ' is-goal-zero' : ''}" cx="${xAt(refPts[0].i).toFixed(1)}" cy="${yAt(refPts[0].v).toFixed(1)}" r="2.2" />`
         : '';
+  // In-plot goal/base label for Balance/blKg (not protein — that keeps scale legend only).
+  let refLabelHtml = '';
+  if (refPts.length && !compact && Array.isArray(goalLineLabels)) {
+    const lastRef = refPts[refPts.length - 1];
+    const labelText =
+      goalLineLabels[lastRef.i] ||
+      (refsAreFlatZero ? referenceLegend.replace(/^—\s*—\s*/, '').trim() : '') ||
+      '';
+    if (labelText) {
+      const lx = Math.min(padL + plotW - 2, xAt(lastRef.i) + (enlarged ? 8 : 4));
+      const ly = yAt(lastRef.v) - (enlarged ? 8 : 6);
+      const yClamp = Math.max(padT + 8, Math.min(padT + plotH - 4, ly));
+      refLabelHtml = `<text class="chs-chart-refline-label" x="${lx.toFixed(1)}" y="${yClamp.toFixed(1)}" text-anchor="end" dominant-baseline="auto">${esc(labelText)}</text>`;
+    }
+  }
   const line =
     pts.length >= 2
       ? `<polyline class="chs-chart-line" fill="none" points="${coords.join(' ')}" />`
@@ -2545,6 +2619,11 @@ export function renderSeriesChartSvg(
     const dateKey = Array.isArray(dates) ? dates[p.i] : null;
     const dayName = Array.isArray(labels) ? labels[p.i] : '';
     const dateLabel = dateKey ? shortDateTick(dateKey) : String(dayName || p.i + 1);
+    const gKcal =
+      Array.isArray(goalLineKcal) && goalLineKcal[p.i] != null && Number.isFinite(goalLineKcal[p.i])
+        ? goalLineKcal[p.i]
+        : null;
+    const gLabel = (Array.isArray(goalLineLabels) && goalLineLabels[p.i]) || '';
     return {
       i: p.i,
       x: Number(xAt(p.i).toFixed(1)),
@@ -2552,6 +2631,8 @@ export function renderSeriesChartSvg(
       v: p.v,
       d: dateKey || '',
       t: dateLabel,
+      g: gKcal,
+      gl: gLabel || null,
     };
   });
   const seriesPayload = {
@@ -2565,6 +2646,12 @@ export function renderSeriesChartSvg(
       ? referenceValues.map((v) => (v == null || !Number.isFinite(v) ? null : v))
       : null,
     referenceLegend: referenceLegend || '',
+    goalLineKcal: Array.isArray(goalLineKcal)
+      ? goalLineKcal.map((v) => (v == null || !Number.isFinite(v) ? null : v))
+      : null,
+    goalLineLabels: Array.isArray(goalLineLabels)
+      ? goalLineLabels.map((s) => (s == null ? null : String(s)))
+      : null,
     title: title || '',
     className: String(className || 'chs-chart-svg').replace(/\bis-compact\b/g, '').trim(),
     xLabel: xLabel || 'วัน',
@@ -2587,9 +2674,10 @@ export function renderSeriesChartSvg(
     </g>
   </g>`;
   const wrapClass = `chs-chart-wrap${enlarged ? ' is-enlarged' : ''}${compact ? ' is-compact' : ''}`;
-  const metaAttr = ` data-chs-digits="${digits}" data-chs-signed="${signed ? '1' : '0'}" data-chs-unit="${esc(unit || yAxisName || '')}" data-chs-points="${esc(JSON.stringify(scrubPts))}" data-chs-geom="${esc(JSON.stringify(geom))}" data-chs-series="${esc(JSON.stringify(seriesPayload))}"`;
+  const goalZeroAttr = refsAreFlatZero ? ' data-chs-goal-zero="1"' : '';
+  const metaAttr = ` data-chs-digits="${digits}" data-chs-signed="${signed ? '1' : '0'}" data-chs-unit="${esc(unit || yAxisName || '')}" data-chs-points="${esc(JSON.stringify(scrubPts))}" data-chs-geom="${esc(JSON.stringify(geom))}" data-chs-series="${esc(JSON.stringify(seriesPayload))}"${goalZeroAttr}`;
   return `<div class="${wrapClass}" data-chs-chart="1"${metaAttr}>
-    <svg class="${esc(className)} is-interactive${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${compact ? ' is-compact' : axesClass}${enlarged ? ' is-enlarged' : ''}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${line}${dots}${valLabels}${yTickLabels}${xTickLabels}${cross}${hit}</svg>
+    <svg class="${esc(className)} is-interactive${signed ? ' is-signed' : ''}${refPts.length ? ' has-refline' : ''}${refsAreFlatZero ? ' has-goal-zero' : ''}${compact ? ' is-compact' : axesClass}${enlarged ? ' is-enlarged' : ''}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${esc(scaleHint)}">${yTitle}${grid}${axisLines}${zeroLine}${area}${refLine}${refLabelHtml}${line}${dots}${valLabels}${yTickLabels}${xTickLabels}${cross}${hit}</svg>
     <div class="chs-chart-tip" hidden></div>
     ${scaleBlock}
   </div>`;
@@ -2613,7 +2701,8 @@ function formatChsTip(wrap, p) {
   const unitBit = unit ? ` ${unit}` : '';
   // Prefer short axis date (14/11) over raw ISO key (2026-11-14).
   const dateBit = p.t || (p.d ? shortDateTick(p.d) : '') || '';
-  return dateBit ? `${dateBit} · ${val}${unitBit}` : `${val}${unitBit}`;
+  const goalBit = p.gl ? ` · ${p.gl}` : '';
+  return dateBit ? `${dateBit} · ${val}${unitBit}${goalBit}` : `${val}${unitBit}${goalBit}`;
 }
 
 function clientToSvgPoint(svg, clientX, clientY) {
@@ -2740,6 +2829,33 @@ function showChsScrub(wrap, clientX, clientY, { keepClass = true } = {}) {
 
   cross.removeAttribute('hidden');
   if (keepClass) wrap.classList.add('is-scrubbing');
+
+  // Move/update goal-threshold label with the scrubbed day (line stays at y=0).
+  const refLabel = svg.querySelector('.chs-chart-refline-label');
+  if (refLabel && p.gl) {
+    refLabel.textContent = p.gl;
+    const enlarged = svg.classList.contains('is-enlarged') || wrap.classList.contains('is-enlarged');
+    const lx = Math.min(padL + plotW - 2, p.x + (enlarged ? 8 : 4));
+    // Prefer anchoring near the zero/refline when this is a goal-zero chart.
+    let ly;
+    if (wrap.getAttribute('data-chs-goal-zero') === '1' && Number.isFinite(p.y)) {
+      // Series y is the value point; for flat-zero refs, place label on the zero row.
+      // Estimate zero from geom when signed series crosses 0: use mid of plot only as fallback.
+      const zeroYAttr = svg.querySelector('.chs-chart-refline.is-goal-zero, .chs-chart-zero');
+      let zeroY = null;
+      if (zeroYAttr) {
+        const y1 = Number(zeroYAttr.getAttribute('y1'));
+        const cy = Number(zeroYAttr.getAttribute('cy'));
+        zeroY = Number.isFinite(y1) ? y1 : Number.isFinite(cy) ? cy : null;
+      }
+      ly = (zeroY != null ? zeroY : p.y) - (enlarged ? 8 : 6);
+    } else {
+      ly = p.y - (enlarged ? 8 : 6);
+    }
+    const yClamp = Math.max(padT + 8, Math.min(padT + plotH - 4, ly));
+    refLabel.setAttribute('x', String(Number(lx.toFixed(1))));
+    refLabel.setAttribute('y', String(Number(yClamp.toFixed(1))));
+  }
 
   tip.textContent = formatChsTip(wrap, p);
   tip.hidden = false;
@@ -2885,6 +3001,8 @@ export function openCalorieChartOverlay(wrap) {
     title,
     referenceValues: series.referenceValues,
     referenceLegend: series.referenceLegend || '',
+    goalLineKcal: series.goalLineKcal,
+    goalLineLabels: series.goalLineLabels,
     compact: false,
     enlarged: true,
     valueLabels: false,
@@ -3189,6 +3307,8 @@ function chartCardHtml(
     dates = null,
     referenceValues = null,
     referenceLegend = '',
+    goalLineKcal = null,
+    goalLineLabels = null,
     compact = false,
     /** Sum the window in the headline (eat / balance / kg). Snapshots like waist stay last-value. */
     cumulative = false,
@@ -3206,6 +3326,8 @@ function chartCardHtml(
   const last = pts.length ? pts[pts.length - 1] : null;
   const refPts = (referenceValues || []).filter((v) => v != null && Number.isFinite(v));
   const lastRef = refPts.length ? refPts[refPts.length - 1] : null;
+  // Balance/blKg pass refs as flat 0 (threshold at goal) — do not treat as a protein-style target delta.
+  const refsAreFlatZero = refPts.length > 0 && refPts.every((v) => v === 0);
   const isRange = Number(dayCount) > 1;
   const rangeSum = Boolean(cumulative) && isRange && headline !== 'delta';
   const display = rangeSum ? sumFinite(values) : last;
@@ -3235,7 +3357,7 @@ function chartCardHtml(
         : signed
           ? formatSigned(display, digits)
           : String(round(display, digits));
-    if (display != null && displayRef != null) {
+    if (display != null && displayRef != null && !refsAreFlatZero) {
       const delta = round(display - displayRef, digits);
       const deltaWord = delta === 0 ? 'พอดีเป้า' : delta > 0 ? `+${delta}` : String(delta);
       lastLabel = compact ? `${lastLabel} ${deltaWord}` : `${lastLabel} · ${deltaWord}`;
@@ -3261,6 +3383,8 @@ function chartCardHtml(
     title,
     referenceValues,
     referenceLegend: compact ? '' : referenceLegend,
+    goalLineKcal,
+    goalLineLabels,
     compact,
     valueLabels,
   });
@@ -3310,8 +3434,24 @@ export function renderHomePinCardHtml(pinId, snap) {
         referenceLegend: '— — เป้าโปรตีน',
         headline: 'delta',
       },
-      'chart-balance': { title: 'Balance แคล', values: t.balance, signed: true, unit: 'kcal', digits: 0, cumulative: true },
-      'chart-blKg': { title: 'น้ำหนักบวกลบ', values: t.blKg, signed: true, unit: 'กก.', digits: 2, cumulative: true },
+      'chart-balance': {
+        title: 'Balance แคล',
+        values: t.balance,
+        signed: true,
+        unit: 'kcal',
+        digits: 0,
+        cumulative: true,
+        ...balanceGoalRefConfig(t),
+      },
+      'chart-blKg': {
+        title: 'น้ำหนักบวกลบ',
+        values: t.blKg,
+        signed: true,
+        unit: 'กก.',
+        digits: 2,
+        cumulative: true,
+        ...balanceGoalRefConfig(t),
+      },
     };
     const cfg = map[id];
     if (!cfg) return '';
@@ -3650,8 +3790,8 @@ export function renderHealthSheetHtml(snap) {
           headline: 'delta',
           dayCount: t.dayCount,
         })}
-        ${chartCardHtml('Balance แคล', t.balance, { signed: true, unit: 'kcal', digits: 0, pinId: 'chart-balance', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount })}
-        ${chartCardHtml('น้ำหนักบวกลบ', t.blKg, { signed: true, unit: 'กก.', digits: 2, pinId: 'chart-blKg', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount })}
+        ${chartCardHtml('Balance แคล', t.balance, { signed: true, unit: 'kcal', digits: 0, pinId: 'chart-balance', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount, ...balanceGoalRefConfig(t) })}
+        ${chartCardHtml('น้ำหนักบวกลบ', t.blKg, { signed: true, unit: 'กก.', digits: 2, pinId: 'chart-blKg', labels: t.labels, dates: t.dates, cumulative: true, dayCount: t.dayCount, ...balanceGoalRefConfig(t) })}
       </div>
     </section>`
     : '';

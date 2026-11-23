@@ -7613,8 +7613,47 @@ body:not(.calorie-only) .cal-topnav {
   stroke-dasharray: 4 3;
 }
 
+/* Balance / blKg: threshold at y=0 (intake − goal) — stronger than faint zero grid. */
+.chs-chart-svg .chs-chart-refline.is-goal-zero,
+.chs-chart-svg.has-goal-zero .chs-chart-refline {
+  stroke: #c2410c;
+  stroke-width: 1.85;
+  stroke-dasharray: 5 3.5;
+  opacity: 1;
+}
+
 .chs-chart-svg .chs-chart-refline-dot {
   fill: #c2410c;
+}
+
+.chs-chart-svg .chs-chart-refline-dot.is-goal-zero {
+  fill: #c2410c;
+  stroke: #c2410c;
+}
+
+.chs-chart-svg .chs-chart-refline-label {
+  fill: #c2410c;
+  font-size: 8px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.chs-chart-svg.is-enlarged .chs-chart-refline-label,
+.chs-chart-overlay .chs-chart-refline-label {
+  font-size: 11px;
+}
+
+body.light .chs-chart-svg .chs-chart-refline,
+body.light .chs-chart-svg .chs-chart-refline.is-goal-zero {
+  stroke: #c2410c;
+}
+
+body.light .chs-chart-svg .chs-chart-refline-dot,
+body.light .chs-chart-svg .chs-chart-refline-label,
+body.light .chs-chart-scale .chs-chart-ref-legend {
+  fill: #c2410c;
+  color: #c2410c;
 }
 
 .chs-chart-scale .chs-chart-ref-legend {
