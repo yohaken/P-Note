@@ -11350,17 +11350,124 @@ body.light .bm-halo {
 }
 .xp-detail-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
 }
 .xp-detail-actions .btn {
   flex: 1;
+  min-width: 6.5rem;
+}
+.xp-cues {
+  margin-top: 0.15rem;
+}
+.xp-cues-head {
+  margin: 0.35rem 0 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.xp-cues-list {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+.xp-cues-list li {
+  margin-bottom: 0.25rem;
+}
+.xp-yt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+.xp-yt-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.xp-yt-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.xp-yt-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+.xp-yt-err {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.78rem;
+}
+.xp-yt-embed {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #111;
+}
+.xp-yt-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 .xp-credit {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.7rem;
   text-align: center;
+}
+
+/* Today's plan chips on muscle sheet */
+.mt-plan {
+  margin: 0.35rem 0 0.55rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+.mt-plan-head {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+  color: var(--text);
+}
+.mt-plan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.mt-plan-chip {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  cursor: pointer;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mt-plan-chip.is-done {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: color-mix(in srgb, var(--accent) 70%, #1a1a1a);
 }
 
 .xp-more {

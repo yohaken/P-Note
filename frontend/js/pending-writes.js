@@ -2,7 +2,7 @@
  * Incremental pending-write queue for pre-hydrate / offline calorie edits.
  * Survives reload in localStorage; flushed by replaying ops on cloud base.
  */
-import { STORAGE_KEYS } from './config.js?v=345';
+import { STORAGE_KEYS } from './config.js?v=346';
 import {
   appendQuickMeal,
   appendQuickExercise,
@@ -12,11 +12,22 @@ import {
   formatMealCell,
   patchDay,
   ensureDay,
-} from './calorie.js?v=345';
-import { nowIso } from './clock.js?v=345';
+} from './calorie.js?v=346';
+import {
+  normalizeMuscleTree,
+  setMoveLogNames,
+  setMovePlanIds,
+} from './muscle-tree.js?v=346';
+import {
+  normalizeExerciseFavs,
+  normalizeExerciseMedia,
+} from './settings.js?v=346';
+import { nowIso } from './clock.js?v=346';
 
 /** Note is handled via appendMeal labels unless it is the only change. */
 const SCALAR_KEYS = ['weight', 'waist', 'bodyFat', 'base', 'addCal', 'water'];
+
+const SETTINGS_OP_KINDS = new Set(['setExerciseFav', 'setExerciseMedia']);
 
 function newOpId() {
   return `pw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -55,8 +66,13 @@ export function enqueuePendingWrites(ops) {
   return next;
 }
 
+export function isSettingsPendingOp(op) {
+  return Boolean(op && SETTINGS_OP_KINDS.has(op.kind));
+}
+
 /**
  * Diff previous calorie sheet vs next → incremental ops (not a full day snapshot).
+ * Also diffs muscleTree movePlan / moveLog / cells so tree edits survive pending flush.
  */
 export function diffCalorieToPendingOps(prevRaw, nextRaw) {
   const prev = normalizeCalorie(prevRaw);
@@ -163,6 +179,64 @@ export function diffCalorieToPendingOps(prevRaw, nextRaw) {
     }
   }
 
+  ops.push(...diffMuscleTreeToPendingOps(prev.muscleTree, next.muscleTree, at));
+  return ops;
+}
+
+function dayEntryEqual(a, b, key) {
+  const aa = a?.[key];
+  const bb = b?.[key];
+  if (!aa && !bb) return true;
+  if (!aa || !bb) return false;
+  return JSON.stringify(aa) === JSON.stringify(bb);
+}
+
+function diffMuscleTreeToPendingOps(prevRaw, nextRaw, at) {
+  const prev = normalizeMuscleTree(prevRaw);
+  const next = normalizeMuscleTree(nextRaw);
+  const ops = [];
+  if (prev === next) return ops;
+
+  const dates = new Set([
+    ...Object.keys(prev.movePlan || {}),
+    ...Object.keys(next.movePlan || {}),
+    ...Object.keys(prev.moveLog || {}),
+    ...Object.keys(next.moveLog || {}),
+  ]);
+  for (const dateKey of dates) {
+    if (!dayEntryEqual(prev.movePlan, next.movePlan, dateKey)) {
+      const entry = next.movePlan?.[dateKey];
+      ops.push({
+        id: newOpId(),
+        kind: 'setMovePlan',
+        dateKey,
+        ids: entry ? [...(entry.ids || [])] : [],
+        at: entry?.at ? new Date(entry.at).toISOString() : at,
+      });
+    }
+    if (!dayEntryEqual(prev.moveLog, next.moveLog, dateKey)) {
+      const entry = next.moveLog?.[dateKey];
+      ops.push({
+        id: newOpId(),
+        kind: 'setMoveLog',
+        dateKey,
+        names: entry ? [...(entry.names || [])] : [],
+        at: entry?.at ? new Date(entry.at).toISOString() : at,
+      });
+    }
+  }
+
+  const cellKeys = new Set([...Object.keys(prev.cells), ...Object.keys(next.cells)]);
+  const cells = {};
+  let cellChanged = false;
+  for (const k of cellKeys) {
+    if (prev.cells[k] === next.cells[k]) continue;
+    cells[k] = next.cells[k] == null ? null : next.cells[k];
+    cellChanged = true;
+  }
+  if (cellChanged) {
+    ops.push({ id: newOpId(), kind: 'patchMuscleCells', cells, at });
+  }
   return ops;
 }
 
@@ -207,6 +281,7 @@ export function applyPendingOpsToNotes(notesData, ops) {
   if (!ops?.length) return notesData;
   let calorie = normalizeCalorie(notesData?.calorie);
   for (const op of ops) {
+    if (isSettingsPendingOp(op)) continue;
     calorie = applyOneOp(calorie, op);
   }
   return {
@@ -216,8 +291,53 @@ export function applyPendingOpsToNotes(notesData, ops) {
   };
 }
 
+/**
+ * Replay settings-scoped pending ops onto a settings object (cloud as base).
+ * Does not full-overwrite — only patches favs / media keys.
+ */
+export function applyPendingOpsToSettings(settings, ops) {
+  if (!ops?.length) return settings;
+  let next = settings && typeof settings === 'object' ? { ...settings } : {};
+  let touched = false;
+  for (const op of ops) {
+    if (!isSettingsPendingOp(op)) continue;
+    const applied = applyOneSettingsOp(next, op);
+    if (applied !== next) {
+      next = applied;
+      touched = true;
+    }
+  }
+  return touched ? next : settings;
+}
+
+function applyOneSettingsOp(settings, op) {
+  if (op.kind === 'setExerciseFav') {
+    const id = String(op.exerciseId || '').trim();
+    if (!id) return settings;
+    const favs = new Set(normalizeExerciseFavs(settings.exerciseFavs));
+    if (op.on) favs.add(id);
+    else favs.delete(id);
+    return { ...settings, exerciseFavs: normalizeExerciseFavs([...favs]) };
+  }
+  if (op.kind === 'setExerciseMedia') {
+    const id = String(op.exerciseId || '').trim();
+    if (!id) return settings;
+    const media = { ...normalizeExerciseMedia(settings.exerciseMedia) };
+    const yt = String(op.yt || '').trim();
+    if (!yt) delete media[id];
+    else media[id] = { yt, at: op.at || nowIso() };
+    return { ...settings, exerciseMedia: normalizeExerciseMedia(media) };
+  }
+  return settings;
+}
+
 export function applyOneOp(calorie, op) {
   if (!op?.kind) return calorie;
+
+  if (op.kind === 'setMovePlan' || op.kind === 'setMoveLog' || op.kind === 'patchMuscleCells') {
+    return applyMuscleOp(calorie, op);
+  }
+
   const dateKey = String(op.dateKey || '').slice(0, 10);
   if (!dateKey) return calorie;
 
@@ -264,4 +384,61 @@ export function applyOneOp(calorie, op) {
   }
 
   return calorie;
+}
+
+function applyMuscleOp(calorie, op) {
+  const sheet = normalizeCalorie(calorie);
+  let tree = normalizeMuscleTree(sheet.muscleTree);
+  const atMs = Date.parse(String(op.at || '')) || Date.now();
+
+  if (op.kind === 'setMovePlan') {
+    const dateKey = String(op.dateKey || '').slice(0, 10);
+    if (!dateKey) return sheet;
+    tree = setMovePlanIds(tree, dateKey, op.ids || [], atMs);
+  } else if (op.kind === 'setMoveLog') {
+    const dateKey = String(op.dateKey || '').slice(0, 10);
+    if (!dateKey) return sheet;
+    tree = setMoveLogNames(tree, dateKey, op.names || [], atMs);
+  } else if (op.kind === 'patchMuscleCells') {
+    const cells = { ...tree.cells };
+    const cellAt = { ...(tree.cellAt || {}) };
+    const patch = op.cells && typeof op.cells === 'object' ? op.cells : {};
+    Object.entries(patch).forEach(([k, v]) => {
+      if (v == null) delete cells[k];
+      else cells[k] = v;
+      cellAt[k] = atMs;
+    });
+    tree = normalizeMuscleTree({ ...tree, cells, cellAt, updatedAt: nowIso() });
+  } else {
+    return sheet;
+  }
+
+  return normalizeCalorie({
+    ...sheet,
+    muscleTree: tree,
+    muscleTreeAt: tree.updatedAt || nowIso(),
+    updatedAt: nowIso(),
+  });
+}
+
+/** Build a setExerciseFav pending op. */
+export function makeSetExerciseFavOp(exerciseId, on) {
+  return {
+    id: newOpId(),
+    kind: 'setExerciseFav',
+    exerciseId: String(exerciseId || '').trim(),
+    on: Boolean(on),
+    at: nowIso(),
+  };
+}
+
+/** Build a setExerciseMedia pending op (yt empty = remove). */
+export function makeSetExerciseMediaOp(exerciseId, yt) {
+  return {
+    id: newOpId(),
+    kind: 'setExerciseMedia',
+    exerciseId: String(exerciseId || '').trim(),
+    yt: String(yt || '').trim(),
+    at: nowIso(),
+  };
 }

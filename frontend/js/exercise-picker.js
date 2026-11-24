@@ -1,6 +1,6 @@
 /**
  * Exercise picker sheet (+ ท่า): browse the library by beginner group, search, filter by
- * equipment, favorite moves, and add a move to the muscle table (optionally logged today).
+ * equipment, favorite moves, today's plan, and log a move as played.
  */
 import {
   ALL_EXERCISES,
@@ -12,10 +12,13 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=345';
-import { regionRestMap } from './muscle-tree.js?v=345';
+} from './muscle-map.js?v=346';
+import { regionRestMap } from './muscle-tree.js?v=346';
+import {
+  parseYoutubeVideoId,
+  youtubeNocookieEmbedUrl,
+} from './settings.js?v=346';
 
-const FAVS_KEY = 'pnote_ex_favs';
 const FAV_GROUP = 'fav';
 const SEARCH_LIMIT = 60;
 const TOAST_MS = 8000;
@@ -24,6 +27,11 @@ let deps = {
   getTree: () => null,
   getTodayKey: () => '',
   onAdd: () => null,
+  onPlanToday: () => null,
+  getFavs: () => new Set(),
+  setFav: () => {},
+  getMedia: () => null,
+  setMedia: () => ({ ok: false }),
   setStatus: () => {},
 };
 let els = {};
@@ -37,6 +45,9 @@ const eqSel = new Set();
 let toastTimer = 0;
 let toastUndo = null;
 const thumbCache = new Map();
+let cuesToken = 0;
+let ytDraft = '';
+let ytError = '';
 
 function esc(s) {
   return String(s ?? '')
@@ -77,6 +88,22 @@ function thumbHtml(e) {
 
 const exById = new Map(ALL_EXERCISES.map((e) => [e.id, e]));
 
+function loadFavs() {
+  try {
+    return new Set(deps.getFavs?.() || []);
+  } catch {
+    return new Set();
+  }
+}
+
+function mediaFor(id) {
+  try {
+    return deps.getMedia?.(id) || null;
+  } catch {
+    return null;
+  }
+}
+
 function detailHtml(e, tree, favs) {
   const imgs = exerciseImages(e);
   const fav = favs.has(e.id);
@@ -84,6 +111,13 @@ function detailHtml(e, tree, favs) {
   const photo = imgs.length
     ? `<div class="xp-detail-photo${imgs.length > 1 ? ' is-anim' : ''}">${imgs.slice(0, 2).map((u, i) => `<img class="xp-frame xp-frame-${i}" src="${esc(u)}" alt="${esc(`${e.name} จังหวะที่ ${i + 1}`)}" decoding="async">`).join('')}</div>`
     : '<p class="xp-empty">ยังไม่มีรูปท่านี้</p>';
+  const savedYt = String(mediaFor(e.id)?.yt || '');
+  const draft = ytDraft !== '' || ytError ? ytDraft : savedYt;
+  const videoId = parseYoutubeVideoId(savedYt);
+  const embed = videoId ? youtubeNocookieEmbedUrl(videoId) : '';
+  const embedBlock = embed
+    ? `<div class="xp-yt-embed"><iframe src="${esc(embed)}" title="YouTube" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`
+    : '';
   return `<div class="xp-detail">
       ${photo}
       <h3 class="xp-detail-th">${esc(e.name)}</h3>
@@ -97,25 +131,22 @@ function detailHtml(e, tree, favs) {
       </div>
       <div class="xp-detail-actions">
         <button type="button" class="xp-star${fav ? ' is-on' : ''}" data-xp-fav="${esc(e.id)}" aria-pressed="${fav}" aria-label="${fav ? 'เอาออกจากท่าโปรด' : 'เพิ่มเป็นท่าโปรด'}">${fav ? '★' : '☆'}</button>
-        <button type="button" class="btn btn-primary" data-xp-today="${esc(e.name)}" title="ติ๊กกล้ามหลัก/รองของท่านี้ว่าเล่นวันนี้">เล่นวันนี้</button>
+        <button type="button" class="btn btn-secondary" data-xp-plan="${esc(e.id)}" title="ใส่ในแผนวันนี้ · ไม่ติ๊กกล้าม">ใส่แผนวันนี้</button>
+        <button type="button" class="btn btn-primary" data-xp-today="${esc(e.name)}" title="ติ๊กกล้ามหลัก/รองของท่านี้ว่าเล่นแล้ววันนี้">เล่นแล้ว</button>
       </div>
-      <p class="xp-credit">รูป: free-exercise-db (สาธารณสมบัติ)</p>
+      <div class="xp-cues" data-xp-cues="${esc(e.id)}"><p class="xp-empty">กำลังโหลดวิธีเล่น…</p></div>
+      <div class="xp-yt">
+        <label class="xp-yt-label" for="xp-yt-input">ลิงก์ YouTube (ถ้ามี)</label>
+        <div class="xp-yt-row">
+          <input id="xp-yt-input" class="xp-yt-input" type="url" inputmode="url" autocomplete="off" placeholder="https://youtu.be/…" value="${esc(draft)}" data-xp-yt-input>
+          <button type="button" class="btn btn-secondary" data-xp-yt-save>บันทึก</button>
+          ${savedYt ? '<button type="button" class="btn btn-secondary" data-xp-yt-clear>ลบ</button>' : ''}
+        </div>
+        ${ytError ? `<p class="xp-yt-err" role="alert">${esc(ytError)}</p>` : ''}
+        ${embedBlock}
+      </div>
+      <p class="xp-credit">รูป · วิธีเล่น: free-exercise-db (สาธารณสมบัติ)</p>
     </div>`;
-}
-
-function loadFavs() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(FAVS_KEY) || '[]');
-    return new Set(Array.isArray(raw) ? raw.filter((x) => typeof x === 'string') : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveFavs(favs) {
-  try {
-    localStorage.setItem(FAVS_KEY, JSON.stringify([...favs]));
-  } catch { /* storage blocked */ }
 }
 
 function libraryFiltered() {
@@ -236,7 +267,7 @@ function rowHtml(e, tree, favs) {
         </span>
       </button>
       <button type="button" class="xp-star${fav ? ' is-on' : ''}" data-xp-fav="${esc(e.id)}" aria-pressed="${fav}" aria-label="${fav ? 'เอาออกจากท่าโปรด' : 'เพิ่มเป็นท่าโปรด'}">${fav ? '★' : '☆'}</button>
-      <button type="button" class="btn btn-secondary xp-today" data-xp-today="${esc(e.name)}" title="ติ๊กกล้ามของท่านี้ว่าเล่นวันนี้">เล่นวันนี้</button>
+      <button type="button" class="btn btn-secondary xp-today" data-xp-today="${esc(e.name)}" title="ติ๊กกล้ามของท่านี้ว่าเล่นแล้ววันนี้">เล่นแล้ว</button>
     </div>`;
 }
 
@@ -291,14 +322,54 @@ function paint() {
   els.body.dataset.view = view;
   els.body.scrollTop = keepScroll ? top : listScroll.restore ? listScroll.top : 0;
   listScroll.restore = false;
+  if (detail) void loadCuesIntoDetail(detail);
 }
 
 const listScroll = { view: '', top: 0, restore: false };
+
+/** free-exercise-db photo id used for cues JSON (library id may differ). */
+function fedbIdOf(e) {
+  if (!e) return '';
+  if (typeof e.img === 'string' && e.img.trim()) return e.img.trim();
+  const id = String(e.id || '');
+  return id.startsWith('db-') ? id.slice(3) : id;
+}
+
+async function loadCuesIntoDetail(exercise) {
+  const hostId = exercise?.id || '';
+  const fedbId = fedbIdOf(exercise);
+  const token = ++cuesToken;
+  const host = els.body?.querySelector?.(`[data-xp-cues="${CSS.escape(hostId)}"]`);
+  if (!host) return;
+  if (!fedbId) {
+    host.innerHTML = '';
+    return;
+  }
+  try {
+    const mod = await import(`./exercise-cues.js?v=346`);
+    if (token !== cuesToken) return;
+    const steps = await mod.loadExerciseInstructions(fedbId);
+    if (token !== cuesToken) return;
+    const cur = els.body?.querySelector?.(`[data-xp-cues="${CSS.escape(hostId)}"]`);
+    if (!cur) return;
+    if (!steps.length) {
+      cur.innerHTML = '';
+      return;
+    }
+    cur.innerHTML = `<h4 class="xp-cues-head">วิธีเล่น (English)</h4><ol class="xp-cues-list">${steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`;
+  } catch {
+    if (token !== cuesToken) return;
+    const cur = els.body?.querySelector?.(`[data-xp-cues="${CSS.escape(hostId)}"]`);
+    if (cur) cur.innerHTML = '';
+  }
+}
 
 function openDetail(id) {
   listScroll.view = els.body?.dataset.view || '';
   listScroll.top = els.body?.scrollTop || 0;
   detailId = id;
+  ytDraft = '';
+  ytError = '';
   paint();
 }
 
@@ -326,12 +397,63 @@ function logToday(name) {
   paint();
 }
 
+function planToday(id) {
+  const res = deps.onPlanToday?.(id);
+  if (!res) return;
+  if (res.full) {
+    showToast('แผนวันนี้เต็มแล้ว (สูงสุด 30 ท่า)');
+    return;
+  }
+  if (res.already) {
+    showToast('อยู่ในแผนวันนี้แล้ว');
+    return;
+  }
+  if (res.added) showToast(`ใส่ ${res.name || 'ท่า'} ในแผนวันนี้แล้ว`);
+  paint();
+}
+
 function toggleFav(id) {
   const favs = loadFavs();
-  if (favs.has(id)) favs.delete(id);
-  else favs.add(id);
-  saveFavs(favs);
-  if (groupId === FAV_GROUP && !favs.size) groupId = null;
+  const nextOn = !favs.has(id);
+  deps.setFav?.(id, nextOn);
+  if (groupId === FAV_GROUP && !nextOn && loadFavs().size === 0) groupId = null;
+  paint();
+}
+
+function saveYtFromInput() {
+  const input = els.body?.querySelector?.('[data-xp-yt-input]');
+  const raw = String(input?.value || '').trim();
+  ytDraft = raw;
+  if (!raw) {
+    ytError = '';
+    deps.setMedia?.(detailId, null);
+    paint();
+    return;
+  }
+  const id = parseYoutubeVideoId(raw);
+  if (!id) {
+    ytError = 'ลิงก์ YouTube ไม่ถูกต้อง';
+    paint();
+    return;
+  }
+  const canonical = raw.includes('youtu.be/') || raw.includes('youtube.com/') || raw.includes('m.youtube.com/')
+    ? raw
+    : `https://youtu.be/${id}`;
+  const res = deps.setMedia?.(detailId, canonical);
+  if (res && res.ok === false) {
+    ytError = res.error || 'บันทึกไม่ได้';
+    paint();
+    return;
+  }
+  ytDraft = '';
+  ytError = '';
+  paint();
+}
+
+function clearYt() {
+  ytDraft = '';
+  ytError = '';
+  deps.setMedia?.(detailId, null);
   paint();
 }
 
@@ -352,6 +474,19 @@ function onBodyClick(e) {
   const fav = t?.closest?.('[data-xp-fav]');
   if (fav) {
     toggleFav(fav.dataset.xpFav);
+    return;
+  }
+  const plan = t?.closest?.('[data-xp-plan]');
+  if (plan) {
+    planToday(plan.dataset.xpPlan);
+    return;
+  }
+  if (t?.closest?.('[data-xp-yt-save]')) {
+    saveYtFromInput();
+    return;
+  }
+  if (t?.closest?.('[data-xp-yt-clear]')) {
+    clearYt();
     return;
   }
   const det = t?.closest?.('[data-xp-detail]');
@@ -379,6 +514,9 @@ function onEqClick(e) {
 function onBack() {
   if (detailId) {
     detailId = '';
+    ytDraft = '';
+    ytError = '';
+    cuesToken += 1;
     if (detailOnly) {
       detailOnly = false;
       closeExercisePicker();
@@ -395,6 +533,9 @@ function onBack() {
 
 function closeExercisePicker() {
   hideToast();
+  cuesToken += 1;
+  ytDraft = '';
+  ytError = '';
   if (els.overlay) els.overlay.hidden = true;
 }
 
@@ -444,15 +585,19 @@ export function initExercisePicker(opts = {}) {
   }, true);
 }
 
-/** Open straight to one move's photo + muscles (e.g. from a table row). */
-export function openExerciseDetail(name) {
-  const e = libraryExerciseByName(name);
+/** Open straight to one move's photo + muscles (e.g. from a table row or plan chip). */
+export function openExerciseDetail(nameOrId) {
+  const key = String(nameOrId || '').trim();
+  let e = exById.get(key) || null;
+  if (!e) e = libraryExerciseByName(key);
   if (!els.overlay || !e?.id || !exById.has(e.id)) return false;
   groupId = null;
   query = '';
   if (els.search) els.search.value = '';
   detailId = e.id;
   detailOnly = true;
+  ytDraft = '';
+  ytError = '';
   hideToast();
   paintChips();
   paint();
@@ -468,9 +613,17 @@ export function openExercisePicker({ groupId: gid } = {}) {
   showExtras = false;
   eqSel.clear();
   query = '';
+  ytDraft = '';
+  ytError = '';
   if (els.search) els.search.value = '';
   hideToast();
   paintChips();
   paint();
   els.overlay.hidden = false;
+}
+
+/** Re-paint if the picker is open (e.g. after plan / fav sync). */
+export function refreshExercisePicker() {
+  if (!els.overlay || els.overlay.hidden) return;
+  paint();
 }

@@ -14,8 +14,8 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=345';
-import { nowIso, nowMs as clockNowMs } from './clock.js?v=345';
+} from './muscle-map.js?v=346';
+import { nowIso, nowMs as clockNowMs } from './clock.js?v=346';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -277,6 +277,8 @@ function normalizeMuscleTreeFresh(raw) {
   if (aliases) out.aliases = aliases;
   const moveLog = normalizeMoveLog(src.moveLog, cutoff);
   if (moveLog) out.moveLog = moveLog;
+  const movePlan = normalizeMovePlan(src.movePlan, cutoff);
+  if (movePlan) out.movePlan = movePlan;
   const cellNotes = normalizeCellNotes(src.cellNotes, cutoff);
   if (cellNotes) out.cellNotes = cellNotes;
   if (regionNames) out.regionNames = regionNames;
@@ -520,6 +522,7 @@ export function setRegionName(tree, rid, name, nowMs = clockNowMs()) {
 }
 
 const MOVE_LOG_MAX = 30;
+export const MOVE_PLAN_MAX = 30;
 
 /**
  * Move names per date (guide only, not counted): { 'YYYY-MM-DD': { names, at } }.
@@ -540,6 +543,28 @@ function normalizeMoveLog(raw, cutoff) {
   return Object.keys(out).length ? out : null;
 }
 
+/**
+ * Today's-plan library exercise ids per date: { 'YYYY-MM-DD': { ids, at } }.
+ * Empty ids kept until stamp ages out (same idea as moveLog).
+ */
+function normalizeMovePlan(raw, cutoff) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  Object.keys(raw).forEach((dk) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dk)) return;
+    const at = stampMs(raw[dk]?.at);
+    if (!at) return;
+    const ids = [...new Set(
+      (Array.isArray(raw[dk]?.ids) ? raw[dk].ids : [])
+        .map((id) => String(id || '').trim())
+        .filter(Boolean),
+    )].slice(0, MOVE_PLAN_MAX);
+    if (!ids.length && !(at > cutoff)) return;
+    out[dk] = { ids, at };
+  });
+  return Object.keys(out).length ? out : null;
+}
+
 export function moveLogNames(tree, dateKey) {
   return normalizeMuscleTree(tree).moveLog?.[dateKey]?.names || [];
 }
@@ -549,6 +574,42 @@ export function setMoveLogNames(tree, dateKey, names, nowMs = clockNowMs()) {
   const t = normalizeMuscleTree(tree);
   const moveLog = { ...(t.moveLog || {}), [dateKey]: { names, at: nowMs } };
   return normalizeMuscleTree({ ...t, moveLog, updatedAt: nowIsoLocal() });
+}
+
+export function movePlanIds(tree, dateKey) {
+  return normalizeMuscleTree(tree).movePlan?.[dateKey]?.ids || [];
+}
+
+/** Replace a date's plan ids (empty list clears it). */
+export function setMovePlanIds(tree, dateKey, ids, nowMs = clockNowMs()) {
+  const t = normalizeMuscleTree(tree);
+  const clean = [...new Set(
+    (Array.isArray(ids) ? ids : []).map((id) => String(id || '').trim()).filter(Boolean),
+  )].slice(0, MOVE_PLAN_MAX);
+  const movePlan = { ...(t.movePlan || {}), [dateKey]: { ids: clean, at: nowMs } };
+  return normalizeMuscleTree({ ...t, movePlan, updatedAt: nowIsoLocal() });
+}
+
+/**
+ * Add one library exercise id to today's plan.
+ * @returns {{ tree, added: boolean, full: boolean, already: boolean }}
+ */
+export function addMovePlanId(tree, dateKey, exerciseId, nowMs = clockNowMs()) {
+  const id = String(exerciseId || '').trim();
+  const t = normalizeMuscleTree(tree);
+  if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    return { tree: t, added: false, full: false, already: false };
+  }
+  const cur = [...(t.movePlan?.[dateKey]?.ids || [])];
+  if (cur.includes(id)) return { tree: t, added: false, full: false, already: true };
+  if (cur.length >= MOVE_PLAN_MAX) return { tree: t, added: false, full: true, already: false };
+  cur.push(id);
+  return {
+    tree: setMovePlanIds(t, dateKey, cur, nowMs),
+    added: true,
+    full: false,
+    already: false,
+  };
 }
 
 export const CELL_NOTE_MAX = 500;
@@ -913,6 +974,7 @@ function treeContentKey(tree) {
     t.restScale,
     t.restProfile,
     t.moveLog || null,
+    t.movePlan || null,
     t.cellNotes || null,
     t.regionNames || null,
     t.groupNames || null,
@@ -929,7 +991,7 @@ export function muscleTreeNeedsPush(localCalorie, remoteCalorie) {
   return treeContentKey(merged) !== treeContentKey(remoteCalorie?.muscleTree);
 }
 
-const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.cellNotes || t.regionNames || t.groupNames || t.hidden || t.orderMap || t.parentMap || t.nodes.some((n) => n.at));
+const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.movePlan || t.cellNotes || t.regionNames || t.groupNames || t.hidden || t.orderMap || t.parentMap || t.nodes.some((n) => n.at));
 
 /**
  * A tree from a build before stamps (it strips them) that was saved last: every row and cell
@@ -1002,6 +1064,8 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   Object.entries(a.aliases || {}).forEach(([k, v]) => { if (!aliases[k] || aliases[k].at <= v.at) aliases[k] = v; });
   const moveLog = { ...(b.moveLog || {}) };
   Object.entries(a.moveLog || {}).forEach(([k, v]) => { if (!moveLog[k] || moveLog[k].at <= v.at) moveLog[k] = v; });
+  const movePlan = { ...(b.movePlan || {}) };
+  Object.entries(a.movePlan || {}).forEach(([k, v]) => { if (!movePlan[k] || movePlan[k].at <= v.at) movePlan[k] = v; });
   const cellNotes = { ...(b.cellNotes || {}) };
   Object.entries(a.cellNotes || {}).forEach(([k, v]) => { if (!cellNotes[k] || cellNotes[k].at <= v.at) cellNotes[k] = v; });
   const regionNames = { ...(b.regionNames || {}) };
@@ -1014,7 +1078,7 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   Object.entries(a.orderMap || {}).forEach(([k, v]) => { if (!orderMap[k] || orderMap[k].at <= v.at) orderMap[k] = v; });
   const parentMap = { ...(b.parentMap || {}) };
   Object.entries(a.parentMap || {}).forEach(([k, v]) => { if (!parentMap[k] || parentMap[k].at <= v.at) parentMap[k] = v; });
-  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, cellNotes, regionNames, groupNames, hidden, orderMap, parentMap });
+  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, movePlan, cellNotes, regionNames, groupNames, hidden, orderMap, parentMap });
 }
 
 export function isLeafNode(node, nodes) {

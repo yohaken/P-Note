@@ -1,12 +1,12 @@
-import { STORAGE_KEYS } from './config.js?v=345';
-import { compareStamp, nowIso } from './clock.js?v=345';
-import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=345';
+import { STORAGE_KEYS } from './config.js?v=346';
+import { compareStamp, nowIso } from './clock.js?v=346';
+import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=346';
 import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
-} from './schedule.js?v=345';
-import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=345';
-import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=345';
+} from './schedule.js?v=346';
+import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=346';
+import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=346';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -116,6 +116,10 @@ const DEFAULTS = {
   calorieHomePins: [],
   /** Favorite foods for the meal-add sheet (name + kcal + protein) */
   calorieMealPins: [],
+  /** Favorite library exercise ids (ท่าโปรด) — synced via settingsSync */
+  exerciseFavs: [],
+  /** Optional per-exercise media: { [id]: { yt, at? } } */
+  exerciseMedia: {},
   /** Brand / PWA install icon id (see app-icons.js) */
   appIconId: DEFAULT_APP_ICON_ID,
   /** Must-ack reminder notes shown when entering a page (see ACK_NOTE_PAGES). */
@@ -124,6 +128,94 @@ const DEFAULTS = {
 
 export const CALORIE_MEAL_PINS_MAX = 30;
 export const CALORIE_MEAL_PIN_NAME_MAX = 80;
+export const EXERCISE_FAVS_MAX = 80;
+const LEGACY_EX_FAVS_KEY = 'pnote_ex_favs';
+
+/** Normalize favorite exercise ids: unique strings, capped. */
+export function normalizeExerciseFavs(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const item of raw) {
+    const id = String(item || '').trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+    if (out.length >= EXERCISE_FAVS_MAX) break;
+  }
+  return out;
+}
+
+/**
+ * One-shot: union localStorage pnote_ex_favs into settings.exerciseFavs.
+ * Returns the merged list; caller should stop writing the legacy key.
+ */
+export function migrateLegacyExerciseFavs(current) {
+  const base = normalizeExerciseFavs(current);
+  let legacy = [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(LEGACY_EX_FAVS_KEY) || '[]');
+    legacy = Array.isArray(raw) ? raw : [];
+  } catch { /* ignore */ }
+  if (!legacy.length) return base;
+  return normalizeExerciseFavs([...base, ...legacy]);
+}
+
+/** Clear legacy localStorage fav key after migration. */
+export function clearLegacyExerciseFavsKey() {
+  try { localStorage.removeItem(LEGACY_EX_FAVS_KEY); } catch { /* ignore */ }
+}
+
+/**
+ * Per-exercise media map: { [exerciseId]: { yt: url, at?: iso } }.
+ * Only keeps entries with a non-empty yt string.
+ */
+export function normalizeExerciseMedia(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [idRaw, val] of Object.entries(raw)) {
+    const id = String(idRaw || '').trim();
+    if (!id || !val || typeof val !== 'object') continue;
+    const yt = String(val.yt || '').trim().slice(0, 300);
+    if (!yt) continue;
+    const at = String(val.at || '').trim();
+    out[id] = at ? { yt, at } : { yt };
+  }
+  return out;
+}
+
+/** Extract YouTube video id from watch / youtu.be / shorts / embed URLs. */
+export function parseYoutubeVideoId(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return null;
+  let url;
+  try {
+    url = new URL(s.startsWith('http') ? s : `https://${s}`);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.replace(/^www\./, '').toLowerCase();
+  if (host !== 'youtube.com' && host !== 'm.youtube.com' && host !== 'youtu.be' && host !== 'youtube-nocookie.com') {
+    return null;
+  }
+  if (host === 'youtu.be') {
+    const id = url.pathname.split('/').filter(Boolean)[0] || '';
+    return /^[\w-]{11}$/.test(id) ? id : null;
+  }
+  const parts = url.pathname.split('/').filter(Boolean);
+  if (parts[0] === 'shorts' || parts[0] === 'embed' || parts[0] === 'live' || parts[0] === 'v') {
+    const id = parts[1] || '';
+    return /^[\w-]{11}$/.test(id) ? id : null;
+  }
+  const v = url.searchParams.get('v') || '';
+  return /^[\w-]{11}$/.test(v) ? v : null;
+}
+
+export function youtubeNocookieEmbedUrl(videoId) {
+  const id = String(videoId || '').trim();
+  if (!/^[\w-]{11}$/.test(id)) return '';
+  return `https://www.youtube-nocookie.com/embed/${id}`;
+}
 
 /** Identity key for a pinned meal name (trim + lowercase). */
 export function mealPinKey(name) {
@@ -637,6 +729,8 @@ export function loadSettings() {
         calorieTrendDays: normalizeCalorieTrendDays(null),
         calorieHomePins: normalizeCalorieHomePins(null),
         calorieMealPins: normalizeCalorieMealPins(null),
+        exerciseFavs: migrateLegacyExerciseFavs(null),
+        exerciseMedia: normalizeExerciseMedia(null),
         appIconId: DEFAULT_APP_ICON_ID,
         ackNotes: [],
       });
@@ -672,6 +766,8 @@ export function loadSettings() {
       calorieTrendDays: normalizeCalorieTrendDays(parsed.calorieTrendDays),
       calorieHomePins: normalizeCalorieHomePins(parsed.calorieHomePins),
       calorieMealPins: normalizeCalorieMealPins(parsed.calorieMealPins),
+      exerciseFavs: migrateLegacyExerciseFavs(parsed.exerciseFavs),
+      exerciseMedia: normalizeExerciseMedia(parsed.exerciseMedia),
       appIconId: normalizeAppIconId(parsed.appIconId),
       ackNotes: normalizeAckNotes(parsed.ackNotes),
     });
@@ -698,6 +794,8 @@ export function loadSettings() {
       calorieTrendDays: normalizeCalorieTrendDays(null),
       calorieHomePins: normalizeCalorieHomePins(null),
       calorieMealPins: normalizeCalorieMealPins(null),
+      exerciseFavs: migrateLegacyExerciseFavs(null),
+      exerciseMedia: normalizeExerciseMedia(null),
       appIconId: DEFAULT_APP_ICON_ID,
       ackNotes: [],
     });
@@ -741,10 +839,13 @@ export function saveSettings(settings, { fromCloud = false } = {}) {
     calorieTrendDays: normalizeCalorieTrendDays(settings.calorieTrendDays),
     calorieHomePins: normalizeCalorieHomePins(settings.calorieHomePins),
     calorieMealPins: normalizeCalorieMealPins(settings.calorieMealPins),
+    exerciseFavs: normalizeExerciseFavs(settings.exerciseFavs),
+    exerciseMedia: normalizeExerciseMedia(settings.exerciseMedia),
     appIconId: normalizeAppIconId(settings.appIconId),
     ackNotes: normalizeAckNotes(settings.ackNotes),
   });
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+  clearLegacyExerciseFavsKey();
 }
 
 /** Cloud-syncable settings blob (never includes Gemini API key). */
@@ -781,6 +882,8 @@ export function normalizeSettingsSync(raw) {
     calorieTrendDays: normalizeCalorieTrendDays(raw.calorieTrendDays),
     calorieHomePins: normalizeCalorieHomePins(raw.calorieHomePins),
     calorieMealPins: normalizeCalorieMealPins(raw.calorieMealPins),
+    exerciseFavs: normalizeExerciseFavs(raw.exerciseFavs),
+    exerciseMedia: normalizeExerciseMedia(raw.exerciseMedia),
     appIconId: normalizeAppIconId(raw.appIconId),
     ackNotes: normalizeAckNotes(raw.ackNotes),
   };
@@ -804,6 +907,8 @@ export function mergeSettingsFromCloud(localSettings, cloudRaw) {
   // so an older client / seed cannot wipe a newer local preference.
   const cloudHadAckNotes = Boolean(cloudRaw && typeof cloudRaw === 'object' && 'ackNotes' in cloudRaw);
   const cloudHadCalorieMealPins = Boolean(cloudRaw && typeof cloudRaw === 'object' && 'calorieMealPins' in cloudRaw);
+  const cloudHadExerciseFavs = Boolean(cloudRaw && typeof cloudRaw === 'object' && 'exerciseFavs' in cloudRaw);
+  const cloudHadExerciseMedia = Boolean(cloudRaw && typeof cloudRaw === 'object' && 'exerciseMedia' in cloudRaw);
   const cloud = normalizeSettingsSync(cloudRaw);
   if (!cloud) return localSettings;
   const localAt = String(localSettings?.cloudUpdatedAt || '').trim();
@@ -842,6 +947,12 @@ export function mergeSettingsFromCloud(localSettings, cloudRaw) {
     calorieMealPins: cloudHadCalorieMealPins
       ? cloud.calorieMealPins
       : normalizeCalorieMealPins(localSettings?.calorieMealPins),
+    exerciseFavs: cloudHadExerciseFavs
+      ? cloud.exerciseFavs
+      : normalizeExerciseFavs(localSettings?.exerciseFavs),
+    exerciseMedia: cloudHadExerciseMedia
+      ? cloud.exerciseMedia
+      : normalizeExerciseMedia(localSettings?.exerciseMedia),
     appIconId: cloud.appIconId,
     ackNotes: cloudHadAckNotes ? cloud.ackNotes : normalizeAckNotes(localSettings?.ackNotes),
     cloudUpdatedAt: cloud.updatedAt,
