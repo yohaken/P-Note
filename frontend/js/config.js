@@ -29,4 +29,6 @@ export const STORAGE_KEYS = {
   LEGACY_CALORIE_SPACE_ID: 'calorie_space_id',
   /** Set when a cloud push failed — retry on next online session. */
   CLOUD_PENDING: 'pnote_cloud_pending',
+  /** Incremental calorie ops queued before first cloud hydrate / while offline. */
+  PENDING_WRITES: 'pnote_pending_writes',
 };

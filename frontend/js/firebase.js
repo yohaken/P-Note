@@ -4,7 +4,11 @@ import {
   getAuth,
   setPersistence,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 /**
  * MyNote (mynote-f1bbc) — fallback when /__/firebase/init.json is unavailable
@@ -52,7 +56,25 @@ export async function initFirebase() {
   const config = await loadFirebaseConfig();
   app = initializeApp(config);
   auth = getAuth(app);
-  db = getFirestore(app);
+
+  try {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch (err) {
+    // Second init in the same page (HMR / double boot) — reuse existing.
+    const { getFirestore } = await import(
+      'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js'
+    );
+    try {
+      db = getFirestore(app);
+    } catch {
+      console.warn('initializeFirestore failed', err);
+      throw err;
+    }
+  }
 
   try {
     await setPersistence(auth, browserLocalPersistence);

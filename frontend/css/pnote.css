@@ -278,6 +278,11 @@ body {
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--success) 35%, transparent);
 }
 
+.sync-status-btn[data-state="pending"] .sync-status-glyph {
+  background: #d4a017;
+  box-shadow: 0 0 0 2px rgba(212, 160, 23, 0.25);
+  animation: sync-pulse 1.2s ease-in-out infinite;
+}
 .sync-status-btn[data-state="busy"] .sync-status-glyph {
   background: #c4a035;
   box-shadow: 0 0 0 1.5px color-mix(in srgb, #c4a035 35%, transparent);

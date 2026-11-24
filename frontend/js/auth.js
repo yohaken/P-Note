@@ -1,4 +1,4 @@
-import { auth, initFirebase } from './firebase.js?v=344';
+import { auth, initFirebase } from './firebase.js?v=345';
 import {
   onAuthStateChanged,
   signInAnonymously,
@@ -13,6 +13,14 @@ export const JUST_LOCKED_KEY = 'pnote_just_locked';
 
 /** While true, watchAuth never recreates an anonymous session. */
 let authSuppressed = false;
+
+function syncTestHook() {
+  try {
+    return typeof window !== 'undefined' ? window.__PNOTE_SYNC_TEST__ : null;
+  } catch {
+    return null;
+  }
+}
 
 function gateToken() {
   return `v1:${APP_PIN}`;
@@ -77,7 +85,17 @@ function mapAuthError(error) {
   return new Error(msg || 'เข้าสู่ระบบไม่สำเร็จ');
 }
 
+function fakeTestUser() {
+  const hook = syncTestHook();
+  if (hook && typeof hook.getUser === 'function') return hook.getUser();
+  return { uid: 'pnote-sync-test', isAnonymous: true };
+}
+
 async function ensureCloudSession() {
+  const hook = syncTestHook();
+  if (hook && hook.skipAuth) {
+    return fakeTestUser();
+  }
   await initFirebase();
   if (auth.currentUser) return auth.currentUser;
   const result = await signInAnonymously(auth);
@@ -90,6 +108,8 @@ export function isAuthRedirectPending() {
 }
 
 export async function handleAuthRedirect() {
+  const hook = syncTestHook();
+  if (hook && hook.skipAuth) return null;
   await initFirebase();
   return null;
 }
@@ -127,6 +147,15 @@ export async function getAllowedUser() {
 }
 
 export function watchAuth(callback) {
+  const hook = syncTestHook();
+  if (hook && hook.skipAuth) {
+    if (!authSuppressed && isPinUnlocked()) {
+      Promise.resolve().then(() => callback(fakeTestUser()));
+    } else {
+      Promise.resolve().then(() => callback(null));
+    }
+    return () => {};
+  }
   return onAuthStateChanged(auth, async (user) => {
     if (authSuppressed || !isPinUnlocked()) {
       callback(null);
@@ -161,6 +190,8 @@ export async function signOut() {
   } catch {
     /* ignore */
   }
+  const hook = syncTestHook();
+  if (hook && hook.skipAuth) return;
   await initFirebase();
   try {
     await firebaseSignOut(auth);

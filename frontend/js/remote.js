@@ -1,8 +1,8 @@
-import { STORAGE_KEYS } from './config.js?v=344';
-import { initFirebase, getDb, auth } from './firebase.js?v=344';
-import { nowIso, setClockOffset } from './clock.js?v=344';
-import { emptyDeletions, normalizeDeletions } from './deletions.js?v=344';
-import { notesDataForCloudPush } from './import-data.js?v=344';
+import { STORAGE_KEYS } from './config.js?v=345';
+import { initFirebase, getDb, auth } from './firebase.js?v=345';
+import { nowIso, setClockOffset } from './clock.js?v=345';
+import { emptyDeletions, normalizeDeletions } from './deletions.js?v=345';
+import { notesDataForCloudPush } from './import-data.js?v=345';
 import {
   doc,
   getDoc,
@@ -10,6 +10,15 @@ import {
   onSnapshot,
   runTransaction,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+
+/** Test seam — harness may set window.__PNOTE_SYNC_TEST__ before modules run. */
+function syncTestHook() {
+  try {
+    return typeof window !== 'undefined' ? window.__PNOTE_SYNC_TEST__ : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Direct Firestore sync (no Express API).
@@ -145,6 +154,10 @@ function anchorClock(snap) {
 }
 
 export async function fetchRemoteNotes(spaceId) {
+  const hook = syncTestHook();
+  if (hook && typeof hook.fetchRemoteNotes === 'function') {
+    return normalizePayload(await hook.fetchRemoteNotes(spaceId || SHARED_SPACE_ID));
+  }
   await initFirebase();
   requireSignedIn();
   const snap = await getDoc(spaceRef(spaceId || SHARED_SPACE_ID));
@@ -181,11 +194,34 @@ export async function pushRemoteNotes(spaceId, data) {
  * @returns {Promise<{ written: boolean, data: object, remote: object }>}
  */
 export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
-  await initFirebase();
-  requireSignedIn();
   if (typeof resolveMerged !== 'function') {
     throw new Error('resolveMerged required');
   }
+  const hook = syncTestHook();
+  if (hook && typeof hook.pushRemoteNotesMerged === 'function') {
+    const remote = normalizePayload(
+      typeof hook.getRemote === 'function'
+        ? hook.getRemote(spaceId || SHARED_SPACE_ID)
+        : emptyPayload(),
+    );
+    const decision = resolveMerged(remote);
+    if (!decision || decision.write === false) {
+      return {
+        written: false,
+        data: decision?.data != null ? decision.data : remote,
+        remote,
+      };
+    }
+    const payload = toFirestorePayload(decision.data, {
+      settingsSync: decision.settingsSync,
+    });
+    if (typeof hook.commitRemote === 'function') {
+      hook.commitRemote(spaceId || SHARED_SPACE_ID, payload);
+    }
+    return { written: true, data: payload, remote };
+  }
+  await initFirebase();
+  requireSignedIn();
   const ref = spaceRef(spaceId || SHARED_SPACE_ID);
   // runTransaction = optimistic concurrency + automatic retry on conflict.
   return runTransaction(getDb(), async (transaction) => {
@@ -215,6 +251,12 @@ export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
  * @param {(err: Error) => void} [onError]
  */
 export async function watchRemoteNotes(spaceId, onData, onError) {
+  const hook = syncTestHook();
+  if (hook && typeof hook.watchRemoteNotes === 'function') {
+    return hook.watchRemoteNotes(spaceId || SHARED_SPACE_ID, (raw) => {
+      onData(normalizePayload(raw));
+    }, onError);
+  }
   await initFirebase();
   requireSignedIn();
   return onSnapshot(

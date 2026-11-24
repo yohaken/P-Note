@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=344';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=344';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=344';
-import { CONFIG } from './config.js?v=344';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=344';
-import { nowIso } from './clock.js?v=344';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=345';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=345';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=345';
+import { CONFIG } from './config.js?v=345';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=345';
+import { nowIso } from './clock.js?v=345';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=344';
+} from './auth.js?v=345';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=344';
+} from './notes.js?v=345';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=344';
+} from './sheet.js?v=345';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -136,7 +136,7 @@ import {
   dayExerciseEntries,
   setDayExerciseEntries,
   parseExerciseCell,
-} from './calorie.js?v=344';
+} from './calorie.js?v=345';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -187,7 +187,7 @@ import {
   CELL_NOTE_MAX,
   getCellNote,
   setCellNote,
-} from './muscle-tree.js?v=344';
+} from './muscle-tree.js?v=345';
 import {
   musclePhotoKeys,
   musclePhotosFor,
@@ -198,7 +198,7 @@ import {
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
-} from './muscle-photos.js?v=344';
+} from './muscle-photos.js?v=345';
 import {
   EQUIPMENT_TH,
   BEGINNER_GROUPS,
@@ -217,9 +217,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=344';
-import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=344';
-import { mountDrumPicker } from './drum-picker.js?v=344';
+} from './muscle-map.js?v=345';
+import { initExercisePicker, openExercisePicker, openExerciseDetail } from './exercise-picker.js?v=345';
+import { mountDrumPicker } from './drum-picker.js?v=345';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -227,8 +227,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=344';
-import { bindComposableInput } from './text-input.js?v=344';
+} from './note-text.js?v=345';
+import { bindComposableInput } from './text-input.js?v=345';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -269,14 +269,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=344';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin } from './settings.js?v=344';
+} from './schedule.js?v=345';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin } from './settings.js?v=345';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=344';
+} from './app-icons.js?v=345';
 import {
   allIcons,
   bestIconForLabel,
@@ -285,7 +285,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=344';
+} from './icons.js?v=345';
 import {
   notificationPermission,
   notificationSupported,
@@ -294,27 +294,27 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=344';
+} from './note-notify.js?v=345';
 import {
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=344';
+} from './files.js?v=345';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=344');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=345');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=344');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=345');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=344');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=345');
   return userContextModPromise;
 }
 
@@ -338,7 +338,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=344';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=345';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -347,11 +347,19 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=344';
-import { normalizeNotesData } from './notes.js?v=344';
-import { SaveManager } from './sync.js?v=344';
-import { emptyDeletions } from './deletions.js?v=344';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=344';
+} from './remote.js?v=345';
+import { normalizeNotesData } from './notes.js?v=345';
+import { SaveManager } from './sync.js?v=345';
+import { emptyDeletions } from './deletions.js?v=345';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=345';
+import {
+  loadPendingWrites,
+  savePendingWrites,
+  clearPendingWrites,
+  enqueuePendingWrites,
+  diffCalorieToPendingOps,
+  applyPendingOpsToNotes,
+} from './pending-writes.js?v=345';
 
 const state = {
   notesData: {
@@ -371,10 +379,12 @@ const state = {
     const m = loadSettings().appMode;
     return (m === 'note' || m === 'calendar' || m === 'calorie') ? m : 'work';
   }(),
-  /** True after first successful Firestore pull this session — gates cloud writes. */
+  /** True after first successful Firestore snapshot this session — gates full-doc cloud push. */
   cloudHydrated: false,
-  /** True only when signed in + cloud hydrated + online — user may enter data. */
+  /** True after local paint + PIN unlock path — local edits allowed before cloud hydrate. */
   syncReady: false,
+  /** True while first snapshot or pending-op flush is in flight. */
+  syncBusy: false,
   /** Calendar view state (Apple-style: vertical months + year zoom) */
   calendarMonth: new Date().getMonth(),
   calendarYear: new Date().getFullYear(),
@@ -876,21 +886,20 @@ let cloudPendingTimer = null;
 let syncSavedTimer = null;
 let ensureCloudReadyInFlight = null;
 
+/** Local edits are allowed once PIN is unlocked — cloud hydrate is non-blocking. */
 function isSyncReady() {
-  if (!state.syncReady || !state.authUser) return false;
-  // Online: must finish first cloud pull before edits / push.
-  if (navigator.onLine && !state.cloudHydrated) return false;
-  return true;
+  if (!isPinUnlocked()) return false;
+  return Boolean(state.syncReady);
 }
 
-/** Block UI until first successful cloud pull (online + signed in). */
+/** First-sync must NOT block input; gate only kept for genuine hard failures. */
 function needsSyncGate() {
-  return Boolean(state.authUser && navigator.onLine && !state.cloudHydrated);
+  return false;
 }
 
-/** @deprecated Use needsSyncGate */
+/** @deprecated Gate removed for normal first-sync. */
 function needsFirstCloudPull() {
-  return needsSyncGate();
+  return false;
 }
 
 function hideSyncGate() {
@@ -899,6 +908,7 @@ function hideSyncGate() {
 }
 
 function showSyncGate(title = 'กำลังซิงค์…', sub = 'รอซิงค์สำเร็จก่อนใส่ข้อมูล') {
+  // Overlay DOM kept for boot/module-load failures; normal sync never gates.
   if (els.authOverlay && !els.authOverlay.hidden) {
     hideSyncGate();
     return;
@@ -914,23 +924,30 @@ function showSyncGate(title = 'กำลังซิงค์…', sub = 'รอ
 }
 
 function refreshSyncGateUi() {
-  if (els.authOverlay && !els.authOverlay.hidden) {
-    hideSyncGate();
+  hideSyncGate();
+}
+
+function pendingWriteCount() {
+  return loadPendingWrites().length;
+}
+
+function refreshPendingSyncBadge() {
+  const n = pendingWriteCount();
+  if (n > 0) {
+    setSyncStatus('pending', `รอซิงค์ · ${n} รายการ`);
     return;
   }
-  if (!state.authUser) {
-    hideSyncGate();
+  if (state.syncBusy || (navigator.onLine && state.authUser && !state.cloudHydrated)) {
+    setSyncStatus('busy', 'กำลังซิงค์');
     return;
   }
-  // Cloud-first: anything not ready stays gated with blur + popup.
-  if (isSyncReady()) {
-    hideSyncGate();
+  if (!navigator.onLine) {
+    setSyncStatus('offline', 'ออฟไลน์ · บันทึกในเครื่อง');
     return;
   }
-  showSyncGate(
-    navigator.onLine ? 'กำลังซิงค์…' : 'รอซิงค์…',
-    navigator.onLine ? 'รอซิงค์สำเร็จก่อนใส่ข้อมูล' : 'ไม่มีเน็ต · รอเชื่อมใหม่',
-  );
+  if (state.cloudHydrated) {
+    setSyncStatus('ok', 'พร้อมใส่ข้อมูล');
+  }
 }
 
 let stopRemoteWatch = null;
@@ -968,13 +985,59 @@ function applySettingsFromCloudPayload(remoteRaw) {
 }
 
 /**
+ * First cloud snapshot: cloud is source of truth; replay pending ops on top.
+ * Later snapshots use mergeNotesByUpdatedAt / mergeCalorieByUpdatedAt as before.
+ */
+function applyFirstCloudSnapshot(remoteRaw) {
+  applySettingsFromCloudPayload(remoteRaw);
+  const remote = normalizeNotesData(remoteRaw);
+  const remoteHas = hasCloudContent(remote);
+  const localHas = hasCloudContent(state.notesData);
+  const pending = loadPendingWrites();
+
+  let base;
+  if (remoteHas) {
+    // Prefer cloud SoT — do not let stale cached days without pending ops win.
+    base = remote;
+  } else if (localHas) {
+    // Empty cloud + local content → keep local (one-shot migrate via flush/heal).
+    base = normalizeNotesData(state.notesData);
+  } else {
+    base = remote;
+  }
+
+  const withPending = pending.length
+    ? applyPendingOpsToNotes(base, pending)
+    : base;
+
+  state.notesData = normalizeNotesData(withPending);
+  state.online = true;
+  state.cloudHydrated = true;
+  state.syncBaseUpdatedAt = state.notesData?.updatedAt || remote?.updatedAt || null;
+  saveNotes(state.notesData);
+
+  if (state.view === 'list' || state.view === 'calendar' || state.view === 'calorie') {
+    renderModeSwitcher();
+    if (state.view === 'calendar') renderCalendar();
+    else if (state.view === 'calorie') renderCalorieSheet({ preserveScroll: true });
+    else renderNotesList();
+  }
+
+  void flushPendingWritesToCloud();
+  refreshPendingSyncBadge();
+  return true;
+}
+
+/**
  * Merge an incoming cloud payload into live state and repaint if anything
- * changed. Shared by the Firestore onSnapshot listener AND the fast
- * background poll so both paths apply updates identically.
+ * changed. Used by onSnapshot after the first hydrate.
  * @returns {boolean} true when state actually changed.
  */
 function applyRemotePayload(remoteRaw) {
-  if (!state.syncReady || !state.authUser) return false;
+  if (!state.authUser) return false;
+  if (!state.cloudHydrated) {
+    return applyFirstCloudSnapshot(remoteRaw);
+  }
   applySettingsFromCloudPayload(remoteRaw);
   const remote = normalizeNotesData(remoteRaw);
   const pinsBefore = homePinsFingerprint(state.notesData);
@@ -1006,6 +1069,74 @@ function applyRemotePayload(remoteRaw) {
   return true;
 }
 
+let pendingFlushInFlight = null;
+
+/**
+ * Replay queued ops inside a Firestore transaction on the latest remote.
+ * Mid-flight new ops stay in the queue.
+ */
+function flushPendingWritesToCloud() {
+  if (pendingFlushInFlight) return pendingFlushInFlight;
+  if (!state.cloudHydrated || !navigator.onLine || !state.authUser) {
+    refreshPendingSyncBadge();
+    return Promise.resolve(false);
+  }
+  const snapshot = loadPendingWrites();
+  if (!snapshot.length) {
+    refreshPendingSyncBadge();
+    return Promise.resolve(true);
+  }
+
+  state.syncBusy = true;
+  setSyncStatus('busy', 'กำลังซิงค์');
+  pendingFlushInFlight = (async () => {
+    try {
+      const spaceId = state.spaceId || getSpaceId();
+      const result = await pushRemoteNotesMerged(spaceId, (remoteRaw) => {
+        const remote = normalizeNotesData(remoteRaw);
+        const livePending = loadPendingWrites();
+        const flushed = livePending.length ? livePending : snapshot;
+        const next = applyPendingOpsToNotes(remote, flushed);
+        return {
+          write: true,
+          data: next,
+          settingsSync: settingsSyncForPush(remoteRaw),
+          _flushedIds: flushed.map((o) => o.id),
+        };
+      });
+      if (result?.written) {
+        const still = loadPendingWrites();
+        // Clear only ops that existed at flush start; keep mid-flight newcomers.
+        const flushedIds = new Set(snapshot.map((o) => o.id));
+        const remain = still.filter((o) => !flushedIds.has(o.id));
+        savePendingWrites(remain);
+        const adopted = normalizeNotesData(result.data);
+        const live = normalizeNotesData(state.notesData);
+        // Keep any newer local edits that landed during the txn.
+        state.notesData = mergeNotesByUpdatedAt(live, adopted);
+        if (remain.length) {
+          state.notesData = applyPendingOpsToNotes(
+            { ...adopted, calorie: state.notesData.calorie },
+            remain,
+          );
+        }
+        saveNotes(state.notesData);
+        if (state.view === 'calorie') renderCalorieSheet({ preserveScroll: true });
+      }
+      return Boolean(result?.written);
+    } catch (err) {
+      console.warn('pending flush failed', err);
+      markCloudPending();
+      return false;
+    } finally {
+      pendingFlushInFlight = null;
+      state.syncBusy = false;
+      refreshPendingSyncBadge();
+    }
+  })();
+  return pendingFlushInFlight;
+}
+
 /**
  * When this device's merged copy holds content the cloud lacks (e.g. an
  * earlier push was lost), push it back — throttled so it can never loop.
@@ -1026,56 +1157,36 @@ function maybeHealRemote(merged, remote) {
 }
 
 async function startSpaceRemoteWatch() {
-  if (!state.authUser || !state.syncReady) return;
+  if (!state.authUser) return;
   const spaceId = state.spaceId || SHARED_SPACE_ID;
   if (remoteWatchStartedFor === spaceId && stopRemoteWatch) return;
   stopSpaceRemoteWatch();
+  state.syncBusy = !state.cloudHydrated;
+  if (!state.cloudHydrated) setSyncStatus('busy', 'กำลังซิงค์');
   try {
     stopRemoteWatch = await watchRemoteNotes(
       spaceId,
       (remoteRaw) => { applyRemotePayload(remoteRaw); },
-      (err) => console.warn('space watch failed', err),
+      (err) => {
+        console.warn('space watch failed', err);
+        // Listener died — allow restart on next ensureCloudReady / visibility.
+        remoteWatchStartedFor = null;
+        stopRemoteWatch = null;
+      },
     );
     remoteWatchStartedFor = spaceId;
   } catch (err) {
     console.warn('startSpaceRemoteWatch failed', err);
-  }
-}
-
-/* ---- Fast background poll (~2.5s) — live updates without refresh ---- */
-let pollTimer = null;
-let pollInFlight = false;
-const SPACE_POLL_INTERVAL_MS = 2500;
-
-async function pollRemoteNow() {
-  if (pollInFlight) return;
-  if (!state.authUser || !state.syncReady || !state.spaceId) return;
-  if (!navigator.onLine) return;
-  // Poll while the app is open/visible; hidden tabs rely on onSnapshot +
-  // the visibilitychange handler below (poll restarts on return).
-  if (document.visibilityState === 'hidden') return;
-  pollInFlight = true;
-  try {
-    const remoteRaw = await fetchRemoteNotes(state.spaceId);
-    applyRemotePayload(remoteRaw);
-  } catch {
-    // Offline / auth hiccup — next tick retries silently.
-  } finally {
-    pollInFlight = false;
+    remoteWatchStartedFor = null;
   }
 }
 
 function stopSpacePolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
-  }
+  // Polling removed — onSnapshot is the only live path.
 }
 
 function startSpacePolling() {
-  stopSpacePolling();
-  pollTimer = setInterval(pollRemoteNow, SPACE_POLL_INTERVAL_MS);
-  void pollRemoteNow();
+  // no-op (kept so older call sites compile)
 }
 
 function setSyncReady(ready) {
@@ -1083,13 +1194,11 @@ function setSyncReady(ready) {
   if (state.syncReady) {
     clearSyncRetryLoop();
     hideSyncGate();
-    setSyncStatus('ok', 'พร้อมใส่ข้อมูล');
     void startSpaceRemoteWatch();
-    startSpacePolling();
+    refreshPendingSyncBadge();
   } else {
     stopSpaceRemoteWatch();
-    stopSpacePolling();
-    refreshSyncGateUi();
+    hideSyncGate();
     startSyncRetryLoop();
   }
 }
@@ -1219,94 +1328,75 @@ function showSyncSavedPopup(message = 'อัปเดตแล้ว', { force 
   }, 1100);
 }
 
-/** Block user edits until cloud sync is ready; show waiting popup. */
+/** Allow local edits when PIN unlocked; cloud hydrate is non-blocking. */
 let syncBlockedToastAt = 0;
 
 function requireSyncReady() {
   if (isSyncReady()) return true;
-  refreshSyncGateUi();
+  hideSyncGate();
   const now = Date.now();
   if (now - syncBlockedToastAt > 3000) {
     syncBlockedToastAt = now;
-    const msg = !state.authUser
-      ? 'ยังไม่ได้เข้าสู่ระบบ · แก้ไขไม่ได้'
-      : !navigator.onLine
-        ? 'ไม่มีเน็ต · รอเชื่อมใหม่แล้วกดอีกครั้ง'
-        : 'กำลังซิงค์ · รอสักครู่แล้วกดอีกครั้ง';
+    const msg = !isPinUnlocked()
+      ? 'ใส่รหัสก่อนแก้ไข'
+      : 'รอโหลดแอปสักครู่';
     setStatus(msg, { forceToast: true, ms: 2200 });
-  }
-  if (state.authUser && !spaceSyncInFlight && navigator.onLine) {
-    void ensureCloudReady({ force: true, announce: true, gateAlways: true });
   }
   return false;
 }
 
 /**
- * Cloud-first: pull/merge Firestore before unlock when online.
- * Shows sync gate while reading; optional done popup after.
+ * Start onSnapshot watch and return without blocking the UI.
+ * First snapshot lifts cloudHydrated and flushes the pending queue.
  */
 async function ensureCloudReady({ force = true, announce = true, gateAlways = false } = {}) {
   if (ensureCloudReadyInFlight) return ensureCloudReadyInFlight;
   ensureCloudReadyInFlight = (async () => {
+    void force;
+    void gateAlways;
     if (!state.authUser) {
-      setSyncReady(false);
+      // Still allow local edits after PIN; cloud watch waits for auth.
+      setSyncReady(isPinUnlocked());
+      refreshPendingSyncBadge();
       return false;
     }
 
+    hideSyncGate();
+    setSyncReady(true);
+
     if (!navigator.onLine) {
       state.online = false;
-      if (needsSyncGate() || gateAlways) {
-        setSyncReady(false);
-        setSyncStatus('offline', 'รอซิงค์…');
-        showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
-        return false;
-      }
-      setSyncReady(true);
-      setSyncStatus('offline', 'ออฟไลน์ · บันทึกในเครื่อง');
-      hideSyncGate();
+      refreshPendingSyncBadge();
       return true;
     }
 
-    const showGate = needsSyncGate() || gateAlways || !isSyncReady();
-    if (showGate) {
-      // Block edits while cloud is the source of truth for this open/return.
-      setSyncReady(false);
-      showSyncGate('กำลังซิงค์…', 'รอซิงค์สำเร็จก่อนใส่ข้อมูล');
-      setSyncStatus('busy', 'กำลังซิงค์…');
-    } else if (announce) {
-      setSyncStatus('busy', 'กำลังซิงค์…');
-      hideSyncGate();
+    if (announce && !state.cloudHydrated) {
+      setSyncStatus('busy', 'กำลังซิงค์');
     }
+
+    // Legacy prev-space merge stays in background — never blocks edits.
+    void mergePreviousDeviceSpace(state.notesData).then((prevMerge) => {
+      if (!prevMerge?.fromPrev) return;
+      // Only fold prev into live state before first shared-space snapshot.
+      if (state.cloudHydrated) return;
+      state.notesData = normalizeNotesData(prevMerge.data);
+      saveNotes(state.notesData);
+    }).catch(() => {});
 
     try {
-      await syncSpaceInBackground({ force, announce });
+      await startSpaceRemoteWatch();
     } catch (err) {
-      console.warn('ensureCloudReady failed', err);
+      console.warn('ensureCloudReady watch failed', err);
     }
 
-    if (state.authUser && state.cloudHydrated) {
-      setSyncReady(true);
-      hideSyncGate();
-      if (announce || gateAlways) {
-        showSyncSavedPopup('ซิงค์แล้ว', { force: true });
-      } else {
-        hideSyncSavedPopup();
-      }
+    if (state.cloudHydrated) {
+      void flushPendingWritesToCloud();
+      refreshPendingSyncBadge();
       return true;
     }
 
-    if (state.authUser && !navigator.onLine) {
-      setSyncReady(true);
-      hideSyncGate();
-      hideSyncSavedPopup();
-      return true;
-    }
-
-    setSyncReady(false);
-    setSyncStatus('offline', 'รอซิงค์…');
-    hideSyncSavedPopup();
-    refreshSyncGateUi();
-    return false;
+    refreshPendingSyncBadge();
+    return true;
   })();
   try {
     return await ensureCloudReadyInFlight;
@@ -1375,7 +1465,7 @@ async function handlePinLoginClick() {
     }
     onSignedIn(user);
     if (els.authPinInput) els.authPinInput.value = '';
-    await ensureCloudReady({ force: true, announce: true, gateAlways: true });
+    await ensureCloudReady({ force: true, announce: true });
   } catch (err) {
     setAuthError(err?.message || 'รหัสไม่ถูกต้อง');
     try {
@@ -1428,9 +1518,10 @@ function setSyncStatus(state, message = '') {
   btn.dataset.state = next;
   const label = String(message || '').trim() || (
     next === 'ok' ? 'พร้อมใส่ข้อมูล'
-      : next === 'busy' ? 'กำลังซิงค์…'
-        : next === 'offline' ? 'รอซิงค์…'
-          : 'สถานะซิงค์'
+      : next === 'busy' ? 'กำลังซิงค์'
+        : next === 'pending' ? 'รอซิงค์'
+          : next === 'offline' ? 'ออฟไลน์ · บันทึกในเครื่อง'
+            : 'สถานะซิงค์'
   );
   btn.title = label;
   btn.setAttribute('aria-label', label);
@@ -2054,39 +2145,49 @@ function ensureCaloriePayload() {
 
 function persistCalorie(nextCalorie, { status = '', fullRender = false, immediate = true } = {}) {
   if (!requireSyncReady()) return;
-  const prevCols = mealColumnCount(state.notesData?.calorie);
+  const prevCalorie = state.notesData?.calorie;
+  const prevCols = mealColumnCount(prevCalorie);
   const now = nowIso();
   // Stamp calorie.updatedAt (meal/day edits) and, separately, profileAt when a
   // profile/goal field changed — so a meal edit on one device never clobbers
   // height/sex/goals set on the other, and vice versa.
-  const profileChanged = calorieProfileChanged(state.notesData?.calorie, nextCalorie);
+  const profileChanged = calorieProfileChanged(prevCalorie, nextCalorie);
   const profileAt = profileChanged
     ? now
-    : (state.notesData?.calorie?.profileAt || nextCalorie?.profileAt || '');
-  const prevTree = state.notesData?.calorie?.muscleTree;
+    : (prevCalorie?.profileAt || nextCalorie?.profileAt || '');
+  const prevTree = prevCalorie?.muscleTree;
   const muscleTree = nextCalorie?.muscleTree && nextCalorie.muscleTree !== prevTree
     ? stampMuscleTreeChanges(prevTree, nextCalorie.muscleTree)
     : nextCalorie?.muscleTree;
+  const stamped = normalizeCalorie({ ...nextCalorie, muscleTree, updatedAt: now, profileAt });
   state.notesData = {
     ...state.notesData,
-    calorie: normalizeCalorie({ ...nextCalorie, muscleTree, updatedAt: now, profileAt }),
+    calorie: stamped,
     updatedAt: now,
   };
   // Local-first: disk sync from memory immediately, then paint from memory.
   try {
     saveNotes(state.notesData);
   } catch { /* ignore quota */ }
-  // Cloud queue resolves getNotesData() at write time (never a stale snap).
-  armSyncToast();
-  let cloud = null;
-  if (immediate) {
-    cloud = saveManager.saveNow(() => state.notesData).catch(() => false);
+
+  const queueOnly = !state.cloudHydrated || !navigator.onLine || !state.authUser;
+  if (queueOnly) {
+    const ops = diffCalorieToPendingOps(prevCalorie, stamped);
+    if (ops.length) enqueuePendingWrites(ops);
+    refreshPendingSyncBadge();
   } else {
-    saveManager.scheduleSave(() => state.notesData);
+    // Cloud queue resolves getNotesData() at write time (never a stale snap).
+    armSyncToast();
+    if (immediate) {
+      void saveManager.saveNow(() => state.notesData).catch(() => false);
+    } else {
+      saveManager.scheduleSave(() => state.notesData);
+    }
   }
+
   // Quiet status → sync dot only; cloud confirm shows "อัปเดตแล้ว" popup.
   if (status) setStatus(status);
-  if (!isCalorieMode()) return cloud;
+  if (!isCalorieMode()) return null;
   if (state.caloriePane === 'health') {
     paintCalorieHealthSheet(ensureCaloriePayload());
   } else if (state.caloriePane === 'muscle') {
@@ -2097,7 +2198,7 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
     if (needFull) renderCalorieSheet({ preserveScroll: true });
     else refreshCalorieDerived();
   }
-  return cloud;
+  return null;
 }
 
 /** Read body-profile / goals from Settings inputs (invalid/empty = keep sheet). */
@@ -11814,13 +11915,12 @@ function syncSpaceInBackground({ localVerBefore = null, force = false, announce 
 }
 
 async function bootstrapData() {
-  // Cloud-first: paint local cache as shell, then block until Firestore sync.
+  // Local-first: paint last-known immediately; cloud watch hydrates in background.
   try {
     state.spaceId = getSpaceId();
     state.settings = loadSettings();
     state.listGroup = NOTE_STATUS.ACTIVE;
 
-    const localVerBefore = peekLocalNotesVersion();
     let localData = loadNotes().data;
     // Only when cache is empty — recover legacy/bundled before first paint.
     if (!hasCloudContent(localData)) {
@@ -11828,20 +11928,26 @@ async function bootstrapData() {
       localData = auto.data;
     }
 
+    // Pending queue survives reload; localStorage already holds the unsynced
+    // meals (saved at enqueue time). Do NOT re-apply ops onto local here —
+    // that would duplicate appendMeal slots. Ops replay only onto cloud base.
+
     saveManager.configure({
       onStatus: (message) => setStatus(message),
       remotePush: async (data) => {
         if (!state.authUser) {
           throw new Error('Not signed in');
         }
-        // Online: never push until first cloud pull finished.
-        if (navigator.onLine && !state.cloudHydrated) {
+        // Never full-doc push before first cloud snapshot — pending queue owns that window.
+        if (!state.cloudHydrated) {
           throw new Error('Sync not ready');
+        }
+        if (!navigator.onLine) {
+          throw new Error('Offline');
         }
         return safePushRemote(data);
       },
       onCloudBatchStart: () => {
-        // User-armed saves show Firestore write progress.
         if (syncToastArmed) {
           showSyncBusyPopup('กำลังบันทึกคลาวด์…');
         }
@@ -11849,7 +11955,7 @@ async function bootstrapData() {
       onCloudSaved: () => {
         if (state.syncReady) showSyncSavedPopup('อัปเดตแล้ว');
         else hideSyncSavedPopup();
-        setDbStatusMessage('พร้อมใส่ข้อมูล');
+        refreshPendingSyncBadge();
       },
       onCloudFailed: () => {
         if (syncToastArmed || syncPopupMode === 'busy') {
@@ -11862,22 +11968,23 @@ async function bootstrapData() {
         setSyncStatus('offline', 'ซิงค์ไม่สำเร็จ · เก็บในเครื่องชั่วคราว');
         hideSyncGate();
         startCloudPendingRetry();
-        if (state.authUser && !state.cloudHydrated) startSyncRetryLoop();
       },
     });
 
     paintNotesFromLocal(localData);
     setLoading(false);
     refreshAuthAccountHint();
-    setSyncReady(false);
+    hideSyncGate();
 
-    // Show PIN first — never flash the sync gate before unlock.
+    // Edits allowed as soon as PIN is unlocked — do not wait for cloud.
     if (!isPinUnlocked()) {
-      hideSyncGate();
+      setSyncReady(false);
       setAuthOverlayVisible(true);
       try { els.authPinInput?.focus(); } catch { /* ignore */ }
+      setSyncStatus('offline', 'รอใส่รหัส');
     } else {
-      showSyncGate('กำลังซิงค์…', 'รอซิงค์สำเร็จก่อนใส่ข้อมูล');
+      setSyncReady(true);
+      refreshPendingSyncBadge();
     }
 
     const user = await requireCloudAuth();
@@ -11887,29 +11994,30 @@ async function bootstrapData() {
         state.authUser = null;
         state.online = false;
         state.cloudHydrated = false;
-        setSyncReady(false);
+        // Keep local editing if PIN still unlocked.
+        setSyncReady(isPinUnlocked());
         refreshAuthAccountHint();
         if (!isPinUnlocked()) setAuthOverlayVisible(true);
         if (wasSignedIn) setSyncStatus('offline', 'ออกจากระบบแล้ว');
         return;
       }
       if (!isPinUnlocked()) {
-        // Firebase session without PIN — keep app locked.
         return;
       }
       const first = !state.authUser;
       onSignedIn(nextUser);
       if (first) {
-        void ensureCloudReady({ force: true, announce: true, gateAlways: true });
+        void ensureCloudReady({ force: true, announce: true });
       }
     });
 
     if (!user) {
-      setSyncStatus('offline', 'รอใส่รหัส');
+      refreshPendingSyncBadge();
       return;
     }
 
-    await ensureCloudReady({ force: true, announce: true, gateAlways: true });
+    // Non-blocking: start watch, return immediately.
+    void ensureCloudReady({ force: true, announce: true });
     if (isCloudPending()) startCloudPendingRetry();
   } catch (err) {
     console.warn('bootstrap failed', err);
@@ -11919,16 +12027,10 @@ async function bootstrapData() {
       applyTheme();
       showView(boardHomeView());
       if (!isCalendarMode()) renderNotesList();
+      setSyncReady(isPinUnlocked());
+      hideSyncGate();
+      refreshPendingSyncBadge();
       if (state.authUser) {
-        if (!navigator.onLine || state.cloudHydrated) {
-          setSyncReady(true);
-          setDbStatusMessage('ใช้ข้อมูลในเครื่อง · รอซิงค์…');
-          hideSyncGate();
-        } else {
-          setSyncReady(false);
-          setDbStatusMessage('รอซิงค์…');
-          refreshSyncGateUi();
-        }
         startSyncRetryLoop();
         if (isCloudPending()) startCloudPendingRetry();
       }
@@ -13380,44 +13482,33 @@ async function init({ fromBoot = false } = {}) {
     if (document.visibilityState !== 'visible') return;
     refreshNoteNotifications();
     if (!state.authUser || !isPinUnlocked()) return;
-    // Cloud-first: every return to the app re-syncs Firestore.
-    // Already ready → quiet background pull (no gate / no popup).
-    // First hydrate still uses the existing sync gate + done popup.
+    hideSyncGate();
     if (!navigator.onLine) {
-      setSyncStatus('offline', 'ออฟไลน์ · รอเชื่อมใหม่');
-      if (needsSyncGate()) {
-        showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
-      }
+      refreshPendingSyncBadge();
       return;
     }
-    if (isSyncReady() && state.cloudHydrated) {
-      void syncSpaceInBackground({ force: true, announce: false });
-      return;
+    // Restart watch if the listener died; never re-raise a blocking gate.
+    if (!stopRemoteWatch || remoteWatchStartedFor == null) {
+      void ensureCloudReady({ force: true, announce: false });
+    } else if (state.cloudHydrated && pendingWriteCount()) {
+      void flushPendingWritesToCloud();
     }
-    void ensureCloudReady({ force: true, announce: true, gateAlways: true });
   });
   window.addEventListener('pageshow', () => refreshNoteNotifications());
   window.addEventListener('focus', () => refreshNoteNotifications());
   window.addEventListener('online', () => {
     refreshNoteNotifications();
     if (!state.authUser || !isPinUnlocked()) return;
-    if (isSyncReady() && state.cloudHydrated) {
-      void syncSpaceInBackground({ force: true, announce: false });
-      return;
-    }
-    void ensureCloudReady({ force: true, announce: true, gateAlways: true });
+    hideSyncGate();
+    state.online = true;
+    void ensureCloudReady({ force: true, announce: true });
+    if (state.cloudHydrated) void flushPendingWritesToCloud();
   });
   window.addEventListener('offline', () => {
     state.online = false;
-    setSyncStatus('offline', 'ออฟไลน์ · เก็บในเครื่องชั่วคราว');
-    // Keep editing unlocked when already hydrated; otherwise wait for cloud.
-    if (needsSyncGate()) {
-      setSyncReady(false);
-      showSyncGate('รอซิงค์…', 'ไม่มีเน็ต · รอเชื่อมใหม่');
-    } else {
-      setSyncReady(true);
-      hideSyncGate();
-    }
+    hideSyncGate();
+    setSyncReady(isPinUnlocked());
+    refreshPendingSyncBadge();
   });
 
   // Block iOS pinch/gesture zoom so the fixed layout never overflows its edges.
@@ -13453,10 +13544,45 @@ async function init({ fromBoot = false } = {}) {
   });
 }
 
+function attachSyncTestApi() {
+  try {
+    const hook = window.__PNOTE_SYNC_TEST__;
+    if (!hook || typeof hook !== 'object') return;
+    hook.app = {
+      isSyncGated: () => document.body.classList.contains('sync-gated'),
+      cloudHydrated: () => Boolean(state.cloudHydrated),
+      pendingCount: () => loadPendingWrites().length,
+      pendingOps: () => loadPendingWrites(),
+      getCalorie: () => state.notesData?.calorie || null,
+      getDay: (dateKey) => {
+        const days = state.notesData?.calorie?.days || [];
+        return days.find((d) => d.date === dateKey || d.id === dateKey) || null;
+      },
+      syncStatus: () => ({
+        state: els.syncStatusBtn?.dataset?.state || '',
+        label: els.syncStatusBtn?.getAttribute('aria-label') || '',
+      }),
+      /** Example meal entry via the same persistCalorie path as the UI. */
+      addMeal(dateKey, cal, prot, label = '') {
+        const sheet = ensureCaloriePayload();
+        const text = label
+          ? `${label} ${Math.round(cal)},${Math.round(prot)}`
+          : `${Math.round(cal)},${Math.round(prot)}`;
+        const { sheet: next } = appendQuickMeal(sheet, text, dateKey, { label });
+        persistCalorie(next, { status: '', fullRender: true, immediate: true });
+        return hook.app.getDay(dateKey);
+      },
+    };
+  } catch (err) {
+    console.warn('attachSyncTestApi failed', err);
+  }
+}
+
 /** Called by boot.js after list-first paint. */
 export async function hydrateApp() {
   document.documentElement.dataset.pnoteHydrated = '1';
   await init({ fromBoot: true });
+  attachSyncTestApi();
 }
 
 // Direct entry (no boot.js) — full init.
