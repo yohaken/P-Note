@@ -9248,6 +9248,86 @@ body.chs-chart-overlay-open {
   font-weight: 800;
 }
 
+/* Lifestyle burn (sex / oral) — mus quick sheet */
+.cq-lifestyle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0.15rem 0 0.35rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, #e11d48 22%, var(--border));
+  background: color-mix(in srgb, #fff1f2 78%, #fff);
+}
+.cq-lifestyle[hidden] {
+  display: none !important;
+}
+.cq-lifestyle-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+.cq-life-btn {
+  appearance: none;
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, #e11d48 35%, var(--border));
+  background: #fff;
+  color: #9f1239;
+  border-radius: 10px;
+  padding: 0.55rem 0.45rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.cq-life-btn.is-sex {
+  border-color: color-mix(in srgb, #e11d48 42%, var(--border));
+  background: color-mix(in srgb, #ffe4e6 70%, #fff);
+}
+.cq-life-btn.is-oral {
+  border-color: color-mix(in srgb, #db2777 38%, var(--border));
+  background: color-mix(in srgb, #fce7f3 72%, #fff);
+  color: #9d174d;
+}
+.cq-life-btn.is-active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, #e11d48 28%, transparent);
+}
+.cq-lifestyle-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+.cq-life-field {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.cq-life-field input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.45rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: #fff;
+  color: var(--text);
+}
+.cq-life-apply {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.78rem;
+}
+
 .cq-ex-bar {
   display: flex;
   align-items: center;
@@ -10957,8 +11037,32 @@ body.light .bm-halo {
   color: #c2410c;
   font-weight: 800;
 }
+.cq-ex-row.is-lifestyle .cq-ex-pick {
+  border-color: color-mix(in srgb, #e11d48 36%, var(--border));
+  background: color-mix(in srgb, #fff1f2 75%, #fff);
+}
+.cq-ex-row.is-lifestyle.is-sex .cq-ex-kcal {
+  color: #be123c;
+  font-weight: 800;
+}
+.cq-ex-row.is-lifestyle.is-oral .cq-ex-pick {
+  border-color: color-mix(in srgb, #db2777 34%, var(--border));
+  background: color-mix(in srgb, #fce7f3 78%, #fff);
+}
+.cq-ex-row.is-lifestyle.is-oral .cq-ex-kcal {
+  color: #9d174d;
+  font-weight: 800;
+}
 .cal-exercise-chip.is-burn {
   color: #c2410c;
+}
+.cal-exercise-chip.is-lifestyle {
+  color: #be123c;
+  background: color-mix(in srgb, #fb7185 16%, #fff);
+}
+.cal-exercise-chip.is-lifestyle.is-oral {
+  color: #9d174d;
+  background: color-mix(in srgb, #f472b6 15%, #fff);
 }
 
 /* Exercise picker (+ ท่า) */

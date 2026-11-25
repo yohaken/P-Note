@@ -1,5 +1,5 @@
-import { cacheName, getAppBuild } from './version.js?v=347';
-import { checkForAppUpdate } from './update.js?v=347';
+import { cacheName, getAppBuild } from './version.js?v=348';
+import { checkForAppUpdate } from './update.js?v=348';
 
 /**
  * Legacy ./sw.js is missing — do not register it (404 + useless controllerchange reloads).

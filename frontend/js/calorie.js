@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=347';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=348';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -20,7 +20,7 @@ import {
   normalizeMuscleTree,
   setMoveLogNames,
   toMuscleLayout,
-} from './muscle-tree.js?v=347';
+} from './muscle-tree.js?v=348';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -165,10 +165,68 @@ function rememberTreeCardioLabels(moveIndex) {
   treeCardioLabels = next;
 }
 
-/** Only cardio burns kcal · a bare number ("150" → "ออกกำลัง 150") is legacy cardio kcal. */
+/**
+ * Lifestyle burn activities stored as freeform exercise cells (not muscle-tree cardio).
+ * Keep kcal via isCardioLabel / normalizeExercises — do NOT add these names to CARDIO_NAME_RE.
+ */
+export const LIFESTYLE_SEX_LABEL = 'เซ็กส์ ❤️';
+export const LIFESTYLE_ORAL_LABEL = 'ถูกออรัลเซ็กส์';
+
+export const LIFESTYLE_BURN = Object.freeze({
+  sex: Object.freeze({
+    kind: 'sex',
+    label: LIFESTYLE_SEX_LABEL,
+    defaultKcal: 100,
+    kcalPerMin: 4,
+    defaultMin: null,
+  }),
+  oral: Object.freeze({
+    kind: 'oral',
+    label: LIFESTYLE_ORAL_LABEL,
+    /** Math.round(15 × 1.5) — JS half-up, not banker's. */
+    defaultKcal: Math.round(15 * 1.5),
+    kcalPerMin: 1.5,
+    defaultMin: 15,
+  }),
+});
+
+/** Canonical label match; strips an optional " · Nนาที" / trailing minutes hint if present. */
+export function lifestyleBurnKind(label) {
+  const raw = String(label || '').trim();
+  if (!raw) return null;
+  const base = raw
+    .replace(/\s*·\s*\d+\s*นาที\s*$/u, '')
+    .replace(/\s+\d+\s*นาที\s*$/u, '')
+    .trim();
+  if (base === LIFESTYLE_SEX_LABEL) return 'sex';
+  if (base === LIFESTYLE_ORAL_LABEL) return 'oral';
+  return null;
+}
+
+export function isLifestyleBurnLabel(label) {
+  return lifestyleBurnKind(label) != null;
+}
+
+export function lifestyleBurnSpec(kindOrLabel) {
+  const kind = kindOrLabel === 'sex' || kindOrLabel === 'oral'
+    ? kindOrLabel
+    : lifestyleBurnKind(kindOrLabel);
+  return kind ? LIFESTYLE_BURN[kind] : null;
+}
+
+/** kcal from minutes at the activity rate (Math.round). */
+export function lifestyleKcalFromMinutes(kindOrLabel, minutes) {
+  const spec = lifestyleBurnSpec(kindOrLabel);
+  const min = Number(minutes);
+  if (!spec || !Number.isFinite(min) || min <= 0) return null;
+  return Math.round(min * spec.kcalPerMin);
+}
+
+/** Only cardio (and lifestyle burn) keep kcal · bare "ออกกำลัง 150" is legacy cardio. */
 export function isCardioLabel(label) {
   const s = String(label || '').trim();
   if (!s || /^ออกกำลัง \d+$/.test(s)) return true;
+  if (isLifestyleBurnLabel(s)) return true;
   if (treeCardioLabels.has(s)) return true;
   const [parent, ...rest] = s.split(' · ');
   return rest.length ? isCardioMove(rest.join(' · '), parent) : isCardioName(s);
@@ -215,7 +273,10 @@ export function renderExerciseTableHtml(day) {
       const p = parseExerciseCell(cell);
       if (p.burn === 0) return `<span class="cal-exercise-chip is-mark">${esc(p.label)}</span>`;
       const text = p.label ? `${p.label} ${p.burn}` : String(p.burn);
-      return `<span class="cal-exercise-chip is-burn">${esc(text)}</span>`;
+      const life = lifestyleBurnKind(p.label);
+      const lifeCls = life === 'sex' ? ' is-lifestyle is-sex' : life === 'oral' ? ' is-lifestyle is-oral' : '';
+      const burnCls = life ? '' : ' is-burn';
+      return `<span class="cal-exercise-chip${burnCls}${lifeCls}">${esc(text)}</span>`;
     })
     .join('');
   const scroll = cells.length > 2 ? ' is-scrollable' : '';
@@ -224,13 +285,13 @@ export function renderExerciseTableHtml(day) {
   return `<div class="cal-exercise-fit${scroll}" data-cal-exercise-day="${dayId}" role="button" tabindex="-1" aria-label="แก้ท่า ${esc(full)}" title="${esc(editHint)}">${chips}</div>`;
 }
 
-/** Muscle groups played (label prefix before " · ", cardio excluded) + kcal that cuts the balance. */
+/** Muscle groups played (label prefix before " · ", cardio/lifestyle excluded) + kcal that cuts the balance. */
 export function exerciseDaySummary(day) {
   const groups = [];
   normalizeExercises(day?.exercises).forEach((cell) => {
     const p = parseExerciseCell(cell);
     const group = String(p.label || '').split(' · ')[0].trim();
-    if (!group || CARDIO_NAME_RE.test(group) || groups.includes(group)) return;
+    if (!group || CARDIO_NAME_RE.test(group) || isLifestyleBurnLabel(group) || groups.includes(group)) return;
     groups.push(group);
   });
   const kcal = Number.isFinite(day?.mus) && day.mus > 0 ? Math.round(day.mus) : 0;

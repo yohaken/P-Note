@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=347';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=347';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=347';
-import { CONFIG } from './config.js?v=347';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=347';
-import { nowIso } from './clock.js?v=347';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=348';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=348';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=348';
+import { CONFIG } from './config.js?v=348';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=348';
+import { nowIso } from './clock.js?v=348';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=347';
+} from './auth.js?v=348';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=347';
+} from './notes.js?v=348';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=347';
+} from './sheet.js?v=348';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -136,7 +136,11 @@ import {
   dayExerciseEntries,
   setDayExerciseEntries,
   parseExerciseCell,
-} from './calorie.js?v=347';
+  lifestyleBurnKind,
+  lifestyleBurnSpec,
+  lifestyleKcalFromMinutes,
+  isLifestyleBurnLabel,
+} from './calorie.js?v=348';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -189,7 +193,7 @@ import {
   CELL_NOTE_MAX,
   getCellNote,
   setCellNote,
-} from './muscle-tree.js?v=347';
+} from './muscle-tree.js?v=348';
 import {
   musclePhotoKeys,
   musclePhotosFor,
@@ -200,7 +204,7 @@ import {
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
-} from './muscle-photos.js?v=347';
+} from './muscle-photos.js?v=348';
 import {
   ALL_EXERCISES,
   EQUIPMENT_TH,
@@ -220,9 +224,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=347';
-import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=347';
-import { mountDrumPicker } from './drum-picker.js?v=347';
+} from './muscle-map.js?v=348';
+import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=348';
+import { mountDrumPicker } from './drum-picker.js?v=348';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -230,8 +234,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=347';
-import { bindComposableInput } from './text-input.js?v=347';
+} from './note-text.js?v=348';
+import { bindComposableInput } from './text-input.js?v=348';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -272,14 +276,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=347';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=347';
+} from './schedule.js?v=348';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=348';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=347';
+} from './app-icons.js?v=348';
 import {
   allIcons,
   bestIconForLabel,
@@ -288,7 +292,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=347';
+} from './icons.js?v=348';
 import {
   notificationPermission,
   notificationSupported,
@@ -297,28 +301,28 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=347';
+} from './note-notify.js?v=348';
 import {
   getFilesStatus,
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=347';
+} from './files.js?v=348';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=347');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=348');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=347');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=348');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=347');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=348');
   return userContextModPromise;
 }
 
@@ -342,7 +346,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=347';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=348';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -351,11 +355,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=347';
-import { normalizeNotesData } from './notes.js?v=347';
-import { SaveManager } from './sync.js?v=347';
-import { emptyDeletions } from './deletions.js?v=347';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=347';
+} from './remote.js?v=348';
+import { normalizeNotesData } from './notes.js?v=348';
+import { SaveManager } from './sync.js?v=348';
+import { emptyDeletions } from './deletions.js?v=348';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=348';
 import {
   loadPendingWrites,
   savePendingWrites,
@@ -367,7 +371,7 @@ import {
   makeSetExerciseFavOp,
   makeSetExerciseMediaOp,
   isSettingsPendingOp,
-} from './pending-writes.js?v=347';
+} from './pending-writes.js?v=348';
 
 const state = {
   notesData: {
@@ -835,6 +839,12 @@ const els = {
   cqExReadout: document.getElementById('cq-ex-readout'),
   cqExAdd: document.getElementById('cq-ex-add'),
   cqExList: document.getElementById('cq-ex-list'),
+  cqLifestyle: document.getElementById('cq-lifestyle'),
+  cqLifeSex: document.getElementById('cq-life-sex'),
+  cqLifeOral: document.getElementById('cq-life-oral'),
+  cqLifeMin: document.getElementById('cq-life-min'),
+  cqLifeKcal: document.getElementById('cq-life-kcal'),
+  cqLifeApply: document.getElementById('cq-life-apply'),
   calorieQuickClear: document.getElementById('calorie-quick-clear'),
   calorieQuickDelete: document.getElementById('calorie-quick-delete'),
   calorieQuickCancel: document.getElementById('calorie-quick-cancel'),
@@ -3590,6 +3600,12 @@ let exEntries = [];
 let exDrumDirty = false;
 /** Pick the wheels showed after the last add/load; landing back on it is not a change. */
 let exDrumCleanKey = '';
+/** Selected lifestyle burn kind in the mus sheet (`sex` | `oral` | ''). */
+let exLifestyleKind = '';
+/** Index in exEntries being edited via lifestyle fields, or -1 when adding. */
+let exLifestyleEditIndex = -1;
+/** Skip minutes→kcal sync once after a manual kcal edit. */
+let exLifestyleKcalManual = false;
 
 function exerciseDrumKey() {
   return `${exSelectedMove()?.id || ''}|${exDrumBurn?.getValue?.() ?? ''}`;
@@ -3732,20 +3748,130 @@ function paintExerciseList(flashId = '') {
     host.innerHTML = `<p class="cq-ex-empty">ยังไม่มีรายการ · หมุนเลือกกล้ามแล้วกดบันทึก หรือกด + เพื่อใส่หลายกล้าม</p>${EX_MANAGE_BTN}`;
     return;
   }
-  const burnsKcal = (e) => e.cardio;
+  const burnsKcal = (e) => e.cardio || isLifestyleBurnLabel(e.label);
   const total = exEntries.reduce((s, e) => s + (burnsKcal(e) ? Number(e.burn) || 0 : 0), 0);
   const rows = exEntries.map((e, i) => {
     const tree = Boolean(e.nodeId);
+    const life = lifestyleBurnKind(e.label);
     const kcal = burnsKcal(e);
-    const cls = `cq-ex-row${tree && e.nodeId === flashId ? ' is-flash' : ''}${tree ? '' : ' is-free'}${e.cardio ? ' is-cardio' : ''}`;
-    const tip = !tree
-      ? `ท่าพิมพ์เอง (ไม่อยู่ในตารางกล้ามเนื้อ) · ${e.cardio ? 'คาดิโอ · หักดุลแคล' : 'ไม่นับแคล'} · ลบได้`
-      : e.cardio ? 'คาดิโอ · หักดุลแคล · แตะเพื่อแก้' : 'ท่ากล้าม · ไม่นับแคล · แตะเพื่อแก้';
+    const flash = (tree && e.nodeId === flashId)
+      || (!tree && flashId === `life:${i}`)
+      || (!tree && life && flashId === `life:${life}`);
+    const lifeCls = life === 'sex' ? ' is-lifestyle is-sex' : life === 'oral' ? ' is-lifestyle is-oral' : '';
+    const cls = `cq-ex-row${flash ? ' is-flash' : ''}${tree ? '' : ' is-free'}${e.cardio && !life ? ' is-cardio' : ''}${lifeCls}`;
+    const tip = life
+      ? `${e.label} · เบิร์นไลฟ์สไตล์ · หักดุลแคล · แตะเพื่อแก้`
+      : !tree
+        ? `ท่าพิมพ์เอง (ไม่อยู่ในตารางกล้ามเนื้อ) · ${e.cardio ? 'คาดิโอ · หักดุลแคล' : 'ไม่นับแคล'} · ลบได้`
+        : e.cardio ? 'คาดิโอ · หักดุลแคล · แตะเพื่อแก้' : 'ท่ากล้าม · ไม่นับแคล · แตะเพื่อแก้';
     const val = kcal ? (e.burn > 0 ? `−${e.burn}` : '0') : '✓';
-    return `<div class="${cls}"><button type="button" class="cq-ex-pick" data-ex-pick="${i}" title="${escAttr(tip)}"${tree ? '' : ' disabled'}><span class="cq-ex-name">${escapeHtml(e.label)}</span><span class="cq-ex-kcal">${val}</span></button><button type="button" class="cq-ex-del" data-ex-del="${i}" aria-label="ลบ ${escAttr(e.label)}">×</button></div>`;
+    const canPick = tree || Boolean(life);
+    return `<div class="${cls}"><button type="button" class="cq-ex-pick" data-ex-pick="${i}" title="${escAttr(tip)}"${canPick ? '' : ' disabled'}><span class="cq-ex-name">${escapeHtml(e.label)}</span><span class="cq-ex-kcal">${val}</span></button><button type="button" class="cq-ex-del" data-ex-del="${i}" aria-label="ลบ ${escAttr(e.label)}">×</button></div>`;
   }).join('');
   const head = total > 0 ? `เบิร์น −${total} kcal จากดุล` : 'ไม่หักแคล';
   host.innerHTML = `<div class="cq-ex-head"><span>${exEntries.length} ท่า</span><strong>${head}</strong></div>${rows}${EX_MANAGE_BTN}`;
+}
+
+function syncLifestyleChrome() {
+  const kind = exLifestyleKind === 'sex' || exLifestyleKind === 'oral' ? exLifestyleKind : '';
+  els.cqLifeSex?.classList.toggle('is-active', kind === 'sex');
+  els.cqLifeOral?.classList.toggle('is-active', kind === 'oral');
+  if (els.cqLifeApply) {
+    const editing = exLifestyleEditIndex >= 0;
+    els.cqLifeApply.textContent = editing ? 'อัปเดต' : '+ เพิ่ม';
+    els.cqLifeApply.disabled = !kind;
+  }
+}
+
+function selectLifestyleKind(kind, { prefill = true, editIndex = -1 } = {}) {
+  const spec = lifestyleBurnSpec(kind);
+  if (!spec) return;
+  exLifestyleKind = spec.kind;
+  exLifestyleEditIndex = Number.isInteger(editIndex) ? editIndex : -1;
+  exLifestyleKcalManual = false;
+  if (prefill) {
+    if (els.cqLifeMin) {
+      els.cqLifeMin.value = spec.defaultMin != null ? String(spec.defaultMin) : '';
+    }
+    if (els.cqLifeKcal) {
+      els.cqLifeKcal.value = String(spec.defaultKcal);
+    }
+  }
+  syncLifestyleChrome();
+}
+
+function appendLifestyleEntry(kind, burnOverride = null) {
+  const spec = lifestyleBurnSpec(kind);
+  if (!spec) return false;
+  if (exEntries.length >= MAX_EXERCISE_SLOTS) {
+    setStatus(`ได้สูงสุด ${MAX_EXERCISE_SLOTS} ท่าต่อวัน`, { forceToast: true, ms: 1800 });
+    return false;
+  }
+  const burn = Math.round(Number(burnOverride != null ? burnOverride : spec.defaultKcal));
+  if (!(burn > 0)) {
+    setStatus('ใส่ kcal หรือนาทีก่อน', { forceToast: true, ms: 1600 });
+    return false;
+  }
+  // Always append — never merge identical lifestyle labels (multiple per day OK).
+  exEntries.push({
+    nodeId: null,
+    label: spec.label,
+    burn: Math.min(5000, burn),
+    cardio: true,
+  });
+  exLifestyleEditIndex = -1;
+  selectLifestyleKind(spec.kind, { prefill: true, editIndex: -1 });
+  paintExerciseList(`life:${exEntries.length - 1}`);
+  return true;
+}
+
+function applyLifestyleFields() {
+  const spec = lifestyleBurnSpec(exLifestyleKind);
+  if (!spec) {
+    setStatus('เลือกเซ็กส์หรือถูกออรัลก่อน', { forceToast: true, ms: 1600 });
+    return false;
+  }
+  let burn = Math.round(Number(els.cqLifeKcal?.value));
+  const minRaw = String(els.cqLifeMin?.value || '').trim();
+  if (!(burn > 0) && minRaw) {
+    const fromMin = lifestyleKcalFromMinutes(spec.kind, Number(minRaw));
+    if (fromMin != null) burn = fromMin;
+  }
+  if (!(burn > 0)) {
+    setStatus('ใส่ kcal หรือนาทีก่อน', { forceToast: true, ms: 1600 });
+    return false;
+  }
+  burn = Math.min(5000, burn);
+  if (exLifestyleEditIndex >= 0 && exEntries[exLifestyleEditIndex]) {
+    exEntries[exLifestyleEditIndex] = {
+      nodeId: null,
+      label: spec.label,
+      burn,
+      cardio: true,
+    };
+    const idx = exLifestyleEditIndex;
+    exLifestyleEditIndex = -1;
+    syncLifestyleChrome();
+    paintExerciseList(`life:${idx}`);
+    return true;
+  }
+  return appendLifestyleEntry(spec.kind, burn);
+}
+
+function loadLifestyleEntryForEdit(index) {
+  const entry = exEntries[index];
+  const kind = lifestyleBurnKind(entry?.label);
+  const spec = lifestyleBurnSpec(kind);
+  if (!entry || !spec) return;
+  exLifestyleKind = spec.kind;
+  exLifestyleEditIndex = index;
+  exLifestyleKcalManual = true;
+  if (els.cqLifeKcal) els.cqLifeKcal.value = String(entry.burn || spec.defaultKcal);
+  if (els.cqLifeMin) {
+    els.cqLifeMin.value = spec.defaultMin != null ? String(spec.defaultMin) : '';
+  }
+  syncLifestyleChrome();
+  paintExerciseList(`life:${index}`);
 }
 
 const EX_MANAGE_BTN = '<button type="button" class="cq-ex-manage" data-ex-manage>ตารางกล้ามเนื้อ · ท่าไกด์ ›</button>';
@@ -3786,7 +3912,13 @@ function setExerciseQuickChrome(visible) {
   if (els.calorieExDrums) els.calorieExDrums.hidden = !visible;
   if (els.cqExBar) els.cqExBar.hidden = !visible;
   if (els.cqExList) els.cqExList.hidden = !visible;
+  if (els.cqLifestyle) els.cqLifestyle.hidden = !visible;
   if (els.calorieQuickInput) els.calorieQuickInput.hidden = Boolean(visible) || calorieQuickMode === 'meal';
+  if (!visible) {
+    exLifestyleKind = '';
+    exLifestyleEditIndex = -1;
+    exLifestyleKcalManual = false;
+  }
 }
 
 /** Open the wheels for one date's exercise list (today when adding from the dock). */
@@ -3798,6 +3930,12 @@ function openExerciseWheels(dateKey) {
   const day = sheet.days.find((d) => d.date === dateKey) || null;
   exEntries = day ? dayExerciseEntries(sheet, day) : [];
   setExerciseQuickChrome(true);
+  exLifestyleKind = '';
+  exLifestyleEditIndex = -1;
+  exLifestyleKcalManual = false;
+  if (els.cqLifeMin) els.cqLifeMin.value = '';
+  if (els.cqLifeKcal) els.cqLifeKcal.value = '';
+  syncLifestyleChrome();
   const start = exEntries.find((e) => e.nodeId) || topFrequentExercise();
   ensureExerciseDrums(start);
   paintExerciseList();
@@ -3807,7 +3945,7 @@ function openExerciseWheels(dateKey) {
       : `ออกกำลัง · ${formatDateDisplay(dateKey)}`;
   }
   if (els.calorieQuickHint) {
-    els.calorieQuickHint.textContent = 'หมุน กลุ่ม → กล้ามที่เล่น แล้วกดบันทึก (คาร์ดิโอใส่ kcal) · กด + เพื่อใส่หลายกล้าม · แตะรายการเพื่อแก้';
+    els.calorieQuickHint.textContent = 'ไลฟ์สไตล์กดเพิ่มได้เลย · หรือหมุนกลุ่ม→กล้ามแล้วกดบันทึก (คาร์ดิโอใส่ kcal) · แตะรายการเพื่อแก้';
   }
 }
 
@@ -13039,6 +13177,33 @@ async function init({ fromBoot = false } = {}) {
   els.cqExAdd?.addEventListener('click', () => {
     if (calorieQuickMode === 'mus') upsertExerciseFromDrums();
   });
+  els.cqLifestyle?.addEventListener('click', (e) => {
+    if (calorieQuickMode !== 'mus') return;
+    const btn = e.target?.closest?.('[data-life-kind]');
+    if (btn && els.cqLifestyle.contains(btn)) {
+      const kind = btn.dataset.lifeKind;
+      // One tap = append default entry; leave kind selected with prefills for optional custom add.
+      appendLifestyleEntry(kind);
+      return;
+    }
+    if (e.target?.closest?.('#cq-life-apply')) {
+      e.preventDefault();
+      applyLifestyleFields();
+    }
+  });
+  els.cqLifeMin?.addEventListener('input', () => {
+    if (calorieQuickMode !== 'mus' || exLifestyleKcalManual) return;
+    const kind = exLifestyleKind || 'sex';
+    if (!exLifestyleKind) selectLifestyleKind(kind, { prefill: false });
+    const kcal = lifestyleKcalFromMinutes(exLifestyleKind || kind, Number(els.cqLifeMin.value));
+    if (kcal != null && els.cqLifeKcal) els.cqLifeKcal.value = String(kcal);
+  });
+  els.cqLifeKcal?.addEventListener('input', () => {
+    if (calorieQuickMode !== 'mus') return;
+    exLifestyleKcalManual = true;
+    // Manual kcal: leave minutes as a hint (do not clear unless empty kcal).
+    if (!String(els.cqLifeKcal.value || '').trim() && els.cqLifeMin) els.cqLifeMin.value = '';
+  });
   els.cqExList?.addEventListener('click', (e) => {
     if (calorieQuickMode !== 'mus') return;
     if (e.target?.closest?.('[data-ex-manage]')) {
@@ -13049,16 +13214,30 @@ async function init({ fromBoot = false } = {}) {
     if (del && els.cqExList.contains(del)) {
       const i = Number(del.dataset.exDel);
       if (Number.isInteger(i) && exEntries[i]) {
+        const removed = exEntries[i];
         exEntries.splice(i, 1);
+        if (exLifestyleEditIndex === i) {
+          exLifestyleEditIndex = -1;
+          syncLifestyleChrome();
+        } else if (exLifestyleEditIndex > i) {
+          exLifestyleEditIndex -= 1;
+        }
         paintExerciseList();
         syncExerciseBar();
+        if (isLifestyleBurnLabel(removed?.label)) syncLifestyleChrome();
       }
       return;
     }
     const pick = e.target?.closest?.('[data-ex-pick]');
     if (pick && els.cqExList.contains(pick)) {
-      const entry = exEntries[Number(pick.dataset.exPick)];
-      if (!entry?.nodeId) return;
+      const i = Number(pick.dataset.exPick);
+      const entry = exEntries[i];
+      if (!entry) return;
+      if (lifestyleBurnKind(entry.label)) {
+        loadLifestyleEntryForEdit(i);
+        return;
+      }
+      if (!entry.nodeId) return;
       ensureExerciseDrums({ nodeId: entry.nodeId, burn: entry.burn });
       paintExerciseList(entry.nodeId);
     }
