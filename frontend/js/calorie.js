@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=349';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=350';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -20,7 +20,7 @@ import {
   normalizeMuscleTree,
   setMoveLogNames,
   toMuscleLayout,
-} from './muscle-tree.js?v=349';
+} from './muscle-tree.js?v=350';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -1162,6 +1162,28 @@ export function normalizeMeals(raw) {
   return out;
 }
 
+/** Cap for durable applied pending-op ids on the calorie payload (ring). */
+export const OP_LOG_MAX = 200;
+
+/** Coerce / dedupe / trim applied-op id list; keep first occurrence, then last OP_LOG_MAX. */
+export function normalizeOpLog(raw) {
+  const src = Array.isArray(raw) ? raw : [];
+  const out = [];
+  const seen = new Set();
+  for (const item of src) {
+    const id = String(item ?? '').trim().slice(0, 64);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out.length > OP_LOG_MAX ? out.slice(-OP_LOG_MAX) : out;
+}
+
+/** Union remote-then-local order, dedupe, capped. */
+function mergeOpLogs(localRaw, remoteRaw) {
+  return normalizeOpLog([...(Array.isArray(remoteRaw) ? remoteRaw : []), ...(Array.isArray(localRaw) ? localRaw : [])]);
+}
+
 /**
  * Keep trailing empty slots that carry a clear stamp — trimming them would
  * drop the stamp and let the other device's older value come back.
@@ -1327,6 +1349,8 @@ export function normalizeCalorie(raw) {
     /** Hierarchical muscle log (tree × date cells). Own stamp like homePins. */
     muscleTree,
     muscleTreeAt: String(src.muscleTreeAt || '').trim() || muscleTree.updatedAt || '',
+    /** Applied pending-op ids (ring) — skips replays on flush. Older clients ignore. */
+    opLog: normalizeOpLog(src.opLog),
     days,
   };
 }
@@ -1828,7 +1852,7 @@ export function renderWeekDashHtml(summary) {
       <span class="cd-spark-delta ${wTone}">${esc(wDelta)}</span>
     </div>
     <div class="cd-spark-row cd-spark-row-bars">
-      <span class="cd-spark-label">bal</span>
+      <span class="cd-spark-label">บาลานซ์</span>
       <div class="cd-bars">${bars}</div>
     </div>`;
 }
@@ -4214,6 +4238,8 @@ export function mergeCalorieByUpdatedAt(localRaw, remoteRaw) {
     muscleTree: muscleField.muscleTree,
     muscleTreeAt: muscleField.muscleTreeAt,
     days,
+    // After ...meta: pickMeta spreads one profile side and would drop the other ring.
+    opLog: mergeOpLogs(local.opLog, remote.opLog),
     // Max of the two stamps only — never Date.now() (avoids watch-echo loops).
     updatedAt: newerStampIso(local.updatedAt, remote.updatedAt),
   });
@@ -4444,7 +4470,7 @@ export function renderCalorieTotalsHtml(totals, { monthLabel = '' } = {}) {
   const items = [
     ['cal', totals.addCal, null],
     ['prot', totals.prot, null],
-    ['bal', totals.balance, toneClass(totals.balance)],
+    ['บาลานซ์', totals.balance, toneClass(totals.balance)],
     ['kg', totals.blKg, toneClass(totals.blKg)],
     ['Σ', totals.bsum, null],
     ['วัน', totals.days, null],
@@ -4486,14 +4512,14 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
               <th class="cal-col-day" scope="col">ว</th>
               <th class="cal-col-body" scope="col">เอว</th>
               <th class="cal-col-body" scope="col">กก</th>
-              <th class="cal-col-sum cal-col-add" scope="col">cal</th>
-              <th class="cal-col-sum" scope="col">P</th>
-              <th class="cal-col-sum" scope="col">p±</th>
-              <th class="cal-col-sum" scope="col">bal</th>
-              <th class="cal-col-sum" scope="col">kg</th>
+              <th class="cal-col-sum cal-col-add" scope="col">แคล</th>
+              <th class="cal-col-sum" scope="col">โปรตีน</th>
+              <th class="cal-col-sum" scope="col">โปร±</th>
+              <th class="cal-col-sum" scope="col">บาลานซ์</th>
+              <th class="cal-col-sum" scope="col">กก</th>
             </tr>
             <tr class="cal-head-b">
-              <th class="cal-col-burn" scope="col">mus</th>
+              <th class="cal-col-burn" scope="col">เบิร์นกาย</th>
               <th class="cal-col-burn" scope="col" title="base · Σ · %">เบิร์น</th>
               <th class="cal-col-meals" colspan="5" scope="col" title="${n > 7 ? 'ปัดซ้ายในแถบมื้อเพื่อดูมื้อที่ซ่อน' : ''}">มื้อ 1–${n}${n > 7 ? ' · ปัด→' : ''}</th>
               <th class="cal-col-note" colspan="2" scope="col">หลัก</th>

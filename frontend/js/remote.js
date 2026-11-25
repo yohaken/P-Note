@@ -1,14 +1,15 @@
-import { STORAGE_KEYS } from './config.js?v=349';
-import { initFirebase, getDb, auth } from './firebase.js?v=349';
-import { nowIso, setClockOffset } from './clock.js?v=349';
-import { emptyDeletions, normalizeDeletions } from './deletions.js?v=349';
-import { notesDataForCloudPush } from './import-data.js?v=349';
+import { STORAGE_KEYS } from './config.js?v=350';
+import { initFirebase, getDb, auth } from './firebase.js?v=350';
+import { nowIso, setClockOffset } from './clock.js?v=350';
+import { emptyDeletions, normalizeDeletions } from './deletions.js?v=350';
+import { notesDataForCloudPush } from './import-data.js?v=350';
 import {
   doc,
   getDoc,
   setDoc,
   onSnapshot,
   runTransaction,
+  serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
 /** Test seam — harness may set window.__PNOTE_SYNC_TEST__ before modules run. */
@@ -31,6 +32,11 @@ export const SHARED_SPACE_ID = 'sp-pnote-shared';
 const SPACE_RE = /^[A-Za-z0-9_-]{6,64}$/;
 const PREV_SPACE_KEY = 'pnote_prev_space_id';
 const COLLECTION = 'spaces';
+/** Server-stamped sibling field used only to anchor the local clock. */
+const CLOCK_FIELD = 'clockAt';
+let clockAnchored = false;
+/** Client ms of the last write we sent carrying a serverTimestamp() sentinel. */
+let lastClockWriteAt = 0;
 
 function persistSharedSpaceId() {
   const previous = localStorage.getItem(STORAGE_KEYS.SPACE_ID);
@@ -144,13 +150,38 @@ function spaceRef(spaceId) {
   return doc(getDb(), COLLECTION, id);
 }
 
-/** Anchor the local clock to Firestore server time (snapshot.readTime). */
-function anchorClock(snap) {
+/** Attach a serverTimestamp sentinel outside toFirestorePayload (keeps test hook JSON-clean). */
+function withClockStamp(payload) {
+  lastClockWriteAt = Date.now();
+  return { ...payload, [CLOCK_FIELD]: serverTimestamp() };
+}
+
+/** Pair a resolved server Timestamp with the client ms of the write that made it. */
+function anchorClockFromSnap(snap, clientMs) {
   try {
-    if (snap && snap.readTime && typeof snap.readTime.toMillis === 'function') {
-      setClockOffset(snap.readTime.toMillis());
-    }
+    if (!clientMs || !snap?.exists?.()) return;
+    if (snap.metadata?.hasPendingWrites) return; // sentinel not resolved yet
+    const raw = snap.data()?.[CLOCK_FIELD];
+    const ms = raw && typeof raw.toMillis === 'function' ? raw.toMillis() : 0;
+    if (!ms) return;
+    setClockOffset(ms, clientMs);
+    clockAnchored = true;
   } catch { /* ignore */ }
+}
+
+/** One cheap merge write + read-back to anchor the clock. Safe: touches only CLOCK_FIELD. */
+export async function anchorClockNow(spaceId) {
+  if (clockAnchored) return false;
+  const hook = syncTestHook();
+  if (hook) return false; // tests drive the clock themselves
+  await initFirebase();
+  requireSignedIn();
+  const ref = spaceRef(spaceId || SHARED_SPACE_ID);
+  const t0 = Date.now();
+  await setDoc(ref, { [CLOCK_FIELD]: serverTimestamp() }, { merge: true });
+  const mid = Math.round((t0 + Date.now()) / 2);
+  anchorClockFromSnap(await getDoc(ref), mid);
+  return clockAnchored;
 }
 
 export async function fetchRemoteNotes(spaceId) {
@@ -161,7 +192,7 @@ export async function fetchRemoteNotes(spaceId) {
   await initFirebase();
   requireSignedIn();
   const snap = await getDoc(spaceRef(spaceId || SHARED_SPACE_ID));
-  anchorClock(snap);
+  anchorClockFromSnap(snap, lastClockWriteAt);
   if (!snap.exists()) {
     return emptyPayload();
   }
@@ -172,7 +203,7 @@ export async function pushRemoteNotes(spaceId, data) {
   await initFirebase();
   requireSignedIn();
   const payload = toFirestorePayload(data);
-  await setDoc(spaceRef(spaceId || SHARED_SPACE_ID), payload);
+  await setDoc(spaceRef(spaceId || SHARED_SPACE_ID), withClockStamp(payload));
   return payload;
 }
 
@@ -191,7 +222,7 @@ export async function pushRemoteNotes(spaceId, data) {
  * @param {(remote: object) => { write: boolean, data: object }} resolveMerged
  *   Called with the latest cloud payload inside the transaction.
  *   Return `{ write: false, data }` to skip setDoc (e.g. sparse local).
- * @returns {Promise<{ written: boolean, data: object, remote: object }>}
+ * @returns {Promise<{ written: boolean, data: object, remote: object, flushedIds: string[]|null }>}
  */
 export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
   if (typeof resolveMerged !== 'function') {
@@ -205,11 +236,19 @@ export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
         : emptyPayload(),
     );
     const decision = resolveMerged(remote);
+    if (typeof hook.__afterResolve === 'function') {
+      try {
+        hook.__afterResolve(decision);
+      } catch (_) {
+        /* ignore test-hook errors */
+      }
+    }
     if (!decision || decision.write === false) {
       return {
         written: false,
         data: decision?.data != null ? decision.data : remote,
         remote,
+        flushedIds: null,
       };
     }
     const payload = toFirestorePayload(decision.data, {
@@ -218,7 +257,15 @@ export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
     if (typeof hook.commitRemote === 'function') {
       hook.commitRemote(spaceId || SHARED_SPACE_ID, payload);
     }
-    return { written: true, data: payload, remote };
+    if (typeof hook.__afterCommit === 'function') {
+      try {
+        hook.__afterCommit(payload);
+      } catch (_) {
+        /* ignore test-hook errors */
+      }
+    }
+    const flushedIds = Array.isArray(decision._flushedIds) ? decision._flushedIds.slice() : null;
+    return { written: true, data: payload, remote, flushedIds };
   }
   await initFirebase();
   requireSignedIn();
@@ -226,7 +273,7 @@ export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
   // runTransaction = optimistic concurrency + automatic retry on conflict.
   return runTransaction(getDb(), async (transaction) => {
     const snap = await transaction.get(ref);
-    anchorClock(snap);
+    anchorClockFromSnap(snap, lastClockWriteAt);
     const remote = snap.exists() ? normalizePayload(snap.data()) : emptyPayload();
     const decision = resolveMerged(remote);
     if (!decision || decision.write === false) {
@@ -234,13 +281,15 @@ export async function pushRemoteNotesMerged(spaceId, resolveMerged) {
         written: false,
         data: decision?.data != null ? decision.data : remote,
         remote,
+        flushedIds: null,
       };
     }
     const payload = toFirestorePayload(decision.data, {
       settingsSync: decision.settingsSync,
     });
-    transaction.set(ref, payload);
-    return { written: true, data: payload, remote };
+    transaction.set(ref, withClockStamp(payload));
+    const flushedIds = Array.isArray(decision._flushedIds) ? decision._flushedIds.slice() : null;
+    return { written: true, data: payload, remote, flushedIds };
   });
 }
 
@@ -262,7 +311,7 @@ export async function watchRemoteNotes(spaceId, onData, onError) {
   return onSnapshot(
     spaceRef(spaceId || SHARED_SPACE_ID),
     (snap) => {
-      anchorClock(snap);
+      anchorClockFromSnap(snap, lastClockWriteAt);
       if (!snap.exists()) {
         onData(emptyPayload());
         return;

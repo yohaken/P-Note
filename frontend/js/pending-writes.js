@@ -2,27 +2,29 @@
  * Incremental pending-write queue for pre-hydrate / offline calorie edits.
  * Survives reload in localStorage; flushed by replaying ops on cloud base.
  */
-import { STORAGE_KEYS } from './config.js?v=349';
+import { STORAGE_KEYS } from './config.js?v=350';
 import {
   appendQuickMeal,
   appendQuickExercise,
   normalizeCalorie,
   normalizeMeals,
+  normalizeOpLog,
+  OP_LOG_MAX,
   parseMealCell,
   formatMealCell,
   patchDay,
   ensureDay,
-} from './calorie.js?v=349';
+} from './calorie.js?v=350';
 import {
   normalizeMuscleTree,
   setMoveLogNames,
   setMovePlanIds,
-} from './muscle-tree.js?v=349';
+} from './muscle-tree.js?v=350';
 import {
   normalizeExerciseFavs,
   normalizeExerciseMedia,
-} from './settings.js?v=349';
-import { nowIso } from './clock.js?v=349';
+} from './settings.js?v=350';
+import { nowIso } from './clock.js?v=350';
 
 /** Note is handled via appendMeal labels unless it is the only change. */
 const SCALAR_KEYS = ['weight', 'waist', 'bodyFat', 'base', 'addCal', 'water'];
@@ -68,6 +70,25 @@ export function enqueuePendingWrites(ops) {
 
 export function isSettingsPendingOp(op) {
   return Boolean(op && SETTINGS_OP_KINDS.has(op.kind));
+}
+
+/** True when calorie.opLog already contains this pending-op id. */
+export function hasAppliedOp(calorie, opId) {
+  const id = String(opId || '').trim();
+  if (!id) return false;
+  const log = calorie?.opLog;
+  if (!Array.isArray(log) || !log.length) return false;
+  return log.includes(id);
+}
+
+/** Append op id to calorie.opLog (capped); returns a new sheet object. */
+function markOpApplied(calorie, opId) {
+  const id = String(opId || '').trim().slice(0, 64);
+  if (!id) return calorie;
+  const prev = Array.isArray(calorie?.opLog) ? calorie.opLog : [];
+  if (prev.includes(id)) return calorie;
+  const opLog = normalizeOpLog([...prev, id]);
+  return { ...calorie, opLog: opLog.length > OP_LOG_MAX ? opLog.slice(-OP_LOG_MAX) : opLog };
 }
 
 /**
@@ -282,7 +303,9 @@ export function applyPendingOpsToNotes(notesData, ops) {
   let calorie = normalizeCalorie(notesData?.calorie);
   for (const op of ops) {
     if (isSettingsPendingOp(op)) continue;
+    if (op.id && hasAppliedOp(calorie, op.id)) continue;
     calorie = applyOneOp(calorie, op);
+    if (op.id) calorie = markOpApplied(calorie, op.id);
   }
   return {
     ...notesData,

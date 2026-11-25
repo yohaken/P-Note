@@ -12,12 +12,12 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=349';
-import { regionRestMap } from './muscle-tree.js?v=349';
+} from './muscle-map.js?v=350';
+import { regionRestMap } from './muscle-tree.js?v=350';
 import {
   parseYoutubeVideoId,
   youtubeNocookieEmbedUrl,
-} from './settings.js?v=349';
+} from './settings.js?v=350';
 
 const FAV_GROUP = 'fav';
 const SEARCH_LIMIT = 60;
@@ -58,6 +58,7 @@ let mediaBusy = false;
 let mediaBusyText = '';
 let mediaError = '';
 let mediaToken = 0;
+let embedMountSeq = 0;
 
 function esc(s) {
   return String(s ?? '')
@@ -127,13 +128,17 @@ function detailHtml(e, tree, favs) {
   const videoId = parseYoutubeVideoId(savedYt);
   const embed = videoId ? youtubeNocookieEmbedUrl(videoId) : '';
   const embedBlock = embed
-    ? `<div class="xp-yt-embed"><iframe src="${esc(embed)}" title="YouTube" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`
+    ? `<div class="xp-yt-embed" data-xp-embed="${esc(videoId)}"><iframe src="${esc(embed)}" title="YouTube" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`
     : '';
   const items = Array.isArray(media.items) ? media.items : [];
   const itemsHtml = items.length
     ? `<ul class="xp-media-list">${items.map((it) => mediaItemHtml(it)).join('')}</ul>`
     : '';
   const linkVal = linkDraft !== '' || linkError ? linkDraft : '';
+  const busyHidden = mediaBusy ? '' : ' hidden';
+  const errHidden = mediaError ? '' : ' hidden';
+  const ytErrHidden = ytError ? '' : ' hidden';
+  const clearHidden = savedYt ? '' : ' hidden';
   return `<div class="xp-detail">
       ${photo}
       <h3 class="xp-detail-th">${esc(e.name)}</h3>
@@ -157,8 +162,8 @@ function detailHtml(e, tree, favs) {
           <input id="xp-media-file" class="xp-media-file" type="file" accept="image/*,video/*" data-xp-media-file>
           <button type="button" class="btn btn-primary" data-xp-media-add ${mediaBusy ? 'disabled' : ''}>เพิ่มรูปหรือคลิป</button>
         </div>
-        ${mediaBusy ? `<p class="xp-media-busy" aria-live="polite">${esc(mediaBusyText || 'กำลังอัปโหลด…')}</p>` : ''}
-        ${mediaError ? `<p class="xp-media-err" role="alert">${esc(mediaError)}</p>` : ''}
+        <p class="xp-media-busy" data-xp-media-busy aria-live="polite"${busyHidden}>${esc(mediaBusy ? (mediaBusyText || 'กำลังอัปโหลด…') : '')}</p>
+        <p class="xp-media-err" data-xp-media-err role="alert"${errHidden}>${esc(mediaError || '')}</p>
         ${itemsHtml}
         <div class="xp-media-links">
           <p class="xp-media-links-label">ลิงก์ (ถ้ามี)</p>
@@ -166,16 +171,16 @@ function detailHtml(e, tree, favs) {
           <div class="xp-yt-row">
             <input id="xp-yt-input" class="xp-yt-input" type="url" inputmode="url" autocomplete="off" placeholder="https://youtu.be/…" value="${esc(draft)}" data-xp-yt-input>
             <button type="button" class="btn btn-secondary" data-xp-yt-save>บันทึก</button>
-            ${savedYt ? '<button type="button" class="btn btn-secondary" data-xp-yt-clear>ลบ</button>' : ''}
+            <button type="button" class="btn btn-secondary" data-xp-yt-clear${clearHidden}>ลบ</button>
           </div>
-          ${ytError ? `<p class="xp-yt-err" role="alert">${esc(ytError)}</p>` : ''}
+          <p class="xp-yt-err" data-xp-yt-err role="alert"${ytErrHidden}>${esc(ytError || '')}</p>
           ${embedBlock}
           <label class="xp-yt-label" for="xp-link-input">ลิงก์อื่น (TikTok / IG / FB ฯลฯ)</label>
           <div class="xp-yt-row">
             <input id="xp-link-input" class="xp-yt-input" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="${esc(linkVal)}" data-xp-link-input>
             <button type="button" class="btn btn-secondary" data-xp-link-save>เพิ่ม</button>
           </div>
-          ${linkError ? `<p class="xp-yt-err" role="alert">${esc(linkError)}</p>` : ''}
+          <p class="xp-yt-err" data-xp-link-err role="alert"${linkError ? '' : ' hidden'}>${esc(linkError || '')}</p>
         </div>
       </section>
       <div class="xp-cues" data-xp-cues="${esc(e.id)}"><p class="xp-empty">กำลังโหลดวิธีเล่น…</p></div>
@@ -337,6 +342,71 @@ function listHtml(list, tree, favs, { limit = 0 } = {}) {
   return `<div class="xp-list">${rows}</div>${more}${empty}${hint}`;
 }
 
+function videoIdOf(e) {
+  return parseYoutubeVideoId(String((mediaFor(e.id) || {}).yt || '')) || '';
+}
+
+/** Patch volatile detail bits in place so the YouTube iframe is never reparented. */
+function patchDetailInPlace(e, favs) {
+  const root = els.body;
+  if (!root) return false;
+  const favBtn = root.querySelector('[data-xp-fav]');
+  const addBtn = root.querySelector('[data-xp-media-add]');
+  const busyEl = root.querySelector('[data-xp-media-busy]');
+  const errEl = root.querySelector('[data-xp-media-err]');
+  const ytErrEl = root.querySelector('[data-xp-yt-err]');
+  const ytInput = root.querySelector('[data-xp-yt-input]');
+  const linkInput = root.querySelector('[data-xp-link-input]');
+  const clearBtn = root.querySelector('[data-xp-yt-clear]');
+  if (!favBtn || !addBtn || !busyEl || !errEl || !ytErrEl || !ytInput || !linkInput || !clearBtn) {
+    return false;
+  }
+  const fav = favs.has(e.id);
+  favBtn.classList.toggle('is-on', fav);
+  favBtn.setAttribute('aria-pressed', String(fav));
+  favBtn.textContent = fav ? '★' : '☆';
+  favBtn.setAttribute('aria-label', fav ? 'เอาออกจากท่าโปรด' : 'เพิ่มเป็นท่าโปรด');
+
+  const media = mediaFor(e.id) || {};
+  const items = Array.isArray(media.items) ? media.items : [];
+  let list = root.querySelector('.xp-media-list');
+  const mediaSection = root.querySelector('[data-xp-media]');
+  if (items.length) {
+    if (!list && mediaSection) {
+      list = document.createElement('ul');
+      list.className = 'xp-media-list';
+      const links = mediaSection.querySelector('.xp-media-links');
+      if (links) mediaSection.insertBefore(list, links);
+      else mediaSection.appendChild(list);
+    }
+    if (list) list.innerHTML = items.map((it) => mediaItemHtml(it)).join('');
+  } else if (list) {
+    list.remove();
+  }
+  void fillMediaSrcs();
+
+  busyEl.textContent = mediaBusy ? (mediaBusyText || 'กำลังอัปโหลด…') : '';
+  busyEl.hidden = !mediaBusy;
+  errEl.textContent = mediaError || '';
+  errEl.hidden = !mediaError;
+  ytErrEl.textContent = ytError || '';
+  ytErrEl.hidden = !ytError;
+  const linkErrEl = root.querySelector('[data-xp-link-err]');
+  if (linkErrEl) {
+    linkErrEl.textContent = linkError || '';
+    linkErrEl.hidden = !linkError;
+  }
+
+  const savedYt = String(media.yt || '');
+  const draft = ytDraft !== '' || ytError ? ytDraft : savedYt;
+  const linkVal = linkDraft !== '' || linkError ? linkDraft : '';
+  if (document.activeElement !== ytInput) ytInput.value = draft;
+  if (document.activeElement !== linkInput) linkInput.value = linkVal;
+  clearBtn.hidden = !savedYt;
+  addBtn.disabled = Boolean(mediaBusy);
+  return true;
+}
+
 function paint() {
   if (!els.body) return;
   const tree = safeTree();
@@ -345,6 +415,18 @@ function paint() {
   let title = 'ท่าไกด์';
   let html;
   const detail = detailId ? exById.get(detailId) : null;
+  if (detail) {
+    const sig = JSON.stringify([
+      detail.id, favs.has(detail.id), mediaFor(detail.id),
+      ytDraft, ytError, linkDraft, linkError, mediaBusy, mediaBusyText, mediaError,
+    ]);
+    if (sig === lastDetailSig && els.body.dataset.view === `${groupId}|${query}|${detailId}`) {
+      return; // nothing the detail renders from changed — never touch the DOM
+    }
+    lastDetailSig = sig;
+  } else {
+    lastDetailSig = '';
+  }
   if (detail) {
     title = 'ท่า';
     html = detailHtml(detail, tree, favs);
@@ -374,8 +456,18 @@ function paint() {
   const keepScroll = els.body.dataset.view === view;
   if (!detail && !keepScroll && listScroll.view === view) listScroll.restore = true;
   const top = els.body.scrollTop;
+  const sameVideo = detail
+    && els.body.dataset.detailId === detail.id
+    && (els.body.querySelector('[data-xp-embed]')?.dataset.xpEmbed || '') === (videoIdOf(detail) || '');
+  if (sameVideo && patchDetailInPlace(detail, favs)) {
+    if (els.title) els.title.textContent = 'ท่า';
+    return;
+  }
   els.body.innerHTML = html;
   els.body.dataset.view = view;
+  els.body.dataset.detailId = detail ? detail.id : '';
+  const emb = els.body.querySelector('.xp-yt-embed iframe');
+  if (emb) emb.dataset.xpMount = String(++embedMountSeq);
   els.body.scrollTop = keepScroll ? top : listScroll.restore ? listScroll.top : 0;
   listScroll.restore = false;
   if (detail) {
@@ -402,6 +494,7 @@ async function fillMediaSrcs() {
 }
 
 const listScroll = { view: '', top: 0, restore: false };
+let lastDetailSig = '';
 
 /** free-exercise-db photo id used for cues JSON (library id may differ). */
 function fedbIdOf(e) {
@@ -422,7 +515,7 @@ async function loadCuesIntoDetail(exercise) {
     return;
   }
   try {
-    const mod = await import(`./exercise-cues.js?v=349`);
+    const mod = await import(`./exercise-cues.js?v=350`);
     if (token !== cuesToken) return;
     const steps = await mod.loadExerciseInstructions(fedbId);
     if (token !== cuesToken) return;
@@ -685,6 +778,7 @@ function resetDetailDrafts() {
   mediaBusyText = '';
   mediaError = '';
   mediaToken += 1;
+  lastDetailSig = '';
 }
 
 function onBack() {

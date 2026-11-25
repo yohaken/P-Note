@@ -1155,6 +1155,8 @@ body.light .dock-action-btn.active {
   appearance: none;
   width: calc(2.45rem * var(--dock-scale));
   height: calc(2.45rem * var(--dock-scale));
+  min-width: 44px;
+  min-height: 44px;
   border: none;
   border-radius: 999px;
   background: var(--surface-2);
@@ -3907,19 +3909,28 @@ body.light .priority-badge.priority-urgent {
 }
 
 .notify-field input[type='text'],
-.notify-field input[type='number'] {
+.notify-field input[type='number'],
+.settings-group input[type='text'],
+.settings-group input[type='number'],
+.settings-group input[type='password'],
+.settings-group input[type='date'] {
   width: 100%;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
   background: var(--bg, #000);
   color: var(--text);
-  padding: 0.45rem 0.55rem;
+  padding: 0.5rem 0.55rem;
   font: inherit;
   font-size: 0.88rem;
   box-sizing: border-box;
+  min-height: 44px;
 }
 body.light .notify-field input[type='text'],
-body.light .notify-field input[type='number'] {
+body.light .notify-field input[type='number'],
+body.light .settings-group input[type='text'],
+body.light .settings-group input[type='number'],
+body.light .settings-group input[type='password'],
+body.light .settings-group input[type='date'] {
   background: var(--surface-2, #fff);
 }
 
@@ -4005,15 +4016,18 @@ body.light .notify-field input[type='number'] {
   font-size: 0.72rem;
 }
 
-.notify-select {
+.notify-select,
+select.notify-select {
   max-width: 58%;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
   background: var(--bg, #000);
   color: var(--text);
-  padding: 0.35rem 0.45rem;
+  padding: 0.5rem 0.55rem;
   font: inherit;
   font-size: 0.78rem;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .notify-tag-chips {
@@ -7026,7 +7040,7 @@ body:not(.calorie-only) .cal-topnav {
   justify-content: center;
   gap: 1px;
   min-width: 44px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0.15rem 0.35rem;
   border: 0;
   border-radius: 10px;
@@ -8137,6 +8151,7 @@ body.chs-chart-overlay-open {
   appearance: none;
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -8177,6 +8192,7 @@ body.chs-chart-overlay-open {
 .ctc-life-more {
   appearance: none;
   flex: 0 0 2.4rem;
+  min-height: 44px;
   border: 1px solid color-mix(in srgb, #e11d48 35%, var(--border));
   background: #fff;
   color: #9f1239;
@@ -8287,9 +8303,10 @@ body.chs-chart-overlay-open {
 /* Body / burn boxes — same frame language as ± cards */
 .ctc-stat-duo {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.25rem;
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .ctc-stat-field {
@@ -8307,6 +8324,7 @@ body.chs-chart-overlay-open {
   min-width: 0;
   box-sizing: border-box;
   height: 1.45rem;
+  min-height: 44px;
   border: none;
   border-radius: 0;
   padding: 0;

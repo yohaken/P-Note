@@ -8,8 +8,8 @@ import {
   calorieToneCssVars,
   dockScaleToCss,
   dockOffsetYToLiftPx,
-} from './settings.js?v=349';
-import { applyAppIcon } from './app-icons.js?v=349';
+} from './settings.js?v=350';
+import { applyAppIcon } from './app-icons.js?v=350';
 
 function applyCalorieChrome() {
   document.body.classList.add('light', 'calorie-mode', 'calorie-only');
@@ -52,22 +52,8 @@ function applyCalorieChrome() {
 
 function showCalorieShell() {
   const boardTopbar = document.getElementById('board-topbar');
-  const listView = document.getElementById('list-view');
-  const editorView = document.getElementById('editor-view');
-  const calendarView = document.getElementById('calendar-view');
   const calorieView = document.getElementById('calorie-view');
   const loading = document.getElementById('loading-overlay');
-  const filters = document.getElementById('filter-dock-filters');
-  const drawer = document.getElementById('group-drawer');
-  const drawerBackdrop = document.getElementById('drawer-backdrop');
-  const modeMenu = document.getElementById('modeMenuOverlay');
-  if (editorView) editorView.hidden = true;
-  if (calendarView) calendarView.hidden = true;
-  if (listView) listView.hidden = true;
-  if (filters) filters.hidden = true;
-  if (drawer) drawer.hidden = true;
-  if (drawerBackdrop) drawerBackdrop.hidden = true;
-  if (modeMenu) modeMenu.hidden = true;
   if (calorieView) calorieView.hidden = false;
   if (boardTopbar) boardTopbar.hidden = false;
   if (loading) loading.hidden = true;

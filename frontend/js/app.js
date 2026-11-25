@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=349';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=349';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=349';
-import { CONFIG } from './config.js?v=349';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=349';
-import { nowIso } from './clock.js?v=349';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=350';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=350';
+import { initGridSortable, initLongPressTap } from './sortable.js?v=350';
+import { CONFIG } from './config.js?v=350';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=350';
+import { nowIso } from './clock.js?v=350';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=349';
+} from './auth.js?v=350';
 import {
   addTag,
   addNotepad,
@@ -56,17 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=349';
-import {
-  cellKey,
-  colIndexToLetter,
-  createSheetBlock,
-  evaluateSheet,
-  formatSheetDisplay,
-  normalizeSheetBlocks,
-  parseCellRef,
-  sheetFingerprint,
-} from './sheet.js?v=349';
+} from './notes.js?v=350';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -140,7 +130,7 @@ import {
   lifestyleBurnSpec,
   lifestyleKcalFromMinutes,
   isLifestyleBurnLabel,
-} from './calorie.js?v=349';
+} from './calorie.js?v=350';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -193,7 +183,7 @@ import {
   CELL_NOTE_MAX,
   getCellNote,
   setCellNote,
-} from './muscle-tree.js?v=349';
+} from './muscle-tree.js?v=350';
 import {
   musclePhotoKeys,
   musclePhotosFor,
@@ -204,7 +194,7 @@ import {
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
-} from './muscle-photos.js?v=349';
+} from './muscle-photos.js?v=350';
 import {
   ALL_EXERCISES,
   EQUIPMENT_TH,
@@ -224,18 +214,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=349';
-import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=349';
-import { mountDrumPicker } from './drum-picker.js?v=349';
-import {
-  applyTextPrefsToTextarea,
-  clampFontSize,
-  DEFAULT_TEXT_PREFS,
-  handleTextareaEnterIndent,
-  handleTextareaTab,
-  normalizeTextPrefs,
-} from './note-text.js?v=349';
-import { bindComposableInput } from './text-input.js?v=349';
+} from './muscle-map.js?v=350';
+import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=350';
+import { mountDrumPicker } from './drum-picker.js?v=350';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -276,14 +257,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=349';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=349';
+} from './schedule.js?v=350';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=350';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=349';
+} from './app-icons.js?v=350';
 import {
   allIcons,
   bestIconForLabel,
@@ -292,37 +273,28 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=349';
-import {
-  notificationPermission,
-  notificationSupported,
-  registerNotifyServiceWorker,
-  requestNotificationPermission,
-  sendTestNotification,
-  syncNoteNotifications,
-  startNotifyKeepalive,
-} from './note-notify.js?v=349';
+} from './icons.js?v=350';
 import {
   getFilesStatus,
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=349';
+} from './files.js?v=350';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=349');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=350');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=349');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=350');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=349');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=350');
   return userContextModPromise;
 }
 
@@ -346,7 +318,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=349';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=350';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -354,12 +326,13 @@ import {
   clearPreviousSpaceId,
   pushRemoteNotesMerged,
   watchRemoteNotes,
+  anchorClockNow,
   SHARED_SPACE_ID,
-} from './remote.js?v=349';
-import { normalizeNotesData } from './notes.js?v=349';
-import { SaveManager } from './sync.js?v=349';
-import { emptyDeletions } from './deletions.js?v=349';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=349';
+} from './remote.js?v=350';
+import { normalizeNotesData } from './notes.js?v=350';
+import { SaveManager } from './sync.js?v=350';
+import { emptyDeletions } from './deletions.js?v=350';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=350';
 import {
   loadPendingWrites,
   savePendingWrites,
@@ -371,7 +344,7 @@ import {
   makeSetExerciseFavOp,
   makeSetExerciseMediaOp,
   isSettingsPendingOp,
-} from './pending-writes.js?v=349';
+} from './pending-writes.js?v=350';
 
 const state = {
   notesData: {
@@ -417,8 +390,6 @@ const state = {
   activeNotepadId: null,
   /** Draft sheet blocks while editing a notepad (insertable Excel-like modules). */
   editorSheets: [],
-  /** Per-notepad text prefs (font size / code mode / tab) — remembered with that title. */
-  editorTextPrefs: { ...DEFAULT_TEXT_PREFS },
   sheetFocus: null, // { sheetId, key }
   activeNoteId: null,
   tagFilterId: null,
@@ -503,33 +474,16 @@ const els = {
   inAppCameraSettings: document.getElementById('in-app-camera-settings'),
   inAppCameraFlip: document.getElementById('in-app-camera-flip'),
   inAppCameraShutter: document.getElementById('in-app-camera-shutter'),
-  cameraQuality: document.getElementById('camera-quality'),
-  cameraFacing: document.getElementById('camera-facing'),
-  cameraSaveSeg: document.getElementById('camera-save-seg'),
-  cameraSettingsRow: document.getElementById('camera-settings-row'),
   boxColorsSettingsRow: document.getElementById('box-colors-settings-row'),
   priorityColorGrid: document.getElementById('priority-color-grid'),
   dueColorGrid: document.getElementById('due-color-grid'),
   resetBoxColorsBtn: document.getElementById('reset-box-colors-btn'),
   gotoTagColorsBtn: document.getElementById('goto-tag-colors-btn'),
-  tagsSettingsRow: document.getElementById('tags-settings-row'),
   aiNoteStatus: null,
   aiNoteCancelBtn: document.getElementById('ai-note-cancel-btn'),
   aiNoteDeleteBtn: document.getElementById('ai-note-delete-btn'),
   aiNoteSummarizeBtn: document.getElementById('ai-note-summarize-btn'),
   aiNoteConfirmBtn: document.getElementById('ai-note-confirm-btn'),
-  geminiApiKey: document.getElementById('gemini-api-key'),
-  geminiModel: document.getElementById('gemini-model'),
-  geminiLoadModelsBtn: document.getElementById('gemini-load-models-btn'),
-  geminiModelHint: document.getElementById('gemini-model-hint'),
-  aiProfile: document.getElementById('ai-profile'),
-  aiTagRulesList: document.getElementById('ai-tag-rules-list'),
-  aiTagRuleForm: document.getElementById('ai-tag-rule-form'),
-  aiTagRuleKeywords: document.getElementById('ai-tag-rule-keywords'),
-  aiTagRuleTag: document.getElementById('ai-tag-rule-tag'),
-  aiTagRuleTagList: document.getElementById('ai-tag-rule-tag-list'),
-  aiContextRefreshBtn: document.getElementById('ai-context-refresh-btn'),
-  aiContextPreview: document.getElementById('ai-context-preview'),
   settingsBtn: document.getElementById('settings-btn'),
   manageTagsBtn: document.getElementById('manage-tags-btn'),
   openDrawerBtn: document.getElementById('group-nav-btn'),
@@ -628,15 +582,6 @@ const els = {
   listPreviewTitleBtn: document.getElementById('list-preview-title-btn'),
   listPreviewContentBtn: document.getElementById('list-preview-content-btn'),
   tagModal: null,
-  tagAddForm: document.getElementById('tag-add-form'),
-  newTagInput: document.getElementById('new-tag-input'),
-  tagManagerList: document.getElementById('tag-manager-list'),
-  cardDisplaySettingsRow: document.getElementById('card-display-settings-row'),
-  cardLeadIconSeg: document.getElementById('card-lead-icon-seg'),
-  cardIconColorSeg: document.getElementById('card-icon-color-seg'),
-  cardIconColorCustom: document.getElementById('card-icon-color-custom'),
-  priorityIconColorGrid: document.getElementById('priority-icon-color-grid'),
-  priorityIconGrid: document.getElementById('priority-icon-grid'),
   iconPickerOverlay: document.getElementById('icon-picker-overlay'),
   iconPickerBackdrop: document.getElementById('icon-picker-backdrop'),
   iconPickerTitle: document.getElementById('icon-picker-title'),
@@ -645,23 +590,12 @@ const els = {
   iconPickerAll: document.getElementById('icon-picker-all'),
   iconPickerCloseBtn: document.getElementById('icon-picker-close-btn'),
   closeTagModalBtn: null,
-  tagsSettingsRow: document.getElementById('tags-settings-row'),
   settingsOverlay: document.getElementById('settings-overlay'),
   settingsBackdrop: document.getElementById('settings-backdrop'),
   cardDensitySlider: document.getElementById('card-density-slider'),
   themeDarkBtn: document.getElementById('theme-dark-btn'),
   themeLightBtn: document.getElementById('theme-light-btn'),
   filterOrderList: document.getElementById('filter-order-list'),
-  notifyOffBtn: document.getElementById('notify-off-btn'),
-  notifyOnBtn: document.getElementById('notify-on-btn'),
-  notifyHint: document.getElementById('notify-hint'),
-  notifyOptions: document.getElementById('notify-options'),
-  notifyLabel: document.getElementById('notify-label'),
-  notifyEarly: document.getElementById('notify-early'),
-  notifyMinPriority: document.getElementById('notify-min-priority'),
-  notifyMonthPresets: document.getElementById('notify-month-presets'),
-  notifyTagChips: document.getElementById('notify-tag-chips'),
-  notifyTestBtn: document.getElementById('notify-test-btn'),
   thicknessSort: document.getElementById('thickness-sort'),
   thicknessTag: document.getElementById('thickness-tag'),
   thicknessPriority: document.getElementById('thickness-priority'),
@@ -757,7 +691,6 @@ const els = {
   muscleExpandAllBtn: document.getElementById('muscle-expand-all'),
   muscleMoveUp: document.getElementById('muscle-move-up'),
   muscleMoveDown: document.getElementById('muscle-move-down'),
-  muscleFreeform: document.getElementById('muscle-freeform'),
   muscleAddExercise: document.getElementById('muscle-add-exercise'),
   muscleLoadOlder: document.getElementById('muscle-load-older'),
   muscleRange: document.getElementById('muscle-range'),
@@ -803,6 +736,7 @@ const els = {
   calorieTodayProtMeta: document.getElementById('calorie-today-prot-meta'),
   calorieTodayWeight: document.getElementById('calorie-today-weight'),
   calorieTodayWaist: document.getElementById('calorie-today-waist'),
+  calorieTodayFat: document.getElementById('calorie-today-fat'),
   calorieTodayMus: document.getElementById('calorie-today-mus'),
   calorieTodayBurn: document.getElementById('calorie-today-burn'),
   calorieTodayPose: document.getElementById('calorie-today-pose'),
@@ -819,7 +753,6 @@ const els = {
   calorieFabs: document.getElementById('dock-context-calorie'),
   calorieFabMeal: document.getElementById('calorie-fab-meal'),
   calorieFabMus: document.getElementById('calorie-fab-mus'),
-  calorieFabBody: document.getElementById('calorie-fab-body'),
   dockContextRail: document.getElementById('dock-context-rail'),
   calorieQuickOverlay: document.getElementById('calorie-quick-overlay'),
   calorieQuickBackdrop: document.getElementById('calorie-quick-backdrop'),
@@ -857,13 +790,6 @@ const els = {
   calorieQuickDelete: document.getElementById('calorie-quick-delete'),
   calorieQuickCancel: document.getElementById('calorie-quick-cancel'),
   calorieQuickOk: document.getElementById('calorie-quick-ok'),
-  calorieBodyOverlay: document.getElementById('calorie-body-overlay'),
-  calorieBodyBackdrop: document.getElementById('calorie-body-backdrop'),
-  calorieBodyWeight: document.getElementById('calorie-body-weight'),
-  calorieBodyWaist: document.getElementById('calorie-body-waist'),
-  calorieBodyFatDay: document.getElementById('calorie-body-fat-day'),
-  calorieBodyCancel: document.getElementById('calorie-body-cancel'),
-  calorieBodyOk: document.getElementById('calorie-body-ok'),
   dockModeCalorie: document.getElementById('dock-mode-calorie'),
   modeMenuCalorie: document.getElementById('mode-menu-calorie'),
 };
@@ -883,8 +809,8 @@ function showView(_view) {
   const onEditor = next === 'editor';
 
   if (els.boardTopbar) els.boardTopbar.hidden = !(onList || onCal || onCalorie);
-  els.listView.hidden = !onList;
-  els.editorView.hidden = !onEditor;
+  if (els.listView) els.listView.hidden = !onList;
+  if (els.editorView) els.editorView.hidden = !onEditor;
   if (els.calendarView) els.calendarView.hidden = !onCal;
   if (els.calorieView) els.calorieView.hidden = !onCalorie;
   if (els.notesList) els.notesList.hidden = false;
@@ -896,8 +822,10 @@ function showView(_view) {
 }
 
 function setLoading(visible, message = 'กำลังโหลด...') {
+  if (!els.loadingOverlay) return;
   els.loadingOverlay.hidden = !visible;
-  els.loadingOverlay.querySelector('p').textContent = message;
+  const msg = els.loadingOverlay.querySelector('p');
+  if (msg) msg.textContent = message;
 }
 
 function setAuthOverlayVisible(visible) {
@@ -1106,10 +1034,12 @@ function applyRemotePayload(remoteRaw) {
 }
 
 let pendingFlushInFlight = null;
+let pendingFlushFollowUpTimer = 0;
 
 /**
  * Replay queued ops inside a Firestore transaction on the latest remote.
- * Mid-flight new ops stay in the queue.
+ * Clear only the ids the committed txn contained; ops queued after the
+ * resolver ran stay queued and are replayed on the cloud base once.
  */
 function flushPendingWritesToCloud() {
   if (pendingFlushInFlight) return pendingFlushInFlight;
@@ -1125,10 +1055,15 @@ function flushPendingWritesToCloud() {
 
   state.syncBusy = true;
   setSyncStatus('busy', 'กำลังซิงค์');
+  // Same-turn guard: test-hook pushRemoteNotesMerged can run __afterResolve
+  // synchronously before the IIFE assignment lands; persistCalorie must see
+  // a truthy pendingFlushInFlight so mid-flight meals enqueue instead of saveNow.
+  pendingFlushInFlight = Promise.resolve(false);
   pendingFlushInFlight = (async () => {
+    let result = null;
     try {
       const spaceId = state.spaceId || getSpaceId();
-      const result = await pushRemoteNotesMerged(spaceId, (remoteRaw) => {
+      result = await pushRemoteNotesMerged(spaceId, (remoteRaw) => {
         const remote = normalizeNotesData(remoteRaw);
         const livePending = loadPendingWrites();
         const flushed = livePending.length ? livePending : snapshot;
@@ -1150,21 +1085,21 @@ function flushPendingWritesToCloud() {
         };
       });
       if (result?.written) {
-        const still = loadPendingWrites();
-        // Clear only ops that existed at flush start; keep mid-flight newcomers.
-        const flushedIds = new Set(snapshot.map((o) => o.id));
-        const remain = still.filter((o) => !flushedIds.has(o.id));
+        // Clear only ops that the committed transaction actually contained.
+        const writtenIds = new Set(
+          Array.isArray(result.flushedIds) && result.flushedIds.length
+            ? result.flushedIds
+            : snapshot.map((o) => o.id),
+        );
+        const remain = loadPendingWrites().filter((o) => !writtenIds.has(o.id));
         savePendingWrites(remain);
         const adopted = normalizeNotesData(result.data);
-        const live = normalizeNotesData(state.notesData);
-        // Keep any newer local edits that landed during the txn.
-        state.notesData = mergeNotesByUpdatedAt(live, adopted);
-        if (remain.length) {
-          state.notesData = applyPendingOpsToNotes(
-            { ...adopted, calorie: state.notesData.calorie },
-            remain,
-          );
-        }
+        // Ops that arrived after the resolver ran are not in the cloud yet:
+        // replay them once on the cloud base. Never replay on merged-local data
+        // (the edit is already in it → duplicate meals).
+        state.notesData = remain.length
+          ? normalizeNotesData(applyPendingOpsToNotes(adopted, remain))
+          : mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), adopted);
         saveNotes(state.notesData);
         if (state.view === 'calorie') renderCalorieSheet({ preserveScroll: true });
       }
@@ -1177,6 +1112,20 @@ function flushPendingWritesToCloud() {
       pendingFlushInFlight = null;
       state.syncBusy = false;
       refreshPendingSyncBadge();
+      // One follow-up for leftovers that arrived after the resolver (no spin on fail).
+      if (
+        result?.written
+        && loadPendingWrites().length > 0
+        && state.cloudHydrated
+        && navigator.onLine
+        && state.authUser
+      ) {
+        if (pendingFlushFollowUpTimer) clearTimeout(pendingFlushFollowUpTimer);
+        pendingFlushFollowUpTimer = setTimeout(() => {
+          pendingFlushFollowUpTimer = 0;
+          void flushPendingWritesToCloud();
+        }, 150);
+      }
     }
   })();
   return pendingFlushInFlight;
@@ -1191,6 +1140,7 @@ let lastHealAt = 0;
 const HEAL_MIN_INTERVAL_MS = 15_000;
 
 function maybeHealRemote(merged, remote) {
+  if (pendingFlushInFlight) return;
   if (healInFlight || !state.cloudHydrated || !navigator.onLine) return;
   if (Date.now() - lastHealAt < HEAL_MIN_INTERVAL_MS) return;
   if (!localNeedsRemotePush(merged, remote)) return;
@@ -1433,6 +1383,7 @@ async function ensureCloudReady({ force = true, announce = true, gateAlways = fa
     } catch (err) {
       console.warn('ensureCloudReady watch failed', err);
     }
+    void anchorClockNow(state.spaceId || SHARED_SPACE_ID).catch(() => { /* client clock fallback */ });
 
     if (state.cloudHydrated) {
       void flushPendingWritesToCloud();
@@ -1963,8 +1914,7 @@ function persistNotifyPrefs(patch = {}) {
 }
 
 function refreshNoteNotifications() {
-  const active = filterNotesByStatus(state.notesData.notes || [], NOTE_STATUS.ACTIVE);
-  syncNoteNotifications(active, getNotifyPrefs());
+  /* calorie-only: task notifications retired */
 }
 
 function renderNotifyTagChips() {
@@ -2032,40 +1982,13 @@ function applyNotifySettingsUi() {
   renderNotifyTagChips();
 
   if (!els.notifyHint) return;
-  if (!notificationSupported()) {
-    els.notifyHint.textContent = 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนระบบ';
-    return;
-  }
-  const perm = notificationPermission();
-  if (on && perm === 'granted') {
-    els.notifyHint.textContent = 'เปิดแล้ว · ปรับรายละเอียดด้านล่างได้ตามมาตรฐานการแจ้งเตือน';
-  } else if (on && perm === 'denied') {
-    els.notifyHint.textContent = 'ระบบบล็อกการแจ้งเตือน — เปิดสิทธิ์ในตั้งค่าเครื่อง/เบราว์เซอร์';
-  } else if (on) {
-    els.notifyHint.textContent = 'รออนุญาตการแจ้งเตือนจากเครื่อง…';
-  } else {
-    els.notifyHint.textContent =
-      'โน้ตที่มีกำหนดเวลาจะเด้งแจ้งเตือนระบบ · แนะนำติดตั้ง แคลโน้ต บนหน้าจอโฮม';
-  }
+  els.notifyHint.textContent = 'โหมดแคลอรี่ไม่ใช้แจ้งเตือนงาน';
 }
 
 async function setNotificationsEnabled(enabled) {
-  if (enabled) {
-    if (!notificationSupported()) {
-      setStatus('เครื่องนี้ไม่รองรับการแจ้งเตือน');
-      applyNotifySettingsUi();
-      return;
-    }
-    await registerNotifyServiceWorker();
-    const perm = await requestNotificationPermission();
-    if (perm !== 'granted') {
-      persistNotifyPrefs({ enabled: false });
-      setStatus(perm === 'denied' ? 'ไม่ได้รับอนุญาตแจ้งเตือน' : 'ยังไม่ได้เปิดแจ้งเตือน');
-      return;
-    }
-  }
-  persistNotifyPrefs({ enabled: Boolean(enabled) });
-  setStatus(enabled ? 'เปิดแจ้งเตือนเครื่องแล้ว' : 'ปิดแจ้งเตือนเครื่องแล้ว');
+  persistNotifyPrefs({ enabled: false });
+  setStatus('โหมดแคลอรี่ไม่ใช้แจ้งเตือนงาน');
+  applyNotifySettingsUi();
 }
 
 function barWrapper(bar) {
@@ -2093,19 +2016,19 @@ function applyBarThickness() {
 }
 
 function openDrawer() {
-  els.drawer.classList.add('open');
-  els.drawerBackdrop.classList.add('open');
+  els.drawer?.classList.add('open');
+  els.drawerBackdrop?.classList.add('open');
   els.groupNavBtn?.classList.add('active');
 }
 
 function closeDrawer() {
-  els.drawer.classList.remove('open');
-  els.drawerBackdrop.classList.remove('open');
+  els.drawer?.classList.remove('open');
+  els.drawerBackdrop?.classList.remove('open');
   els.groupNavBtn?.classList.remove('active');
 }
 
 function isDrawerOpen() {
-  return els.drawer.classList.contains('open');
+  return Boolean(els.drawer?.classList.contains('open'));
 }
 
 function toggleDrawer() {
@@ -2215,7 +2138,9 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
     saveNotes(state.notesData);
   } catch { /* ignore quota */ }
 
-  const queueOnly = !state.cloudHydrated || !navigator.onLine || !state.authUser;
+  // Mid-flush: enqueue so leftover ops ride the finally follow-up flush;
+  // saveNow would race the in-flight commit and drop the meal on adopt.
+  const queueOnly = !state.cloudHydrated || !navigator.onLine || !state.authUser || !!pendingFlushInFlight;
   if (queueOnly) {
     const ops = diffCalorieToPendingOps(prevCalorie, stamped);
     if (ops.length) enqueuePendingWrites(ops);
@@ -2901,6 +2826,12 @@ function paintCalorieTodayCard(rows, sheet) {
   };
   fillIfIdle(els.calorieTodayWeight, row.weight);
   fillIfIdle(els.calorieTodayWaist, row.waist);
+  fillIfIdle(els.calorieTodayFat, row.bodyFat);
+  if (els.calorieTodayFat) {
+    const priorSheet = { ...sheet, days: (sheet?.days || []).filter((d) => d.date !== row.date) };
+    const latest = resolveDayBodyFat({ ...row, bodyFat: null }, priorSheet);
+    els.calorieTodayFat.placeholder = latest == null ? '' : `ล่าสุด ${latest}`;
+  }
   if (els.calorieTodayMus && document.activeElement !== els.calorieTodayMus) {
     const musVal = row.mus == null || row.mus === '' ? '' : String(row.mus);
     els.calorieTodayMus.value = musVal;
@@ -2910,8 +2841,8 @@ function paintCalorieTodayCard(rows, sheet) {
     const pose = formatExerciseDisplay(row);
     els.calorieTodayPose.textContent = pose || 'ยังไม่มีท่า · แตะเพื่อเพิ่ม';
     els.calorieTodayPose.title = pose
-      ? `${pose}${row.mus != null ? ` · เบิร์น −${row.mus} kcal จากดุล` : ' · ท่ากล้ามไม่นับแคล'}`
-      : 'แตะเพื่อเพิ่มออกกำลัง (ทีละกล้ามเนื้อ · ได้หลายรอบต่อวัน)';
+      ? `${pose}${row.mus != null ? ` · เบิร์น −${row.mus} kcal` : ' · ท่ากล้ามไม่นับแคล'} · แตะเพื่อบันทึกออกกำลัง`
+      : 'แตะเพื่อบันทึกออกกำลังวันนี้';
   }
   if (els.calorieTodayBurn) {
     els.calorieTodayBurn.classList.toggle('has-value', row.mus != null && row.mus !== '');
@@ -2925,6 +2856,7 @@ function paintCalorieTodayCard(rows, sheet) {
   };
   syncClearWrap(els.calorieTodayWeight);
   syncClearWrap(els.calorieTodayWaist);
+  syncClearWrap(els.calorieTodayFat);
   syncClearWrap(els.calorieTodayMus);
   if (els.calorieTodayMeals && document.activeElement?.closest?.('#calorie-today-meals') == null) {
     const meals = expandMealsForEdit(row.meals);
@@ -3851,25 +3783,35 @@ function selectTodayLifePickerKind(kind, { prefill = true } = {}) {
   }
 }
 
-/** Persist one lifestyle freeform cell for today; toast + undo restores the prior list. */
-function appendTodayLifestyleBurn(kind, burnOverride = null) {
-  if (!requireSyncReady()) return false;
+/**
+ * Shared gate for both lifestyle entry points (today card + exercise sheet).
+ * @returns {{spec: object, burn: number}|null}
+ */
+function resolveLifestyleBurn(kind, burnOverride, currentCount) {
+  if (!requireSyncReady()) return null;
   const spec = lifestyleBurnSpec(kind);
-  if (!spec) return false;
-  const dateKey = toDateKey();
-  const sheet = ensureCaloriePayload();
-  const day = sheet.days.find((d) => d.date === dateKey) || null;
-  const before = day ? dayExerciseEntries(sheet, day).map((e) => ({ ...e })) : [];
-  if (before.length >= MAX_EXERCISE_SLOTS) {
+  if (!spec) return null;
+  if (currentCount >= MAX_EXERCISE_SLOTS) {
     setStatus(`ได้สูงสุด ${MAX_EXERCISE_SLOTS} ท่าต่อวัน`, { forceToast: true, ms: 1800 });
-    return false;
+    return null;
   }
   let burn = Math.round(Number(burnOverride != null ? burnOverride : spec.defaultKcal));
   if (!(burn > 0)) {
     setStatus('ใส่ kcal หรือนาทีก่อน', { forceToast: true, ms: 1600 });
-    return false;
+    return null;
   }
-  burn = Math.min(5000, burn);
+  return { spec, burn: Math.min(5000, burn) };
+}
+
+/** Persist one lifestyle freeform cell for today; toast + undo restores the prior list. */
+function appendTodayLifestyleBurn(kind, burnOverride = null) {
+  const dateKey = toDateKey();
+  const sheet = ensureCaloriePayload();
+  const day = sheet.days.find((d) => d.date === dateKey) || null;
+  const before = day ? dayExerciseEntries(sheet, day).map((e) => ({ ...e })) : [];
+  const res = resolveLifestyleBurn(kind, burnOverride, before.length);
+  if (!res) return false;
+  const { spec, burn } = res;
   const nextEntries = [
     ...before,
     { nodeId: null, label: spec.label, burn, cardio: true },
@@ -3923,27 +3865,19 @@ function selectLifestyleKind(kind, { prefill = true, editIndex = -1 } = {}) {
 }
 
 function appendLifestyleEntry(kind, burnOverride = null) {
-  const spec = lifestyleBurnSpec(kind);
-  if (!spec) return false;
-  if (exEntries.length >= MAX_EXERCISE_SLOTS) {
-    setStatus(`ได้สูงสุด ${MAX_EXERCISE_SLOTS} ท่าต่อวัน`, { forceToast: true, ms: 1800 });
-    return false;
-  }
-  const burn = Math.round(Number(burnOverride != null ? burnOverride : spec.defaultKcal));
-  if (!(burn > 0)) {
-    setStatus('ใส่ kcal หรือนาทีก่อน', { forceToast: true, ms: 1600 });
-    return false;
-  }
+  const res = resolveLifestyleBurn(kind, burnOverride, exEntries.length);
+  if (!res) return false;
   // Always append — never merge identical lifestyle labels (multiple per day OK).
   exEntries.push({
     nodeId: null,
-    label: spec.label,
-    burn: Math.min(5000, burn),
+    label: res.spec.label,
+    burn: res.burn,
     cardio: true,
   });
   exLifestyleEditIndex = -1;
-  selectLifestyleKind(spec.kind, { prefill: true, editIndex: -1 });
+  selectLifestyleKind(res.spec.kind, { prefill: true, editIndex: -1 });
   paintExerciseList(`life:${exEntries.length - 1}`);
+  setStatus(`${res.spec.label} · −${res.burn} kcal`, { forceToast: true, ms: 1400 });
   return true;
 }
 
@@ -4604,7 +4538,6 @@ function persistMuscleTree(nextTree, { touchDates = [], status = '' } = {}) {
 function openMusclePane() {
   if (!requireSyncReady()) return;
   closeCalorieQuick();
-  closeCalorieBodyQuick();
   setCaloriePane('muscle');
 }
 
@@ -6535,7 +6468,6 @@ function openCalorieQuick(mode, opts = {}) {
   if (!requireSyncReady()) return;
   if (mode === 'mus' && calorieQuickMode === 'mus' && !calorieQuickEdit
     && els.calorieQuickOverlay && !els.calorieQuickOverlay.hidden) return;
-  closeCalorieBodyQuick();
   calorieQuickMode = mode === 'mus' ? 'mus' : 'meal';
   calorieQuickEdit = null;
   if (!els.calorieQuickOverlay) return;
@@ -6580,7 +6512,7 @@ function openCalorieQuick(mode, opts = {}) {
  * @param {{ mode: 'meal'|'mus', dayId: string, mealIndex?: number, value?: string }} opts
  */
 async function openTodayExerciseEditor() {
-  openMusclePane();
+  openCalorieQuick('mus');
 }
 
 /**
@@ -6590,7 +6522,6 @@ async function openTodayExerciseEditor() {
  */
 async function openCalorieCellEditor(opts) {
   if (!requireSyncReady()) return;
-  closeCalorieBodyQuick();
   const mode = opts?.mode === 'mus' ? 'mus' : 'meal';
   const dayId = String(opts?.dayId || '');
   if (!dayId || !els.calorieQuickOverlay) return;
@@ -6676,10 +6607,6 @@ function closeCalorieQuick() {
   syncCalorieQuickChrome();
 }
 
-function closeCalorieBodyQuick() {
-  if (els.calorieBodyOverlay) els.calorieBodyOverlay.hidden = true;
-}
-
 function parseBodyMeasure(raw, { min, max, label }) {
   const text = String(raw ?? '').trim();
   if (text === '') return { ok: true, value: null };
@@ -6687,101 +6614,6 @@ function parseBodyMeasure(raw, { min, max, label }) {
   if (!Number.isFinite(num)) return { ok: false, error: `${label}ต้องเป็นตัวเลข` };
   if (num < min || num > max) return { ok: false, error: `${label}อยู่นอกช่วง` };
   return { ok: true, value: Math.round(num * 10) / 10 };
-}
-
-/** Rare-use FAB: log today's weight + waist (not settings goals). */
-function openCalorieBodyQuick() {
-  if (!requireSyncReady()) return;
-  closeCalorieQuick();
-  if (!els.calorieBodyOverlay) return;
-  const { sheet, day } = ensureDay(ensureCaloriePayload(), toDateKey());
-  if (els.calorieBodyWeight) {
-    els.calorieBodyWeight.value = day?.weight == null ? '' : String(day.weight);
-  }
-  if (els.calorieBodyWaist) {
-    els.calorieBodyWaist.value = day?.waist == null ? '' : String(day.waist);
-  }
-  if (els.calorieBodyFatDay) {
-    const priorSheet = { ...sheet, days: sheet.days.filter((d) => d.date !== day?.date) };
-    const latest = resolveDayBodyFat({ ...day, bodyFat: null }, priorSheet);
-    els.calorieBodyFatDay.value = day?.bodyFat == null ? '' : String(day.bodyFat);
-    els.calorieBodyFatDay.placeholder = latest == null ? '' : `ล่าสุด ${latest}`;
-  }
-  els.calorieBodyOverlay.hidden = false;
-  requestAnimationFrame(() => {
-    try {
-      els.calorieBodyWeight?.focus({ preventScroll: false });
-      els.calorieBodyWeight?.select?.();
-    } catch { /* ignore */ }
-  });
-}
-
-function submitCalorieBodyQuick() {
-  if (!requireSyncReady()) return;
-  const badField = [
-    [els.calorieBodyWeight, 'น้ำหนัก'],
-    [els.calorieBodyWaist, 'รอบเอว'],
-    [els.calorieBodyFatDay, 'ไขมัน %'],
-  ].find(([input]) => input?.validity?.badInput);
-  if (badField) {
-    setStatus(`${badField[1]}ต้องเป็นตัวเลข`, { forceToast: true });
-    return;
-  }
-  const weightParsed = parseBodyMeasure(els.calorieBodyWeight?.value, {
-    min: 20,
-    max: 300,
-    label: 'น้ำหนัก',
-  });
-  if (!weightParsed.ok) {
-    setStatus(weightParsed.error, { forceToast: true });
-    return;
-  }
-  const waistParsed = parseBodyMeasure(els.calorieBodyWaist?.value, {
-    min: 40,
-    max: 200,
-    label: 'รอบเอว',
-  });
-  if (!waistParsed.ok) {
-    setStatus(waistParsed.error, { forceToast: true });
-    return;
-  }
-  const fatParsed = parseBodyMeasure(els.calorieBodyFatDay?.value, {
-    min: 3,
-    max: 60,
-    label: 'ไขมัน %',
-  });
-  if (!fatParsed.ok) {
-    setStatus(fatParsed.error, { forceToast: true });
-    return;
-  }
-  if (weightParsed.value == null && waistParsed.value == null && fatParsed.value == null) {
-    setStatus('ใส่น้ำหนัก รอบเอว หรือไขมัน % ก่อน', { forceToast: true });
-    return;
-  }
-  try {
-    const { sheet, day } = ensureDay(ensureCaloriePayload(), toDateKey());
-    if (!day?.id) {
-      setStatus('สร้างวันวันนี้ไม่ได้', { forceToast: true });
-      return;
-    }
-    const next = patchDay(sheet, day.id, {
-      weight: weightParsed.value,
-      waist: waistParsed.value,
-      bodyFat: fatParsed.value,
-    });
-    state.calorieActiveMonth = monthKeyFromDate(toDateKey());
-    const bits = [];
-    if (weightParsed.value != null) bits.push(`${weightParsed.value} กก`);
-    if (waistParsed.value != null) bits.push(`เอว ${waistParsed.value}`);
-    if (fatParsed.value != null) bits.push(`ไขมัน ${fatParsed.value}%`);
-    persistCalorie(next, {
-      status: `อัปเดตร่างกายวันนี้ · ${bits.join(' · ')}`,
-      fullRender: true,
-    });
-    closeCalorieBodyQuick();
-  } catch (err) {
-    setStatus(err?.message || 'บันทึกไม่ได้', { forceToast: true });
-  }
 }
 
 async function clearCalorieQuickInput() {
@@ -7028,7 +6860,6 @@ function setAppMode(_mode, { persist = true } = {}) {
     saveSettings(state.settings);
   }
   closeCalorieQuick();
-  closeCalorieBodyQuick();
   closeModeMenu();
   renderModeSwitcher();
   showView('calorie');
@@ -7969,9 +7800,9 @@ function sortedFilteredNotes() {
 }
 
 function renderGroupNav() {
-  els.groupActiveBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.ACTIVE);
-  els.groupDoneBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.DONE);
-  els.groupTrashBtn.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
+  els.groupActiveBtn?.classList.toggle('active', state.listGroup === NOTE_STATUS.ACTIVE);
+  els.groupDoneBtn?.classList.toggle('active', state.listGroup === NOTE_STATUS.DONE);
+  els.groupTrashBtn?.classList.toggle('active', state.listGroup === NOTE_STATUS.TRASH);
 
   const isActiveGroup = state.listGroup === NOTE_STATUS.ACTIVE;
   if (isCalorieMode()) {
@@ -9878,6 +9709,7 @@ function ensureFiltersDockObserver() {
 }
 
 function renderNotepadList() {
+  if (!els.notesList) return;
   renderGroupNav();
   applyCardDensity();
   ensureFiltersDockObserver();
@@ -9954,6 +9786,7 @@ function renderNotesList() {
     renderNotepadList();
     return;
   }
+  if (!els.notesList) return;
 
   renderGroupNav();
   renderDueScopeBar();
@@ -12378,6 +12211,21 @@ async function loadSpaceData(spaceId, localData) {
   };
 }
 
+/** cyrb53 — short synchronous content hash (not crypto; no async subtle). */
+function hashString(str) {
+  const s = String(str);
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < s.length; i += 1) {
+    const ch = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
 /** Fingerprint note/tag content (ignore top-level updatedAt churn). */
 function notesContentKey(data) {
   const notes = Array.isArray(data?.notes) ? data.notes : [];
@@ -12391,13 +12239,7 @@ function notesContentKey(data) {
     .map((t) => `${t.id}:${t.label || ''}:${t.color || ''}`)
     .sort()
     .join(',');
-  const padPart = notepads
-    .map(
-      (p) =>
-        `${p.id}:${p.name || ''}:${p.updatedAt || ''}:${(p.content || '').length}:${sheetFingerprint(p.sheets)}`,
-    )
-    .sort()
-    .join(',');
+  const padPart = notepads.length ? hashString(JSON.stringify(notepads)) : '';
   const calDays = Array.isArray(data?.calorie?.days) ? data.calorie.days : [];
   const calPart = `${data?.calorie?.updatedAt || ''}:${calDays
     .map((d) => `${d.id}:${d.updatedAt || ''}:${calorieDayFingerprint(d)}`)
@@ -12405,7 +12247,7 @@ function notesContentKey(data) {
     .join(',')}`;
   const pinPart = homePinsFingerprint(data);
   const tree = data?.calorie?.muscleTree;
-  const treePart = tree ? `${data.calorie.muscleTreeAt || ''}:${JSON.stringify(tree).length}` : '';
+  const treePart = tree ? `${data.calorie.muscleTreeAt || ''}:${hashString(JSON.stringify(tree))}` : '';
   return `${notePart}|${tagPart}|${padPart}|${calPart}|${pinPart}|${treePart}`;
 }
 
@@ -12858,24 +12700,6 @@ async function init({ fromBoot = false } = {}) {
     if (files?.length) addAiMediaFiles(files);
     if (els.aiNoteFile) els.aiNoteFile.value = '';
   });
-  els.cameraQuality?.addEventListener('change', persistCameraSettingsFromUi);
-  els.cameraFacing?.addEventListener('change', persistCameraSettingsFromUi);
-  els.cameraSaveSeg?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-camera-save]');
-    if (!btn) return;
-    els.cameraSaveSeg.querySelectorAll('[data-camera-save]').forEach((b) => {
-      b.classList.toggle('active', b === btn);
-    });
-    persistCameraSettingsFromUi();
-  });
-  els.geminiApiKey?.addEventListener('change', persistGeminiSettingsFromUi);
-  els.geminiModel?.addEventListener('change', persistGeminiSettingsFromUi);
-  els.geminiLoadModelsBtn?.addEventListener('click', () => {
-    loadGeminiModelsFromApi();
-  });
-  els.aiProfile?.addEventListener('change', persistAiProfileFromUi);
-  els.aiProfile?.addEventListener('blur', persistAiProfileFromUi);
-  els.aiTagRuleForm?.addEventListener('submit', addAiTagRuleFromForm);
   els.ackNotesAdd?.addEventListener('click', addAckNoteFromSettings);
   els.ackNotesList?.addEventListener('click', onAckNotesSettingsClick);
   els.ackNotesList?.addEventListener('change', onAckNotesSettingsChange);
@@ -12887,60 +12711,6 @@ async function init({ fromBoot = false } = {}) {
     e.preventDefault();
     els.ackNoteOk?.focus();
   }, true);
-  els.aiContextRefreshBtn?.addEventListener('click', async () => {
-    persistAiProfileFromUi();
-    const ctx = await refreshUserContextLazy(state.notesData);
-    await fillAiContextPreview();
-    setStatus(`รีเฟรชความจำแล้ว · แท็ก ${ctx.tagCount || 0} · โน้ต ${ctx.noteCount || 0}`);
-  });
-
-
-  els.cardLeadIconSeg?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-card-lead]');
-    if (!btn) return;
-    persistCardDisplayPatch({ leadIcon: btn.dataset.cardLead === '1' });
-  });
-  document.querySelectorAll('[data-card-meta]').forEach((seg) => {
-    seg.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-meta-show]');
-      if (!btn || !seg.contains(btn)) return;
-      const key = seg.dataset.cardMeta;
-      if (!key) return;
-      persistCardDisplayPatch({ [key]: btn.dataset.metaShow });
-    });
-  });
-  els.cardIconColorSeg?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-icon-color-mode]');
-    if (!btn) return;
-    persistCardDisplayPatch({ iconColorMode: btn.dataset.iconColorMode });
-  });
-  els.priorityIconColorGrid?.addEventListener('input', (e) => {
-    const input = e.target.closest('[data-prio-icon-color]');
-    if (!input) return;
-    const key = input.dataset.prioIconColor;
-    const cur = getCardDisplay();
-    persistCardDisplayPatch({
-      iconColorMode: 'custom',
-      priorityIconColors: {
-        ...cur.priorityIconColors,
-        [key]: input.value,
-      },
-    });
-  });
-
-  els.priorityIconGrid?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-priority-icon]');
-    if (!btn) return;
-    const id = btn.dataset.priorityIcon;
-    const opt = PRIORITY_OPTIONS.find((o) => o.id === id);
-    const icons = getPriorityIcons();
-    openIconPicker({
-      type: 'priority',
-      id,
-      label: opt?.label || id,
-      iconId: icons[id] || DEFAULT_PRIORITY_ICONS[id],
-    });
-  });
   els.iconPickerCloseBtn?.addEventListener('click', closeIconPicker);
   els.iconPickerBackdrop?.addEventListener('click', closeIconPicker);
   const onIconPickClick = (e) => {
@@ -12971,26 +12741,9 @@ async function init({ fromBoot = false } = {}) {
     selectAppIcon(btn.dataset.appIcon);
   });
 
-  els.openDrawerBtn?.addEventListener('click', toggleDrawer);
-  els.drawerBackdrop.addEventListener('click', closeDrawer);
-
   applyFilterOrder();
   syncTitlesOnlyListClass();
 
-  els.modeSwitchBtn?.addEventListener('click', () => {
-    if (els.modeMenuOverlay && !els.modeMenuOverlay.hidden) closeModeMenu();
-    else openModeMenu();
-  });
-  const onDockModeClick = (e) => {
-    const modeBtn = e.currentTarget;
-    const mode = modeBtn?.dataset?.appMode;
-    if (!mode) return;
-    setAppMode(mode);
-  };
-  els.dockModeWork?.addEventListener('click', onDockModeClick);
-  els.dockModeNote?.addEventListener('click', onDockModeClick);
-  els.dockModeCalendar?.addEventListener('click', onDockModeClick);
-  els.dockModeCalorie?.addEventListener('click', onDockModeClick);
   /* Calendar — Apple-style year back / today / zoom */
   els.calYearBack?.addEventListener('click', () => {
     if (state.calendarZoom === 'year') {
@@ -13019,12 +12772,7 @@ async function init({ fromBoot = false } = {}) {
     if (!afterSheetClose()) openCalorieQuick('meal');
   });
   els.calorieFabMus?.addEventListener('click', () => {
-    if (afterSheetClose()) return;
-    if (state.caloriePane === 'muscle') openCalorieQuick('mus');
-    else openMusclePane();
-  });
-  els.calorieFabBody?.addEventListener('click', () => {
-    if (!afterSheetClose()) openCalorieBodyQuick();
+    if (!afterSheetClose()) openCalorieQuick('mus');
   });
   els.dockCalorieMuscleBtn?.addEventListener('click', () => setCaloriePane('muscle'));
   els.muscleAddChild?.addEventListener('click', () => {
@@ -13191,7 +12939,6 @@ async function init({ fromBoot = false } = {}) {
   els.muscleExpandAllBtn?.addEventListener('click', () => onMuscleToggleExpandAll());
   els.muscleMoveUp?.addEventListener('click', () => onMuscleMove(-1));
   els.muscleMoveDown?.addEventListener('click', () => onMuscleMove(1));
-  els.muscleFreeform?.addEventListener('click', () => openCalorieQuick('mus'));
   initExercisePicker({
     getTree: muscleLayoutView,
     getTodayKey: toDateKey,
@@ -13380,28 +13127,6 @@ async function init({ fromBoot = false } = {}) {
     e.preventDefault();
     submitCalorieQuick();
   });
-  els.calorieBodyCancel?.addEventListener('click', closeCalorieBodyQuick);
-  els.calorieBodyBackdrop?.addEventListener('click', closeCalorieBodyQuick);
-  els.calorieBodyOk?.addEventListener('click', submitCalorieBodyQuick);
-  const onBodyFieldKey = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const nextField = e.target === els.calorieBodyWeight
-        ? els.calorieBodyWaist
-        : e.target === els.calorieBodyWaist ? els.calorieBodyFatDay : null;
-      if (nextField) {
-        try { nextField.focus(); nextField.select?.(); } catch { /* ignore */ }
-        return;
-      }
-      submitCalorieBodyQuick();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      closeCalorieBodyQuick();
-    }
-  };
-  els.calorieBodyWeight?.addEventListener('keydown', onBodyFieldKey);
-  els.calorieBodyWaist?.addEventListener('keydown', onBodyFieldKey);
-  els.calorieBodyFatDay?.addEventListener('keydown', onBodyFieldKey);
   const onCalorieProfileChange = () => {
     flushCalorieProfileFromUi({ status: '' });
   };
@@ -13500,18 +13225,21 @@ async function init({ fromBoot = false } = {}) {
         ? 'weight'
         : input === els.calorieTodayWaist
           ? 'waist'
-          : input === els.calorieTodayMus
-            ? 'mus'
-            : null;
+          : input === els.calorieTodayFat
+            ? 'bodyFat'
+            : input === els.calorieTodayMus
+              ? 'mus'
+              : null;
     if (!field) return;
     const num = String(input.value || '').trim();
     let parsed = num === '' ? null : Number(num);
     if (num !== '' && !Number.isFinite(parsed)) return;
-    if (field === 'weight' || field === 'waist') {
-      // Same limits as the body sheet; a typo shows the saved value again.
+    if (field === 'weight' || field === 'waist' || field === 'bodyFat') {
       const check = parseBodyMeasure(num, field === 'weight'
         ? { min: 20, max: 300, label: 'น้ำหนัก' }
-        : { min: 40, max: 200, label: 'รอบเอว' });
+        : field === 'waist'
+          ? { min: 40, max: 200, label: 'รอบเอว' }
+          : { min: 3, max: 60, label: 'ไขมัน' });
       if (!check.ok) {
         setStatus(check.error, { forceToast: true });
         input.value = cardDay[field] ?? '';
@@ -13524,7 +13252,13 @@ async function init({ fromBoot = false } = {}) {
       next = pruneFrequentMus(clearDayExercises(next, dayId));
     }
     // Derived refresh is enough for body/burn — avoid full table rebuild flicker.
+    const toast =
+      field === 'weight' ? 'บันทึกน้ำหนักแล้ว'
+        : field === 'waist' ? 'บันทึกรอบเอวแล้ว'
+          : field === 'bodyFat' ? 'บันทึกไขมัน% แล้ว'
+            : '';
     persistCalorie(next, { status: '', fullRender: false });
+    if (toast) setStatus(toast, { forceToast: true, ms: 1400 });
   };
   const onTodayCardChange = (e) => {
     const input = e.target?.closest?.('input');
@@ -13601,7 +13335,7 @@ async function init({ fromBoot = false } = {}) {
     const burnBox = e.target?.closest?.('#calorie-today-burn, #calorie-today-mus, #calorie-today-pose');
     if (burnBox && els.calorieTodayCard.contains(burnBox)) {
       e.preventDefault();
-      openMusclePane();
+      openCalorieQuick('mus');
       return;
     }
   });
@@ -13657,7 +13391,7 @@ async function init({ fromBoot = false } = {}) {
     const musInput = e.target?.closest?.('#calorie-today-mus');
     if (musInput && els.calorieTodayCard.contains(musInput)) {
       musInput.blur();
-      openMusclePane();
+      openCalorieQuick('mus');
     }
   });
   els.calorieHealthSheet?.addEventListener('click', (e) => {
@@ -13965,61 +13699,6 @@ async function init({ fromBoot = false } = {}) {
     applyFloatTagFilter(btn.dataset.floatTagId);
   });
 
-  els.notifyOffBtn?.addEventListener('click', () => setNotificationsEnabled(false));
-  els.notifyOnBtn?.addEventListener('click', () => setNotificationsEnabled(true));
-  els.notifyLabel?.addEventListener('change', () => {
-    persistNotifyPrefs({ label: els.notifyLabel.value.trim() || 'แคลโน้ต' });
-  });
-  els.notifyEarly?.addEventListener('change', () => {
-    persistNotifyPrefs({ earlyMinutes: Number(els.notifyEarly.value) || 0 });
-  });
-  els.notifyMinPriority?.addEventListener('change', () => {
-    persistNotifyPrefs({ minPriority: els.notifyMinPriority.value || 'normal' });
-  });
-  els.notifyMonthPresets?.addEventListener('change', () => {
-    state.settings.notifyMonthPresets = normalizeMonthPresets(els.notifyMonthPresets.value);
-    saveSettings(state.settings);
-    els.notifyMonthPresets.value = getMonthPresets().join(', ');
-    refreshScheduleSelectOptions();
-    renderRecurrenceFilterBar();
-  });
-  els.notifyMonthPresets?.addEventListener('blur', () => {
-    if (!els.notifyMonthPresets) return;
-    state.settings.notifyMonthPresets = normalizeMonthPresets(els.notifyMonthPresets.value);
-    saveSettings(state.settings);
-    els.notifyMonthPresets.value = getMonthPresets().join(', ');
-    refreshScheduleSelectOptions();
-    renderRecurrenceFilterBar();
-  });
-  document.getElementById('notify-sound-seg')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-notify-sound]');
-    if (!btn) return;
-    persistNotifyPrefs({ sound: btn.dataset.notifySound === '1' });
-  });
-  document.getElementById('notify-vibrate-seg')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-notify-vibrate]');
-    if (!btn) return;
-    persistNotifyPrefs({ vibrate: btn.dataset.notifyVibrate === '1' });
-  });
-  document.getElementById('notify-preview-seg')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-notify-preview]');
-    if (!btn) return;
-    persistNotifyPrefs({ preview: btn.dataset.notifyPreview || 'full' });
-  });
-  document.getElementById('notify-style-seg')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-notify-persistent]');
-    if (!btn) return;
-    persistNotifyPrefs({ persistent: btn.dataset.notifyPersistent === '1' });
-  });
-  els.notifyTestBtn?.addEventListener('click', async () => {
-    const result = await sendTestNotification(getNotifyPrefs());
-    if (result.ok) setStatus('ส่งแจ้งเตือนทดสอบแล้ว');
-    else if (result.reason === 'denied') setStatus('ระบบบล็อกการแจ้งเตือน');
-    else if (result.reason === 'unsupported') setStatus('ไม่รองรับการแจ้งเตือน');
-    else setStatus('ทดสอบแจ้งเตือนไม่สำเร็จ');
-    applyNotifySettingsUi();
-  });
-  applyNotifySettingsUi();
 
   initAiScheduleControls();
   bindAiFormDirtyWatchers();
@@ -14096,10 +13775,6 @@ async function init({ fromBoot = false } = {}) {
     inputs?.[inputs.length - 1]?.focus();
   });
 
-  els.groupActiveBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.ACTIVE));
-  els.groupDoneBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.DONE));
-  els.groupTrashBtn.addEventListener('click', () => setListGroup(NOTE_STATUS.TRASH));
-
   document.addEventListener('pointerdown', (event) => {
     if (
       els.noteContextOverlay &&
@@ -14144,107 +13819,8 @@ async function init({ fromBoot = false } = {}) {
   }
   // Ack overlay: backdrop / Esc must not dismiss — only รับทราบ advances.
 
-  els.manageTagsBtn?.addEventListener('click', openTagManager);
-  els.backBtn.addEventListener('click', backToList);
-
-  initListSortable(els.notesList, {
-    isEnabled: () => isManualMode() && !state.selectionMode,
-    onTap: (noteId) => {
-      if (state.selectionMode) toggleNoteSelected(noteId);
-      else openEditor(noteId);
-    },
-    onReorder: (ids) => reorderNotes(ids),
-  });
-
-  els.tagAddForm?.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const { data, tag } = addTag(state.notesData, els.newTagInput.value);
-    if (tag) commitData(data);
-    els.newTagInput.value = '';
-    els.newTagInput.focus();
-  });
-
-  els.deleteBtn.addEventListener('click', async () => {
-    const note = getActiveNote();
-    if (!note) return;
-    // Discard an empty new note silently (nothing to trash).
-    if (state.draftNoteId === note.id && noteIsEmpty(note)) {
-      backToList();
-      return;
-    }
-    const ok = await showConfirm('ย้ายโน้ตไปถังขยะ?', { okLabel: 'ย้ายไปถังขยะ', danger: true });
-    if (!ok) return;
-    state.notesData = updateNoteInData(state.notesData, moveNoteToTrash(note));
-    state.draftNoteId = null;
-    await saveManager.saveNow(() => state.notesData);
-    backToList();
-  });
-
-  bindComposableInput(els.noteTitle, { onCommit: flushEditorToState });
-  bindComposableInput(els.noteContent, { onCommit: flushEditorToState });
-
-  els.noteTextSmaller?.addEventListener('click', () => {
-    patchEditorTextPrefs({ fontSize: clampFontSize(state.editorTextPrefs.fontSize, -1) });
-  });
-  els.noteTextLarger?.addEventListener('click', () => {
-    patchEditorTextPrefs({ fontSize: clampFontSize(state.editorTextPrefs.fontSize, 1) });
-  });
-  els.noteTextCode?.addEventListener('click', () => {
-    const on = !normalizeTextPrefs(state.editorTextPrefs).codeMode;
-    patchEditorTextPrefs({ codeMode: on });
-  });
-  els.noteTextTab2?.addEventListener('click', () => patchEditorTextPrefs({ tabWidth: 2 }));
-  els.noteTextTab4?.addEventListener('click', () => patchEditorTextPrefs({ tabWidth: 4 }));
-
-  els.noteContent?.addEventListener('keydown', (event) => {
-    if (!state.activeNotepadId || !document.body.classList.contains('notepad-editing')) return;
-    const prefs = normalizeTextPrefs(state.editorTextPrefs);
-    if (event.key === 'Tab') {
-      event.preventDefault();
-      handleTextareaTab(els.noteContent, {
-        shiftKey: event.shiftKey,
-        tabWidth: prefs.tabWidth,
-      });
-      return;
-    }
-    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && prefs.codeMode) {
-      event.preventDefault();
-      handleTextareaEnterIndent(els.noteContent);
-    }
-  });
-
-  els.noteSchedule.addEventListener('change', flushEditorToState);
-  els.noteRemindBefore?.addEventListener('change', () => {
-    updateNotifyDetailsPreview();
-    flushEditorToState();
-  });
-  els.noteNotifyRepeat?.addEventListener('change', () => {
-    const repeat = normalizeNotifyRepeat(els.noteNotifyRepeat?.value);
-    if (repeat !== 'none' && !els.noteSchedule.value) {
-      els.noteSchedule.value = defaultDatetimeLocalValue();
-    }
-    updateNotifyDetailsPreview();
-    flushEditorToState();
-  });
-  els.clearScheduleBtn.addEventListener('click', () => {
-    els.noteSchedule.value = '';
-    if (els.noteRemindBefore) els.noteRemindBefore.value = 'default';
-    if (els.noteNotifyRepeat) els.noteNotifyRepeat.value = 'none';
-    const note = getActiveNote();
-    if (note) {
-      const updated = updateNote(note, {
-        scheduledAt: null,
-        remindBefore: 'default',
-        notifyRepeat: 'none',
-      });
-      state.notesData = updateNoteInData(state.notesData, updated);
-    }
-    updateNotifyDetailsPreview();
-    flushEditorToState();
-  });
-
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return;
+    if (document.visibilityState !== 'visible') { flushOnLeave(); return; }
     refreshNoteNotifications();
     if (!state.authUser || !isPinUnlocked()) return;
     hideSyncGate();
@@ -14259,6 +13835,17 @@ async function init({ fromBoot = false } = {}) {
       void flushPendingWritesToCloud();
     }
   });
+  /** Leaving the page: write local state to disk and kick a cloud flush. */
+  let leaveFlushAt = 0;
+  function flushOnLeave() {
+    const now = Date.now();
+    if (now - leaveFlushAt < 500) return; // pagehide + hidden can both fire
+    leaveFlushAt = now;
+    try { if (state.notesData) saveNotes(state.notesData); } catch { /* quota */ }
+    if (!state.authUser || !isPinUnlocked() || !navigator.onLine) return;
+    if (state.cloudHydrated && pendingWriteCount()) void flushPendingWritesToCloud();
+  }
+  window.addEventListener('pagehide', flushOnLeave);
   window.addEventListener('pageshow', () => refreshNoteNotifications());
   window.addEventListener('focus', () => refreshNoteNotifications());
   window.addEventListener('online', () => {
@@ -14296,16 +13883,8 @@ async function init({ fromBoot = false } = {}) {
     }, { timeout: 2500 });
   };
 
-  bootstrapData().then(async () => {
+  bootstrapData().then(() => {
     afterPaint();
-    if (getNotifyPrefs().enabled) {
-      await registerNotifyServiceWorker();
-      if (notificationPermission() === 'granted') refreshNoteNotifications();
-    }
-    startNotifyKeepalive(
-      () => filterNotesByStatus(state.notesData.notes, NOTE_STATUS.ACTIVE),
-      () => getNotifyPrefs(),
-    );
   });
 }
 
