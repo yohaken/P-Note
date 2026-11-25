@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=350';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=350';
-import { initGridSortable, initLongPressTap } from './sortable.js?v=350';
-import { CONFIG } from './config.js?v=350';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=350';
-import { nowIso } from './clock.js?v=350';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=351';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=351';
+import { initGridSortable, initLongPressTap } from './sortable.js?v=351';
+import { CONFIG } from './config.js?v=351';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=351';
+import { nowIso } from './clock.js?v=351';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=350';
+} from './auth.js?v=351';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=350';
+} from './notes.js?v=351';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -130,7 +130,7 @@ import {
   lifestyleBurnSpec,
   lifestyleKcalFromMinutes,
   isLifestyleBurnLabel,
-} from './calorie.js?v=350';
+} from './calorie.js?v=351';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -183,7 +183,7 @@ import {
   CELL_NOTE_MAX,
   getCellNote,
   setCellNote,
-} from './muscle-tree.js?v=350';
+} from './muscle-tree.js?v=351';
 import {
   musclePhotoKeys,
   musclePhotosFor,
@@ -194,7 +194,7 @@ import {
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
-} from './muscle-photos.js?v=350';
+} from './muscle-photos.js?v=351';
 import {
   ALL_EXERCISES,
   EQUIPMENT_TH,
@@ -214,9 +214,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=350';
-import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=350';
-import { mountDrumPicker } from './drum-picker.js?v=350';
+} from './muscle-map.js?v=351';
+import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=351';
+import { mountDrumPicker } from './drum-picker.js?v=351';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -257,14 +257,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=350';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=350';
+} from './schedule.js?v=351';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=351';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=350';
+} from './app-icons.js?v=351';
 import {
   allIcons,
   bestIconForLabel,
@@ -273,28 +273,28 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=350';
+} from './icons.js?v=351';
 import {
   getFilesStatus,
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=350';
+} from './files.js?v=351';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=350');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=351');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=350');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=351');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=350');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=351');
   return userContextModPromise;
 }
 
@@ -318,7 +318,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=350';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=351';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -326,13 +326,13 @@ import {
   clearPreviousSpaceId,
   pushRemoteNotesMerged,
   watchRemoteNotes,
-  anchorClockNow,
+  anchorClockFromHttpDate,
   SHARED_SPACE_ID,
-} from './remote.js?v=350';
-import { normalizeNotesData } from './notes.js?v=350';
-import { SaveManager } from './sync.js?v=350';
-import { emptyDeletions } from './deletions.js?v=350';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=350';
+} from './remote.js?v=351';
+import { normalizeNotesData } from './notes.js?v=351';
+import { SaveManager } from './sync.js?v=351';
+import { emptyDeletions } from './deletions.js?v=351';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=351';
 import {
   loadPendingWrites,
   savePendingWrites,
@@ -344,7 +344,7 @@ import {
   makeSetExerciseFavOp,
   makeSetExerciseMediaOp,
   isSettingsPendingOp,
-} from './pending-writes.js?v=350';
+} from './pending-writes.js?v=351';
 
 const state = {
   notesData: {
@@ -370,6 +370,11 @@ const state = {
   syncReady: false,
   /** True while first snapshot or pending-op flush is in flight. */
   syncBusy: false,
+  /**
+   * False right after adopting the first cloud snapshot. Heal/full-doc push
+   * must not run until a real local user edit (normalize rewrite ≠ edit).
+   */
+  localEditSinceAdopt: false,
   /** Calendar view state (Apple-style: vertical months + year zoom) */
   calendarMonth: new Date().getMonth(),
   calendarYear: new Date().getFullYear(),
@@ -977,6 +982,8 @@ function applyFirstCloudSnapshot(remoteRaw) {
   state.notesData = normalizeNotesData(withPending);
   state.online = true;
   state.cloudHydrated = true;
+  // Adopt ≠ local edit — block maybeHealRemote full-doc push on cold load.
+  state.localEditSinceAdopt = false;
   state.syncBaseUpdatedAt = state.notesData?.updatedAt || remote?.updatedAt || null;
   saveNotes(state.notesData);
 
@@ -1140,6 +1147,8 @@ let lastHealAt = 0;
 const HEAL_MIN_INTERVAL_MS = 15_000;
 
 function maybeHealRemote(merged, remote) {
+  // After cloud adopt, normalize may rewrite days/opLog — that is not a user edit.
+  if (!state.localEditSinceAdopt) return;
   if (pendingFlushInFlight) return;
   if (healInFlight || !state.cloudHydrated || !navigator.onLine) return;
   if (Date.now() - lastHealAt < HEAL_MIN_INTERVAL_MS) return;
@@ -1149,6 +1158,11 @@ function maybeHealRemote(merged, remote) {
   void safePushRemote(merged)
     .catch(() => { /* next poll retries */ })
     .finally(() => { healInFlight = false; });
+}
+
+/** Mark that this device made a real user edit since the last cloud adopt. */
+function markLocalEditSinceAdopt() {
+  state.localEditSinceAdopt = true;
 }
 
 async function startSpaceRemoteWatch() {
@@ -1383,7 +1397,8 @@ async function ensureCloudReady({ force = true, announce = true, gateAlways = fa
     } catch (err) {
       console.warn('ensureCloudReady watch failed', err);
     }
-    void anchorClockNow(state.spaceId || SHARED_SPACE_ID).catch(() => { /* client clock fallback */ });
+    // HTTP Date only — never setDoc clockAt on load.
+    void anchorClockFromHttpDate().catch(() => { /* client clock fallback */ });
 
     if (state.cloudHydrated) {
       void flushPendingWritesToCloud();
@@ -1607,6 +1622,7 @@ function runUndo() {
 
 function autosave() {
   if (!requireSyncReady()) return;
+  markLocalEditSinceAdopt();
   saveManager.scheduleSave(() => state.notesData);
   refreshNoteNotifications();
   scheduleUserContextRefresh();
@@ -2047,6 +2063,7 @@ function getNoteById(noteId) {
 function persistLocalChanges() {
   const note = getActiveNote();
   if (!note) return;
+  markLocalEditSinceAdopt();
 
   const updated = updateNote(note, {
     title: els.noteTitle.value,
@@ -2113,6 +2130,7 @@ function ensureCaloriePayload() {
 
 function persistCalorie(nextCalorie, { status = '', fullRender = false, immediate = true } = {}) {
   if (!requireSyncReady()) return;
+  markLocalEditSinceAdopt();
   const prevCalorie = state.notesData?.calorie;
   const prevCols = mealColumnCount(prevCalorie);
   const now = nowIso();
@@ -2457,6 +2475,7 @@ async function persistHomePins(pins) {
     setStatus('รอซิงค์ก่อนส่งกล่อง', { forceToast: true, ms: 1800 });
     return next;
   }
+  markLocalEditSinceAdopt();
   const sheet = ensureCaloriePayload();
   const now = nowIso();
   // Root-level fields sync via Firestore; mirror into calorie for compatibility.
@@ -2961,12 +2980,10 @@ function renderCalorieSheet({ preserveScroll = false } = {}) {
         calorie: normalizeCalorie(withToday),
         updatedAt: new Date().toISOString(),
       };
-      // Local only until cloud hydrated — blank today must not race ahead of
-      // the first pull (txn merge prefers newer stamps; empty+newer could win).
+      // Local only — placeholder today is not a user edit. Do not scheduleSave /
+      // saveNow / safePushRemote or markLocalEditSinceAdopt; first real
+      // persistCalorie will carry the day to the cloud.
       saveNotes(state.notesData);
-      if (state.cloudHydrated) {
-        saveManager.scheduleSave(() => state.notesData);
-      }
     }
   }
   const { sheet, rows, months } = computeTotals(ensureCaloriePayload());
@@ -6272,6 +6289,7 @@ async function resolveExerciseMediaUrl(storagePath) {
 /** Offline / pre-hydrate: enqueue settings op; else persist already done + push settings now. */
 function queueOrPushSettingsChange(op) {
   if (!op) return;
+  markLocalEditSinceAdopt();
   const queueOnly = !state.cloudHydrated || !navigator.onLine || !state.authUser;
   if (queueOnly) {
     enqueuePendingWrites([op]);

@@ -1,13 +1,13 @@
-import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=350';
-import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=350';
-import { compareStamp, newerStampIso } from './clock.js?v=350';
-import { muscleTreeNeedsPush } from './muscle-tree.js?v=350';
+import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=351';
+import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=351';
+import { compareStamp, newerStampIso } from './clock.js?v=351';
+import { muscleTreeNeedsPush } from './muscle-tree.js?v=351';
 import {
   applyDeletionFilter,
   isEntityTombstoned,
   mergeDeletions,
   normalizeDeletions,
-} from './deletions.js?v=350';
+} from './deletions.js?v=351';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -225,14 +225,10 @@ export function recoverLegacyLocalStorage() {
   return null;
 }
 
+/** Bundled JSON is not shipped — never network-fetch ./data/notes-import.json. */
 export async function fetchBundledImport() {
-  try {
-    const res = await fetch(`${BUNDLED_IMPORT_PATH}?_=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) return null;
-    return parseMaybeNotes(await res.text());
-  } catch {
-    return null;
-  }
+  void BUNDLED_IMPORT_PATH;
+  return null;
 }
 
 export async function tryAutoImport(currentData) {

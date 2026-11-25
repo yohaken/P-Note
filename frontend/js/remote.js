@@ -1,8 +1,8 @@
-import { STORAGE_KEYS } from './config.js?v=350';
-import { initFirebase, getDb, auth } from './firebase.js?v=350';
-import { nowIso, setClockOffset } from './clock.js?v=350';
-import { emptyDeletions, normalizeDeletions } from './deletions.js?v=350';
-import { notesDataForCloudPush } from './import-data.js?v=350';
+import { STORAGE_KEYS } from './config.js?v=351';
+import { initFirebase, getDb, auth } from './firebase.js?v=351';
+import { nowIso, setClockOffset } from './clock.js?v=351';
+import { emptyDeletions, normalizeDeletions } from './deletions.js?v=351';
+import { notesDataForCloudPush } from './import-data.js?v=351';
 import {
   doc,
   getDoc,
@@ -169,7 +169,37 @@ function anchorClockFromSnap(snap, clientMs) {
   } catch { /* ignore */ }
 }
 
-/** One cheap merge write + read-back to anchor the clock. Safe: touches only CLOCK_FIELD. */
+/**
+ * Anchor the client clock from an HTTP Date response header — no Firestore write.
+ * Same-origin HEAD (fallback GET) of a tiny boot asset with cache: 'no-store'.
+ * Skipped under __PNOTE_SYNC_TEST__ (harness drives the clock).
+ */
+export async function anchorClockFromHttpDate() {
+  if (clockAnchored) return false;
+  const hook = syncTestHook();
+  if (hook) return false;
+  try {
+    const url = new URL('js/boot.js', typeof location !== 'undefined' ? location.href : 'http://localhost/');
+    url.searchParams.set('_', String(Date.now()));
+    let res = await fetch(url.toString(), { method: 'HEAD', cache: 'no-store' });
+    if (!res.ok || !res.headers.get('date')) {
+      res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
+    }
+    const dateHdr = res.headers.get('date');
+    if (!dateHdr) return false;
+    const serverMs = Date.parse(dateHdr);
+    if (!Number.isFinite(serverMs)) return false;
+    const clientMs = Date.now();
+    setClockOffset(serverMs, clientMs);
+    clockAnchored = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** One cheap merge write + read-back to anchor the clock. Safe: touches only CLOCK_FIELD.
+ *  Not used on load (see anchorClockFromHttpDate); kept for rare manual recovery. */
 export async function anchorClockNow(spaceId) {
   if (clockAnchored) return false;
   const hook = syncTestHook();

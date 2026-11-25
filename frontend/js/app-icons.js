@@ -18,7 +18,7 @@ export const APP_ICON_OPTIONS = [
 const APP_ICON_IDS = new Set(APP_ICON_OPTIONS.map((o) => o.id));
 
 /** Cache-bust for icon assets — bump with pnote-build when icons change. */
-const ICON_ASSET_V = '350';
+const ICON_ASSET_V = '351';
 
 export function normalizeAppIconId(value) {
   const id = String(value || '').trim();
