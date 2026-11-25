@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=351';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=351';
-import { initGridSortable, initLongPressTap } from './sortable.js?v=351';
-import { CONFIG } from './config.js?v=351';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=351';
-import { nowIso } from './clock.js?v=351';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=352';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=352';
+import { initGridSortable, initLongPressTap } from './sortable.js?v=352';
+import { CONFIG } from './config.js?v=352';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=352';
+import { nowIso } from './clock.js?v=352';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=351';
+} from './auth.js?v=352';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=351';
+} from './notes.js?v=352';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -82,6 +82,7 @@ import {
   parseQuickMeal,
   QUICK_EXERCISE_BATCH,
   computeTotals,
+  computeDayMetrics,
   computeHealthSnapshot,
   expandMealsForEdit,
   formatDateDisplay,
@@ -130,7 +131,7 @@ import {
   lifestyleBurnSpec,
   lifestyleKcalFromMinutes,
   isLifestyleBurnLabel,
-} from './calorie.js?v=351';
+} from './calorie.js?v=352';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -183,7 +184,7 @@ import {
   CELL_NOTE_MAX,
   getCellNote,
   setCellNote,
-} from './muscle-tree.js?v=351';
+} from './muscle-tree.js?v=352';
 import {
   musclePhotoKeys,
   musclePhotosFor,
@@ -194,7 +195,7 @@ import {
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
-} from './muscle-photos.js?v=351';
+} from './muscle-photos.js?v=352';
 import {
   ALL_EXERCISES,
   EQUIPMENT_TH,
@@ -214,9 +215,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=351';
-import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=351';
-import { mountDrumPicker } from './drum-picker.js?v=351';
+} from './muscle-map.js?v=352';
+import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=352';
+import { mountDrumPicker } from './drum-picker.js?v=352';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -257,14 +258,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=351';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=351';
+} from './schedule.js?v=352';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=352';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=351';
+} from './app-icons.js?v=352';
 import {
   allIcons,
   bestIconForLabel,
@@ -273,28 +274,28 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=351';
+} from './icons.js?v=352';
 import {
   getFilesStatus,
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=351';
+} from './files.js?v=352';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=351');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=352');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=351');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=352');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=351');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=352');
   return userContextModPromise;
 }
 
@@ -318,7 +319,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=351';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=352';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -328,11 +329,11 @@ import {
   watchRemoteNotes,
   anchorClockFromHttpDate,
   SHARED_SPACE_ID,
-} from './remote.js?v=351';
-import { normalizeNotesData } from './notes.js?v=351';
-import { SaveManager } from './sync.js?v=351';
-import { emptyDeletions } from './deletions.js?v=351';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=351';
+} from './remote.js?v=352';
+import { normalizeNotesData } from './notes.js?v=352';
+import { SaveManager } from './sync.js?v=352';
+import { emptyDeletions } from './deletions.js?v=352';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=352';
 import {
   loadPendingWrites,
   savePendingWrites,
@@ -344,7 +345,7 @@ import {
   makeSetExerciseFavOp,
   makeSetExerciseMediaOp,
   isSettingsPendingOp,
-} from './pending-writes.js?v=351';
+} from './pending-writes.js?v=352';
 
 const state = {
   notesData: {
@@ -2759,13 +2760,19 @@ function paintCalorieTodayCard(rows, sheet) {
     els.calorieTodaySub.textContent = `${row.dateDisplay || formatDateDisplay(row.date)} · ${row.dayName || thaiDayName(row.date)}`;
   }
   const m = row.metrics || {};
+  const useGoal = (m.goalMode === 'tdee' || m.goalMode === 'fixed') && m.goalKcal != null;
+  const eatGoal = useGoal ? (m.effectiveGoalKcal ?? m.goalKcal) : null;
+  const lifeHintHtml =
+    useGoal && m.lifestyleKcal > 0
+      ? `<span class="ctc-life-goal-hint">+${m.lifestyleKcal} ❤️</span>`
+      : '';
   if (els.calorieTodayBase) {
     const mode = m.goalMode || 'classic';
     if (mode === 'tdee' && m.tdee != null) {
-      els.calorieTodayBase.textContent = `TDEE ${m.tdee}`;
-      els.calorieTodayBase.title = `เป้ากิน ${m.goalKcal ?? '—'} · BMR ${m.base ?? '—'}`;
+      els.calorieTodayBase.innerHTML = `TDEE ${m.tdee}${lifeHintHtml}`;
+      els.calorieTodayBase.title = `เป้ากิน ${eatGoal ?? '—'} · BMR ${m.base ?? '—'}`;
     } else if (mode === 'fixed' && m.goalKcal != null) {
-      els.calorieTodayBase.textContent = `เป้า ${m.goalKcal}`;
+      els.calorieTodayBase.innerHTML = `เป้า ${eatGoal}${lifeHintHtml}`;
       els.calorieTodayBase.title = `กำหนดตายตัว · BMR ${m.base ?? '—'}`;
     } else {
       els.calorieTodayBase.textContent = `base ${m.base ?? '—'}`;
@@ -2776,7 +2783,6 @@ function paintCalorieTodayCard(rows, sheet) {
     els.calorieTodayBmi.textContent = m.bmi != null ? `BMI ${m.bmi}` : 'BMI —';
   }
   if (els.calorieTodayBal && els.calorieTodayBalValue) {
-    const useGoal = (m.goalMode === 'tdee' || m.goalMode === 'fixed') && m.goalKcal != null;
     const bal = useGoal ? m.kcalToGoal : m.balance;
     const addCal = m.addCal;
     const burn = m.bsum;
@@ -2789,7 +2795,7 @@ function paintCalorieTodayCard(rows, sheet) {
       if (els.calorieTodayKgValue) els.calorieTodayKgValue.textContent = '';
       if (els.calorieTodayBalMeta) {
         els.calorieTodayBalMeta.textContent = useGoal
-          ? (m.goalKcal != null ? `กิน ${addCal ?? 0} · เป้า ${m.goalKcal}` : 'ตั้งเป้าแคลในตั้งค่า')
+          ? (eatGoal != null ? `กิน ${addCal ?? 0} · เป้า ${eatGoal}` : 'ตั้งเป้าแคลในตั้งค่า')
           : (burn != null ? `กิน ${addCal ?? 0} · เผา ${burn}` : 'ใส่มื้อ / เบิร์นเพื่อดูดุล');
       }
     } else {
@@ -2808,7 +2814,7 @@ function paintCalorieTodayCard(rows, sheet) {
             m.goalFatG != null ? `ไขมัน ${m.goalFatG}` : null,
           ].filter(Boolean).join(' · ');
           els.calorieTodayBalMeta.textContent =
-            `${word} · กิน ${addCal ?? 0} / เป้า ${m.goalKcal}${macro ? ` · ${macro}` : ''}`;
+            `${word} · กิน ${addCal ?? 0} / เป้า ${eatGoal}${macro ? ` · ${macro}` : ''}`;
         } else {
           const word = bal > 0 ? 'เกินเผา' : bal < 0 ? 'ขาดเผา' : 'ดุล';
           els.calorieTodayBalMeta.textContent = `${word} · กิน ${addCal ?? 0} / เผา ${burn ?? '—'}`;
@@ -3820,11 +3826,11 @@ function resolveLifestyleBurn(kind, burnOverride, currentCount) {
   return { spec, burn: Math.min(5000, burn) };
 }
 
-/** Persist one lifestyle freeform cell for today; toast + undo restores the prior list. */
-function appendTodayLifestyleBurn(kind, burnOverride = null) {
-  const dateKey = toDateKey();
+/** Persist one lifestyle freeform cell; toast + undo restores the prior list. */
+function appendTodayLifestyleBurn(kind, burnOverride = null, dateKey = null) {
+  const key = dateKey || toDateKey();
   const sheet = ensureCaloriePayload();
-  const day = sheet.days.find((d) => d.date === dateKey) || null;
+  const day = sheet.days.find((d) => d.date === key) || null;
   const before = day ? dayExerciseEntries(sheet, day).map((e) => ({ ...e })) : [];
   const res = resolveLifestyleBurn(kind, burnOverride, before.length);
   if (!res) return false;
@@ -3833,17 +3839,23 @@ function appendTodayLifestyleBurn(kind, burnOverride = null) {
     ...before,
     { nodeId: null, label: spec.label, burn, cardio: true },
   ];
-  const next = setDayExerciseEntries(sheet, dateKey, nextEntries);
+  const next = setDayExerciseEntries(sheet, key, nextEntries);
   persistCalorie(next, { status: '', fullRender: true, immediate: true });
   setTodayLifePickerOpen(false);
+  const prevUndo = lastUndoAction;
   setStatus(`${spec.label} · −${burn} kcal`, {
     forceToast: true,
     undo: () => {
       if (!requireSyncReady()) return;
       const cur = ensureCaloriePayload();
-      const restored = setDayExerciseEntries(cur, dateKey, before);
+      const restored = setDayExerciseEntries(cur, key, before);
       persistCalorie(restored, { status: '', fullRender: true, immediate: true });
-      setStatus('ยกเลิกแล้ว', { forceToast: true, ms: 1600 });
+      // Re-offer prior lifestyle undo on the toast (fab is hidden outside list view).
+      if (prevUndo?.run) {
+        setStatus('ยกเลิกแล้ว', { forceToast: true, ms: 5200, undo: prevUndo.run });
+      } else {
+        setStatus('ยกเลิกแล้ว', { forceToast: true, ms: 1600 });
+      }
     },
   });
   return true;
@@ -13951,6 +13963,26 @@ function attachSyncTestApi() {
       applyCloudSettings(cloudRaw) {
         applySettingsFromCloudPayload({ settingsSync: cloudRaw });
         return state.settings;
+      },
+      dayMetrics(dateKey) {
+        const sheet = ensureCaloriePayload();
+        const key = dateKey || toDateKey();
+        const day = sheet.days.find((d) => d.date === key || d.id === key) || null;
+        return day ? computeDayMetrics(day, sheet) : null;
+      },
+      addLifestyle(kind, burnOverride = null, dateKey = null) {
+        const key = dateKey || toDateKey();
+        appendTodayLifestyleBurn(kind, burnOverride, key);
+        return hook.app.getDay(key);
+      },
+      setGoalMode(mode) {
+        const sheet = ensureCaloriePayload();
+        const nextMode = normalizeGoalMode(mode);
+        if (els.calorieGoalMode) els.calorieGoalMode.value = nextMode;
+        const next = { ...sheet, goalMode: nextMode };
+        persistCalorie(next, { status: '', fullRender: true, immediate: true });
+        syncGoalModeFields(next);
+        return nextMode;
       },
     };
   } catch (err) {

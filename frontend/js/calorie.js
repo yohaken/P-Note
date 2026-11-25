@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=351';
+import { nowIso, compareStamp, newerStampIso } from './clock.js?v=352';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -20,7 +20,7 @@ import {
   normalizeMuscleTree,
   setMoveLogNames,
   toMuscleLayout,
-} from './muscle-tree.js?v=351';
+} from './muscle-tree.js?v=352';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -250,6 +250,16 @@ export function sumExerciseBurn(exercises) {
   let sum = 0;
   normalizeExercises(exercises).forEach((cell) => {
     sum += parseExerciseCell(cell).burn || 0;
+  });
+  return sum > 0 ? Math.round(sum) : 0;
+}
+
+/** Lifestyle burns only (เซ็กส์ / ถูกออรัล) — for fixed/tdee goal bump. */
+export function sumLifestyleBurn(exercises) {
+  let sum = 0;
+  normalizeExercises(exercises).forEach((cell) => {
+    const p = parseExerciseCell(cell);
+    if (isLifestyleBurnLabel(p.label)) sum += p.burn || 0;
   });
   return sum > 0 ? Math.round(sum) : 0;
 }
@@ -1594,15 +1604,18 @@ export function computeDayMetrics(day, sheet = {}) {
   const protTarget = goals.goalProtG;
   const pRm = protTarget != null ? prot - protTarget : null;
   const goalKcal = goals.goalKcal;
-  const kcalToGoal = goalKcal != null ? addCal - goalKcal : null;
-  const classicBalance = addCal - bsum;
+  const lifestyleKcal = sumLifestyleBurn(day?.exercises);
   const useGoal = (goals.mode === 'tdee' || goals.mode === 'fixed') && goalKcal != null;
+  // fixed/tdee: lifestyle burns raise that day's eat goal; classic already counts them in mus.
+  const effectiveGoalKcal = useGoal ? Math.round(goalKcal + lifestyleKcal) : null;
+  const kcalToGoal = effectiveGoalKcal != null ? addCal - effectiveGoalKcal : null;
+  const classicBalance = addCal - bsum;
   // Spreadsheet / charts: vs day's energy goal in tdee|fixed; vs BMR+mus in classic.
   const balance = useGoal ? kcalToGoal : classicBalance;
   const blKg = kpkg && balance != null ? balance / kpkg : null;
   // %bl stays relative to BMR+mus (classic burn), not the diet goal.
   const pctBl = bsum ? (classicBalance / bsum) * 100 : null;
-  const goalLineKcal = useGoal ? Math.round(goalKcal) : round(bsum, 0);
+  const goalLineKcal = useGoal ? effectiveGoalKcal : round(bsum, 0);
   const bmi = computeBmi(resolveDayWeight(day, sheet), sheet.heightCm);
 
   return {
@@ -1621,8 +1634,10 @@ export function computeDayMetrics(day, sheet = {}) {
     protTarget: protTarget == null ? null : round(protTarget, 1),
     goalMode: goals.mode,
     goalKcal: goalKcal == null ? null : Math.round(goalKcal),
+    lifestyleKcal,
+    effectiveGoalKcal,
     kcalToGoal: kcalToGoal == null ? null : round(kcalToGoal, 0),
-    /** Middle/threshold kcal for that day: goalKcal (tdee|fixed) or BMR+mus (classic). */
+    /** Middle/threshold kcal for that day: effectiveGoal (tdee|fixed) or BMR+mus (classic). */
     goalLineKcal,
     goalLineKind: useGoal ? 'goal' : 'base',
     goalCarbG: goals.goalCarbG,
