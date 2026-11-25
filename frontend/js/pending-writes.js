@@ -2,7 +2,7 @@
  * Incremental pending-write queue for pre-hydrate / offline calorie edits.
  * Survives reload in localStorage; flushed by replaying ops on cloud base.
  */
-import { STORAGE_KEYS } from './config.js?v=346';
+import { STORAGE_KEYS } from './config.js?v=347';
 import {
   appendQuickMeal,
   appendQuickExercise,
@@ -12,17 +12,17 @@ import {
   formatMealCell,
   patchDay,
   ensureDay,
-} from './calorie.js?v=346';
+} from './calorie.js?v=347';
 import {
   normalizeMuscleTree,
   setMoveLogNames,
   setMovePlanIds,
-} from './muscle-tree.js?v=346';
+} from './muscle-tree.js?v=347';
 import {
   normalizeExerciseFavs,
   normalizeExerciseMedia,
-} from './settings.js?v=346';
-import { nowIso } from './clock.js?v=346';
+} from './settings.js?v=347';
+import { nowIso } from './clock.js?v=347';
 
 /** Note is handled via appendMeal labels unless it is the only change. */
 const SCALAR_KEYS = ['weight', 'waist', 'bodyFat', 'base', 'addCal', 'water'];
@@ -323,9 +323,28 @@ function applyOneSettingsOp(settings, op) {
     const id = String(op.exerciseId || '').trim();
     if (!id) return settings;
     const media = { ...normalizeExerciseMedia(settings.exerciseMedia) };
+    if (Object.prototype.hasOwnProperty.call(op, 'entry')) {
+      if (op.entry == null) {
+        delete media[id];
+      } else {
+        const next = normalizeExerciseMedia({ [id]: op.entry })[id];
+        if (!next) delete media[id];
+        else media[id] = next;
+      }
+      return { ...settings, exerciseMedia: normalizeExerciseMedia(media) };
+    }
+    // 346-compat (no `entry` key): update only .yt; keep existing .items.
     const yt = String(op.yt || '').trim();
-    if (!yt) delete media[id];
-    else media[id] = { yt, at: op.at || nowIso() };
+    const prev = media[id] && typeof media[id] === 'object' ? media[id] : {};
+    const items = Array.isArray(prev.items) ? prev.items : [];
+    if (yt) {
+      media[id] = { ...prev, yt, items, at: op.at || nowIso() };
+    } else if (!items.length) {
+      delete media[id];
+    } else {
+      const kept = { items, at: op.at || prev.at || nowIso() };
+      media[id] = kept;
+    }
     return { ...settings, exerciseMedia: normalizeExerciseMedia(media) };
   }
   return settings;
@@ -432,13 +451,41 @@ export function makeSetExerciseFavOp(exerciseId, on) {
   };
 }
 
-/** Build a setExerciseMedia pending op (yt empty = remove). */
-export function makeSetExerciseMediaOp(exerciseId, yt) {
+/**
+ * Build a setExerciseMedia pending op.
+ * New callers pass `entry` (object) or null to remove the id.
+ * A bare yt string (no `entry` key on the op) stays 346-compatible.
+ */
+export function makeSetExerciseMediaOp(exerciseId, entryOrYt) {
+  const exerciseIdNorm = String(exerciseId || '').trim();
+  const at = nowIso();
+  if (typeof entryOrYt === 'string') {
+    return {
+      id: newOpId(),
+      kind: 'setExerciseMedia',
+      exerciseId: exerciseIdNorm,
+      yt: entryOrYt.trim(),
+      at,
+    };
+  }
+  if (entryOrYt == null) {
+    return {
+      id: newOpId(),
+      kind: 'setExerciseMedia',
+      exerciseId: exerciseIdNorm,
+      entry: null,
+      yt: '',
+      at,
+    };
+  }
+  const entry = entryOrYt && typeof entryOrYt === 'object' ? entryOrYt : null;
+  const yt = entry ? String(entry.yt || '').trim() : '';
   return {
     id: newOpId(),
     kind: 'setExerciseMedia',
-    exerciseId: String(exerciseId || '').trim(),
-    yt: String(yt || '').trim(),
-    at: nowIso(),
+    exerciseId: exerciseIdNorm,
+    entry,
+    yt,
+    at,
   };
 }

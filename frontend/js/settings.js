@@ -1,12 +1,12 @@
-import { STORAGE_KEYS } from './config.js?v=346';
-import { compareStamp, nowIso } from './clock.js?v=346';
-import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=346';
+import { STORAGE_KEYS } from './config.js?v=347';
+import { compareStamp, nowIso } from './clock.js?v=347';
+import { DEFAULT_BAR_LAYOUT, normalizeLayout } from './bars.js?v=347';
 import {
   normalizeMonthPresets,
   normalizeRecurrenceFilter,
-} from './schedule.js?v=346';
-import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=346';
-import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=346';
+} from './schedule.js?v=347';
+import { DEFAULT_PRIORITY_ICONS, normalizePriorityIcons } from './icons.js?v=347';
+import { DEFAULT_APP_ICON_ID, normalizeAppIconId } from './app-icons.js?v=347';
 
 export const DEFAULT_NOTIFY_PREFS = {
   enabled: false,
@@ -166,9 +166,71 @@ export function clearLegacyExerciseFavsKey() {
   try { localStorage.removeItem(LEGACY_EX_FAVS_KEY); } catch { /* ignore */ }
 }
 
+const EXERCISE_MEDIA_ITEMS_MAX = 12;
+const EXERCISE_MEDIA_NAME_MAX = 120;
+const EXERCISE_MEDIA_URL_MAX = 500;
+const EXERCISE_MEDIA_YT_MAX = 300;
+const EXERCISE_MEDIA_ID_MAX = 64;
+
+function isHttpUrl(raw) {
+  const s = String(raw || '').trim();
+  if (!s || s.length > EXERCISE_MEDIA_URL_MAX) return '';
+  try {
+    const u = new URL(s);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return s;
+  } catch {
+    return '';
+  }
+}
+
+/** Normalize one media item; returns null if invalid. */
+export function normalizeExerciseMediaItem(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = String(raw.id || '').trim().slice(0, EXERCISE_MEDIA_ID_MAX);
+  if (!id) return null;
+  const kind = String(raw.kind || '').trim();
+  if (kind !== 'image' && kind !== 'video' && kind !== 'link') return null;
+  const at = String(raw.at || '').trim();
+  const name = String(raw.name || '').trim().slice(0, EXERCISE_MEDIA_NAME_MAX);
+  const mime = String(raw.mime || '').trim().slice(0, 120);
+  const sizeNum = Number(raw.size);
+  const size = Number.isFinite(sizeNum) && sizeNum >= 0 ? sizeNum : undefined;
+  if (kind === 'link') {
+    const url = isHttpUrl(raw.url);
+    if (!url) return null;
+    const item = { id, kind, url };
+    if (name) item.name = name;
+    if (at) item.at = at;
+    return item;
+  }
+  const storagePath = String(raw.storagePath || '').trim();
+  if (!storagePath || storagePath.includes('://') || storagePath.startsWith('blob:')) return null;
+  const item = { id, kind, storagePath };
+  if (mime) item.mime = mime;
+  if (name) item.name = name;
+  if (size !== undefined) item.size = size;
+  if (at) item.at = at;
+  return item;
+}
+
+function normalizeExerciseMediaItems(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const row of raw) {
+    const item = normalizeExerciseMediaItem(row);
+    if (!item || seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push(item);
+    if (out.length >= EXERCISE_MEDIA_ITEMS_MAX) break;
+  }
+  return out;
+}
+
 /**
- * Per-exercise media map: { [exerciseId]: { yt: url, at?: iso } }.
- * Only keeps entries with a non-empty yt string.
+ * Per-exercise media map: { [exerciseId]: { yt?, items?, at? } }.
+ * Keeps an entry when it has a non-empty .yt OR at least one valid item.
  */
 export function normalizeExerciseMedia(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -176,10 +238,15 @@ export function normalizeExerciseMedia(raw) {
   for (const [idRaw, val] of Object.entries(raw)) {
     const id = String(idRaw || '').trim();
     if (!id || !val || typeof val !== 'object') continue;
-    const yt = String(val.yt || '').trim().slice(0, 300);
-    if (!yt) continue;
+    const yt = String(val.yt || '').trim().slice(0, EXERCISE_MEDIA_YT_MAX);
+    const items = normalizeExerciseMediaItems(val.items);
+    if (!yt && !items.length) continue;
     const at = String(val.at || '').trim();
-    out[id] = at ? { yt, at } : { yt };
+    const entry = {};
+    if (yt) entry.yt = yt;
+    if (items.length) entry.items = items;
+    if (at) entry.at = at;
+    out[id] = entry;
   }
   return out;
 }

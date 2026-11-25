@@ -11358,6 +11358,118 @@ body.light .bm-halo {
   flex: 1;
   min-width: 6.5rem;
 }
+.xp-media {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0.15rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.xp-media-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.xp-media-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+.xp-media-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.xp-media-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.xp-media-busy {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.xp-media-err {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.78rem;
+}
+.xp-media-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.45rem;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.xp-media-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.xp-media-item.is-video {
+  grid-column: 1 / -1;
+}
+.xp-media-item.is-link {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+.xp-media-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.xp-media-video {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  border-radius: 8px;
+  background: #111;
+}
+.xp-media-link {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  word-break: break-all;
+  color: var(--accent);
+}
+.xp-media-del {
+  align-self: flex-start;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+}
+.xp-media-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--border);
+}
+.xp-media-links-label {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
 .xp-cues {
   margin-top: 0.15rem;
 }

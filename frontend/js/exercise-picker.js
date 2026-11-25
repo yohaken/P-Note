@@ -12,12 +12,12 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=346';
-import { regionRestMap } from './muscle-tree.js?v=346';
+} from './muscle-map.js?v=347';
+import { regionRestMap } from './muscle-tree.js?v=347';
 import {
   parseYoutubeVideoId,
   youtubeNocookieEmbedUrl,
-} from './settings.js?v=346';
+} from './settings.js?v=347';
 
 const FAV_GROUP = 'fav';
 const SEARCH_LIMIT = 60;
@@ -32,6 +32,10 @@ let deps = {
   setFav: () => {},
   getMedia: () => null,
   setMedia: () => ({ ok: false }),
+  uploadMediaFile: async () => ({ ok: false, error: 'อัปโหลดยังไม่พร้อม' }),
+  removeMediaItem: async () => ({ ok: false }),
+  addMediaLink: () => ({ ok: false }),
+  resolveMediaUrl: async () => '',
   setStatus: () => {},
 };
 let els = {};
@@ -48,6 +52,12 @@ const thumbCache = new Map();
 let cuesToken = 0;
 let ytDraft = '';
 let ytError = '';
+let linkDraft = '';
+let linkError = '';
+let mediaBusy = false;
+let mediaBusyText = '';
+let mediaError = '';
+let mediaToken = 0;
 
 function esc(s) {
   return String(s ?? '')
@@ -111,13 +121,19 @@ function detailHtml(e, tree, favs) {
   const photo = imgs.length
     ? `<div class="xp-detail-photo${imgs.length > 1 ? ' is-anim' : ''}">${imgs.slice(0, 2).map((u, i) => `<img class="xp-frame xp-frame-${i}" src="${esc(u)}" alt="${esc(`${e.name} จังหวะที่ ${i + 1}`)}" decoding="async">`).join('')}</div>`
     : '<p class="xp-empty">ยังไม่มีรูปท่านี้</p>';
-  const savedYt = String(mediaFor(e.id)?.yt || '');
+  const media = mediaFor(e.id) || {};
+  const savedYt = String(media.yt || '');
   const draft = ytDraft !== '' || ytError ? ytDraft : savedYt;
   const videoId = parseYoutubeVideoId(savedYt);
   const embed = videoId ? youtubeNocookieEmbedUrl(videoId) : '';
   const embedBlock = embed
     ? `<div class="xp-yt-embed"><iframe src="${esc(embed)}" title="YouTube" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`
     : '';
+  const items = Array.isArray(media.items) ? media.items : [];
+  const itemsHtml = items.length
+    ? `<ul class="xp-media-list">${items.map((it) => mediaItemHtml(it)).join('')}</ul>`
+    : '';
+  const linkVal = linkDraft !== '' || linkError ? linkDraft : '';
   return `<div class="xp-detail">
       ${photo}
       <h3 class="xp-detail-th">${esc(e.name)}</h3>
@@ -134,19 +150,59 @@ function detailHtml(e, tree, favs) {
         <button type="button" class="btn btn-secondary" data-xp-plan="${esc(e.id)}" title="ใส่ในแผนวันนี้ · ไม่ติ๊กกล้าม">ใส่แผนวันนี้</button>
         <button type="button" class="btn btn-primary" data-xp-today="${esc(e.name)}" title="ติ๊กกล้ามหลัก/รองของท่านี้ว่าเล่นแล้ววันนี้">เล่นแล้ว</button>
       </div>
-      <div class="xp-cues" data-xp-cues="${esc(e.id)}"><p class="xp-empty">กำลังโหลดวิธีเล่น…</p></div>
-      <div class="xp-yt">
-        <label class="xp-yt-label" for="xp-yt-input">ลิงก์ YouTube (ถ้ามี)</label>
-        <div class="xp-yt-row">
-          <input id="xp-yt-input" class="xp-yt-input" type="url" inputmode="url" autocomplete="off" placeholder="https://youtu.be/…" value="${esc(draft)}" data-xp-yt-input>
-          <button type="button" class="btn btn-secondary" data-xp-yt-save>บันทึก</button>
-          ${savedYt ? '<button type="button" class="btn btn-secondary" data-xp-yt-clear>ลบ</button>' : ''}
+      <section class="xp-media" data-xp-media="${esc(e.id)}">
+        <h4 class="xp-media-title">เพิ่มสื่อของฉัน</h4>
+        <p class="xp-media-hint">แนบรูปหรือคลิปจากเครื่องหรือกล้อง (ภาพหน้าจอ หรือคลิปที่ถ่าย/อัดหน้าจอ)</p>
+        <div class="xp-media-actions">
+          <input id="xp-media-file" class="xp-media-file" type="file" accept="image/*,video/*" data-xp-media-file>
+          <button type="button" class="btn btn-primary" data-xp-media-add ${mediaBusy ? 'disabled' : ''}>เพิ่มรูปหรือคลิป</button>
         </div>
-        ${ytError ? `<p class="xp-yt-err" role="alert">${esc(ytError)}</p>` : ''}
-        ${embedBlock}
-      </div>
+        ${mediaBusy ? `<p class="xp-media-busy" aria-live="polite">${esc(mediaBusyText || 'กำลังอัปโหลด…')}</p>` : ''}
+        ${mediaError ? `<p class="xp-media-err" role="alert">${esc(mediaError)}</p>` : ''}
+        ${itemsHtml}
+        <div class="xp-media-links">
+          <p class="xp-media-links-label">ลิงก์ (ถ้ามี)</p>
+          <label class="xp-yt-label" for="xp-yt-input">YouTube</label>
+          <div class="xp-yt-row">
+            <input id="xp-yt-input" class="xp-yt-input" type="url" inputmode="url" autocomplete="off" placeholder="https://youtu.be/…" value="${esc(draft)}" data-xp-yt-input>
+            <button type="button" class="btn btn-secondary" data-xp-yt-save>บันทึก</button>
+            ${savedYt ? '<button type="button" class="btn btn-secondary" data-xp-yt-clear>ลบ</button>' : ''}
+          </div>
+          ${ytError ? `<p class="xp-yt-err" role="alert">${esc(ytError)}</p>` : ''}
+          ${embedBlock}
+          <label class="xp-yt-label" for="xp-link-input">ลิงก์อื่น (TikTok / IG / FB ฯลฯ)</label>
+          <div class="xp-yt-row">
+            <input id="xp-link-input" class="xp-yt-input" type="url" inputmode="url" autocomplete="off" placeholder="https://…" value="${esc(linkVal)}" data-xp-link-input>
+            <button type="button" class="btn btn-secondary" data-xp-link-save>เพิ่ม</button>
+          </div>
+          ${linkError ? `<p class="xp-yt-err" role="alert">${esc(linkError)}</p>` : ''}
+        </div>
+      </section>
+      <div class="xp-cues" data-xp-cues="${esc(e.id)}"><p class="xp-empty">กำลังโหลดวิธีเล่น…</p></div>
       <p class="xp-credit">รูป · วิธีเล่น: free-exercise-db (สาธารณสมบัติ)</p>
     </div>`;
+}
+
+function mediaItemHtml(it) {
+  const id = esc(it.id);
+  if (it.kind === 'link') {
+    const href = esc(it.url || '#');
+    const label = esc(it.name || it.url || 'ลิงก์');
+    return `<li class="xp-media-item is-link" data-xp-media-item="${id}">
+      <a class="xp-media-link" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>
+      <button type="button" class="btn btn-secondary xp-media-del" data-xp-media-del="${id}">ลบ</button>
+    </li>`;
+  }
+  if (it.kind === 'video') {
+    return `<li class="xp-media-item is-video" data-xp-media-item="${id}">
+      <video class="xp-media-video" controls playsinline preload="metadata" data-storage-path="${esc(it.storagePath || '')}"></video>
+      <button type="button" class="btn btn-secondary xp-media-del" data-xp-media-del="${id}">ลบ</button>
+    </li>`;
+  }
+  return `<li class="xp-media-item is-image" data-xp-media-item="${id}">
+    <img class="xp-media-thumb" alt="" data-storage-path="${esc(it.storagePath || '')}">
+    <button type="button" class="btn btn-secondary xp-media-del" data-xp-media-del="${id}">ลบ</button>
+  </li>`;
 }
 
 function libraryFiltered() {
@@ -322,7 +378,27 @@ function paint() {
   els.body.dataset.view = view;
   els.body.scrollTop = keepScroll ? top : listScroll.restore ? listScroll.top : 0;
   listScroll.restore = false;
-  if (detail) void loadCuesIntoDetail(detail);
+  if (detail) {
+    void loadCuesIntoDetail(detail);
+    void fillMediaSrcs();
+  }
+}
+
+async function fillMediaSrcs() {
+  const token = ++mediaToken;
+  const nodes = els.body?.querySelectorAll?.('[data-storage-path]') || [];
+  for (const el of nodes) {
+    if (token !== mediaToken) return;
+    const path = el.getAttribute('data-storage-path') || '';
+    if (!path) continue;
+    try {
+      const url = await deps.resolveMediaUrl?.(path);
+      if (token !== mediaToken || !url) continue;
+      if (el.tagName === 'VIDEO' || el.tagName === 'IMG') el.src = url;
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 const listScroll = { view: '', top: 0, restore: false };
@@ -346,7 +422,7 @@ async function loadCuesIntoDetail(exercise) {
     return;
   }
   try {
-    const mod = await import(`./exercise-cues.js?v=346`);
+    const mod = await import(`./exercise-cues.js?v=347`);
     if (token !== cuesToken) return;
     const steps = await mod.loadExerciseInstructions(fedbId);
     if (token !== cuesToken) return;
@@ -457,6 +533,74 @@ function clearYt() {
   paint();
 }
 
+function saveLinkFromInput() {
+  const input = els.body?.querySelector?.('[data-xp-link-input]');
+  const raw = String(input?.value || '').trim();
+  linkDraft = raw;
+  if (!raw) {
+    linkError = 'ใส่ลิงก์ก่อน';
+    paint();
+    return;
+  }
+  const res = deps.addMediaLink?.(detailId, raw);
+  if (res && res.ok === false) {
+    linkError = res.error || 'บันทึกไม่ได้';
+    paint();
+    return;
+  }
+  linkDraft = '';
+  linkError = '';
+  paint();
+}
+
+async function onMediaFilePicked(file) {
+  if (!detailId || !file || mediaBusy) return;
+  mediaBusy = true;
+  mediaBusyText = 'กำลังอัปโหลด…';
+  mediaError = '';
+  paint();
+  try {
+    const res = await deps.uploadMediaFile?.(detailId, file, {
+      onProgress: (pct) => {
+        mediaBusyText = `กำลังอัปโหลด… ${pct}%`;
+        const busy = els.body?.querySelector?.('.xp-media-busy');
+        if (busy) busy.textContent = mediaBusyText;
+      },
+    });
+    if (res && res.ok === false) {
+      mediaError = res.error || 'อัปโหลดไม่สำเร็จ';
+    }
+  } catch (err) {
+    console.warn('media upload failed', err);
+    mediaError = 'อัปโหลดไม่สำเร็จ';
+  } finally {
+    mediaBusy = false;
+    mediaBusyText = '';
+    paint();
+  }
+}
+
+async function onMediaDelete(itemId) {
+  if (!detailId || !itemId || mediaBusy) return;
+  mediaBusy = true;
+  mediaBusyText = 'กำลังลบ…';
+  mediaError = '';
+  paint();
+  try {
+    const res = await deps.removeMediaItem?.(detailId, itemId);
+    if (res && res.ok === false) {
+      mediaError = res.error || 'ลบไม่ได้';
+    }
+  } catch (err) {
+    console.warn('media delete failed', err);
+    mediaError = 'ลบไม่ได้';
+  } finally {
+    mediaBusy = false;
+    mediaBusyText = '';
+    paint();
+  }
+}
+
 function onBodyClick(e) {
   const t = e.target;
   const grp = t?.closest?.('[data-xp-group]');
@@ -481,12 +625,25 @@ function onBodyClick(e) {
     planToday(plan.dataset.xpPlan);
     return;
   }
+  if (t?.closest?.('[data-xp-media-add]')) {
+    els.body?.querySelector?.('[data-xp-media-file]')?.click();
+    return;
+  }
+  const del = t?.closest?.('[data-xp-media-del]');
+  if (del) {
+    void onMediaDelete(del.dataset.xpMediaDel);
+    return;
+  }
   if (t?.closest?.('[data-xp-yt-save]')) {
     saveYtFromInput();
     return;
   }
   if (t?.closest?.('[data-xp-yt-clear]')) {
     clearYt();
+    return;
+  }
+  if (t?.closest?.('[data-xp-link-save]')) {
+    saveLinkFromInput();
     return;
   }
   const det = t?.closest?.('[data-xp-detail]');
@@ -500,6 +657,14 @@ function onBodyClick(e) {
   }
 }
 
+function onBodyChange(e) {
+  const input = e.target?.closest?.('[data-xp-media-file]');
+  if (!input || input !== e.target) return;
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (file) void onMediaFilePicked(file);
+}
+
 function onEqClick(e) {
   const chip = e.target?.closest?.('[data-xp-eq]');
   if (!chip) return;
@@ -511,11 +676,21 @@ function onEqClick(e) {
   paint();
 }
 
+function resetDetailDrafts() {
+  ytDraft = '';
+  ytError = '';
+  linkDraft = '';
+  linkError = '';
+  mediaBusy = false;
+  mediaBusyText = '';
+  mediaError = '';
+  mediaToken += 1;
+}
+
 function onBack() {
   if (detailId) {
     detailId = '';
-    ytDraft = '';
-    ytError = '';
+    resetDetailDrafts();
     cuesToken += 1;
     if (detailOnly) {
       detailOnly = false;
@@ -534,8 +709,7 @@ function onBack() {
 function closeExercisePicker() {
   hideToast();
   cuesToken += 1;
-  ytDraft = '';
-  ytError = '';
+  resetDetailDrafts();
   if (els.overlay) els.overlay.hidden = true;
 }
 
@@ -552,6 +726,7 @@ export function initExercisePicker(opts = {}) {
   };
   if (!els.overlay) return;
   els.body?.addEventListener('click', onBodyClick);
+  els.body?.addEventListener('change', onBodyChange);
   els.eq?.addEventListener('click', onEqClick);
   els.back?.addEventListener('click', onBack);
   els.search?.addEventListener('input', () => {
@@ -596,8 +771,7 @@ export function openExerciseDetail(nameOrId) {
   if (els.search) els.search.value = '';
   detailId = e.id;
   detailOnly = true;
-  ytDraft = '';
-  ytError = '';
+  resetDetailDrafts();
   hideToast();
   paintChips();
   paint();
@@ -613,8 +787,7 @@ export function openExercisePicker({ groupId: gid } = {}) {
   showExtras = false;
   eqSel.clear();
   query = '';
-  ytDraft = '';
-  ytError = '';
+  resetDetailDrafts();
   if (els.search) els.search.value = '';
   hideToast();
   paintChips();

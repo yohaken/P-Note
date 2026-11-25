@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=346';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=346';
-import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=346';
-import { CONFIG } from './config.js?v=346';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=346';
-import { nowIso } from './clock.js?v=346';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=347';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=347';
+import { initListSortable, initGridSortable, initLongPressTap } from './sortable.js?v=347';
+import { CONFIG } from './config.js?v=347';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=347';
+import { nowIso } from './clock.js?v=347';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,7 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=346';
+} from './auth.js?v=347';
 import {
   addTag,
   addNotepad,
@@ -56,7 +56,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=346';
+} from './notes.js?v=347';
 import {
   cellKey,
   colIndexToLetter,
@@ -66,7 +66,7 @@ import {
   normalizeSheetBlocks,
   parseCellRef,
   sheetFingerprint,
-} from './sheet.js?v=346';
+} from './sheet.js?v=347';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -136,7 +136,7 @@ import {
   dayExerciseEntries,
   setDayExerciseEntries,
   parseExerciseCell,
-} from './calorie.js?v=346';
+} from './calorie.js?v=347';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -189,7 +189,7 @@ import {
   CELL_NOTE_MAX,
   getCellNote,
   setCellNote,
-} from './muscle-tree.js?v=346';
+} from './muscle-tree.js?v=347';
 import {
   musclePhotoKeys,
   musclePhotosFor,
@@ -200,7 +200,7 @@ import {
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
-} from './muscle-photos.js?v=346';
+} from './muscle-photos.js?v=347';
 import {
   ALL_EXERCISES,
   EQUIPMENT_TH,
@@ -220,9 +220,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=346';
-import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=346';
-import { mountDrumPicker } from './drum-picker.js?v=346';
+} from './muscle-map.js?v=347';
+import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=347';
+import { mountDrumPicker } from './drum-picker.js?v=347';
 import {
   applyTextPrefsToTextarea,
   clampFontSize,
@@ -230,8 +230,8 @@ import {
   handleTextareaEnterIndent,
   handleTextareaTab,
   normalizeTextPrefs,
-} from './note-text.js?v=346';
-import { bindComposableInput } from './text-input.js?v=346';
+} from './note-text.js?v=347';
+import { bindComposableInput } from './text-input.js?v=347';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -272,14 +272,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=346';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=346';
+} from './schedule.js?v=347';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=347';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=346';
+} from './app-icons.js?v=347';
 import {
   allIcons,
   bestIconForLabel,
@@ -288,7 +288,7 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=346';
+} from './icons.js?v=347';
 import {
   notificationPermission,
   notificationSupported,
@@ -297,27 +297,28 @@ import {
   sendTestNotification,
   syncNoteNotifications,
   startNotifyKeepalive,
-} from './note-notify.js?v=346';
+} from './note-notify.js?v=347';
 import {
+  getFilesStatus,
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=346';
+} from './files.js?v=347';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=346');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=347');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=346');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=347');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=346');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=347');
   return userContextModPromise;
 }
 
@@ -341,7 +342,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=346';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=347';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -350,11 +351,11 @@ import {
   pushRemoteNotesMerged,
   watchRemoteNotes,
   SHARED_SPACE_ID,
-} from './remote.js?v=346';
-import { normalizeNotesData } from './notes.js?v=346';
-import { SaveManager } from './sync.js?v=346';
-import { emptyDeletions } from './deletions.js?v=346';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=346';
+} from './remote.js?v=347';
+import { normalizeNotesData } from './notes.js?v=347';
+import { SaveManager } from './sync.js?v=347';
+import { emptyDeletions } from './deletions.js?v=347';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=347';
 import {
   loadPendingWrites,
   savePendingWrites,
@@ -366,7 +367,7 @@ import {
   makeSetExerciseFavOp,
   makeSetExerciseMediaOp,
   isSettingsPendingOp,
-} from './pending-writes.js?v=346';
+} from './pending-writes.js?v=347';
 
 const state = {
   notesData: {
@@ -5839,31 +5840,240 @@ function persistExerciseFav(exerciseId, on) {
   refreshExercisePicker();
 }
 
+const EXERCISE_MEDIA_ITEMS_MAX = 12;
+const EXERCISE_MEDIA_IMG_MAX_SIDE = 1280;
+const EXERCISE_MEDIA_IMG_QUALITY = 0.82;
+const EXERCISE_MEDIA_IMG_FALLBACK_BYTES = 2.5 * 1024 * 1024;
+const EXERCISE_MEDIA_DEFAULT_MAX_BYTES = 40 * 1024 * 1024;
+
 function getExerciseMediaEntry(exerciseId) {
   if (!state.settings) state.settings = loadSettings();
   const media = normalizeExerciseMedia(state.settings.exerciseMedia);
   return media[String(exerciseId || '').trim()] || null;
 }
 
+function persistExerciseMediaEntry(exerciseId, entryOrNull) {
+  const id = String(exerciseId || '').trim();
+  if (!id) return { ok: false, error: 'ไม่พบท่า' };
+  if (!state.settings) state.settings = loadSettings();
+  const media = { ...normalizeExerciseMedia(state.settings.exerciseMedia) };
+  if (entryOrNull == null) {
+    delete media[id];
+  } else {
+    const next = normalizeExerciseMedia({ [id]: entryOrNull })[id];
+    if (!next) delete media[id];
+    else media[id] = next;
+  }
+  state.settings.exerciseMedia = normalizeExerciseMedia(media);
+  saveSettings(state.settings);
+  const entry = state.settings.exerciseMedia[id] || null;
+  queueOrPushSettingsChange(makeSetExerciseMediaOp(id, entry));
+  refreshExercisePicker();
+  return { ok: true };
+}
+
+/** Update only .yt; preserve .items. Empty yt drops .yt; delete id only if no items. */
 function persistExerciseMedia(exerciseId, ytUrl) {
   const id = String(exerciseId || '').trim();
   if (!id) return { ok: false, error: 'ไม่พบท่า' };
   if (!state.settings) state.settings = loadSettings();
   const media = { ...normalizeExerciseMedia(state.settings.exerciseMedia) };
+  const prev = media[id] && typeof media[id] === 'object' ? media[id] : {};
+  const items = Array.isArray(prev.items) ? [...prev.items] : [];
   const raw = ytUrl == null ? '' : String(ytUrl).trim();
-  if (!raw) {
-    delete media[id];
-  } else {
+  if (raw) {
     if (!parseYoutubeVideoId(raw)) {
       return { ok: false, error: 'ลิงก์ YouTube ไม่ถูกต้อง' };
     }
-    media[id] = { yt: raw, at: nowIso() };
+    media[id] = { ...prev, yt: raw, items, at: nowIso() };
+  } else if (!items.length) {
+    delete media[id];
+  } else {
+    media[id] = { items, at: nowIso() };
   }
   state.settings.exerciseMedia = normalizeExerciseMedia(media);
   saveSettings(state.settings);
-  queueOrPushSettingsChange(makeSetExerciseMediaOp(id, raw));
+  const entry = state.settings.exerciseMedia[id] || null;
+  queueOrPushSettingsChange(makeSetExerciseMediaOp(id, entry));
   refreshExercisePicker();
   return { ok: true };
+}
+
+/** JPEG compress for exercise media (does not touch muscle-photos compressPhoto). */
+async function compressExerciseMediaImage(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('image_decode'));
+      el.src = url;
+    });
+    const w = img.naturalWidth || 0;
+    const h = img.naturalHeight || 0;
+    if (!w || !h) throw new Error('image_decode');
+    const scale = Math.min(1, EXERCISE_MEDIA_IMG_MAX_SIDE / Math.max(w, h));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('image_encode');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob(resolve, 'image/jpeg', EXERCISE_MEDIA_IMG_QUALITY);
+    });
+    if (!blob) throw new Error('image_encode');
+    return new File([blob], String(file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function uploadExerciseMediaFile(exerciseId, file, opts = {}) {
+  const id = String(exerciseId || '').trim();
+  if (!id) return { ok: false, error: 'ไม่พบท่า' };
+  if (!file) return { ok: false, error: 'ไม่พบไฟล์' };
+  const mime = String(file.type || '').toLowerCase();
+  const isImage = mime.startsWith('image/');
+  const isVideo = mime.startsWith('video/');
+  if (!isImage && !isVideo) {
+    return { ok: false, error: 'รองรับเฉพาะรูปหรือคลิปวิดีโอ' };
+  }
+  const status = await getFilesStatus();
+  if (!status?.enabled) {
+    return { ok: false, error: 'อัปโหลดยังไม่พร้อมใช้งาน' };
+  }
+  const maxBytes = Number(status.maxBytes) > 0
+    ? Number(status.maxBytes)
+    : EXERCISE_MEDIA_DEFAULT_MAX_BYTES;
+  const entry = getExerciseMediaEntry(id) || {};
+  const items = Array.isArray(entry.items) ? [...entry.items] : [];
+  if (items.length >= EXERCISE_MEDIA_ITEMS_MAX) {
+    return { ok: false, error: `แนบได้สูงสุด ${EXERCISE_MEDIA_ITEMS_MAX} รายการ` };
+  }
+
+  let uploadFile = file;
+  if (isImage) {
+    try {
+      uploadFile = await compressExerciseMediaImage(file);
+    } catch (err) {
+      console.warn('exercise media image compress failed', err);
+      if (!(file.size > 0 && file.size <= EXERCISE_MEDIA_IMG_FALLBACK_BYTES && isImage)) {
+        return { ok: false, error: 'บีบอัดรูปไม่สำเร็จ' };
+      }
+      uploadFile = file;
+    }
+  } else if (file.size > maxBytes) {
+    const mb = Math.max(1, Math.round(maxBytes / (1024 * 1024)));
+    return {
+      ok: false,
+      error: `คลิปใหญ่เกิน ${mb} MB กรุณาตัดให้สั้นลงหรือบีบอัดก่อนอัปโหลด`,
+    };
+  }
+
+  try {
+    const result = await uploadFileToCloud(uploadFile, {
+      name: uploadFile.name || file.name || (isImage ? 'photo.jpg' : 'clip.mp4'),
+      onProgress: typeof opts.onProgress === 'function' ? opts.onProgress : undefined,
+    });
+    const item = {
+      id: String(result.fileId || `em_${Date.now().toString(36)}`),
+      kind: isImage ? 'image' : 'video',
+      storagePath: String(result.storagePath || ''),
+      mime: String(result.mimeType || uploadFile.type || mime),
+      name: String(result.name || uploadFile.name || '').slice(0, 120),
+      size: Number(result.size) || uploadFile.size || 0,
+      at: nowIso(),
+    };
+    if (!item.storagePath) return { ok: false, error: 'อัปโหลดไม่สำเร็จ' };
+    items.push(item);
+    const next = {
+      ...(entry.yt ? { yt: entry.yt } : {}),
+      items,
+      at: nowIso(),
+    };
+    return persistExerciseMediaEntry(id, next);
+  } catch (err) {
+    console.warn('exercise media upload failed', err);
+    return { ok: false, error: 'อัปโหลดไม่สำเร็จ' };
+  }
+}
+
+async function removeExerciseMediaItem(exerciseId, itemId) {
+  const id = String(exerciseId || '').trim();
+  const dropId = String(itemId || '').trim();
+  if (!id || !dropId) return { ok: false, error: 'ไม่พบรายการ' };
+  const entry = getExerciseMediaEntry(id);
+  if (!entry) return { ok: true };
+  const items = Array.isArray(entry.items) ? entry.items : [];
+  const victim = items.find((it) => it.id === dropId);
+  const nextItems = items.filter((it) => it.id !== dropId);
+  if (victim?.storagePath) {
+    try {
+      await deleteCloudFile(victim.storagePath);
+    } catch (err) {
+      console.warn('exercise media delete cloud failed', err);
+    }
+  }
+  if (!nextItems.length && !entry.yt) {
+    return persistExerciseMediaEntry(id, null);
+  }
+  return persistExerciseMediaEntry(id, {
+    ...(entry.yt ? { yt: entry.yt } : {}),
+    items: nextItems,
+    at: nowIso(),
+  });
+}
+
+function addExerciseMediaLink(exerciseId, url) {
+  const id = String(exerciseId || '').trim();
+  if (!id) return { ok: false, error: 'ไม่พบท่า' };
+  const raw = String(url || '').trim();
+  if (!raw) return { ok: false, error: 'ใส่ลิงก์ก่อน' };
+  let parsed;
+  try {
+    parsed = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
+  } catch {
+    return { ok: false, error: 'ลิงก์ไม่ถูกต้อง' };
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { ok: false, error: 'รองรับเฉพาะลิงก์ http(s)' };
+  }
+  const href = parsed.href;
+  if (parseYoutubeVideoId(href) || parseYoutubeVideoId(raw)) {
+    return persistExerciseMedia(id, href);
+  }
+  const entry = getExerciseMediaEntry(id) || {};
+  const items = Array.isArray(entry.items) ? [...entry.items] : [];
+  if (items.length >= EXERCISE_MEDIA_ITEMS_MAX) {
+    return { ok: false, error: `แนบได้สูงสุด ${EXERCISE_MEDIA_ITEMS_MAX} รายการ` };
+  }
+  items.push({
+    id: `lnk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+    kind: 'link',
+    url: href.slice(0, 500),
+    name: href.slice(0, 120),
+    at: nowIso(),
+  });
+  return persistExerciseMediaEntry(id, {
+    ...(entry.yt ? { yt: entry.yt } : {}),
+    items,
+    at: nowIso(),
+  });
+}
+
+async function resolveExerciseMediaUrl(storagePath) {
+  const path = String(storagePath || '').trim();
+  if (!path) return '';
+  try {
+    return await getDownloadUrl(path);
+  } catch (err) {
+    console.warn('exercise media url failed', err);
+    return '';
+  }
 }
 
 /** Offline / pre-hydrate: enqueue settings op; else persist already done + push settings now. */
@@ -12731,6 +12941,10 @@ async function init({ fromBoot = false } = {}) {
     setFav: persistExerciseFav,
     getMedia: getExerciseMediaEntry,
     setMedia: persistExerciseMedia,
+    uploadMediaFile: uploadExerciseMediaFile,
+    removeMediaItem: removeExerciseMediaItem,
+    addMediaLink: addExerciseMediaLink,
+    resolveMediaUrl: resolveExerciseMediaUrl,
     setStatus,
   });
   els.muscleAddExercise?.addEventListener('click', () => {
@@ -13739,7 +13953,10 @@ function attachSyncTestApi() {
       planMove: (exerciseId) => planMoveToday(exerciseId),
       logMove: (name) => logMoveToday(name),
       setFav: (id, on) => persistExerciseFav(id, on),
+      getMedia: (id) => getExerciseMediaEntry(id),
       setMedia: (id, yt) => persistExerciseMedia(id, yt),
+      uploadMediaFile: (id, file, opts) => uploadExerciseMediaFile(id, file, opts),
+      removeMediaItem: (id, itemId) => removeExerciseMediaItem(id, itemId),
       openDetail: (nameOrId) => openExerciseDetail(nameOrId),
       openMusclePane: () => { setCaloriePane('muscle'); paintMuscleSheet(); },
       paintMuscle: () => paintMuscleSheet(),
