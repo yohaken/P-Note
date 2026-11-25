@@ -8121,6 +8121,169 @@ body.chs-chart-overlay-open {
   color: var(--text-muted);
 }
 
+/* Today-card lifestyle burn — one-tap เซ็กส์ ❤️ (build 349) */
+.ctc-life-bar {
+  margin: 0.02rem 0 0.08rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+.ctc-life-main {
+  display: flex;
+  align-items: stretch;
+  gap: 0.28rem;
+}
+.ctc-life-sex {
+  appearance: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, #e11d48 42%, var(--border));
+  background: color-mix(in srgb, #ffe4e6 72%, #fff);
+  color: #9f1239;
+  border-radius: 10px;
+  padding: 0.48rem 0.55rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+.ctc-life-sex:active {
+  background: color-mix(in srgb, #fecdd3 80%, #fff);
+}
+.ctc-life-sex-label {
+  line-height: 1.1;
+}
+.ctc-life-badge {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.08rem 0.34rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #e11d48 16%, #fff);
+  color: #9f1239;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.ctc-life-badge[hidden] {
+  display: none !important;
+}
+.ctc-life-more {
+  appearance: none;
+  flex: 0 0 2.4rem;
+  border: 1px solid color-mix(in srgb, #e11d48 35%, var(--border));
+  background: #fff;
+  color: #9f1239;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.ctc-life-more[aria-expanded="true"] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, #e11d48 28%, transparent);
+  background: color-mix(in srgb, #ffe4e6 55%, #fff);
+}
+.ctc-life-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, #e11d48 22%, var(--border));
+  background: color-mix(in srgb, #fff1f2 78%, #fff);
+}
+.ctc-life-picker[hidden] {
+  display: none !important;
+}
+.ctc-life-opt {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, #e11d48 28%, var(--border));
+  background: #fff;
+  color: #9f1239;
+  border-radius: 9px;
+  padding: 0.42rem 0.55rem;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 750;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.ctc-life-opt.is-oral {
+  border-color: color-mix(in srgb, #db2777 38%, var(--border));
+  color: #9d174d;
+  background: color-mix(in srgb, #fce7f3 55%, #fff);
+}
+.ctc-life-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.28rem;
+  margin-top: 0.08rem;
+}
+.ctc-life-custom-kinds {
+  display: flex;
+  gap: 0.22rem;
+  width: 100%;
+}
+.ctc-life-kind {
+  appearance: none;
+  flex: 1 1 0;
+  border: 1px solid color-mix(in srgb, #e11d48 28%, var(--border));
+  background: #fff;
+  color: #9f1239;
+  border-radius: 8px;
+  padding: 0.32rem 0.4rem;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 750;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctc-life-kind.is-active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, #e11d48 28%, transparent);
+  background: color-mix(in srgb, #ffe4e6 70%, #fff);
+}
+.ctc-life-bar .ctc-life-field {
+  flex: 1 1 4.5rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.ctc-life-bar .ctc-life-field input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.36rem 0.4rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: #fff;
+  color: var(--text);
+}
+.ctc-life-add {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 0.38rem 0.55rem;
+  font-size: 0.74rem;
+}
+
 /* Body / burn boxes — same frame language as ± cards */
 .ctc-stat-duo {
   display: grid;

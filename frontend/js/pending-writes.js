@@ -2,7 +2,7 @@
  * Incremental pending-write queue for pre-hydrate / offline calorie edits.
  * Survives reload in localStorage; flushed by replaying ops on cloud base.
  */
-import { STORAGE_KEYS } from './config.js?v=348';
+import { STORAGE_KEYS } from './config.js?v=349';
 import {
   appendQuickMeal,
   appendQuickExercise,
@@ -12,17 +12,17 @@ import {
   formatMealCell,
   patchDay,
   ensureDay,
-} from './calorie.js?v=348';
+} from './calorie.js?v=349';
 import {
   normalizeMuscleTree,
   setMoveLogNames,
   setMovePlanIds,
-} from './muscle-tree.js?v=348';
+} from './muscle-tree.js?v=349';
 import {
   normalizeExerciseFavs,
   normalizeExerciseMedia,
-} from './settings.js?v=348';
-import { nowIso } from './clock.js?v=348';
+} from './settings.js?v=349';
+import { nowIso } from './clock.js?v=349';
 
 /** Note is handled via appendMeal labels unless it is the only change. */
 const SCALAR_KEYS = ['weight', 'waist', 'bodyFat', 'base', 'addCal', 'water'];

@@ -2,7 +2,7 @@
  * Calorie-first entry — paint the calorie shell ASAP, then hydrate full app.
  * First cloud pull is non-blocking (badge only); PIN overlay still gates edits.
  */
-import { paintListFromLocal } from './list-paint.js?v=348';
+import { paintListFromLocal } from './list-paint.js?v=349';
 
 document.documentElement.dataset.pnoteBoot = '1';
 
@@ -22,12 +22,12 @@ try {
 }
 
 // Warm Firebase in parallel with the app module (do not block paint / hydrate).
-import('./firebase.js?v=348')
+import('./firebase.js?v=349')
   .then((m) => (typeof m.initFirebase === 'function' ? m.initFirebase() : undefined))
   .catch((err) => console.warn('early firebase init failed', err));
 
 // Full app (interactions, sync, settings) after first paint.
-import('./app.js?v=348')
+import('./app.js?v=349')
   .then((m) => {
     if (typeof m.hydrateApp === 'function') return m.hydrateApp();
     return undefined;
