@@ -12,12 +12,12 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=352';
-import { regionRestMap } from './muscle-tree.js?v=352';
+} from './muscle-map.js?v=353';
+import { regionRestMap } from './muscle-tree.js?v=353';
 import {
   parseYoutubeVideoId,
   youtubeNocookieEmbedUrl,
-} from './settings.js?v=352';
+} from './settings.js?v=353';
 
 const FAV_GROUP = 'fav';
 const SEARCH_LIMIT = 60;
@@ -515,7 +515,7 @@ async function loadCuesIntoDetail(exercise) {
     return;
   }
   try {
-    const mod = await import(`./exercise-cues.js?v=352`);
+    const mod = await import(`./exercise-cues.js?v=353`);
     if (token !== cuesToken) return;
     const steps = await mod.loadExerciseInstructions(fedbId);
     if (token !== cuesToken) return;

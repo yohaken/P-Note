@@ -2,7 +2,7 @@
  * Incremental pending-write queue for pre-hydrate / offline calorie edits.
  * Survives reload in localStorage; flushed by replaying ops on cloud base.
  */
-import { STORAGE_KEYS } from './config.js?v=352';
+import { STORAGE_KEYS } from './config.js?v=353';
 import {
   appendQuickMeal,
   appendQuickExercise,
@@ -14,17 +14,17 @@ import {
   formatMealCell,
   patchDay,
   ensureDay,
-} from './calorie.js?v=352';
+} from './calorie.js?v=353';
 import {
   normalizeMuscleTree,
   setMoveLogNames,
   setMovePlanIds,
-} from './muscle-tree.js?v=352';
+} from './muscle-tree.js?v=353';
 import {
   normalizeExerciseFavs,
   normalizeExerciseMedia,
-} from './settings.js?v=352';
-import { nowIso } from './clock.js?v=352';
+} from './settings.js?v=353';
+import { nowIso } from './clock.js?v=353';
 
 /** Note is handled via appendMeal labels unless it is the only change. */
 const SCALAR_KEYS = ['weight', 'waist', 'bodyFat', 'base', 'addCal', 'water'];
@@ -388,7 +388,7 @@ export function applyOneOp(calorie, op) {
       ? `${op.label} ${Math.round(op.cal)},${Math.round(op.prot)}`
       : `${Math.round(op.cal)},${Math.round(op.prot)}`;
     try {
-      return appendQuickMeal(calorie, text, dateKey, { label: op.label || '' }).sheet;
+      return appendQuickMeal(calorie, text, dateKey, { label: op.label || '', at: op.at }).sheet;
     } catch {
       return calorie;
     }
@@ -413,7 +413,7 @@ export function applyOneOp(calorie, op) {
     } else {
       meals[slot] = formatMealCell(op.cal, op.prot);
     }
-    return patchDay(sheet, day.id, { meals: normalizeMeals(meals) });
+    return patchDay(sheet, day.id, { meals: normalizeMeals(meals) }, { mealAt: op.at });
   }
 
   if (op.kind === 'patchDayScalars') {

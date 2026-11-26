@@ -9118,6 +9118,27 @@ body.chs-chart-overlay-open {
   pointer-events: none;
 }
 
+/* Save confirmation: when the slot really was stamped, show its HH:MM under the value. */
+.cal-meal-at {
+  display: block;
+  height: 0.62rem;
+  line-height: 0.62rem;
+  text-align: center;
+  font-size: 0.56rem;        /* ~9px */
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+.ctc-meal .cal-meal-at {
+  height: 0.68rem;
+  line-height: 0.68rem;
+  font-size: 0.6rem;         /* ~9.6px, the card box is wider */
+}
+
 .calorie-quick-title {
   margin: 0;
   font-size: 0.95rem;

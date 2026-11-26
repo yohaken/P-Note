@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso } from './clock.js?v=352';
+import { nowIso, compareStamp, newerStampIso, stampMs, clampStampMs } from './clock.js?v=353';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -20,7 +20,7 @@ import {
   normalizeMuscleTree,
   setMoveLogNames,
   toMuscleLayout,
-} from './muscle-tree.js?v=352';
+} from './muscle-tree.js?v=353';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -491,7 +491,7 @@ export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date()), 
     note = note.slice(0, 200);
   }
   const textKey = String(text || '').trim().slice(0, 48);
-  let next = patchDay(sheet, day.id, { meals: normalizeMeals(meals), note });
+  let next = patchDay(sheet, day.id, { meals: normalizeMeals(meals), note }, { mealAt: opts.at || '' });
   next = recordFrequent(next, 'meal', textKey, parsed);
   return {
     sheet: next,
@@ -2119,6 +2119,30 @@ function hourFromStamp(stamp) {
   const t = new Date(String(stamp || ''));
   if (Number.isNaN(t.getTime())) return null;
   return t.getHours();
+}
+
+/** HH:MM (Asia/Bangkok) — h23 so midnight is 00:xx, not 24:xx. */
+const MEAL_AT_FMT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Bangkok',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+/**
+ * Save-time label for one meal slot, or '' when there is no real per-slot
+ * stamp. Legacy slots carry a fabricated day stamp in mealsAt but no
+ * mealsPrev — those must stay blank (never show an invented time).
+ */
+export function mealSlotTimeLabel(day, i) {
+  const meals = Array.isArray(day?.meals) ? day.meals : [];
+  if (parseMealCell(meals[i]).empty) return '';
+  const prev = Array.isArray(day?.mealsPrev) ? day.mealsPrev : [];
+  if (!String(prev[i] || '').trim()) return '';
+  const at = Array.isArray(day?.mealsAt) ? day.mealsAt : [];
+  const ms = clampStampMs(stampMs(at[i]));
+  if (!ms) return '';
+  return MEAL_AT_FMT.format(new Date(ms));
 }
 
 /**
@@ -4082,7 +4106,7 @@ export function upsertDay(calorie, dayPartial) {
   return { ...sheet, days, updatedAt: now };
 }
 
-export function patchDay(calorie, dayId, patch) {
+export function patchDay(calorie, dayId, patch, opts = {}) {
   const sheet = normalizeCalorie(calorie);
   const now = nowIso();
   const days = sheet.days.map((d) => {
@@ -4103,7 +4127,7 @@ export function patchDay(calorie, dayId, patch) {
         meals,
         exercises,
         mus,
-        mealsAt: stampMealsAt(d, meals, now),
+        mealsAt: stampMealsAt(d, meals, now, opts.mealAt),
         mealsPrev: stampMealsPrev(d, meals),
         waistAt: patch.waist !== undefined ? now : (d.waistAt || ''),
         weightAt: patch.weight !== undefined ? now : (d.weightAt || ''),
@@ -4123,7 +4147,7 @@ export function patchDay(calorie, dayId, patch) {
  * Unchanged non-empty slots keep their prior stamp; never-edited empty slots
  * stay unstamped so a blank auto-today shell can't beat real content.
  */
-function stampMealsAt(prev, nextMeals, now) {
+function stampMealsAt(prev, nextMeals, now, mealAt = '') {
   const prevAt = Array.isArray(prev?.mealsAt) ? prev.mealsAt : [];
   const prevMeals = Array.isArray(prev?.meals) ? prev.meals : [];
   const len = Math.max(nextMeals.length, prevMeals.length, prevAt.length);
@@ -4133,12 +4157,24 @@ function stampMealsAt(prev, nextMeals, now) {
     if (!cur) {
       // Cleared slot → stamp the clear so it can win over older content;
       // an already-empty slot keeps its earlier clear stamp.
-      return prevCell ? now : String(prevAt[i] || '').slice(0, 40);
+      return prevCell ? pickMealStamp(mealAt, prevAt[i], now) : String(prevAt[i] || '').slice(0, 40);
     }
     const prevStamp = prevAt[i] || prev?.updatedAt || '';
     if (prevCell === cur && prevStamp) return String(prevStamp).slice(0, 40);
-    return now;
+    return pickMealStamp(mealAt, prevStamp, now);
   });
+}
+
+/**
+ * Replaying a queued op: keep the time the user actually saw, but never older
+ * than the stamp this slot replaces (the replay must still win the merge) and
+ * never ahead of now.
+ */
+function pickMealStamp(mealAt, prevStamp, now) {
+  if (!mealAt) return now;
+  if (compareStamp(mealAt, prevStamp) <= 0) return now;
+  if (compareStamp(mealAt, now) > 0) return now;
+  return String(mealAt).slice(0, 40);
 }
 
 function stampMealsPrev(prev, nextMeals) {
@@ -4561,8 +4597,10 @@ export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), me
       for (let i = 0; i < cols; i += 1) {
         const cell = rawMeals[i] || '';
         const has = cell ? ' has-value' : '';
+        const at = mealSlotTimeLabel(row, i);
+        const slotTitle = at ? `บันทึก ${at} · ${cellTitle}` : cellTitle;
         mealInputs.push(
-          `<span class="cal-input-wrap cal-input-wrap-meal${has}" data-n="${i + 1}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="${cellTitle}"></span>`,
+          `<span class="cal-input-wrap cal-input-wrap-meal${has}" data-n="${i + 1}"><input class="cal-cell cal-cell-meal" data-cal-field="meal" data-meal-index="${i}" data-day-id="${esc(row.id)}" value="${esc(cell)}" inputmode="numeric" autocomplete="off" spellcheck="false" readonly aria-label="มื้อ ${i + 1}" placeholder="${i + 1}" title="${esc(slotTitle)}"><span class="cal-meal-at" aria-hidden="true">${at}</span></span>`,
         );
       }
       const id = esc(row.id);
