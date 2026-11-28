@@ -8,7 +8,9 @@ function makeCors({ allowNoOrigin }) {
         callback(null, true);
         return;
       }
-      callback(new Error(`Origin not allowed: ${origin}`));
+      const err = new Error('origin_not_allowed');
+      err.status = 403;
+      callback(err);
     },
     credentials: true,
   });
@@ -17,5 +19,5 @@ function makeCors({ allowNoOrigin }) {
 /** Health / PIN — allow curl and same-origin probes with no Origin. */
 export const corsPublic = makeCors({ allowNoOrigin: true });
 
-/** Authenticated API routes — require a real allowed Origin. */
-export const corsMiddleware = makeCors({ allowNoOrigin: false });
+/** Authenticated API — Bearer ID token; allow same-origin GETs with no Origin. */
+export const corsMiddleware = makeCors({ allowNoOrigin: true });
