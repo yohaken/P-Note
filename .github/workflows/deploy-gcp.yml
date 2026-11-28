@@ -96,6 +96,8 @@ jobs:
             firebase.googleapis.com \
             firebasehosting.googleapis.com \
             iam.googleapis.com \
+            secretmanager.googleapis.com \
+            iamcredentials.googleapis.com \
             --project=${{ env.PROJECT_ID }} \
             --quiet
 
@@ -162,7 +164,8 @@ jobs:
             --max-instances=1 \
             --min-instances=0 \
             --memory=512Mi \
-            --set-env-vars="ALLOWED_EMAIL=phiraphong.yoh@gmail.com,GCP_PROJECT_ID=${{ env.PROJECT_ID }},FILES_BUCKET=${{ env.PROJECT_ID }}-pnote-files"
+            --set-env-vars="ALLOWED_EMAIL=yohaken@gmail.com,OWNER_EMAIL=yohaken@gmail.com,GCP_PROJECT_ID=${{ env.PROJECT_ID }},FILES_BUCKET=${{ env.PROJECT_ID }}-pnote-files" \
+            --set-secrets=PNOTE_PIN_SHA256=pnote-pin-sha256:latest
 
       - name: Get Cloud Run URL
         id: run-url
@@ -173,13 +176,14 @@ jobs:
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Cloud Run URL: $URL"
 
-      # Signing an upload URL writes nothing, but fails if the runtime SA lost signBlob (photos then can't upload).
-      - name: Smoke test photo upload signing
+      - name: Smoke test auth gate and health
         run: |
-          RES=$(curl -s -X POST -H 'Content-Type: application/json' \
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
             -d '{"rowId":"r-ci-probe","date":"2000-01-01","size":100}' \
             "${{ steps.run-url.outputs.url }}/api/spaces/sp-ci-probe/muscle-photos/upload-url")
-          echo "$RES" | grep -q '"uploadUrl"' || { echo "::error::Photo upload signing failed: $RES"; exit 1; }
+          [ "$CODE" = "401" ] || { echo "::error::Expected unauthenticated upload-url POST to return 401, got $CODE"; exit 1; }
+          HEALTH=$(curl -s -o /dev/null -w '%{http_code}' "${{ steps.run-url.outputs.url }}/api/health")
+          [ "$HEALTH" = "200" ] || { echo "::error::Expected /api/health to return 200, got $HEALTH"; exit 1; }
 
       - name: Fix Google Auth IdP (redirect_uri_mismatch)
         continue-on-error: true

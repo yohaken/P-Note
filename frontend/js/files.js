@@ -2,8 +2,9 @@
  * Full-size note file uploads to Google Cloud Storage via signed URLs.
  * Falls back silently so offline / old notes keep working with base64.
  */
-import { CONFIG } from './config.js?v=353';
-import { getSpaceId } from './remote.js?v=353';
+import { CONFIG } from './config.js?v=354';
+import { auth } from './firebase.js?v=354';
+import { getSpaceId } from './remote.js?v=354';
 
 const REQUEST_TIMEOUT_MS = 20000;
 const downloadCache = new Map(); // storagePath -> { url, expiresAt }
@@ -12,12 +13,25 @@ function apiBase() {
   return String(CONFIG.API_BASE_URL || '').replace(/\/$/, '');
 }
 
+async function authHeaders() {
+  try {
+    const t = await auth?.currentUser?.getIdToken?.();
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 /** Hosting → Cloud Run occasionally answers 502/503/504 or drops the connection; every call here is safe to repeat. */
 async function fetchJson(url, options = {}) {
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await fetchJsonOnce(url, options);
     } catch (err) {
+      if (err?.status === 401 || err?.status === 403) {
+        err.message = 'ซิงค์คลาวด์ยังไม่พร้อม';
+        throw err;
+      }
       const transient = [502, 503, 504].includes(err?.status) || err?.name === 'TypeError';
       if (!transient || attempt >= 3) throw err;
       await new Promise((r) => setTimeout(r, 500 * attempt));
@@ -36,6 +50,7 @@ async function fetchJsonOnce(url, options = {}) {
       headers: {
         Accept: 'application/json',
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(await authHeaders()),
         ...(options.headers || {}),
       },
     });
@@ -92,10 +107,12 @@ export function uploadFileToCloud(file, opts = {}) {
       },
     );
 
+    const maxBytes = Number(meta.maxBytes) || size;
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', meta.uploadUrl);
       xhr.setRequestHeader('Content-Type', meta.mimeType || mimeType);
+      xhr.setRequestHeader('x-goog-content-length-range', `0,${maxBytes}`);
       xhr.upload.onprogress = (event) => {
         if (!event.lengthComputable) return;
         const pct = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));

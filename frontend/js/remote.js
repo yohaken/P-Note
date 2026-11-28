@@ -1,8 +1,9 @@
-import { STORAGE_KEYS } from './config.js?v=353';
-import { initFirebase, getDb, auth } from './firebase.js?v=353';
-import { nowIso, setClockOffset } from './clock.js?v=353';
-import { emptyDeletions, normalizeDeletions } from './deletions.js?v=353';
-import { notesDataForCloudPush } from './import-data.js?v=353';
+import { STORAGE_KEYS } from './config.js?v=354';
+import { initFirebase, getDb, auth } from './firebase.js?v=354';
+import { nowIso, setClockOffset } from './clock.js?v=354';
+import { emptyDeletions, normalizeDeletions } from './deletions.js?v=354';
+import { notesDataForCloudPush } from './import-data.js?v=354';
+import { compactCalorieForStorage } from './calorie.js?v=354';
 import {
   doc,
   getDoc,
@@ -73,7 +74,7 @@ export function clearPreviousSpaceId() {
 
 function emptyPayload() {
   return {
-    version: 9,
+    version: 10,
     updatedAt: nowIso(),
     tags: [],
     notes: [],
@@ -103,7 +104,7 @@ function normalizePayload(raw) {
       || '',
   );
   return {
-    version: Number(data.version) || 9,
+    version: Number(data.version) || 10,
     // Preserve the stored stamp; do NOT fabricate "now" for existing data
     // (a fabricated stamp makes old cloud content look newer than it is).
     updatedAt: data.updatedAt || '',
@@ -124,11 +125,12 @@ function toFirestorePayload(data, { settingsSync } = {}) {
   const normalized = notesDataForCloudPush(normalizePayload(data));
   // Mirror pins into calorie so older readers still see them.
   if (normalized.calorie && typeof normalized.calorie === 'object') {
-    normalized.calorie = {
+    normalized.calorie = compactCalorieForStorage({
       ...normalized.calorie,
       homePins: Array.isArray(normalized.homePins) ? normalized.homePins : [],
       homePinsAt: normalized.homePinsAt || '',
-    };
+    });
+    normalized.version = Math.max(Number(normalized.version) || 0, 10);
   }
   normalized.updatedAt = nowIso();
   if (settingsSync && typeof settingsSync === 'object') {
@@ -136,7 +138,16 @@ function toFirestorePayload(data, { settingsSync } = {}) {
   } else if (data.settingsSync && typeof data.settingsSync === 'object') {
     normalized.settingsSync = data.settingsSync;
   }
-  return JSON.parse(JSON.stringify(normalized));
+  // One serialize: UTF-8 bytes (Firestore), not UTF-16 code units (Thai ≈ 3 B/char).
+  const json = JSON.stringify(normalized);
+  const out = JSON.parse(json);
+  const bytes = new TextEncoder().encode(json).length;
+  if (bytes > 900_000) {
+    const err = new Error(`doc too big: ${bytes}`);
+    err.code = 'DOC_TOO_BIG';
+    throw err;
+  }
+  return out;
 }
 
 function requireSignedIn() {
@@ -161,12 +172,25 @@ function anchorClockFromSnap(snap, clientMs) {
   try {
     if (!clientMs || !snap?.exists?.()) return;
     if (snap.metadata?.hasPendingWrites) return; // sentinel not resolved yet
+    if (Date.now() - clientMs > 10_000) return;
     const raw = snap.data()?.[CLOCK_FIELD];
     const ms = raw && typeof raw.toMillis === 'function' ? raw.toMillis() : 0;
     if (!ms) return;
     setClockOffset(ms, clientMs);
     clockAnchored = true;
+    lastClockWriteAt = 0;
   } catch { /* ignore */ }
+}
+
+/** Test harness: exercise A2 bail without a Firestore snap. Returns whether offset applied. */
+export function __probeAnchorClock(serverMs, clientMs) {
+  if (!clientMs) return { applied: false, reason: 'no-client' };
+  if (Date.now() - clientMs > 10_000) return { applied: false, reason: 'stale' };
+  if (!Number.isFinite(serverMs)) return { applied: false, reason: 'bad-server' };
+  setClockOffset(serverMs, clientMs);
+  clockAnchored = true;
+  lastClockWriteAt = 0;
+  return { applied: true };
 }
 
 /**
@@ -181,6 +205,7 @@ export async function anchorClockFromHttpDate() {
   try {
     const url = new URL('js/boot.js', typeof location !== 'undefined' ? location.href : 'http://localhost/');
     url.searchParams.set('_', String(Date.now()));
+    const t0 = Date.now();
     let res = await fetch(url.toString(), { method: 'HEAD', cache: 'no-store' });
     if (!res.ok || !res.headers.get('date')) {
       res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
@@ -189,29 +214,12 @@ export async function anchorClockFromHttpDate() {
     if (!dateHdr) return false;
     const serverMs = Date.parse(dateHdr);
     if (!Number.isFinite(serverMs)) return false;
-    const clientMs = Date.now();
-    setClockOffset(serverMs, clientMs);
+    setClockOffset(serverMs, Math.round((t0 + Date.now()) / 2));
     clockAnchored = true;
     return true;
   } catch {
     return false;
   }
-}
-
-/** One cheap merge write + read-back to anchor the clock. Safe: touches only CLOCK_FIELD.
- *  Not used on load (see anchorClockFromHttpDate); kept for rare manual recovery. */
-export async function anchorClockNow(spaceId) {
-  if (clockAnchored) return false;
-  const hook = syncTestHook();
-  if (hook) return false; // tests drive the clock themselves
-  await initFirebase();
-  requireSignedIn();
-  const ref = spaceRef(spaceId || SHARED_SPACE_ID);
-  const t0 = Date.now();
-  await setDoc(ref, { [CLOCK_FIELD]: serverTimestamp() }, { merge: true });
-  const mid = Math.round((t0 + Date.now()) / 2);
-  anchorClockFromSnap(await getDoc(ref), mid);
-  return clockAnchored;
 }
 
 export async function fetchRemoteNotes(spaceId) {

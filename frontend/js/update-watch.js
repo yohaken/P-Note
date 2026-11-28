@@ -31,10 +31,9 @@
   }
 
   async function fetchRemoteBuild() {
-    var res = await fetch(currentPageUrl() + '?_=' + Date.now(), {
-      cache: 'no-store',
+    var res = await fetch(currentPageUrl(), {
+      cache: 'no-cache',
       credentials: 'same-origin',
-      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
     });
     if (!res.ok) return null;
     return parseBuildFromHtml(await res.text());

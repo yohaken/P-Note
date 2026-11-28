@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, compareStamp, newerStampIso, stampMs, clampStampMs } from './clock.js?v=353';
+import { nowIso, nowMs, compareStamp, newerStampIso, stampMs, clampStampMs } from './clock.js?v=354';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -20,7 +20,7 @@ import {
   normalizeMuscleTree,
   setMoveLogNames,
   toMuscleLayout,
-} from './muscle-tree.js?v=353';
+} from './muscle-tree.js?v=354';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -455,7 +455,7 @@ export function clearDayExercises(calorie, dayId) {
 }
 
 /** Ensure a day exists (clone body from last), return { sheet, day }. */
-export function ensureDay(calorie, dateKey = toDateKey(new Date())) {
+export function ensureDay(calorie, dateKey = toDateKey()) {
   const { sheet, day, created } = addDayFromLast(calorie, dateKey);
   return { sheet, day, created };
 }
@@ -464,7 +464,7 @@ export function ensureDay(calorie, dateKey = toDateKey(new Date())) {
  * Put meal into the first empty slot; grow slots up to MAX_MEAL_SLOTS.
  * opts.label: name for the day note instead of the one in `text` (e.g. several foods joined, longer than 80).
  */
-export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date()), opts = {}) {
+export function appendQuickMeal(calorie, text, dateKey = toDateKey(), opts = {}) {
   const parsed = parseQuickMeal(text);
   if (!parsed) {
     const err = new Error(MEAL_PATTERN_HINT);
@@ -502,7 +502,7 @@ export function appendQuickMeal(calorie, text, dateKey = toDateKey(new Date()), 
 }
 
 /** Append one muscle-group burn slot; mus = sum of all slots (separate from meals/note). */
-export function appendQuickExercise(calorie, text, dateKey = toDateKey(new Date())) {
+export function appendQuickExercise(calorie, text, dateKey = toDateKey()) {
   const { sheet, parsed, mus, exercises, dayId } = appendQuickExercises(calorie, text, dateKey);
   return { sheet, parsed, mus, exercises, dayId };
 }
@@ -514,7 +514,7 @@ export const QUICK_EXERCISE_BATCH = 3;
  * Append up to 3 poses from multiline "ท่า,แคล" (or legacy formats).
  * @returns {{ sheet, parsed, dayId, exercises, mus, added }}
  */
-export function appendQuickExercises(calorie, text, dateKey = toDateKey(new Date())) {
+export function appendQuickExercises(calorie, text, dateKey = toDateKey()) {
   const cells = parseExerciseList(text, { maxItems: QUICK_EXERCISE_BATCH });
   if (!cells.length) {
     const err = new Error('ใส่ท่า,1 หรือ คาดิโอ,แคล ได้สูงสุด 3 บรรทัด เช่น\nอก,1\nคาดิโอ,200');
@@ -629,20 +629,28 @@ export function listExerciseHistoryFrequent(calorie, limit = FREQ_TOP) {
     .slice(0, Math.max(1, limit));
 }
 
-/** YYYY-MM-DD in local timezone. */
-export function toDateKey(date = new Date()) {
-  const d = date instanceof Date ? date : new Date(date);
-  if (Number.isNaN(d.getTime())) return toDateKey(new Date());
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+/** YYYY-MM-DD in Asia/Bangkok (en-CA → YYYY-MM-DD). */
+const DAY_KEY_FMT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Bangkok',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+export function toDateKey(date) {
+  const d = arguments.length === 0
+    ? new Date(nowMs())
+    : (date instanceof Date ? date : new Date(date));
+  if (Number.isNaN(d.getTime())) return toDateKey(new Date(nowMs()));
+  return DAY_KEY_FMT.format(d);
 }
 
 export function parseDateKey(key) {
   const m = String(key || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  // Bangkok noon (UTC 05:00) — stable across device TZ; local-midnight breaks
+  // toDateKey(parseDateKey(k)) on UTC+8/+9 (returns k−1).
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 5, 0, 0));
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
@@ -652,9 +660,9 @@ export function ageFromBirthDate(birthDate, onDate = new Date()) {
   if (!b) return null;
   let on = onDate instanceof Date ? onDate : parseDateKey(onDate);
   if (!on) on = new Date();
-  let age = on.getFullYear() - b.getFullYear();
-  const m = on.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && on.getDate() < b.getDate())) age -= 1;
+  let age = on.getUTCFullYear() - b.getUTCFullYear();
+  const m = on.getUTCMonth() - b.getUTCMonth();
+  if (m < 0 || (m === 0 && on.getUTCDate() < b.getUTCDate())) age -= 1;
   if (age < 0 || age > 120) return null;
   return age;
 }
@@ -747,33 +755,35 @@ export function topFrequent(calorie, kind) {
 export function formatDateDisplay(dateKey) {
   const d = parseDateKey(dateKey);
   if (!d) return String(dateKey || '');
-  return `${d.getDate()}/${d.getMonth() + 1}/${String(d.getFullYear()).slice(-2)}`;
+  return `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${String(d.getUTCFullYear()).slice(-2)}`;
 }
 
 /** Day-of-month (1–31) only — month/year come from the month header above. */
 export function dayNumberFromKey(dateKey) {
   const d = parseDateKey(dateKey);
   if (!d) return '';
-  return String(d.getDate());
+  return String(d.getUTCDate());
 }
 
 export function thaiDayName(dateKey) {
   const d = parseDateKey(dateKey);
   if (!d) return '';
-  return THAI_DAYS_SHORT[d.getDay()] || '';
+  return THAI_DAYS_SHORT[d.getUTCDay()] || '';
 }
 
 /** 'YYYY-MM' from a date key. */
 export function monthKeyFromDate(dateKey) {
   const d = parseDateKey(dateKey);
   if (!d) return String(dateKey || '').slice(0, 7);
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  return `${d.getFullYear()}-${m}`;
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${m}`;
 }
 
 /** Initial / incremental window for the calorie table (calendar months). */
 export const CAL_TABLE_INITIAL_MONTHS = 3;
 export const CAL_TABLE_LOAD_MONTHS = 3;
+/** Cap only for render/totals — normalizeCalorie keeps all days. */
+export const MAX_RENDER_DAYS = 400;
 
 /**
  * Newest-first rows → keep days in the newest N calendar months.
@@ -802,7 +812,7 @@ export function sliceRowsByMonthCount(rows, monthCount) {
 export function formatDateTableCell(dateKey, _prevDateKey = '') {
   const d = parseDateKey(dateKey);
   if (!d) return String(dateKey || '');
-  return `${d.getDate()}/${d.getMonth() + 1}`;
+  return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
 }
 
 export function formatMonthLabel(monthKey) {
@@ -1173,18 +1183,29 @@ export function normalizeMeals(raw) {
 }
 
 /** Cap for durable applied pending-op ids on the calorie payload (ring). */
-export const OP_LOG_MAX = 200;
+export const OP_LOG_MAX = 2000;
+const OP_LOG_MAX_AGE_MS = 7 * 86400000;
 
-/** Coerce / dedupe / trim applied-op id list; keep first occurrence, then last OP_LOG_MAX. */
+/** Coerce / dedupe / trim applied-op id list; accept legacy string ids or {id,at}. */
 export function normalizeOpLog(raw) {
   const src = Array.isArray(raw) ? raw : [];
   const out = [];
   const seen = new Set();
+  const cutoff = nowMs() - OP_LOG_MAX_AGE_MS;
   for (const item of src) {
-    const id = String(item ?? '').trim().slice(0, 64);
+    let id = '';
+    let at = '';
+    if (typeof item === 'string') {
+      id = item.trim().slice(0, 64);
+      at = '';
+    } else if (item && typeof item === 'object') {
+      id = String(item.id || '').trim().slice(0, 64);
+      at = String(item.at || '').trim();
+    }
     if (!id || seen.has(id)) continue;
+    if (at && stampMs(at) < cutoff) continue;
     seen.add(id);
-    out.push(id);
+    out.push({ id, at: at || nowIso() });
   }
   return out.length > OP_LOG_MAX ? out.slice(-OP_LOG_MAX) : out;
 }
@@ -1227,29 +1248,127 @@ export function mealColumnCount(calorie) {
   return Math.min(MAX_MEAL_SLOTS, Math.max(MIN_MEAL_SLOTS, maxUsed + 1));
 }
 
+/**
+ * Lossless day-row stamp encoding for Firestore: "~" + epochMs.toString(36).
+ * "+" (mealsPrev typed-into-empty marker) and "" pass through untouched.
+ * Accepts legacy ISO forever; already-compact input is idempotent.
+ */
+export function compactStamp(s) {
+  const raw = String(s ?? '');
+  if (!raw) return '';
+  if (raw === '+') return '+';
+  if (raw.charAt(0) === '~') {
+    const ms = parseInt(raw.slice(1), 36);
+    if (Number.isFinite(ms) && ms > 0) return `~${ms.toString(36)}`;
+    return raw;
+  }
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) return raw;
+  return `~${ms.toString(36)}`;
+}
+
+/** Inverse of compactStamp — always yields canonical ISO (or "+" / "" / garbage as-is). */
+export function expandStamp(s) {
+  const raw = String(s ?? '');
+  if (!raw) return '';
+  if (raw === '+') return '+';
+  if (raw.charAt(0) === '~') {
+    const ms = parseInt(raw.slice(1), 36);
+    if (!Number.isFinite(ms) || ms <= 0) return raw;
+    return new Date(ms).toISOString();
+  }
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) return raw;
+  return new Date(ms).toISOString();
+}
+
+function trimTrailingEmpty(arr) {
+  const out = Array.isArray(arr) ? arr.slice() : [];
+  while (out.length && !out[out.length - 1]) out.pop();
+  return out;
+}
+
+/** Drop null/blank/empty fields + encode stamps; id is derived on read. */
+export function compactDayRowForStorage(day) {
+  const d = day && typeof day === 'object' ? day : {};
+  const mealsIn = Array.isArray(d.meals) ? d.meals.map((c) => String(c ?? '')) : [];
+  const atIn = Array.isArray(d.mealsAt) ? d.mealsAt.map((s) => String(s ?? '')) : [];
+  const prevIn = Array.isArray(d.mealsPrev) ? d.mealsPrev.map((s) => String(s ?? '')) : [];
+  const maxLen = Math.max(mealsIn.length, atIn.length, prevIn.length);
+  let last = -1;
+  for (let i = 0; i < maxLen; i += 1) {
+    if (String(mealsIn[i] || '').trim() || atIn[i] || prevIn[i]) last = i;
+  }
+  let meals = last < 0 ? [] : mealsIn.slice(0, last + 1);
+  let mealsAt = last < 0 ? [] : atIn.slice(0, last + 1);
+  let mealsPrev = last < 0 ? [] : prevIn.slice(0, last + 1);
+  while (meals.length < last + 1) meals.push('');
+  while (mealsAt.length < last + 1) mealsAt.push('');
+  while (mealsPrev.length < last + 1) mealsPrev.push('');
+  meals = trimTrailingEmpty(meals);
+  mealsAt = trimTrailingEmpty(mealsAt.map(compactStamp));
+  mealsPrev = trimTrailingEmpty(mealsPrev.map(compactStamp));
+
+  const out = { date: String(d.date || '') };
+  if (d.waist != null && d.waist !== '') out.waist = d.waist;
+  if (d.weight != null && d.weight !== '') out.weight = d.weight;
+  if (d.bodyFat != null && d.bodyFat !== '') out.bodyFat = d.bodyFat;
+  if (d.mus != null && d.mus !== '') out.mus = d.mus;
+  if (d.base != null && d.base !== '') out.base = d.base;
+  const note = String(d.note || '');
+  if (note) out.note = note;
+  const exercises = Array.isArray(d.exercises) ? d.exercises : [];
+  if (exercises.length) out.exercises = exercises;
+  if (meals.length) out.meals = meals;
+  if (mealsAt.length) out.mealsAt = mealsAt;
+  if (mealsPrev.length) out.mealsPrev = mealsPrev;
+
+  for (const key of ['waistAt', 'weightAt', 'bodyFatAt', 'musAt', 'noteAt', 'updatedAt']) {
+    const c = compactStamp(d[key] || '');
+    if (c) out[key] = c;
+  }
+  return out;
+}
+
+/**
+ * Compact calorie.days for Firestore (drops/trims + ~base36 stamps).
+ * Sets compactV=1. Does NOT touch calorie.updatedAt / profileAt / homePinsAt / muscleTreeAt.
+ */
+export function compactCalorieForStorage(calorie) {
+  if (!calorie || typeof calorie !== 'object') return calorie;
+  const days = Array.isArray(calorie.days)
+    ? calorie.days.map((d) => compactDayRowForStorage(d))
+    : [];
+  return { ...calorie, days, compactV: 1 };
+}
+
 export function createDayRow(partial = {}) {
-  const date = partial.date ? toDateKey(partial.date) : toDateKey(new Date());
-  const updatedAt = partial.updatedAt || '';
-  const meals = padMealsToStamps(normalizeMeals(partial.meals), partial.mealsAt);
+  const date = partial.date ? toDateKey(partial.date) : toDateKey();
+  const updatedAt = expandStamp(partial.updatedAt || '');
+  // Expand mealsAt before pad so trailing clear-stamps still extend meals.
+  const mealsAtRaw = Array.isArray(partial.mealsAt)
+    ? partial.mealsAt.map((s) => expandStamp(s || ''))
+    : partial.mealsAt;
+  const meals = padMealsToStamps(normalizeMeals(partial.meals), mealsAtRaw);
   return {
-    // Date-derived id: two devices that each auto-create the same day agree on it.
-    id: String(partial.id || `day-${date}`),
+    // Always date-derived — legacy UUIDs drop on normalize so push/id checks agree.
+    id: `day-${date}`,
     date,
     waist: partial.waist == null || partial.waist === '' ? null : Number(partial.waist),
     weight: partial.weight == null || partial.weight === '' ? null : Number(partial.weight),
     bodyFat: partial.bodyFat == null || partial.bodyFat === '' ? null : Number(partial.bodyFat),
     meals,
-    mealsAt: normalizeMealsAt(partial.mealsAt, meals, updatedAt),
+    mealsAt: normalizeMealsAt(mealsAtRaw, meals, updatedAt),
     mealsPrev: normalizeMealsPrev(partial.mealsPrev, meals),
     mus: partial.mus == null || partial.mus === '' ? null : Number(partial.mus),
     exercises: normalizeExercises(partial.exercises),
     base: partial.base == null || partial.base === '' ? null : Number(partial.base),
     note: String(partial.note || '').slice(0, 200),
-    waistAt: partial.waistAt || '',
-    weightAt: partial.weightAt || '',
-    bodyFatAt: partial.bodyFatAt || '',
-    musAt: partial.musAt || '',
-    noteAt: partial.noteAt || '',
+    waistAt: expandStamp(partial.waistAt || ''),
+    weightAt: expandStamp(partial.weightAt || ''),
+    bodyFatAt: expandStamp(partial.bodyFatAt || ''),
+    musAt: expandStamp(partial.musAt || ''),
+    noteAt: expandStamp(partial.noteAt || ''),
     // Do NOT fabricate a "now" stamp for existing rows — that lets stale
     // legacy data win merges against genuinely newer cloud content.
     updatedAt,
@@ -1263,10 +1382,11 @@ export function createDayRow(partial = {}) {
  */
 function normalizeMealsAt(mealsAt, meals, fallbackAt) {
   const at = Array.isArray(mealsAt) ? mealsAt : [];
+  const fb = expandStamp(fallbackAt || '');
   return meals.map((cell, i) => {
-    if (at[i]) return String(at[i]).slice(0, 40);
+    if (at[i]) return expandStamp(String(at[i])).slice(0, 40);
     if (!String(cell || '').trim()) return '';
-    return fallbackAt ? String(fallbackAt).slice(0, 40) : '';
+    return fb ? fb.slice(0, 40) : '';
   });
 }
 
@@ -1277,7 +1397,7 @@ function normalizeMealsAt(mealsAt, meals, fallbackAt) {
  */
 function normalizeMealsPrev(mealsPrev, meals) {
   const prev = Array.isArray(mealsPrev) ? mealsPrev : [];
-  return meals.map((_, i) => String(prev[i] || '').slice(0, 40));
+  return meals.map((_, i) => expandStamp(String(prev[i] || '')).slice(0, 40));
 }
 
 export function normalizeDayRow(raw, fallbackBase = DEFAULT_BASE_KCAL) {
@@ -1302,7 +1422,7 @@ export function normalizeCalorie(raw) {
   const heightCm = clampNum(src.heightCm, 100, 250, DEFAULT_HEIGHT_CM);
   const birthDate = resolveBirthDate(src);
   const age =
-    ageFromBirthDate(birthDate, new Date())
+    ageFromBirthDate(birthDate, toDateKey())
     ?? clampNum(src.age, 10, 100, DEFAULT_AGE);
   const sex = src.sex === 'female' ? 'female' : 'male';
   const muscleTree = normalizeMuscleTree(src.muscleTree);
@@ -1312,8 +1432,7 @@ export function normalizeCalorie(raw) {
     .filter((d) => d && typeof d === 'object')
     .map((d) => reconcileTreeExercises(normalizeDayRow(d, defaultBase), muscleTree, moveIndex))
     // Newest first — easier to log today at the top.
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
-    .slice(0, 400);
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
   return {
     version: CALORIE_PAYLOAD_VERSION,
     // Do NOT fabricate "now" — existing sheets without a stamp must merge as
@@ -1653,10 +1772,15 @@ export function computeDayMetrics(day, sheet = {}) {
  */
 export function computeWeekSummary(calorie, endKey = toDateKey()) {
   const sheet = normalizeCalorie(calorie);
-  const end = parseDateKey(endKey) || new Date();
+  const end = parseDateKey(endKey) || parseDateKey(toDateKey()) || new Date();
   const keys = [];
   for (let i = 6; i >= 0; i -= 1) {
-    const d = new Date(end.getFullYear(), end.getMonth(), end.getDate() - i);
+    const d = new Date(Date.UTC(
+      end.getUTCFullYear(),
+      end.getUTCMonth(),
+      end.getUTCDate() - i,
+      5, 0, 0,
+    ));
     keys.push(toDateKey(d));
   }
   const byDate = new Map(sheet.days.map((d) => [d.date, d]));
@@ -1895,10 +2019,15 @@ export function idealWeightRange(heightCm) {
 export function computeTrendSeries(calorie, dayCount = 14, endKey = toDateKey()) {
   const n = Math.max(1, Math.min(366, Math.round(dayCount) || 14));
   const sheet = normalizeCalorie(calorie);
-  const end = parseDateKey(endKey) || new Date();
+  const end = parseDateKey(endKey) || parseDateKey(toDateKey()) || new Date();
   const keys = [];
   for (let i = n - 1; i >= 0; i -= 1) {
-    const d = new Date(end.getFullYear(), end.getMonth(), end.getDate() - i);
+    const d = new Date(Date.UTC(
+      end.getUTCFullYear(),
+      end.getUTCMonth(),
+      end.getUTCDate() - i,
+      5, 0, 0,
+    ));
     keys.push(toDateKey(d));
   }
   const byDate = new Map(sheet.days.map((d) => [d.date, d]));
@@ -2078,8 +2207,13 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
     if (Number.isFinite(burn) && burn > 0) prev.burn += burn;
     poseMap.set(key, prev);
   };
-  const end = parseDateKey(endKey) || new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (trend.dayCount - 1));
+  const end = parseDateKey(endKey) || parseDateKey(toDateKey()) || new Date();
+  const start = new Date(Date.UTC(
+    end.getUTCFullYear(),
+    end.getUTCMonth(),
+    end.getUTCDate() - (trend.dayCount - 1),
+    5, 0, 0,
+  ));
   const startKey = toDateKey(start);
   sheet.days.forEach((day) => {
     if (!day?.date || day.date < startKey || day.date > endKey) return;
@@ -2114,13 +2248,6 @@ export function computeExerciseStats(calorie, dayCount = 14, endKey = toDateKey(
   };
 }
 
-/** Hour-of-day (0–23) from ISO stamp; null if unparseable. */
-function hourFromStamp(stamp) {
-  const t = new Date(String(stamp || ''));
-  if (Number.isNaN(t.getTime())) return null;
-  return t.getHours();
-}
-
 /** HH:MM (Asia/Bangkok) — h23 so midnight is 00:xx, not 24:xx. */
 const MEAL_AT_FMT = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Asia/Bangkok',
@@ -2128,6 +2255,13 @@ const MEAL_AT_FMT = new Intl.DateTimeFormat('en-GB', {
   minute: '2-digit',
   hourCycle: 'h23',
 });
+
+/** Hour-of-day (0–23) from ISO stamp in Bangkok; null if unparseable. */
+function hourFromStamp(stamp) {
+  const t = new Date(String(stamp || ''));
+  if (Number.isNaN(t.getTime())) return null;
+  return Number(MEAL_AT_FMT.format(t).slice(0, 2));
+}
 
 /**
  * Save-time label for one meal slot, or '' when there is no real per-slot
@@ -2152,8 +2286,13 @@ export function mealSlotTimeLabel(day, i) {
 export function computeMealTimeStats(calorie, dayCount = 14, endKey = toDateKey()) {
   const sheet = normalizeCalorie(calorie);
   const n = Math.max(1, Math.min(366, Math.round(dayCount) || 14));
-  const end = parseDateKey(endKey) || new Date();
-  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (n - 1));
+  const end = parseDateKey(endKey) || parseDateKey(toDateKey()) || new Date();
+  const start = new Date(Date.UTC(
+    end.getUTCFullYear(),
+    end.getUTCMonth(),
+    end.getUTCDate() - (n - 1),
+    5, 0, 0,
+  ));
   const startKey = toDateKey(start);
   const hourCounts = Array.from({ length: 24 }, () => 0);
   let totalLogs = 0;
@@ -2415,7 +2554,7 @@ function formatAxisTick(v, digits = 0) {
 function shortDateTick(dateKey) {
   const d = parseDateKey(dateKey);
   if (!d) return '';
-  return `${d.getDate()}/${d.getMonth() + 1}`;
+  return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
 }
 
 /** Pick start / mid / end indices for X ticks. */
@@ -4027,7 +4166,7 @@ export function computeTotals(calorie) {
   const sheet = normalizeCalorie(calorie);
   const all = emptyTotals();
   const byMonth = new Map();
-  const rows = sheet.days.map((day) => {
+  const rows = sheet.days.slice(0, MAX_RENDER_DAYS).map((day) => {
     const metrics = computeDayMetrics(day, sheet);
     const monthKey = monthKeyFromDate(day.date);
     accumulateTotals(all, metrics);
@@ -4218,7 +4357,7 @@ export function clearDayValues(calorie, dayId, { clearBody = false } = {}) {
 }
 
 /** Add today (or date) cloning last known waist/weight. Base is auto from BMR. */
-export function addDayFromLast(calorie, dateKey = toDateKey(new Date())) {
+export function addDayFromLast(calorie, dateKey = toDateKey()) {
   const sheet = normalizeCalorie(calorie);
   const existing = sheet.days.find((d) => d.date === dateKey);
   if (existing) return { sheet, day: existing, created: false };
@@ -4517,22 +4656,21 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-export function renderCalorieTotalsHtml(totals, { monthLabel = '' } = {}) {
+export function renderCalorieTotalsHtml(totals, { monthLabel = '', avg7 = null } = {}) {
   const items = [
-    ['cal', totals.addCal, null],
-    ['prot', totals.prot, null],
     ['บาลานซ์', totals.balance, toneClass(totals.balance)],
-    ['kg', totals.blKg, toneClass(totals.blKg)],
     ['Σ', totals.bsum, null],
     ['วัน', totals.days, null],
+    ['7วัน', avg7 == null ? null : formatSigned(avg7, 0), toneClass(avg7), 'ดุลเฉลี่ย/วัน · 7 วันล่าสุด'],
   ];
   const month = monthLabel
     ? `<span class="ct-month">${esc(monthLabel)}</span>`
     : '';
   const body = items
-    .map(([label, val, cls]) => {
+    .map(([label, val, cls, title]) => {
       const v = val == null || val === '' ? '—' : val;
-      return `<span class="ct-item ${cls || ''}">${esc(label)} <strong>${esc(v)}</strong></span>`;
+      const t = title ? ` title="${esc(title)}"` : '';
+      return `<span class="ct-item ${cls || ''}"${t}>${esc(label)} <strong>${esc(v)}</strong></span>`;
     })
     .join('');
   return `${month}${body}`;
@@ -4567,7 +4705,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
               <th class="cal-col-sum" scope="col">โปรตีน</th>
               <th class="cal-col-sum" scope="col">โปร±</th>
               <th class="cal-col-sum" scope="col">บาลานซ์</th>
-              <th class="cal-col-sum" scope="col">กก</th>
+              <th class="cal-col-sum" scope="col">±กก</th>
             </tr>
             <tr class="cal-head-b">
               <th class="cal-col-burn" scope="col">เบิร์นกาย</th>
@@ -4577,7 +4715,7 @@ export function renderCalorieMealHeaderHtml(mealCols = MIN_MEAL_SLOTS) {
             </tr>`;
 }
 
-export function renderCalorieRowsHtml(rows, todayKey = toDateKey(new Date()), mealCols = MIN_MEAL_SLOTS) {
+export function renderCalorieRowsHtml(rows, todayKey = toDateKey(), mealCols = MIN_MEAL_SLOTS) {
   if (!rows.length) return '';
   const cols = clampNum(mealCols, MIN_MEAL_SLOTS, MAX_MEAL_SLOTS, MIN_MEAL_SLOTS);
   let prevDate = '';

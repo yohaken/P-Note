@@ -4410,7 +4410,7 @@ select.notify-select {
   left: 50%;
   bottom: calc(1.5rem + var(--safe-bottom));
   transform: translateX(-50%) translateY(10px);
-  z-index: 90;
+  z-index: 16000;
   max-width: min(90vw, 340px);
   padding: 0.55rem 0.9rem;
   border-radius: 999px;
@@ -4467,6 +4467,31 @@ select.notify-select {
 
 .auth-overlay[hidden] {
   display: none !important;
+}
+
+.cloud-relink-chip {
+  position: fixed;
+  left: 50%;
+  bottom: calc(6.6rem + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: 15000;
+  min-height: 44px;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--border-strong, #c5d4c9);
+  border-radius: 999px;
+  background: var(--surface-2, #f3f7f4);
+  color: var(--ink, #1a2a1e);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  -webkit-tap-highlight-color: transparent;
+}
+.cloud-relink-chip[hidden] {
+  display: none !important;
+}
+.cloud-relink-chip:active {
+  transform: translateX(-50%) scale(0.98);
 }
 
 /* Sync readiness gate — above settings so lock/sync can't hide under it */
@@ -4731,7 +4756,7 @@ body.sync-gated #app {
   left: 50%;
   bottom: calc(5.4rem + var(--safe-bottom));
   transform: translateX(-50%) translateY(8px);
-  z-index: 88;
+  z-index: 16000;
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -4747,6 +4772,7 @@ body.sync-gated #app {
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
+#action-toast-msg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .action-toast.visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
@@ -8072,6 +8098,108 @@ body.chs-chart-overlay-open {
   padding-right: 0.15rem;
 }
 
+.ctc-remain {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.28rem 0.4rem;
+  min-height: 44px;
+  padding: 0.2rem 0.35rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.ctc-remain[hidden] {
+  display: none !important;
+}
+
+.ctc-remain-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.ctc-remain-kcal,
+.ctc-remain-prot {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.ctc-remain-kcal.is-over,
+.ctc-remain-prot.is-over {
+  color: var(--danger);
+}
+
+.ctc-remain-sep {
+  color: var(--text-muted);
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.ctc-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.28rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  padding: 0.05rem 0 0.1rem;
+}
+
+.ctc-chips[hidden] {
+  display: none !important;
+}
+
+.ctc-chip {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--cal-tone-eat) 28%, var(--border));
+  border-radius: 999px;
+  background: var(--cal-tone-eat-wash, #fff8f0);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ctc-chip:active {
+  transform: scale(0.97);
+}
+
+.ctc-meals.has-copy-yday {
+  flex-wrap: wrap;
+}
+
+.ctc-copy-yday {
+  flex: 1 0 100%;
+  min-height: 44px;
+  margin: 0 0 0.15rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 8%, #fff);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ctc-copy-yday:active {
+  transform: scale(0.98);
+}
+
 .ctc-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -8603,6 +8731,9 @@ body.chs-chart-overlay-open {
   flex: 0 0 auto;
   width: 2.4rem;
   min-width: 2.4rem;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 3px 0;
   border-radius: 4px;
   background: var(--cal-tone-eat-wash);
 }
@@ -9958,10 +10089,10 @@ body.calorie-muscle-pane #calorie-view {
 }
 
 .muscle-tool-btn {
-  padding: 0.28rem 0.55rem !important;
+  padding: 0.5rem 0.6rem !important;
   font-size: 0.72rem !important;
   font-weight: 650 !important;
-  min-height: 0 !important;
+  min-height: 40px !important;
   border-radius: 8px !important;
 }
 

@@ -1,16 +1,31 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { config } from './config.js';
-import { corsMiddleware } from './middleware/cors.js';
+import { corsMiddleware, corsPublic } from './middleware/cors.js';
 import healthRoutes from './routes/health.js';
+import authRoutes, { clientKey } from './routes/auth.js';
 import notesRoutes from './routes/notes.js';
 import filesRoutes from './routes/files.js';
 
 const app = express();
 
-app.use(corsMiddleware);
-app.use(express.json({ limit: '8mb' }));
+app.set('trust proxy', 1);
+
+const PUBLIC = new Set(['/api/health', '/api/version', '/api/db-status', '/api/auth/pin']);
+app.use((req, res, next) => (PUBLIC.has(req.path) ? corsPublic : corsMiddleware)(req, res, next));
+app.use(express.json({ limit: '2mb' }));
+app.use(
+  rateLimit({
+    windowMs: 60_000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => clientKey(req),
+  }),
+);
 
 app.use('/api', healthRoutes);
+app.use('/api', authRoutes);
 app.use('/api', notesRoutes);
 app.use('/api', filesRoutes);
 app.get('/health', (_req, res) => {

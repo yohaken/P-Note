@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import express, { Router } from 'express';
+import { requireOwner } from '../middleware/auth.js';
 import {
   createDownloadUrl,
   createMusclePhotoUploadUrl,
@@ -10,10 +11,13 @@ import {
   FILES_MAX_BYTES,
   listMusclePhotos,
   localFilePath,
+  localMode,
   MUSCLE_PHOTO_MAX_BYTES,
 } from '../store/filesStore.js';
 
 const router = Router();
+
+router.use('/spaces/:spaceId', requireOwner);
 
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -99,33 +103,35 @@ router.post(
 );
 
 /* Local dev only (FILES_LOCAL_DIR): stand-in for the signed GCS URLs. */
-router.put(
-  '/local-files/*',
-  express.raw({ type: () => true, limit: FILES_MAX_BYTES }),
-  asyncHandler(async (req, res) => {
-    const file = localFilePath(req.params[0]);
-    if (!file) {
-      res.status(404).json({ error: 'Not found' });
-      return;
-    }
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    await fs.writeFile(file, req.body);
-    res.status(200).end();
-  }),
-);
+if (localMode()) {
+  router.put(
+    '/local-files/*',
+    express.raw({ type: () => true, limit: FILES_MAX_BYTES }),
+    asyncHandler(async (req, res) => {
+      const file = localFilePath(req.params[0]);
+      if (!file) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+      }
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.writeFile(file, req.body);
+      res.status(200).end();
+    }),
+  );
 
-router.get(
-  '/local-files/*',
-  asyncHandler(async (req, res) => {
-    const file = localFilePath(req.params[0]);
-    if (!file) {
-      res.status(404).json({ error: 'Not found' });
-      return;
-    }
-    res.sendFile(file, (err) => {
-      if (err && !res.headersSent) res.status(404).json({ error: 'Not found' });
-    });
-  }),
-);
+  router.get(
+    '/local-files/*',
+    asyncHandler(async (req, res) => {
+      const file = localFilePath(req.params[0]);
+      if (!file) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+      }
+      res.sendFile(file, (err) => {
+        if (err && !res.headersSent) res.status(404).json({ error: 'Not found' });
+      });
+    }),
+  );
+}
 
 export default router;

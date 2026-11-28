@@ -9,14 +9,35 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isPnoteOwner() {
+      return request.auth != null
+        && (request.auth.uid == 'pnote-owner'
+          || (request.auth.token.email == 'yohaken@gmail.com'
+            && request.auth.token.email_verified == true));
+    }
+
     // P-Note: personal notes payload (client SDK writes here directly).
     match /spaces/{spaceId} {
-      allow read, write: if isSignedIn();
+      allow read: if isPnoteOwner();
+      // create: owner only (clockAt merge on a missing doc must succeed).
+      // update: clock-only merge OR full payload with version (hasOnly on the
+      // merged result would reject clockAt writes when legacy keys exist).
+      allow create: if isPnoteOwner();
+      allow update: if isPnoteOwner() && (
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['clockAt', 'updatedAt'])
+        || (request.resource.data.keys().hasOnly([
+              'version','updatedAt','tags','notes','workspaces','notepads',
+              'calorie','homePins','homePinsAt','deletions','settingsSync','clockAt'
+            ])
+            && request.resource.data.version is number)
+      );
     }
 
     // P-Note / TellTea login tickets — signed-in only.
     match /loginTickets/{ticketId} {
-      allow read, write: if isSignedIn();
+      allow get, create, update, delete: if isSignedIn();
+      allow list: if false;
     }
 
     // iRich iLucky vault — doc id = sha256("irich:"+accessCode)[:32]
@@ -42,8 +63,11 @@ service cloud.firestore {
     }
 
     // TL-Chart AI keys — cloud-first (DeepSeek etc.)
+    // RISK (documented, intentionally unchanged): write stays unauthenticated so
+    // TL-Chart's browser cloud-first path keeps working. Read is owner-only;
+    // rotate the DeepSeek key on ship. Server path uses a service account.
     match /tlChartSecrets/{docId} {
-      allow read: if docId == 'ai';
+      allow read: if isPnoteOwner() && docId == 'ai';
       allow create, update: if docId == 'ai'
         && request.resource.data.app == 'tl-chart'
         && request.resource.data.ownerPhone == '+66884818817'

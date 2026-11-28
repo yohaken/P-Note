@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending } from './local.js?v=353';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=353';
-import { initGridSortable, initLongPressTap } from './sortable.js?v=353';
-import { CONFIG } from './config.js?v=353';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=353';
-import { nowIso } from './clock.js?v=353';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending, isQuotaError } from './local.js?v=354';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=354';
+import { initGridSortable, initLongPressTap } from './sortable.js?v=354';
+import { CONFIG } from './config.js?v=354';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=354';
+import { nowIso, getClockOffsetMs, nowMs as clockNowMs } from './clock.js?v=354';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -11,7 +11,8 @@ import {
   signOut,
   watchAuth,
   isPinUnlocked,
-} from './auth.js?v=353';
+  needsCloudRelink,
+} from './auth.js?v=354';
 import {
   addTag,
   addNotepad,
@@ -56,7 +57,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=353';
+} from './notes.js?v=354';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -83,6 +84,7 @@ import {
   QUICK_EXERCISE_BATCH,
   computeTotals,
   computeDayMetrics,
+  computeWeekSummary as computeCalorieWeekSummary,
   computeHealthSnapshot,
   expandMealsForEdit,
   formatDateDisplay,
@@ -119,6 +121,7 @@ import {
   normalizeHomePins,
   thaiDayName,
   toDateKey,
+  parseDateKey,
   totalsForMonth,
   DEFAULT_TDEE_PROTEIN_FACTOR,
   EXERCISE_BURN_STEPS,
@@ -132,7 +135,7 @@ import {
   lifestyleKcalFromMinutes,
   isLifestyleBurnLabel,
   mealSlotTimeLabel,
-} from './calorie.js?v=353';
+} from './calorie.js?v=354';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -185,7 +188,7 @@ import {
   CELL_NOTE_MAX,
   getCellNote,
   setCellNote,
-} from './muscle-tree.js?v=353';
+} from './muscle-tree.js?v=354';
 import {
   musclePhotoKeys,
   musclePhotosFor,
@@ -196,7 +199,7 @@ import {
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
-} from './muscle-photos.js?v=353';
+} from './muscle-photos.js?v=354';
 import {
   ALL_EXERCISES,
   EQUIPMENT_TH,
@@ -216,9 +219,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=353';
-import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=353';
-import { mountDrumPicker } from './drum-picker.js?v=353';
+} from './muscle-map.js?v=354';
+import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=354';
+import { mountDrumPicker } from './drum-picker.js?v=354';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -259,14 +262,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=353';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=353';
+} from './schedule.js?v=354';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=354';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=353';
+} from './app-icons.js?v=354';
 import {
   allIcons,
   bestIconForLabel,
@@ -275,28 +278,28 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=353';
+} from './icons.js?v=354';
 import {
   getFilesStatus,
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=353';
+} from './files.js?v=354';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=353');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=354');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=353');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=354');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=353');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=354');
   return userContextModPromise;
 }
 
@@ -320,7 +323,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=353';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=354';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -330,15 +333,15 @@ import {
   watchRemoteNotes,
   anchorClockFromHttpDate,
   SHARED_SPACE_ID,
-} from './remote.js?v=353';
-import { normalizeNotesData } from './notes.js?v=353';
-import { SaveManager } from './sync.js?v=353';
-import { emptyDeletions } from './deletions.js?v=353';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=353';
+  __probeAnchorClock,
+} from './remote.js?v=354';
+import { normalizeNotesData } from './notes.js?v=354';
+import { SaveManager } from './sync.js?v=354';
+import { emptyDeletions } from './deletions.js?v=354';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=354';
 import {
   loadPendingWrites,
   savePendingWrites,
-  clearPendingWrites,
   enqueuePendingWrites,
   diffCalorieToPendingOps,
   applyPendingOpsToNotes,
@@ -346,7 +349,7 @@ import {
   makeSetExerciseFavOp,
   makeSetExerciseMediaOp,
   isSettingsPendingOp,
-} from './pending-writes.js?v=353';
+} from './pending-writes.js?v=354';
 
 const state = {
   notesData: {
@@ -638,6 +641,7 @@ const els = {
   pinLoginBtn: document.getElementById('pin-login-btn'),
   authPinInput: document.getElementById('auth-pin-input'),
   authError: document.getElementById('auth-error'),
+  cloudRelinkChip: document.getElementById('cloud-relink-chip'),
   syncGateOverlay: document.getElementById('sync-gate-overlay'),
   syncGateTitle: document.getElementById('sync-gate-title'),
   syncGateSub: document.getElementById('sync-gate-sub'),
@@ -734,6 +738,10 @@ const els = {
   calorieTodaySub: document.getElementById('calorie-today-sub'),
   calorieTodayBase: document.getElementById('calorie-today-base'),
   calorieTodayBmi: document.getElementById('calorie-today-bmi'),
+  calorieTodayRemain: document.getElementById('calorie-today-remain'),
+  calorieTodayRemainKcal: document.getElementById('calorie-today-remain-kcal'),
+  calorieTodayRemainProt: document.getElementById('calorie-today-remain-prot'),
+  calorieTodayChips: document.getElementById('calorie-today-chips'),
   calorieTodayBal: document.getElementById('calorie-today-bal'),
   calorieTodayBalValue: document.getElementById('calorie-today-bal-value'),
   calorieTodayBalMeta: document.getElementById('calorie-today-bal-meta'),
@@ -757,6 +765,7 @@ const els = {
   ctcLifeAdd: document.getElementById('ctc-life-add'),
   calorieTodayMeals: document.getElementById('calorie-today-meals'),
   calorieTodaySummary: document.getElementById('calorie-today-summary'),
+  exportMonthCsvBtn: document.getElementById('export-month-csv-btn'),
   calorieFabs: document.getElementById('dock-context-calorie'),
   calorieFabMeal: document.getElementById('calorie-fab-meal'),
   calorieFabMus: document.getElementById('calorie-fab-mus'),
@@ -841,6 +850,23 @@ function setAuthOverlayVisible(visible) {
   document.body.classList.toggle('auth-required', Boolean(visible));
   if (visible) hideSyncGate();
   else refreshSyncGateUi();
+  refreshCloudRelinkChip();
+}
+
+function refreshCloudRelinkChip() {
+  const chip = els.cloudRelinkChip;
+  if (!chip) return;
+  const overlayOpen = Boolean(els.authOverlay && !els.authOverlay.hidden);
+  const cloudOk = Boolean(state.authUser && state.authUser.uid && state.authUser.uid !== 'local');
+  const show = !overlayOpen && isPinUnlocked() && !cloudOk && needsCloudRelink();
+  chip.hidden = !show;
+}
+
+function openCloudRelink() {
+  setAuthError('');
+  if (els.authPinInput) els.authPinInput.value = '';
+  setAuthOverlayVisible(true);
+  try { els.authPinInput?.focus(); } catch { /* ignore */ }
 }
 
 let syncRetryTimer = null;
@@ -959,8 +985,9 @@ function applyFirstCloudSnapshot(remoteRaw) {
 
   let base;
   if (remoteHas) {
-    // Prefer cloud SoT — do not let stale cached days without pending ops win.
-    base = remote;
+    base = (isCloudPending() || localNeedsRemotePush(normalizeNotesData(state.notesData), remote))
+      ? mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), remote)
+      : remote;
   } else if (localHas) {
     // Empty cloud + local content → keep local (one-shot migrate via flush/heal).
     base = normalizeNotesData(state.notesData);
@@ -1044,6 +1071,13 @@ function applyRemotePayload(remoteRaw) {
 
 let pendingFlushInFlight = null;
 let pendingFlushFollowUpTimer = 0;
+/** Consecutive flush failures — after 3, stop blocking full-doc push forever. */
+let pendingFlushFailStreak = 0;
+
+/** True when pending queue should own the next cloud write (until fail streak). */
+function pendingOwnsCloudPush() {
+  return loadPendingWrites().length > 0 && pendingFlushFailStreak < 3;
+}
 
 /**
  * Replay queued ops inside a Firestore transaction on the latest remote.
@@ -1094,6 +1128,7 @@ function flushPendingWritesToCloud() {
         };
       });
       if (result?.written) {
+        pendingFlushFailStreak = 0;
         // Clear only ops that the committed transaction actually contained.
         const writtenIds = new Set(
           Array.isArray(result.flushedIds) && result.flushedIds.length
@@ -1104,17 +1139,23 @@ function flushPendingWritesToCloud() {
         savePendingWrites(remain);
         const adopted = normalizeNotesData(result.data);
         // Ops that arrived after the resolver ran are not in the cloud yet:
-        // replay them once on the cloud base. Never replay on merged-local data
-        // (the edit is already in it → duplicate meals).
-        state.notesData = remain.length
-          ? normalizeNotesData(applyPendingOpsToNotes(adopted, remain))
-          : mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), adopted);
+        // replay them once on the cloud base. Take calorie from the replayed
+        // cloud+remain result verbatim (mergeDayFields can duplicate meals when
+        // slot indexes diverge across devices).
+        const replayed = normalizeNotesData(applyPendingOpsToNotes(adopted, remain));
+        const merged = mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), replayed);
+        state.notesData = remain.length ? { ...merged, calorie: replayed.calorie } : merged;
         saveNotes(state.notesData);
         if (state.view === 'calorie') renderCalorieSheet({ preserveScroll: true });
       }
       return Boolean(result?.written);
     } catch (err) {
       console.warn('pending flush failed', err);
+      pendingFlushFailStreak += 1;
+      if (err?.code === 'DOC_TOO_BIG') {
+        setStatus('ข้อมูลใกล้เต็ม · สำรองแล้วลบวันเก่า', { forceToast: true, ms: 6000 });
+        return false;
+      }
       markCloudPending();
       return false;
     } finally {
@@ -1153,6 +1194,7 @@ function maybeHealRemote(merged, remote) {
   if (!state.localEditSinceAdopt) return;
   if (pendingFlushInFlight) return;
   if (healInFlight || !state.cloudHydrated || !navigator.onLine) return;
+  if (pendingOwnsCloudPush()) { void flushPendingWritesToCloud(); return; }
   if (Date.now() - lastHealAt < HEAL_MIN_INTERVAL_MS) return;
   if (!localNeedsRemotePush(merged, remote)) return;
   healInFlight = true;
@@ -1194,10 +1236,6 @@ async function startSpaceRemoteWatch() {
 
 function stopSpacePolling() {
   // Polling removed — onSnapshot is the only live path.
-}
-
-function startSpacePolling() {
-  // no-op (kept so older call sites compile)
 }
 
 function setSyncReady(ready) {
@@ -1426,12 +1464,18 @@ function setAuthError(message = '') {
 
 function refreshAuthAccountHint() {
   if (!els.authAccountHint) return;
-  if (state.authUser && isPinUnlocked()) {
+  const cloudOk = state.authUser && state.authUser.uid && state.authUser.uid !== 'local';
+  if (cloudOk && isPinUnlocked()) {
     els.authAccountHint.textContent = 'ปลดล็อกแล้ว · ซิงค์คลาวด์เปิดอยู่';
+  } else if (isPinUnlocked()) {
+    els.authAccountHint.textContent = needsCloudRelink()
+      ? 'ปลดล็อกแล้ว · คลาวด์ยังไม่เชื่อม — กด "เชื่อมคลาวด์อีกครั้ง"'
+      : 'ปลดล็อกแล้ว · กำลังเชื่อมคลาวด์…';
   } else {
     els.authAccountHint.textContent = 'ยังไม่ได้ใส่รหัส — คลาวด์จะซิงค์หลังเข้า';
   }
-  if (els.signOutBtn) els.signOutBtn.hidden = !(state.authUser && isPinUnlocked());
+  if (els.signOutBtn) els.signOutBtn.hidden = !isPinUnlocked();
+  refreshCloudRelinkChip();
 }
 
 function onSignedIn(user) {
@@ -1459,10 +1503,11 @@ async function requireCloudAuth() {
     onSignedIn(user);
     return user;
   }
+  // PIN unlocked but no cloud session — keep local use; offer re-link chip.
   state.authUser = null;
   refreshAuthAccountHint();
-  setAuthOverlayVisible(true);
-  try { els.authPinInput?.focus(); } catch { /* ignore */ }
+  setAuthOverlayVisible(false);
+  refreshCloudRelinkChip();
   return null;
 }
 
@@ -1472,11 +1517,15 @@ async function handlePinLoginClick() {
   if (els.pinLoginBtn) els.pinLoginBtn.disabled = true;
   try {
     const user = await startLogin(pin);
-    if (!user) {
+    if (!isPinUnlocked()) {
       setAuthError('เข้าไม่สำเร็จ');
       return;
     }
-    onSignedIn(user);
+    // Local unlock always proceeds; cloud session may still be pending.
+    onSignedIn(user || { uid: 'local', isAnonymous: true });
+    if (!user) {
+      setStatus('ซิงค์คลาวด์ยังไม่พร้อม · ใช้งานในเครื่องได้', { forceToast: true, ms: 2800 });
+    }
     if (els.authPinInput) els.authPinInput.value = '';
     await ensureCloudReady({ force: true, announce: true });
   } catch (err) {
@@ -2156,14 +2205,22 @@ function persistCalorie(nextCalorie, { status = '', fullRender = false, immediat
   // Local-first: disk sync from memory immediately, then paint from memory.
   try {
     saveNotes(state.notesData);
-  } catch { /* ignore quota */ }
+  } catch (e) {
+    if (isQuotaError(e)) setStatus('พื้นที่เครื่องเต็ม — ข้อมูลยังไม่ถูกบันทึก', { forceToast: true, ms: 6000 });
+  }
 
   // Mid-flush: enqueue so leftover ops ride the finally follow-up flush;
   // saveNow would race the in-flight commit and drop the meal on adopt.
   const queueOnly = !state.cloudHydrated || !navigator.onLine || !state.authUser || !!pendingFlushInFlight;
   if (queueOnly) {
     const ops = diffCalorieToPendingOps(prevCalorie, stamped);
-    if (ops.length) enqueuePendingWrites(ops);
+    if (ops.length) {
+      try {
+        enqueuePendingWrites(ops);
+      } catch (e) {
+        if (isQuotaError(e)) setStatus('พื้นที่เครื่องเต็ม — ข้อมูลยังไม่ถูกบันทึก', { forceToast: true, ms: 6000 });
+      }
+    }
     refreshPendingSyncBadge();
   } else {
     // Cloud queue resolves getNotesData() at write time (never a stale snap).
@@ -2334,11 +2391,15 @@ function setDerivedCell(td, text, valueForTone = null) {
 }
 
 function paintCalorieMonthTotals(monthKey) {
-  const info = totalsForMonth(ensureCaloriePayload(), monthKey);
+  const sheet = ensureCaloriePayload();
+  const info = totalsForMonth(sheet, monthKey);
   state.calorieActiveMonth = info.monthKey;
   if (els.calorieTotals) {
+    const wk = computeCalorieWeekSummary(sheet);
+    const avg7 = wk.daysLogged ? Math.round(wk.balSum / wk.daysLogged) : null;
     els.calorieTotals.innerHTML = renderCalorieTotalsHtml(info.totals, {
       monthLabel: info.label,
+      avg7,
     });
   }
   return info;
@@ -2495,7 +2556,9 @@ async function persistHomePins(pins) {
   });
   try {
     saveNotes(state.notesData);
-  } catch { /* ignore quota */ }
+  } catch (e) {
+    if (isQuotaError(e)) setStatus('พื้นที่เครื่องเต็ม — ข้อมูลยังไม่ถูกบันทึก', { forceToast: true, ms: 6000 });
+  }
   try {
     armSyncToast();
     // Cloud push is background; toast arms once for this user gesture.
@@ -2767,6 +2830,34 @@ function paintCalorieTodayCard(rows, sheet) {
     useGoal && m.lifestyleKcal > 0
       ? `<span class="ctc-life-goal-hint">+${m.lifestyleKcal} ❤️</span>`
       : '';
+  if (els.calorieTodayRemain) {
+    const kcalLeft = m.goalLineKcal != null ? Math.round(m.goalLineKcal - m.addCal) : null;
+    const protLeft = m.pRm == null ? null : -m.pRm;
+    const hasKcal = kcalLeft != null && Number.isFinite(kcalLeft);
+    const hasProt = protLeft != null && Number.isFinite(protLeft);
+    els.calorieTodayRemain.hidden = !(hasKcal || hasProt);
+    if (els.calorieTodayRemainKcal) {
+      els.calorieTodayRemainKcal.classList.toggle('is-over', hasKcal && kcalLeft < 0);
+      if (!hasKcal) {
+        els.calorieTodayRemainKcal.textContent = '—';
+      } else if (kcalLeft < 0) {
+        els.calorieTodayRemainKcal.textContent = `เกิน ${Math.abs(kcalLeft).toLocaleString('th-TH')} แคล`;
+      } else {
+        els.calorieTodayRemainKcal.textContent = `เหลือ ${kcalLeft.toLocaleString('th-TH')} แคล`;
+      }
+    }
+    if (els.calorieTodayRemainProt) {
+      els.calorieTodayRemainProt.classList.toggle('is-over', hasProt && protLeft < 0);
+      if (!hasProt) {
+        els.calorieTodayRemainProt.textContent = '—';
+      } else if (protLeft < 0) {
+        els.calorieTodayRemainProt.textContent = `โปรตีน −${Math.abs(Math.round(protLeft * 10) / 10)} ก`;
+      } else {
+        els.calorieTodayRemainProt.textContent = `โปรตีน ${Math.round(protLeft * 10) / 10} ก`;
+      }
+    }
+  }
+  paintCalorieTodayChips(sheet);
   if (els.calorieTodayBase) {
     const mode = m.goalMode || 'classic';
     if (mode === 'tdee' && m.tdee != null) {
@@ -2884,11 +2975,25 @@ function paintCalorieTodayCard(rows, sheet) {
   syncClearWrap(els.calorieTodayWaist);
   syncClearWrap(els.calorieTodayFat);
   syncClearWrap(els.calorieTodayMus);
-  if (els.calorieTodayMeals && document.activeElement?.closest?.('#calorie-today-meals') == null) {
+  // Skip rebuild only while a meal <input> is focused (copy/chip buttons must not block paint).
+  if (els.calorieTodayMeals && document.activeElement?.closest?.('input[data-ctc-meal]') == null) {
     const meals = expandMealsForEdit(row.meals);
     const cols = Math.max(meals.length, MIN_MEAL_SLOTS);
-    els.calorieTodayMeals.classList.toggle('is-scrollable', cols > 7);
-    els.calorieTodayMeals.innerHTML = Array.from({ length: cols }, (_, i) => {
+    const ydayKey = shiftDateKey(todayKey, -1);
+    const yday = ydayKey && sheet?.days
+      ? sheet.days.find((d) => d.date === ydayKey)
+      : null;
+    const ydayMeals = yday ? expandMealsForEdit(yday.meals).filter((c) => !parseMealCell(c).empty) : [];
+    const todayEmpty = meals.every((c) => parseMealCell(c).empty);
+    const showCopy = Boolean(isToday && todayEmpty && ydayMeals.length);
+    let ydayKcal = 0;
+    ydayMeals.forEach((c) => { ydayKcal += parseMealCell(c).cal || 0; });
+    const copyHtml = showCopy
+      ? `<button type="button" class="ctc-copy-yday" id="ctc-copy-yday" data-from="${ydayKey}">คัดลอกมื้อเมื่อวาน · ${ydayMeals.length} มื้อ · ${Math.round(ydayKcal).toLocaleString('th-TH')} แคล</button>`
+      : '';
+    els.calorieTodayMeals.classList.toggle('is-scrollable', cols > 7 && !showCopy);
+    els.calorieTodayMeals.classList.toggle('has-copy-yday', showCopy);
+    els.calorieTodayMeals.innerHTML = copyHtml + Array.from({ length: cols }, (_, i) => {
       const v = meals[i] || '';
       const has = v ? ' has-value' : '';
       const at = mealSlotTimeLabel(row, i);
@@ -2905,6 +3010,189 @@ function paintCalorieTodayCard(rows, sheet) {
   }
 }
 
+/** Bangkok date-key ± N days via parseDateKey (not local midnight math). */
+function shiftDateKey(key, deltaDays) {
+  const d = parseDateKey(key);
+  if (!d) return null;
+  return toDateKey(new Date(Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate() + deltaDays,
+    5, 0, 0,
+  )));
+}
+
+/** Top-5 one-tap meal chips on the today card (pins first, then history). */
+function paintCalorieTodayChips(sheet) {
+  const wrap = els.calorieTodayChips;
+  if (!wrap) return;
+  const chips = [];
+  const seen = new Set();
+  const pushChip = (text, label) => {
+    const key = String(text || '').trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    const name = String(label || '').trim();
+    const short = name
+      ? `${name} ${key.replace(',', '·')}`.slice(0, 16)
+      : key.replace(',', '·');
+    chips.push({ text: key, label: name, display: short });
+  };
+  getCalorieMealPins().forEach((p) => {
+    pushChip(formatMealCell(p.cal, p.prot), p.name);
+  });
+  listMealHistoryFrequent(sheet, 12).forEach((item) => {
+    pushChip(item.text, item.label !== item.text ? item.label : '');
+  });
+  const top = chips.slice(0, 5);
+  if (!top.length) {
+    wrap.hidden = true;
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.hidden = false;
+  wrap.innerHTML = top.map((c) =>
+    `<button type="button" class="ctc-chip" data-chip-text="${escAttr(c.text)}" data-chip-label="${escAttr(c.label)}">${escapeHtml(c.display)}</button>`
+  ).join('');
+}
+
+function copyYesterdayMeals(fromKey) {
+  if (!requireSyncReady()) return;
+  const todayKey = toDateKey();
+  const ydayKey = fromKey || shiftDateKey(todayKey, -1);
+  if (!ydayKey) return;
+  const sheet = ensureCaloriePayload();
+  const yday = sheet.days.find((d) => d.date === ydayKey);
+  const today = sheet.days.find((d) => d.date === todayKey);
+  if (!yday) return;
+  const ydayMeals = expandMealsForEdit(yday.meals);
+  const filled = ydayMeals.filter((c) => !parseMealCell(c).empty);
+  if (!filled.length) return;
+  if (today) {
+    const todayMeals = expandMealsForEdit(today.meals);
+    if (todayMeals.some((c) => !parseMealCell(c).empty)) return;
+  }
+  const ydayNoteMealBits = String(yday.note || '').trim();
+  const { sheet: withToday, day: todayDay } = ensureDay(sheet, todayKey);
+  const next = patchDay(withToday, todayDay.id, {
+    meals: normalizeMeals(ydayMeals),
+    note: ydayNoteMealBits || todayDay.note,
+  });
+  persistCalorie(next, { status: '', fullRender: true, immediate: true });
+  const todayId = todayDay.id;
+  setStatus('คัดลอกมื้อเมื่อวานแล้ว', {
+    forceToast: true,
+    undo: () => {
+      if (!requireSyncReady()) return;
+      persistCalorie(
+        patchDay(ensureCaloriePayload(), todayId, { meals: [] }),
+        { status: '', fullRender: true, immediate: true },
+      );
+      setStatus('ยกเลิกแล้ว', { forceToast: true, ms: 1600 });
+    },
+  });
+}
+
+function appendTodayChipMeal(text, label = '') {
+  if (!requireSyncReady()) return;
+  const sheet = ensureCaloriePayload();
+  try {
+    const { sheet: next, slot, parsed } = appendQuickMeal(
+      sheet,
+      text,
+      toDateKey(),
+      { label },
+    );
+    const slotIndex = Math.max(0, (slot || 1) - 1);
+    persistCalorie(next, { status: '', fullRender: true, immediate: true });
+    const name = String(label || '').trim();
+    const kcal = parsed?.cal ?? '';
+    const toastName = name || String(text);
+    setStatus(`เพิ่ม ${toastName} ${kcal} แคล · มื้อ ${slot}`, {
+      forceToast: true,
+      undo: () => {
+        if (!requireSyncReady()) return;
+        const cur = ensureCaloriePayload();
+        const day = cur.days.find((d) => d.date === toDateKey());
+        if (!day) return;
+        const meals = expandMealsForEdit(day.meals);
+        if (slotIndex < meals.length) meals[slotIndex] = '';
+        persistCalorie(
+          patchDay(cur, day.id, { meals: normalizeMeals(meals) }),
+          { status: '', fullRender: true, immediate: true },
+        );
+        setStatus('ยกเลิกแล้ว', { forceToast: true, ms: 1600 });
+      },
+    });
+  } catch (err) {
+    if (err?.code === 'meals_full') {
+      setStatus(err.message, { forceToast: true });
+      return;
+    }
+    setStatus(err?.message || 'เพิ่มไม่ได้', { forceToast: true });
+  }
+}
+
+function csvEscapeCell(value) {
+  const s = value == null ? '' : String(value);
+  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+async function exportCalorieMonthCsv() {
+  const monthKey = state.calorieActiveMonth || monthKeyFromDate(toDateKey());
+  const { rows } = computeTotals(ensureCaloriePayload());
+  const monthRows = rows
+    .filter((r) => r.monthKey === monthKey)
+    .slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  if (!monthRows.length) {
+    setStatus('เดือนนี้ยังไม่มีข้อมูล', { forceToast: true });
+    return;
+  }
+  const header = 'วันที่,แคล,โปรตีน,น้ำหนัก,บาลานซ์,เบิร์น';
+  const lines = [header];
+  monthRows.forEach((row) => {
+    const m = row.metrics || {};
+    lines.push([
+      row.date,
+      m.addCal ?? '',
+      m.prot ?? '',
+      row.weight ?? '',
+      m.balance ?? '',
+      m.bsum ?? '',
+    ].map(csvEscapeCell).join(','));
+  });
+  const csv = `${lines.join('\r\n')}\r\n`;
+  const name = `pnote-${monthKey}.csv`;
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  try {
+    const file = new File([blob], name, { type: 'text/csv' });
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: name });
+      setStatus('ส่งออก CSV แล้ว', { forceToast: true });
+      return;
+    }
+  } catch (err) {
+    if (err?.name === 'AbortError') return;
+    // fall through to anchor download
+  }
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    setStatus('ส่งออก CSV แล้ว', { forceToast: true });
+  } catch (err) {
+    console.warn('csv export failed', err);
+    setStatus('ส่งออกไม่สำเร็จ', { forceToast: true });
+  }
+}
+
 /** Update monthly totals + derived columns without destroying inputs. */
 function refreshCalorieDerived() {
   if (!els.calorieTbody) return;
@@ -2914,16 +3202,24 @@ function refreshCalorieDerived() {
   paintCalorieDash(sheet);
   paintCalorieTodayCard(rows, sheet);
   if (els.calorieEmpty) els.calorieEmpty.hidden = rows.length > 0;
-  rows.forEach((row) => {
-    const trA = els.calorieTbody.querySelector(`tr.cal-day-a[data-day-id="${CSS.escape(row.id)}"]`);
-    const trB = els.calorieTbody.querySelector(`tr.cal-day-b[data-day-id="${CSS.escape(row.id)}"]`);
+  const rowAById = new Map();
+  const rowBById = new Map();
+  els.calorieTbody.querySelectorAll('tr.cal-day-a[data-day-id]').forEach((tr) => {
+    rowAById.set(tr.getAttribute('data-day-id'), tr);
+  });
+  els.calorieTbody.querySelectorAll('tr.cal-day-b[data-day-id]').forEach((tr) => {
+    rowBById.set(tr.getAttribute('data-day-id'), tr);
+  });
+  rows.forEach((row, i) => {
+    const trA = rowAById.get(row.id);
+    const trB = rowBById.get(row.id);
     if (!trA) return;
     const m = row.metrics;
     const dayCell = trA.querySelector('.cal-col-day');
     if (dayCell) dayCell.textContent = row.dayName || '';
     const dateBtn = trA.querySelector('.cal-date-btn');
     if (dateBtn) {
-      const prevRow = rows[rows.findIndex((r) => r.id === row.id) + 1];
+      const prevRow = rows[i + 1];
       dateBtn.textContent = formatDateTableCell(row.date, prevRow?.date || '');
     }
     const cell = (tr, key) => tr?.querySelector(`[data-cal-derived="${key}"]`);
@@ -3214,7 +3510,9 @@ function saveMealBatch() {
   try {
     if (mealBatch.length) localStorage.setItem(MEAL_BATCH_KEY, JSON.stringify(mealBatch));
     else localStorage.removeItem(MEAL_BATCH_KEY);
-  } catch { /* quota */ }
+  } catch (e) {
+    if (isQuotaError(e)) setStatus('พื้นที่เครื่องเต็ม — ข้อมูลยังไม่ถูกบันทึก', { forceToast: true, ms: 6000 });
+  }
 }
 
 /** Batch / รอรวม UI applies in meal mode for both add and edit-existing. */
@@ -6307,9 +6605,14 @@ async function resolveExerciseMediaUrl(storagePath) {
 function queueOrPushSettingsChange(op) {
   if (!op) return;
   markLocalEditSinceAdopt();
-  const queueOnly = !state.cloudHydrated || !navigator.onLine || !state.authUser;
+  const queueOnly = !state.cloudHydrated || !navigator.onLine || !state.authUser
+    || !!pendingFlushInFlight || pendingOwnsCloudPush();
   if (queueOnly) {
-    enqueuePendingWrites([op]);
+    try {
+      enqueuePendingWrites([op]);
+    } catch (e) {
+      if (isQuotaError(e)) setStatus('พื้นที่เครื่องเต็ม — ข้อมูลยังไม่ถูกบันทึก', { forceToast: true, ms: 6000 });
+    }
     refreshPendingSyncBadge();
     return;
   }
@@ -10833,6 +11136,7 @@ function settingsSyncForPush(remoteRaw) {
 }
 
 async function safePushRemote(data) {
+  if (pendingOwnsCloudPush()) return flushPendingWritesToCloud();
   const spaceId = state.spaceId || getSpaceId();
   let result;
   try {
@@ -10867,11 +11171,15 @@ async function safePushRemote(data) {
     });
   } catch (err) {
     // Never setDoc-blind when we cannot read/merge cloud — keep local until retry.
+    if (err?.code === 'DOC_TOO_BIG') {
+      setStatus('ข้อมูลใกล้เต็ม · สำรองแล้วลบวันเก่า', { forceToast: true, ms: 6000 });
+    }
     throw err;
   }
 
   const saved = result?.data;
-  const pushedKey = notesContentKey(saved);
+  const savedNorm = normalizeNotesData(saved);
+  const pushedKey = notesContentKey(savedNorm);
   const liveNow = normalizeNotesData(state.notesData);
   const liveKey = notesContentKey(liveNow);
 
@@ -10887,10 +11195,10 @@ async function safePushRemote(data) {
   }
   // Adopt the committed union first; only edits that landed mid-push remain
   // "newer" and get a quiet background retry (no toast, no re-push loop).
-  const adopted = mergeNotesByUpdatedAt(liveNow, saved);
+  const adopted = mergeNotesByUpdatedAt(liveNow, savedNorm);
   state.notesData = adopted;
   saveNotes(state.notesData);
-  if (localNeedsRemotePush(adopted, saved)) {
+  if (localNeedsRemotePush(adopted, savedNorm)) {
     saveManager.scheduleSave(() => state.notesData);
   }
   state.syncBaseUpdatedAt = saved?.updatedAt || liveNow.updatedAt;
@@ -11180,10 +11488,11 @@ async function renderAttachViewerContent() {
     wrap.appendChild(img);
     return;
   }
-  if (mode === 'pdf') {
+  if (mode === 'pdf' && String(a?.mimeType || '') === 'application/pdf') {
     const frame = document.createElement('iframe');
     frame.className = 'attach-viewer-frame';
     frame.title = a.name || 'PDF';
+    frame.sandbox = '';
     frame.src = url;
     wrap.appendChild(frame);
     const fallback = document.createElement('p');
@@ -12060,7 +12369,8 @@ function escapeHtml(value) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function updateAppVersionLabel() {
@@ -12461,6 +12771,10 @@ async function bootstrapData() {
         if (!navigator.onLine) {
           throw new Error('Offline');
         }
+        if (pendingOwnsCloudPush()) {
+          void flushPendingWritesToCloud();
+          throw new Error('Pending queue owns this write');
+        }
         return safePushRemote(data);
       },
       onCloudBatchStart: () => {
@@ -12506,14 +12820,15 @@ async function bootstrapData() {
     const user = await requireCloudAuth();
     watchAuth((nextUser) => {
       if (!nextUser) {
-        const wasSignedIn = Boolean(state.authUser);
+        const wasSignedIn = Boolean(state.authUser && state.authUser.uid !== 'local');
         state.authUser = null;
         state.online = false;
         state.cloudHydrated = false;
-        // Keep local editing if PIN still unlocked.
+        // Keep local editing if PIN still unlocked — never force the gate.
         setSyncReady(isPinUnlocked());
         refreshAuthAccountHint();
         if (!isPinUnlocked()) setAuthOverlayVisible(true);
+        else refreshCloudRelinkChip();
         if (wasSignedIn) setSyncStatus('offline', 'ออกจากระบบแล้ว');
         return;
       }
@@ -13315,6 +13630,23 @@ async function init({ fromBoot = false } = {}) {
     input.blur();
   });
   els.calorieTodayCard?.addEventListener('click', (e) => {
+    const copyBtn = e.target?.closest?.('#ctc-copy-yday, .ctc-copy-yday');
+    if (copyBtn && els.calorieTodayCard.contains(copyBtn)) {
+      e.preventDefault();
+      try { copyBtn.blur(); } catch { /* ignore */ }
+      copyYesterdayMeals(copyBtn.getAttribute('data-from') || '');
+      return;
+    }
+    const chip = e.target?.closest?.('.ctc-chip');
+    if (chip && els.calorieTodayCard.contains(chip)) {
+      e.preventDefault();
+      try { chip.blur(); } catch { /* ignore */ }
+      appendTodayChipMeal(
+        chip.getAttribute('data-chip-text') || '',
+        chip.getAttribute('data-chip-label') || '',
+      );
+      return;
+    }
     // Today lifestyle bar — stop before burn-box → muscle pane.
     if (e.target?.closest?.('#calorie-today-life') && els.calorieTodayCard.contains(e.target)) {
       const more = e.target.closest('#ctc-life-more');
@@ -13742,6 +14074,9 @@ async function init({ fromBoot = false } = {}) {
   els.pinLoginBtn?.addEventListener('click', () => {
     void handlePinLoginClick();
   });
+  els.cloudRelinkChip?.addEventListener('click', () => {
+    openCloudRelink();
+  });
   els.authPinInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -13774,6 +14109,7 @@ async function init({ fromBoot = false } = {}) {
     try { els.authPinInput?.focus(); } catch { /* ignore */ }
   });
   els.exportNotesBtn?.addEventListener('click', exportNotesBackup);
+  els.exportMonthCsvBtn?.addEventListener('click', () => { void exportCalorieMonthCsv(); });
   els.importNotesBtn?.addEventListener('click', () => els.importNotesFile?.click());
   els.importNotesFile?.addEventListener('change', async () => {
     const file = els.importNotesFile.files?.[0];
@@ -13934,6 +14270,12 @@ function attachSyncTestApi() {
       cloudHydrated: () => Boolean(state.cloudHydrated),
       pendingCount: () => loadPendingWrites().length,
       pendingOps: () => loadPendingWrites(),
+      pendingFlushFailStreak: () => pendingFlushFailStreak,
+      pendingOwnsCloudPush: () => pendingOwnsCloudPush(),
+      /** Test: set fail streak (e.g. simulate 3 DOC_TOO_BIG flushes). */
+      __setPendingFlushFailStreak: (n) => {
+        pendingFlushFailStreak = Math.max(0, Math.round(Number(n) || 0));
+      },
       getCalorie: () => state.notesData?.calorie || null,
       getSettings: () => state.settings || null,
       getMovePlan: (dateKey) => movePlanIds(ensureCaloriePayload().muscleTree, dateKey || toDateKey()),
@@ -13959,11 +14301,26 @@ function attachSyncTestApi() {
       /** Example meal entry via the same persistCalorie path as the UI. */
       addMeal(dateKey, cal, prot, label = '') {
         const sheet = ensureCaloriePayload();
+        const beforeDay = sheet.days.find((d) => d.date === dateKey || d.id === dateKey) || null;
+        const beforeMeals = beforeDay ? normalizeMeals(beforeDay.meals) : [];
+        const beforeId = beforeDay?.id || dateKey;
         const text = label
           ? `${label} ${Math.round(cal)},${Math.round(prot)}`
           : `${Math.round(cal)},${Math.round(prot)}`;
         const { sheet: next } = appendQuickMeal(sheet, text, dateKey, { label });
         persistCalorie(next, { status: '', fullRender: true, immediate: true });
+        setStatus('เพิ่มมื้อแล้ว', {
+          forceToast: true,
+          undo: () => {
+            const cur = ensureCaloriePayload();
+            const day = cur.days.find((d) => d.date === dateKey || d.id === dateKey);
+            if (!day) return;
+            persistCalorie(
+              patchDay(cur, day.id || beforeId, { meals: normalizeMeals(beforeMeals) }),
+              { status: '', fullRender: true, immediate: true },
+            );
+          },
+        });
         return hook.app.getDay(dateKey);
       },
       /** Simulate adopting a cloud settings blob (mergeSettingsFromCloud path). */
@@ -13976,6 +14333,22 @@ function attachSyncTestApi() {
         const key = dateKey || toDateKey();
         const day = sheet.days.find((d) => d.date === key || d.id === key) || null;
         return day ? computeDayMetrics(day, sheet) : null;
+      },
+      computeWeekSummary(endKey) {
+        return computeCalorieWeekSummary(ensureCaloriePayload(), endKey || toDateKey());
+      },
+      clearDayMeals(dateKey) {
+        return hook.app.setDayMeals(dateKey, []);
+      },
+      setDayMeals(dateKey, meals) {
+        const key = dateKey || toDateKey();
+        const sheet = ensureCaloriePayload();
+        const { sheet: withDay, day } = ensureDay(sheet, key);
+        persistCalorie(
+          patchDay(withDay, day.id, { meals: normalizeMeals(meals) }),
+          { status: '', fullRender: true, immediate: true },
+        );
+        return hook.app.getDay(key);
       },
       addLifestyle(kind, burnOverride = null, dateKey = null) {
         const key = dateKey || toDateKey();
@@ -13991,6 +14364,10 @@ function attachSyncTestApi() {
         syncGoalModeFields(next);
         return nextMode;
       },
+      probeAnchorClock: (serverMs, clientMs) => __probeAnchorClock(serverMs, clientMs),
+      clockOffsetMs: () => getClockOffsetMs(),
+      nowMs: () => clockNowMs(),
+      todayKey: () => toDateKey(),
     };
   } catch (err) {
     console.warn('attachSyncTestApi failed', err);

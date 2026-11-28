@@ -27,7 +27,7 @@ function getStorage() {
   return storage;
 }
 
-function localMode() {
+export function localMode() {
   return Boolean(config.filesLocalDir);
 }
 
@@ -44,8 +44,11 @@ function sanitizeFileId(fileId) {
 }
 
 function sanitizeMime(mimeType) {
-  const m = String(mimeType || 'application/octet-stream').trim().slice(0, 120);
-  return m || 'application/octet-stream';
+  const raw = String(mimeType || '').trim().toLowerCase();
+  if (/^image\/[a-z0-9.+-]{1,60}$/.test(raw)) return raw;
+  if (/^video\/[a-z0-9.+-]{1,60}$/.test(raw)) return raw;
+  if (raw === 'application/pdf') return raw;
+  return 'application/octet-stream';
 }
 
 function sanitizeName(name) {
@@ -102,13 +105,16 @@ function localUrl(baseUrl, storagePath) {
   return `${String(baseUrl || '').replace(/\/$/, '')}/api/local-files/${storagePath.split('/').map(encodeURIComponent).join('/')}`;
 }
 
-async function signedWriteUrl(storagePath, mimeType, baseUrl) {
+async function signedWriteUrl(storagePath, mimeType, baseUrl, maxBytes) {
   if (localMode()) return localUrl(baseUrl, storagePath);
   const [url] = await requireBucket().file(storagePath).getSignedUrl({
     version: 'v4',
     action: 'write',
     expires: Date.now() + UPLOAD_TTL_MS,
     contentType: mimeType,
+    extensionHeaders: {
+      'x-goog-content-length-range': `0,${maxBytes}`,
+    },
   });
   return url;
 }
@@ -120,13 +126,14 @@ export async function createUploadUrl(input) {
   const spaceId = sanitizeSpaceId(input.spaceId);
   if (!spaceId) throw badRequest('Invalid space id');
   const size = Number(input.size);
-  if (Number.isFinite(size) && size > MAX_BYTES) throw badRequest('File too large', 413);
+  if (!Number.isFinite(size) || size <= 0) throw badRequest('Invalid size');
+  if (size > MAX_BYTES) throw badRequest('File too large', 413);
 
   const fileId = sanitizeFileId(input.fileId) || newFileId();
   const mimeType = sanitizeMime(input.mimeType);
   const name = sanitizeName(input.name);
   const storagePath = buildStoragePath(spaceId, fileId, name);
-  const uploadUrl = await signedWriteUrl(storagePath, mimeType, input.baseUrl);
+  const uploadUrl = await signedWriteUrl(storagePath, mimeType, input.baseUrl, MAX_BYTES);
 
   return {
     fileId,
@@ -209,11 +216,20 @@ export async function createMusclePhotoUploadUrl(input) {
   const date = String(input.date || '');
   if (!ROW_ID_RE.test(rowId) || !DATE_RE.test(date)) throw badRequest('Invalid row or date');
   const size = Number(input.size);
-  if (Number.isFinite(size) && size > PHOTO_MAX_BYTES) throw badRequest('Photo too large', 413);
+  if (!Number.isFinite(size) || size <= 0) throw badRequest('Invalid size');
+  if (size > PHOTO_MAX_BYTES) throw badRequest('Photo too large', 413);
   const fileId = newFileId();
   const storagePath = `${photoPrefix(spaceId)}${rowId}/${date}/${fileId}.jpg`;
-  const uploadUrl = await signedWriteUrl(storagePath, 'image/jpeg', input.baseUrl);
-  return { storagePath, uploadUrl, mimeType: 'image/jpeg', rowId, date, at: fileIdTime(fileId) };
+  const uploadUrl = await signedWriteUrl(storagePath, 'image/jpeg', input.baseUrl, PHOTO_MAX_BYTES);
+  return {
+    storagePath,
+    uploadUrl,
+    mimeType: 'image/jpeg',
+    rowId,
+    date,
+    at: fileIdTime(fileId),
+    maxBytes: PHOTO_MAX_BYTES,
+  };
 }
 
 async function listLocal(prefix) {

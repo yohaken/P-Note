@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="353">
+  <meta name="pnote-build" content="354">
   <meta name="pnote-built" content="2026-11-25T18:40:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
   <link rel="dns-prefetch" href="https://www.gstatic.com">
   <link rel="dns-prefetch" href="https://firestore.googleapis.com">
   <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
-  <script src="js/cache-bootstrap.js?v=353"></script>
+  <script src="js/cache-bootstrap.js?v=354"></script>
   <script>
     /* Apply saved brand icon before paint (favicon + logos + install manifest). */
     (function earlyAppIcon() {
@@ -30,7 +30,7 @@
           if (IDS.indexOf(cand) >= 0) id = cand;
         }
       } catch (e) {}
-      var src = 'icons/app/' + id + '-192.png?v=353';
+      var src = 'icons/app/' + id + '-192.png?v=354';
       function setLink(rel, href, type) {
         var el = document.querySelector('link[rel="' + rel + '"]');
         if (!el) {
@@ -43,7 +43,7 @@
       }
       setLink('icon', src, 'image/png');
       setLink('apple-touch-icon', src);
-      setLink('manifest', 'manifests/' + id + '.json?v=353');
+      setLink('manifest', 'manifests/' + id + '.json?v=354');
       window.__pnoteEarlyIconId = id;
       window.__pnoteEarlyIconSrc = src;
       document.addEventListener('DOMContentLoaded', function () {
@@ -53,19 +53,19 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="css/pnote.css?v=353">
-  <link rel="modulepreload" href="js/boot.js?v=353">
-  <link rel="modulepreload" href="js/list-paint.js?v=353">
-  <link rel="modulepreload" href="js/settings.js?v=353">
-  <link rel="modulepreload" href="js/config.js?v=353">
-  <link rel="modulepreload" href="js/clock.js?v=353">
-  <link rel="modulepreload" href="js/bars.js?v=353">
-  <link rel="modulepreload" href="js/icons.js?v=353">
-  <link rel="modulepreload" href="js/app-icons.js?v=353">
-  <link rel="modulepreload" href="js/app.js?v=353">
-  <link rel="modulepreload" href="js/calorie.js?v=353">
-  <link rel="modulepreload" href="js/local.js?v=353">
-  <link rel="modulepreload" href="js/firebase.js?v=353">
+  <link rel="stylesheet" href="css/pnote.css?v=354">
+  <link rel="modulepreload" href="js/boot.js?v=354">
+  <link rel="modulepreload" href="js/list-paint.js?v=354">
+  <link rel="modulepreload" href="js/settings.js?v=354">
+  <link rel="modulepreload" href="js/config.js?v=354">
+  <link rel="modulepreload" href="js/clock.js?v=354">
+  <link rel="modulepreload" href="js/bars.js?v=354">
+  <link rel="modulepreload" href="js/icons.js?v=354">
+  <link rel="modulepreload" href="js/app-icons.js?v=354">
+  <link rel="modulepreload" href="js/app.js?v=354">
+  <link rel="modulepreload" href="js/calorie.js?v=354">
+  <link rel="modulepreload" href="js/local.js?v=354">
+  <link rel="modulepreload" href="js/firebase.js?v=354">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -153,7 +153,7 @@
     <header id="board-topbar" class="topbar topbar-thin">
       <div class="topbar-title">
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/app/leaf-192.png?v=353" width="16" height="16" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/app/leaf-192.png?v=354" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
           <span class="mode-switch-ver" id="calorie-app-ver"></span>
           <script>
@@ -177,7 +177,7 @@
 
     <section id="calorie-view" class="view calorie-view" aria-label="แผ่นงานแคลอรี่">
       <div class="calorie-toolbar">
-        <div class="calorie-totals" id="calorie-totals" aria-live="polite"></div>
+        <div class="calorie-totals" id="calorie-totals" aria-live="off"></div>
       </div>
 
       <!-- Compact “today” card — primary logging surface on mobile -->
@@ -188,6 +188,13 @@
           <span class="ctc-pill" id="calorie-today-base" title="BMR อัตโนมัติ">base —</span>
           <span class="ctc-pill" id="calorie-today-bmi" title="BMI">BMI —</span>
         </div>
+        <div class="ctc-remain" id="calorie-today-remain" hidden aria-live="polite">
+          <span class="ctc-remain-label">เหลือวันนี้</span>
+          <strong class="ctc-remain-kcal" id="calorie-today-remain-kcal">—</strong>
+          <span class="ctc-remain-sep" aria-hidden="true">·</span>
+          <strong class="ctc-remain-prot" id="calorie-today-remain-prot">—</strong>
+        </div>
+        <div class="ctc-chips" id="calorie-today-chips" hidden aria-label="มื้อที่กินบ่อย · แตะเพื่อบันทึกทันที"></div>
         <div class="ctc-stats" aria-live="polite">
           <div class="ctc-stat" id="calorie-today-bal">
             <span class="ctc-stat-label">แคลอรี่วันนี้</span>
@@ -649,6 +656,16 @@
           </div>
         </details>
 
+        <details class="settings-group" id="csv-settings-row" open>
+          <summary class="settings-group-summary">ส่งออกตาราง (CSV)</summary>
+          <div class="settings-group-body">
+            <div class="settings-row settings-row-last">
+              <p class="settings-hint" id="csv-export-hint">เดือนที่ดูอยู่ · เปิดได้ใน Excel / Numbers</p>
+              <button id="export-month-csv-btn" class="btn btn-primary" type="button">ดาวน์โหลด CSV เดือนนี้</button>
+            </div>
+          </div>
+        </details>
+
                                                 <details class="settings-group" id="backup-settings-row" hidden>
           <summary class="settings-group-summary">สำรองแคลอรี่</summary>
           <div class="settings-group-body">
@@ -690,7 +707,7 @@
 
     <div id="auth-overlay" class="auth-overlay">
       <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=353" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=354" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">ใส่รหัสเข้า</h2>
         <p class="auth-copy">ใส่รหัสผ่านเพื่อเปิดแอพ · จำไว้ในเครื่องนี้จนกว่าจะกดออกจากระบบ</p>
         <label class="notify-field auth-pin-field" for="auth-pin-input">
@@ -701,17 +718,18 @@
         <p id="auth-error" class="auth-error" hidden></p>
       </div>
     </div>
+    <button id="cloud-relink-chip" class="cloud-relink-chip" type="button" hidden>เชื่อมคลาวด์อีกครั้ง</button>
     <script>
       /* First paint: show PIN unless this device already unlocked (no Google). */
       (function earlyPinGate() {
-        var TOKEN = 'v1:0884818817';
         var unlocked = false;
         try {
           if (sessionStorage.getItem('pnote_just_locked') === '1') {
             try { localStorage.removeItem('pnote_gate'); } catch (e0) {}
             unlocked = false;
           } else {
-            unlocked = localStorage.getItem('pnote_gate') === TOKEN;
+            var g = localStorage.getItem('pnote_gate');
+            unlocked = (g === 'v2:ok') || (g && g.indexOf('v1:') === 0);
           }
         } catch (e) {}
         var el = document.getElementById('auth-overlay');
@@ -838,7 +856,7 @@
       </div>
     </div>
   </nav>
-  <script type="module" src="js/boot.js?v=353"></script>
-  <script src="js/update-watch.js?v=353"></script>
+  <script type="module" src="js/boot.js?v=354"></script>
+  <script src="js/update-watch.js?v=354"></script>
 </body>
 </html>

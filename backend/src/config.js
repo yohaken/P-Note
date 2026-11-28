@@ -11,7 +11,7 @@ const PREVIEW_ORIGIN_RE =
 
 export const config = {
   port: Number(process.env.PORT) || 8080,
-  allowedEmail: process.env.ALLOWED_EMAIL || 'phiraphong.yoh@gmail.com',
+  allowedEmail: process.env.ALLOWED_EMAIL || 'yohaken@gmail.com',
   allowedOrigins: (process.env.ALLOWED_ORIGINS || DEFAULT_ORIGINS)
     .split(',')
     .map((origin) => origin.trim())
@@ -23,8 +23,8 @@ export const config = {
   filesLocalDir: String(process.env.FILES_LOCAL_DIR || '').trim(),
 };
 
-export function isAllowedOrigin(origin) {
-  if (!origin) return true;
+export function isAllowedOrigin(origin, { allowNoOrigin = false } = {}) {
+  if (!origin) return allowNoOrigin;
   if (config.allowedOrigins.includes(origin)) return true;
   return PREVIEW_ORIGIN_RE.test(origin);
 }

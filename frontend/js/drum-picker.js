@@ -273,9 +273,11 @@ function escapeHtml(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function escapeAttr(s) {
-  return escapeHtml(s).replace(/"/g, '&quot;');
+  return escapeHtml(s);
 }

@@ -10,7 +10,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  const target = data.url || './note.html';
+  const target = new URL(data.url || './note.html', self.location.origin);
+  if (target.origin !== self.location.origin) return;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
@@ -18,7 +19,7 @@ self.addEventListener('notificationclick', (event) => {
           return client.focus();
         }
       }
-      if (self.clients.openWindow) return self.clients.openWindow(target);
+      if (self.clients.openWindow) return self.clients.openWindow(target.href);
       return undefined;
     }),
   );

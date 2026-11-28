@@ -3,9 +3,10 @@
  * muscle row and day. Images live in Cloud Storage under the row/day path; the index is a
  * listing of that prefix cached in localStorage, so the synced Firestore payload is untouched.
  */
-import { CONFIG } from './config.js?v=353';
-import { getSpaceId } from './remote.js?v=353';
-import { getDownloadUrl } from './files.js?v=353';
+import { CONFIG } from './config.js?v=354';
+import { auth } from './firebase.js?v=354';
+import { getSpaceId } from './remote.js?v=354';
+import { getDownloadUrl } from './files.js?v=354';
 
 const INDEX_KEY = 'pnote_mphoto_index';
 const REQUEST_TIMEOUT_MS = 20000;
@@ -52,12 +53,25 @@ function spaceUrl(suffix) {
   return `${apiBase()}/api/spaces/${encodeURIComponent(getSpaceId())}/${suffix}`;
 }
 
+async function authHeaders() {
+  try {
+    const t = await auth?.currentUser?.getIdToken?.();
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 /** Hosting → Cloud Run occasionally answers 502/503/504 or drops the connection; every call here is safe to repeat. */
 async function fetchJson(url, options = {}) {
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await fetchJsonOnce(url, options);
     } catch (err) {
+      if (err?.status === 401 || err?.status === 403) {
+        err.message = 'ซิงค์คลาวด์ยังไม่พร้อม';
+        throw err;
+      }
       const transient = [502, 503, 504].includes(err?.status) || err?.name === 'TypeError';
       if (!transient || attempt >= 3) throw err;
       await new Promise((r) => setTimeout(r, 500 * attempt));
@@ -76,6 +90,8 @@ async function fetchJsonOnce(url, options = {}) {
       headers: {
         Accept: 'application/json',
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(await authHeaders()),
+        ...(options.headers || {}),
       },
     });
     if (!res.ok) {
@@ -175,12 +191,15 @@ function abortError() {
 }
 
 /** PUT with upload progress (fetch has none). */
-function putWithProgress(url, blob, { onProgress, signal }) {
+function putWithProgress(url, blob, { onProgress, signal, maxBytes }) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(abortError());
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
     xhr.setRequestHeader('Content-Type', 'image/jpeg');
+    if (maxBytes) {
+      xhr.setRequestHeader('x-goog-content-length-range', `0,${maxBytes}`);
+    }
     xhr.timeout = 90000;
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress?.(e.loaded / e.total);
@@ -206,7 +225,11 @@ export async function uploadMusclePhoto(blob, { rowId, date }, { onStage, onProg
     body: JSON.stringify({ rowId, date, size: blob.size }),
   });
   if (signal?.aborted) throw abortError();
-  await putWithProgress(meta.uploadUrl, blob, { onProgress, signal });
+  await putWithProgress(meta.uploadUrl, blob, {
+    onProgress,
+    signal,
+    maxBytes: Number(meta.maxBytes) || undefined,
+  });
   const photo = { storagePath: meta.storagePath, rowId, date, at: meta.at || Date.now(), size: blob.size };
   pendingAdds.set(photo.storagePath, photo);
   setIndex([photo, ...index.filter((p) => p.storagePath !== photo.storagePath)]);

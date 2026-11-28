@@ -1,9 +1,10 @@
 /**
  * Tombstones for hard deletes — survives multi-device merge (v9+).
  */
-import { compareStamp, nowIso, newerStampIso } from './clock.js?v=353';
+import { compareStamp, nowIso, newerStampIso, nowMs, stampMs } from './clock.js?v=354';
 
 const KINDS = ['notes', 'notepads', 'tags'];
+const TOMBSTONE_MAX_AGE_MS = 365 * 86400000;
 
 export function emptyDeletions() {
   return {
@@ -17,10 +18,14 @@ export function emptyDeletions() {
 function normalizeList(raw) {
   if (!Array.isArray(raw)) return [];
   const byId = new Map();
+  const cutoff = nowMs() - TOMBSTONE_MAX_AGE_MS;
   for (const row of raw) {
     if (!row || typeof row !== 'object' || !row.id) continue;
     const id = String(row.id);
     const deletedAt = String(row.deletedAt || '').trim();
+    // Keep unparseable stamps (stampMs 0); only drop known-old tombstones.
+    const atMs = deletedAt ? stampMs(deletedAt) : 0;
+    if (atMs > 0 && atMs < cutoff) continue;
     const prev = byId.get(id);
     if (!prev || compareStamp(deletedAt, prev.deletedAt) > 0) {
       byId.set(id, { id, deletedAt });

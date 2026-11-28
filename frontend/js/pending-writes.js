@@ -2,7 +2,7 @@
  * Incremental pending-write queue for pre-hydrate / offline calorie edits.
  * Survives reload in localStorage; flushed by replaying ops on cloud base.
  */
-import { STORAGE_KEYS } from './config.js?v=353';
+import { STORAGE_KEYS } from './config.js?v=354';
 import {
   appendQuickMeal,
   appendQuickExercise,
@@ -14,20 +14,22 @@ import {
   formatMealCell,
   patchDay,
   ensureDay,
-} from './calorie.js?v=353';
+} from './calorie.js?v=354';
 import {
   normalizeMuscleTree,
   setMoveLogNames,
   setMovePlanIds,
-} from './muscle-tree.js?v=353';
+} from './muscle-tree.js?v=354';
 import {
   normalizeExerciseFavs,
   normalizeExerciseMedia,
-} from './settings.js?v=353';
-import { nowIso } from './clock.js?v=353';
+} from './settings.js?v=354';
+import { nowIso } from './clock.js?v=354';
+import { isQuotaError } from './local.js?v=354';
 
 /** Note is handled via appendMeal labels unless it is the only change. */
 const SCALAR_KEYS = ['weight', 'waist', 'bodyFat', 'base', 'addCal', 'water'];
+const SHEET_META_KEYS = ['goalMode', 'fixedKcal', 'fixedProtG', 'proteinFactor', 'heightCm', 'sex', 'birthDate', 'tdeeBias', 'activityLevel'];
 
 const SETTINGS_OP_KINDS = new Set(['setExerciseFav', 'setExerciseMedia']);
 
@@ -54,7 +56,9 @@ export function savePendingWrites(ops) {
       return;
     }
     localStorage.setItem(STORAGE_KEYS.PENDING_WRITES, JSON.stringify(list));
-  } catch { /* quota */ }
+  } catch (e) {
+    if (isQuotaError(e)) throw e;
+  }
 }
 
 export function clearPendingWrites() {
@@ -78,7 +82,7 @@ export function hasAppliedOp(calorie, opId) {
   if (!id) return false;
   const log = calorie?.opLog;
   if (!Array.isArray(log) || !log.length) return false;
-  return log.includes(id);
+  return log.some((e) => (typeof e === 'string' ? e : e?.id) === id);
 }
 
 /** Append op id to calorie.opLog (capped); returns a new sheet object. */
@@ -86,8 +90,8 @@ function markOpApplied(calorie, opId) {
   const id = String(opId || '').trim().slice(0, 64);
   if (!id) return calorie;
   const prev = Array.isArray(calorie?.opLog) ? calorie.opLog : [];
-  if (prev.includes(id)) return calorie;
-  const opLog = normalizeOpLog([...prev, id]);
+  if (hasAppliedOp(calorie, id)) return calorie;
+  const opLog = normalizeOpLog([...prev, { id, at: nowIso() }]);
   return { ...calorie, opLog: opLog.length > OP_LOG_MAX ? opLog.slice(-OP_LOG_MAX) : opLog };
 }
 
@@ -169,17 +173,23 @@ export function diffCalorieToPendingOps(prevRaw, nextRaw) {
 
     const prevEx = (Array.isArray(before.exercises) ? before.exercises : []).map((c) => String(c || '').trim());
     const nextEx = (Array.isArray(day.exercises) ? day.exercises : []).map((c) => String(c || '').trim());
+    const exLen = Math.max(prevEx.length, nextEx.length);
+    for (let i = 0; i < Math.min(prevEx.length, exLen); i += 1) {
+      if (prevEx[i] === nextEx[i]) continue;
+      ops.push(nextEx[i]
+        ? { id: newOpId(), kind: 'replaceExerciseSlot', dateKey, slot: i, text: nextEx[i], at }
+        : { id: newOpId(), kind: 'clearExerciseSlot', dateKey, slot: i, at });
+    }
     for (let i = prevEx.length; i < nextEx.length; i += 1) {
       if (!nextEx[i]) continue;
       ops.push({ id: newOpId(), kind: 'appendExercise', dateKey, text: nextEx[i], at });
     }
-    // In-place exercise edits / clears → patch remaining list via scalars mus + exercises length mismatch:
-    if (nextEx.length < prevEx.length || nextEx.slice(0, prevEx.length).some((c, i) => c !== prevEx[i])) {
+    if (String(before?.mus ?? '') !== String(day?.mus ?? '')) {
       ops.push({
         id: newOpId(),
         kind: 'patchDayScalars',
         dateKey,
-        patch: { exercises: nextEx, mus: day.mus ?? null },
+        patch: { mus: day.mus ?? null },
         at,
       });
     }
@@ -198,6 +208,14 @@ export function diffCalorieToPendingOps(prevRaw, nextRaw) {
     if (Object.keys(scalars).length) {
       ops.push({ id: newOpId(), kind: 'patchDayScalars', dateKey, patch: scalars, at });
     }
+  }
+
+  const meta = {};
+  for (const k of SHEET_META_KEYS) {
+    if (String(prev?.[k] ?? '') !== String(next?.[k] ?? '')) meta[k] = next?.[k] ?? null;
+  }
+  if (Object.keys(meta).length) {
+    ops.push({ id: newOpId(), kind: 'patchSheetMeta', patch: meta, profileAt: next.profileAt || at, at });
   }
 
   ops.push(...diffMuscleTreeToPendingOps(prev.muscleTree, next.muscleTree, at));
@@ -286,10 +304,11 @@ function labelForNewMealSlot(day, before, slot) {
   if (nextBits.length > prevBits.length) {
     return nextBits[nextBits.length - 1] || '';
   }
-  // Same length but last bit may have changed with the meal.
+  // Same length but only one bit changed with this meal slot.
   if (nextBits.length && nextBits.length === prevBits.length + 0) {
     const idx = Math.min(slot, nextBits.length - 1);
-    if (idx >= 0 && nextBits[idx] !== prevBits[idx]) return nextBits[idx] || '';
+    const changed = nextBits.map((b, i) => b !== prevBits[i]).filter(Boolean).length;
+    if (changed === 1 && idx >= 0 && nextBits[idx] !== prevBits[idx]) return nextBits[idx] || '';
   }
   return '';
 }
@@ -380,6 +399,11 @@ export function applyOneOp(calorie, op) {
     return applyMuscleOp(calorie, op);
   }
 
+  if (op.kind === 'patchSheetMeta') {
+    const patch = op.patch && typeof op.patch === 'object' ? op.patch : {};
+    return normalizeCalorie({ ...calorie, ...patch, profileAt: op.profileAt || op.at || calorie.profileAt, updatedAt: nowIso() });
+  }
+
   const dateKey = String(op.dateKey || '').slice(0, 10);
   if (!dateKey) return calorie;
 
@@ -414,6 +438,21 @@ export function applyOneOp(calorie, op) {
       meals[slot] = formatMealCell(op.cal, op.prot);
     }
     return patchDay(sheet, day.id, { meals: normalizeMeals(meals) }, { mealAt: op.at });
+  }
+
+  if (op.kind === 'replaceExerciseSlot' || op.kind === 'clearExerciseSlot') {
+    const { sheet, day } = ensureDay(calorie, dateKey);
+    const list = Array.isArray(day.exercises) ? day.exercises.map((c) => String(c || '')) : [];
+    const slot = Number(op.slot);
+    if (!Number.isInteger(slot) || slot < 0) return sheet;
+    while (list.length <= slot) list.push('');
+    if (op.kind === 'clearExerciseSlot') {
+      list[slot] = '';
+      while (list.length && !String(list[list.length - 1] || '').trim()) list.pop();
+    } else {
+      list[slot] = String(op.text || '');
+    }
+    return patchDay(sheet, day.id, { exercises: list });
   }
 
   if (op.kind === 'patchDayScalars') {

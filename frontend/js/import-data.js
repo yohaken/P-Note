@@ -1,13 +1,13 @@
-import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=353';
-import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=353';
-import { compareStamp, newerStampIso } from './clock.js?v=353';
-import { muscleTreeNeedsPush } from './muscle-tree.js?v=353';
+import { normalizeNotesData, stripInlineAttachmentsForCloud } from './notes.js?v=354';
+import { calorieDayFingerprint, mergeCalorieByUpdatedAt, normalizeHomePins } from './calorie.js?v=354';
+import { compareStamp, newerStampIso } from './clock.js?v=354';
+import { muscleTreeNeedsPush } from './muscle-tree.js?v=354';
 import {
   applyDeletionFilter,
   isEntityTombstoned,
   mergeDeletions,
   normalizeDeletions,
-} from './deletions.js?v=353';
+} from './deletions.js?v=354';
 
 const LEGACY_STORAGE_KEYS = [
   'pnote_local_data',
@@ -174,7 +174,7 @@ function entityNeedsPush(localList, remoteList) {
  * day is missing remotely, carries a newer stamp, or its merged content
  * differs from the cloud copy — otherwise equal-stamp differences never heal.
  */
-function calorieDaysNeedPush(localDays, remoteDays) {
+export function calorieDaysNeedPush(localDays, remoteDays) {
   const remoteByDate = new Map(remoteDays.map((d) => [d.date, d]));
   for (const d of localDays) {
     const r = remoteByDate.get(d.date);

@@ -1,5 +1,5 @@
-import { STORAGE_KEYS } from './config.js?v=353';
-import { normalizeNotesData } from './notes.js?v=353';
+import { STORAGE_KEYS } from './config.js?v=354';
+import { normalizeNotesData } from './notes.js?v=354';
 
 export const LOCAL_DATA_KEY = STORAGE_KEYS.LOCAL_DATA;
 
@@ -68,4 +68,8 @@ export function isCloudPending() {
   } catch {
     return false;
   }
+}
+
+export function isQuotaError(e) {
+  return e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);
 }
