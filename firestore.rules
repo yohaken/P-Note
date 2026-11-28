@@ -89,6 +89,35 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Toto List checklist app — doc id = long random sync key; no listing
+    match /totoLists/{key} {
+      allow read, write: if request.auth != null
+        && request.auth.token.email == 'yohaken@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    // LED KKU Tracker (site led-kku-app) — owner only
+    function isLedOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'yohaken@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+    match /led_properties/{id} { allow read, write: if isLedOwner(); }
+    match /led_images/{id} { allow read, write: if isLedOwner(); }
+    match /led_deeds/{id} { allow read, write: if isLedOwner(); }
+    match /led_notes/{id} { allow read, write: if isLedOwner(); }
+
+    // Easy IPO (site easy-ipo-app) — public read, owner write (Google sign-in)
+    function isEasyIpoOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'yohaken@gmail.com'
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    match /easyipo_ipos/{id} { allow read: if true; allow write: if isEasyIpoOwner(); }
+    match /easyipo_tracking/{id} { allow read, write: if isEasyIpoOwner(); }
+    match /easyipo_requests/{id} { allow read, write: if isEasyIpoOwner(); }
+
     match /{document=**} {
       allow read, write: if false;
     }
