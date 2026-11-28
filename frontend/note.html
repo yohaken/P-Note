@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-  <meta name="pnote-build" content="354">
+  <meta name="pnote-build" content="355">
   <meta name="pnote-built" content="2026-11-25T18:40:00+07:00">
   <meta name="theme-color" content="#e8f0ea">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
   <link rel="dns-prefetch" href="https://www.gstatic.com">
   <link rel="dns-prefetch" href="https://firestore.googleapis.com">
   <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
-  <script src="js/cache-bootstrap.js?v=354"></script>
+  <script src="js/cache-bootstrap.js?v=355"></script>
   <script>
     /* Apply saved brand icon before paint (favicon + logos + install manifest). */
     (function earlyAppIcon() {
@@ -30,7 +30,7 @@
           if (IDS.indexOf(cand) >= 0) id = cand;
         }
       } catch (e) {}
-      var src = 'icons/app/' + id + '-192.png?v=354';
+      var src = 'icons/app/' + id + '-192.png?v=355';
       function setLink(rel, href, type) {
         var el = document.querySelector('link[rel="' + rel + '"]');
         if (!el) {
@@ -43,7 +43,7 @@
       }
       setLink('icon', src, 'image/png');
       setLink('apple-touch-icon', src);
-      setLink('manifest', 'manifests/' + id + '.json?v=354');
+      setLink('manifest', 'manifests/' + id + '.json?v=355');
       window.__pnoteEarlyIconId = id;
       window.__pnoteEarlyIconSrc = src;
       document.addEventListener('DOMContentLoaded', function () {
@@ -53,19 +53,19 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="css/pnote.css?v=354">
-  <link rel="modulepreload" href="js/boot.js?v=354">
-  <link rel="modulepreload" href="js/list-paint.js?v=354">
-  <link rel="modulepreload" href="js/settings.js?v=354">
-  <link rel="modulepreload" href="js/config.js?v=354">
-  <link rel="modulepreload" href="js/clock.js?v=354">
-  <link rel="modulepreload" href="js/bars.js?v=354">
-  <link rel="modulepreload" href="js/icons.js?v=354">
-  <link rel="modulepreload" href="js/app-icons.js?v=354">
-  <link rel="modulepreload" href="js/app.js?v=354">
-  <link rel="modulepreload" href="js/calorie.js?v=354">
-  <link rel="modulepreload" href="js/local.js?v=354">
-  <link rel="modulepreload" href="js/firebase.js?v=354">
+  <link rel="stylesheet" href="css/pnote.css?v=355">
+  <link rel="modulepreload" href="js/boot.js?v=355">
+  <link rel="modulepreload" href="js/list-paint.js?v=355">
+  <link rel="modulepreload" href="js/settings.js?v=355">
+  <link rel="modulepreload" href="js/config.js?v=355">
+  <link rel="modulepreload" href="js/clock.js?v=355">
+  <link rel="modulepreload" href="js/bars.js?v=355">
+  <link rel="modulepreload" href="js/icons.js?v=355">
+  <link rel="modulepreload" href="js/app-icons.js?v=355">
+  <link rel="modulepreload" href="js/app.js?v=355">
+  <link rel="modulepreload" href="js/calorie.js?v=355">
+  <link rel="modulepreload" href="js/local.js?v=355">
+  <link rel="modulepreload" href="js/firebase.js?v=355">
   <style>
     .title-version {
       font-size: 0.55rem;
@@ -153,7 +153,7 @@
     <header id="board-topbar" class="topbar topbar-thin">
       <div class="topbar-title">
         <div class="calorie-app-title" id="calorie-app-title">
-          <img class="app-logo" src="icons/app/leaf-192.png?v=354" width="16" height="16" alt="" aria-hidden="true">
+          <img class="app-logo" src="icons/app/leaf-192.png?v=355" width="16" height="16" alt="" aria-hidden="true">
           <span class="mode-switch-name">แคลโน้ต</span>
           <span class="mode-switch-ver" id="calorie-app-ver"></span>
           <script>
@@ -317,6 +317,19 @@
       </div>
     </div>
 
+    <div id="muscle-name-overlay" class="muscle-manage-overlay" hidden>
+      <div class="muscle-manage-backdrop" data-close-overlay="muscle-name-overlay"></div>
+      <div class="muscle-manage-sheet mn-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-name-title">
+        <div class="muscle-manage-head"><h3 id="muscle-name-title" class="muscle-manage-title">เพิ่มท่าคาร์ดิโอ</h3>
+          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-name-cancel">ยกเลิก</button></div>
+        <p class="mn-where" id="muscle-name-where"></p>
+        <input id="muscle-name-input" class="mn-input" type="text" maxlength="40" enterkeyhint="done"
+          autocomplete="off" placeholder="ชื่อท่า" aria-describedby="muscle-name-count">
+        <div class="mn-count" id="muscle-name-count">0/40</div>
+        <button type="button" class="btn btn-primary mn-save" id="muscle-name-save">บันทึก</button>
+      </div>
+    </div>
+
     <div id="muscle-region-overlay" class="muscle-manage-overlay" hidden>
       <div class="muscle-manage-backdrop" data-close-overlay="muscle-region-overlay"></div>
       <div class="muscle-manage-sheet mr-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-region-title">
@@ -325,6 +338,17 @@
           <button type="button" class="btn btn-secondary muscle-tool-btn" data-close-overlay="muscle-region-overlay" aria-label="ปิด">ปิด</button>
         </div>
         <div id="muscle-region-body" class="mr-body"></div>
+      </div>
+    </div>
+
+    <div id="muscle-sets-overlay" class="muscle-manage-overlay" hidden>
+      <div class="muscle-manage-backdrop" id="muscle-sets-backdrop"></div>
+      <div class="muscle-manage-sheet mphoto-sheet" role="dialog" aria-modal="true" aria-labelledby="muscle-sets-title">
+        <div class="muscle-manage-head">
+          <h3 id="muscle-sets-title" class="muscle-manage-title">บันทึกเซ็ต</h3>
+          <button type="button" class="btn btn-secondary muscle-tool-btn" id="muscle-sets-close" aria-label="ปิด">ปิด</button>
+        </div>
+        <div id="muscle-sets-body" class="mphoto-body"></div>
       </div>
     </div>
 
@@ -707,7 +731,7 @@
 
     <div id="auth-overlay" class="auth-overlay">
       <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=354" width="36" height="36" alt="">แคลโน้ต</p>
+        <p class="auth-brand"><img class="app-logo app-logo-lg" src="icons/app/leaf-192.png?v=355" width="36" height="36" alt="">แคลโน้ต</p>
         <h2 id="auth-title" class="auth-title">ใส่รหัสเข้า</h2>
         <p class="auth-copy">ใส่รหัสผ่านเพื่อเปิดแอพ · จำไว้ในเครื่องนี้จนกว่าจะกดออกจากระบบ</p>
         <label class="notify-field auth-pin-field" for="auth-pin-input">
@@ -856,7 +880,7 @@
       </div>
     </div>
   </nav>
-  <script type="module" src="js/boot.js?v=354"></script>
-  <script src="js/update-watch.js?v=354"></script>
+  <script type="module" src="js/boot.js?v=355"></script>
+  <script src="js/update-watch.js?v=355"></script>
 </body>
 </html>

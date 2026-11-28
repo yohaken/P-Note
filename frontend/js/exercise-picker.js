@@ -12,12 +12,12 @@ import {
   renderBodyPairHtml,
   renderBodySvg,
   restRemaining,
-} from './muscle-map.js?v=354';
-import { regionRestMap } from './muscle-tree.js?v=354';
+} from './muscle-map.js?v=355';
+import { regionRestMap } from './muscle-tree.js?v=355';
 import {
   parseYoutubeVideoId,
   youtubeNocookieEmbedUrl,
-} from './settings.js?v=354';
+} from './settings.js?v=355';
 
 const FAV_GROUP = 'fav';
 const SEARCH_LIMIT = 60;
@@ -27,6 +27,8 @@ let deps = {
   getTree: () => null,
   getTodayKey: () => '',
   onAdd: () => null,
+  /** After a successful เล่นแล้ว log: open sets sheet (picker closes first). */
+  onLoggedSets: null,
   onPlanToday: () => null,
   getFavs: () => new Set(),
   setFav: () => {},
@@ -515,7 +517,7 @@ async function loadCuesIntoDetail(exercise) {
     return;
   }
   try {
-    const mod = await import(`./exercise-cues.js?v=354`);
+    const mod = await import(`./exercise-cues.js?v=355`);
     if (token !== cuesToken) return;
     const steps = await mod.loadExerciseInstructions(fedbId);
     if (token !== cuesToken) return;
@@ -561,8 +563,14 @@ function logToday(name) {
   const res = deps.onAdd(name);
   if (!res) return;
   const label = res.node?.name || name;
-  if (res.logged) showToast(`ติ๊กกล้ามของ ${label} วันนี้แล้ว`, res.undo);
-  else showToast(`${label} บันทึกไว้แล้ววันนี้`);
+  if (res.logged) {
+    showToast(`ติ๊กกล้ามของ ${label} วันนี้แล้ว`, res.undo);
+    // Close first so onLoggedSets' day sheet is not covered by the picker.
+    closeExercisePicker();
+    deps.onLoggedSets?.(label, res);
+  } else {
+    showToast(`${label} บันทึกไว้แล้ววันนี้`);
+  }
   paint();
 }
 

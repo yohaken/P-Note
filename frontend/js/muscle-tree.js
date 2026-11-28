@@ -14,8 +14,8 @@ import {
   sanitizeRegionIds,
   restRemaining,
   regionById,
-} from './muscle-map.js?v=354';
-import { nowIso, nowMs as clockNowMs } from './clock.js?v=354';
+} from './muscle-map.js?v=355';
+import { nowIso, nowMs as clockNowMs } from './clock.js?v=355';
 
 export const MUSCLE_DATE_COLS = 30;
 export const MUSCLE_NAME_MAX = 40;
@@ -104,7 +104,11 @@ function clampName(raw) {
 
 /** Day-cell label key: cut to 40 chars the same way parseExerciseCell does (cut, then trim). */
 export function labelKey(raw) {
-  return String(raw || '').slice(0, MUSCLE_NAME_MAX).trim();
+  return String(raw || '')
+    .replace(/\|/g, ' ')
+    .replace(/\s+/g, ' ')
+    .slice(0, MUSCLE_NAME_MAX)
+    .trim();
 }
 
 function clampKcal(raw) {
@@ -281,6 +285,8 @@ function normalizeMuscleTreeFresh(raw) {
   if (movePlan) out.movePlan = movePlan;
   const cellNotes = normalizeCellNotes(src.cellNotes, cutoff);
   if (cellNotes) out.cellNotes = cellNotes;
+  const sets = normalizeExSets(src.sets, cutoff);
+  if (sets) out.sets = sets;
   if (regionNames) out.regionNames = regionNames;
   if (groupNames) out.groupNames = groupNames;
   const hidden = normalizeHidden(src.hidden);
@@ -479,7 +485,9 @@ export function addCustomGroup(tree, name) {
   const t = normalizeMuscleTree(tree);
   const label = clampName(name);
   if (!label) return { tree: t, node: null };
-  const node = { id: newId('ug'), name: label, parentId: null, order: t.nodes.filter((n) => !n.parentId).length };
+  const roots = t.nodes.filter((n) => !n.parentId);
+  if (roots.some((n) => n.name === label)) return { tree: t, node: null, dup: true };
+  const node = { id: newId('ug'), name: label, parentId: null, order: roots.length };
   return { tree: normalizeMuscleTree({ ...t, nodes: [...t.nodes, node], updatedAt: nowIsoLocal() }), node };
 }
 
@@ -487,7 +495,9 @@ export function addCustomMuscle(tree, groupId, name) {
   const t = normalizeMuscleTree(tree);
   const label = clampName(name);
   if (!label || !isMuscleGroupId(groupId) || !t.nodes.some((n) => n.id === groupId && !n.parentId)) return { tree: t, node: null };
-  const node = { id: newId('um'), name: label, parentId: groupId, order: t.nodes.filter((n) => n.parentId === groupId).length };
+  const siblings = t.nodes.filter((n) => n.parentId === groupId);
+  if (siblings.some((n) => n.name === label)) return { tree: t, node: null, dup: true };
+  const node = { id: newId('um'), name: label, parentId: groupId, order: siblings.length };
   return { tree: normalizeMuscleTree({ ...t, nodes: [...t.nodes, node], updatedAt: nowIsoLocal() }), node };
 }
 
@@ -641,6 +651,235 @@ export function setCellNote(tree, rowId, dateKey, text, nowMs = clockNowMs()) {
   const t = normalizeMuscleTree(tree);
   const cellNotes = { ...(t.cellNotes || {}), [cellKey(rowId, dateKey)]: { text: String(text || ''), at: nowMs } };
   return normalizeMuscleTree({ ...t, cellNotes, updatedAt: nowIsoLocal() });
+}
+
+/** Structured sets/reps/kg per row|date (or m:<label>|date). Cap 120 chars so 12 typical sets fit. */
+export const SETS_MAX_SETS = 12;
+export const SETS_MAX_LEN = 120;
+export const SETS_MAX_KEYS = 800;
+export const SETS_REPS_MAX = 999;
+export const SETS_KG_MAX = 999;
+
+/** Library-move sets key prefix: m:<labelKey(name)>. */
+export function moveSetsRowKey(name) {
+  return `m:${labelKey(name)}`;
+}
+
+export function setsKey(rowKey, dateKey) {
+  return cellKey(rowKey, dateKey);
+}
+
+function clampReps(n) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v) || v < 0) return 0;
+  return Math.min(SETS_REPS_MAX, v);
+}
+
+function clampKg(n) {
+  if (n == null || n === '') return null;
+  const v = Math.round(Number(n) * 2) / 2;
+  if (!Number.isFinite(v) || v < 0) return null;
+  return Math.min(SETS_KG_MAX, v);
+}
+
+function clampSec(n) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v) || v <= 0) return null;
+  return Math.min(SETS_REPS_MAX, v);
+}
+
+function clampCount(n) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v) || v < 1) return 1;
+  return Math.min(SETS_MAX_SETS, v);
+}
+
+/** Parse compact encoding: sets `/`-joined, `[count*]reps[xkg]` · `10x` bodyweight · `45s` time. */
+export function parseSetSpec(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return [];
+  const out = [];
+  for (const part of s.split('/')) {
+    const p = part.trim();
+    if (!p) continue;
+    let m = p.match(/^(\d+)\*(\d+)s$/i);
+    if (m) {
+      const sec = clampSec(m[2]);
+      if (!sec) continue;
+      out.push({ count: clampCount(m[1]), reps: 0, kg: null, sec, bw: false });
+      continue;
+    }
+    m = p.match(/^(\d+)s$/i);
+    if (m) {
+      const sec = clampSec(m[1]);
+      if (!sec) continue;
+      out.push({ count: 1, reps: 0, kg: null, sec, bw: false });
+      continue;
+    }
+    m = p.match(/^(\d+)\*(\d+)x(\d+(?:\.\d+)?)?$/i);
+    if (m) {
+      const reps = clampReps(m[2]);
+      const bw = m[3] == null || m[3] === '' || Number(m[3]) === 0;
+      out.push({ count: clampCount(m[1]), reps, kg: bw ? null : clampKg(m[3]), sec: null, bw });
+      continue;
+    }
+    m = p.match(/^(\d+)x(\d+(?:\.\d+)?)?$/i);
+    if (!m) continue;
+    const reps = clampReps(m[1]);
+    const bw = m[2] == null || m[2] === '' || Number(m[2]) === 0;
+    out.push({ count: 1, reps, kg: bw ? null : clampKg(m[2]), sec: null, bw });
+  }
+  return out.slice(0, SETS_MAX_SETS);
+}
+
+function isBodyweightKg(kg, bw) {
+  if (bw) return true;
+  if (kg == null || kg === '') return true;
+  const n = Number(kg);
+  return Number.isFinite(n) && n === 0;
+}
+
+function encodeOneSet(s) {
+  if (s.sec != null && s.sec > 0) {
+    const body = `${Math.round(s.sec)}s`;
+    return s.count > 1 ? `${s.count}*${body}` : body;
+  }
+  const reps = clampReps(s.reps);
+  const bw = isBodyweightKg(s.kg, s.bw);
+  const kg = bw ? '' : String(clampKg(s.kg) ?? '');
+  const body = `${reps}x${kg}`;
+  return s.count > 1 ? `${s.count}*${body}` : body;
+}
+
+/** Compact consecutive identical sets into count* form, then join with `/`. */
+export function encodeSetSpec(list) {
+  const raw = (Array.isArray(list) ? list : []).slice(0, SETS_MAX_SETS).map((s) => {
+    const bw = isBodyweightKg(s.kg, s.bw);
+    return {
+      count: clampCount(s.count || 1),
+      reps: clampReps(s.reps),
+      kg: bw ? null : clampKg(s.kg),
+      sec: s.sec != null ? clampSec(s.sec) : null,
+      bw,
+    };
+  });
+  const merged = [];
+  raw.forEach((s) => {
+    const prev = merged[merged.length - 1];
+    const same = prev
+      && prev.reps === s.reps
+      && prev.kg === s.kg
+      && prev.sec === s.sec
+      && prev.bw === s.bw
+      && (prev.count + s.count) <= SETS_MAX_SETS;
+    if (same) prev.count += s.count;
+    else merged.push({ ...s });
+  });
+  // Drop whole trailing sets when over the length cap (never mid-token slice).
+  const parts = merged.map(encodeOneSet);
+  while (parts.length > 1 && parts.join('/').length > SETS_MAX_LEN) parts.pop();
+  const out = parts.join('/');
+  return out.length > SETS_MAX_LEN ? '' : out;
+}
+
+/** Human summary: `3*10x50` → `3×10 @50กก.` · `10x` → `10` (bodyweight). */
+export function formatSetSummary(raw) {
+  const parts = parseSetSpec(raw).map((s) => {
+    if (s.sec != null && s.sec > 0) {
+      const body = `${s.sec}วิ`;
+      return s.count > 1 ? `${s.count}×${body}` : body;
+    }
+    const head = s.count > 1 ? `${s.count}×${s.reps}` : `${s.reps}`;
+    if (isBodyweightKg(s.kg, s.bw)) return head;
+    return `${head} @${s.kg}กก.`;
+  });
+  return parts.join(' · ');
+}
+
+/** Live totals for the editor footer. */
+export function summarizeSetsList(list) {
+  let sets = 0;
+  let reps = 0;
+  let kg = 0;
+  (Array.isArray(list) ? list : []).forEach((s) => {
+    const c = clampCount(s.count || 1);
+    sets += c;
+    if (s.sec != null && s.sec > 0) return;
+    const r = clampReps(s.reps);
+    reps += c * r;
+    const w = s.bw || s.kg == null ? 0 : (clampKg(s.kg) || 0);
+    kg += c * r * w;
+  });
+  return { sets, reps, kg };
+}
+
+/** Most recent non-empty sets string for a row key (any date). */
+export function lastSetSpec(tree, rowKey) {
+  const t = normalizeMuscleTree(tree);
+  const prefix = `${rowKey}|`;
+  let best = null;
+  Object.entries(t.sets || {}).forEach(([k, e]) => {
+    if (!k.startsWith(prefix) || !e?.v) return;
+    if (!best || e.at > best.at || (e.at === best.at && k > best.k)) best = { k, at: e.at, v: e.v };
+  });
+  return best?.v || '';
+}
+
+export function getExSets(tree, rowKey, dateKey) {
+  return normalizeMuscleTree(tree).sets?.[setsKey(rowKey, dateKey)]?.v || '';
+}
+
+/** Set structured sets for a row/day (empty v clears / tombstones). */
+export function setExSets(tree, rowKey, dateKey, v, nowMs = clockNowMs()) {
+  const t = normalizeMuscleTree(tree);
+  const encoded = encodeSetSpec(parseSetSpec(v));
+  const sets = { ...(t.sets || {}), [setsKey(rowKey, dateKey)]: { v: encoded, at: nowMs } };
+  return normalizeMuscleTree({ ...t, sets, updatedAt: nowIsoLocal() });
+}
+
+/** Prefer newer stamp; on equal stamp non-empty wins. */
+function preferSetsEntry(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  if (b.at > a.at) return b;
+  if (a.at > b.at) return a;
+  if (a.v && !b.v) return a;
+  if (b.v && !a.v) return b;
+  return b;
+}
+
+/**
+ * Structured sets map: { 'rowKey|YYYY-MM-DD': { v, at } }. Empty v = tombstone.
+ * Caps: v ≤ 120, ≤ 12 sets, ≤ 800 keys (drop oldest tombstones, then oldest dates).
+ */
+function normalizeExSets(raw, cutoff) {
+  if (!raw || typeof raw !== 'object') return null;
+  const entries = [];
+  Object.keys(raw).forEach((k) => {
+    if (!/^[^|]+\|\d{4}-\d{2}-\d{2}$/.test(k)) return;
+    const at = stampMs(raw[k]?.at);
+    if (!at) return;
+    const v = encodeSetSpec(parseSetSpec(raw[k]?.v));
+    if (!v && !(at > cutoff)) return;
+    entries.push({ k, v, at, date: k.slice(k.lastIndexOf('|') + 1) });
+  });
+  if (entries.length > SETS_MAX_KEYS) {
+    const tombs = entries.filter((e) => !e.v).sort((a, b) => a.at - b.at || a.date.localeCompare(b.date));
+    const live = entries.filter((e) => e.v).sort((a, b) => a.date.localeCompare(b.date) || a.at - b.at);
+    const drop = entries.length - SETS_MAX_KEYS;
+    const dropped = new Set();
+    for (let i = 0; i < tombs.length && dropped.size < drop; i++) dropped.add(tombs[i].k);
+    for (let i = 0; i < live.length && dropped.size < drop; i++) dropped.add(live[i].k);
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (dropped.has(entries[i].k)) entries.splice(i, 1);
+    }
+  }
+  if (!entries.length) return null;
+  const out = {};
+  entries.sort((a, b) => a.k.localeCompare(b.k)).forEach((e) => {
+    out[e.k] = { v: e.v, at: e.at };
+  });
+  return out;
 }
 
 function normalizeAliases(raw, idSet, cutoff) {
@@ -976,6 +1215,7 @@ function treeContentKey(tree) {
     t.moveLog || null,
     t.movePlan || null,
     t.cellNotes || null,
+    t.sets || null,
     t.regionNames || null,
     t.groupNames || null,
     t.hidden || null,
@@ -991,7 +1231,7 @@ export function muscleTreeNeedsPush(localCalorie, remoteCalorie) {
   return treeContentKey(merged) !== treeContentKey(remoteCalorie?.muscleTree);
 }
 
-const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.movePlan || t.cellNotes || t.regionNames || t.groupNames || t.hidden || t.orderMap || t.parentMap || t.nodes.some((n) => n.at));
+const hasStamps = (t) => Boolean(t.cellAt || t.removed || t.aliases || t.moveLog || t.movePlan || t.cellNotes || t.sets || t.regionNames || t.groupNames || t.hidden || t.orderMap || t.parentMap || t.nodes.some((n) => n.at));
 
 /**
  * A tree from a build before stamps (it strips them) that was saved last: every row and cell
@@ -1068,6 +1308,10 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   Object.entries(a.movePlan || {}).forEach(([k, v]) => { if (!movePlan[k] || movePlan[k].at <= v.at) movePlan[k] = v; });
   const cellNotes = { ...(b.cellNotes || {}) };
   Object.entries(a.cellNotes || {}).forEach(([k, v]) => { if (!cellNotes[k] || cellNotes[k].at <= v.at) cellNotes[k] = v; });
+  const sets = { ...(b.sets || {}) };
+  Object.entries(a.sets || {}).forEach(([k, v]) => {
+    sets[k] = preferSetsEntry(sets[k], v);
+  });
   const regionNames = { ...(b.regionNames || {}) };
   Object.entries(a.regionNames || {}).forEach(([k, v]) => { if (!regionNames[k] || regionNames[k].at <= v.at) regionNames[k] = v; });
   const groupNames = { ...(b.groupNames || {}) };
@@ -1078,7 +1322,7 @@ export function mergeMuscleTrees(aRaw, bRaw, aAtMs = 0) {
   Object.entries(a.orderMap || {}).forEach(([k, v]) => { if (!orderMap[k] || orderMap[k].at <= v.at) orderMap[k] = v; });
   const parentMap = { ...(b.parentMap || {}) };
   Object.entries(a.parentMap || {}).forEach(([k, v]) => { if (!parentMap[k] || parentMap[k].at <= v.at) parentMap[k] = v; });
-  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, movePlan, cellNotes, regionNames, groupNames, hidden, orderMap, parentMap });
+  return normalizeMuscleTree({ ...a, nodes, cells, cellAt, removed, aliases, moveLog, movePlan, cellNotes, sets, regionNames, groupNames, hidden, orderMap, parentMap });
 }
 
 export function isLeafNode(node, nodes) {
@@ -1298,20 +1542,52 @@ export function addMuscleChild(tree, parentId, name) {
   const parent = t.nodes.find((n) => n.id === parentId && !n.parentId);
   if (!parent || !label) return { tree: t, node: null };
   const siblings = t.nodes.filter((n) => n.parentId === parent.id);
+  if (siblings.some((n) => n.name === label)) return { tree: t, node: null, dup: true };
   const node = {
     id: newId('leaf'),
     name: label,
     parentId: parent.id,
     order: siblings.length,
   };
+  // Preserve parent cells on the new child (older builds logged kcal on the root).
+  const now = clockNowMs();
   const cells = { ...t.cells };
-  Object.keys(cells).forEach((k) => {
-    if (k.startsWith(`${parent.id}|`)) delete cells[k];
+  const cellAt = { ...(t.cellAt || {}) };
+  const cellNotes = { ...(t.cellNotes || {}) };
+  const sets = { ...(t.sets || {}) };
+  Object.keys(t.cells).forEach((k) => {
+    if (!k.startsWith(`${parent.id}|`)) return;
+    const date = k.slice(parent.id.length + 1);
+    const nk = `${node.id}|${date}`;
+    cells[nk] = cells[k];
+    delete cells[k];
+    cellAt[nk] = now;
+    delete cellAt[k];
+    if (cellNotes[k]) {
+      cellNotes[nk] = { ...cellNotes[k], at: now };
+      delete cellNotes[k];
+    }
+    if (sets[k]) {
+      sets[nk] = { ...sets[k], at: now };
+      delete sets[k];
+    }
+  });
+  // Rewrite orphan parent sets (no matching cell) onto the new child.
+  Object.keys(t.sets || {}).forEach((k) => {
+    if (!k.startsWith(`${parent.id}|`)) return;
+    const date = k.slice(parent.id.length + 1);
+    const nk = `${node.id}|${date}`;
+    if (sets[nk]) return;
+    sets[nk] = { ...sets[k], at: now };
+    delete sets[k];
   });
   const next = {
     ...t,
     nodes: [...t.nodes, node],
     cells,
+    cellAt: Object.keys(cellAt).length ? cellAt : null,
+    cellNotes: Object.keys(cellNotes).length ? cellNotes : null,
+    sets: Object.keys(sets).length ? sets : null,
     updatedAt: nowIsoLocal(),
   };
   return { tree: normalizeMuscleTree(next), node };
@@ -1323,7 +1599,10 @@ export function renameMuscleNode(tree, nodeId, name) {
   const label = clampName(name);
   const t = normalizeMuscleTree(tree);
   if (!label) return { tree: t, changed: false };
-  if (!t.nodes.some((n) => n.id === nodeId)) return { tree: t, changed: false };
+  const cur = t.nodes.find((n) => n.id === nodeId);
+  if (!cur) return { tree: t, changed: false };
+  const siblings = t.nodes.filter((n) => n.parentId === cur.parentId && n.id !== nodeId);
+  if (siblings.some((n) => n.name === label)) return { tree: t, changed: false, dup: true };
   const nodes = t.nodes.map((n) => (n.id === nodeId ? { ...n, name: label } : n));
   return {
     tree: normalizeMuscleTree({ ...t, nodes, updatedAt: nowIsoLocal() }),
@@ -1436,6 +1715,11 @@ export function removeMuscleNode(tree, nodeId, nowMs = clockNowMs()) {
     const id = k.split('|')[0];
     if (dropIds.has(id)) delete cells[k];
   });
+  const sets = { ...(t.sets || {}) };
+  Object.keys(sets).forEach((k) => {
+    const id = k.split('|')[0];
+    if (dropIds.has(id)) delete sets[k];
+  });
   let parentMap = t.parentMap;
   if (homing.length) {
     parentMap = { ...(parentMap || {}) };
@@ -1445,6 +1729,7 @@ export function removeMuscleNode(tree, nodeId, nowMs = clockNowMs()) {
     ...t,
     nodes: nodes.length ? nodes : defaultMuscleNodes(),
     cells: nodes.length ? cells : {},
+    sets: nodes.length ? sets : {},
     parentMap,
     updatedAt: nowIsoLocal(),
   });
@@ -1716,8 +2001,8 @@ function cardioKcalOn(t, ids, dk) {
 }
 
 /**
- * One day in words: main muscles, secondary muscles, cardio kcal and the move names noted.
- * @returns {{ main: string[], secondary: string[], cardio: { name: string, kcal: number }[], moves: string[] }}
+ * One day in words: main muscles, secondary muscles, cardio kcal, move names, and set summaries.
+ * @returns {{ main: string[], secondary: string[], cardio: { name: string, kcal: number }[], moves: string[], sets: string[] }}
  */
 export function muscleDaySummary(tree, dateKey) {
   const t = normalizeMuscleTree(tree);
@@ -1731,7 +2016,13 @@ export function muscleDaySummary(tree, dateKey) {
   const cardio = muscleLeafIndex(t).leaves
     .filter((l) => l.cardio && t.cells[cellKey(l.id, dateKey)] > 0)
     .map((l) => ({ name: l.name, kcal: t.cells[cellKey(l.id, dateKey)] }));
-  return { main, secondary, cardio, moves: t.moveLog?.[dateKey]?.names || [] };
+  const sets = [];
+  Object.entries(t.sets || {}).forEach(([k, e]) => {
+    if (!k.endsWith(`|${dateKey}`) || !e?.v) return;
+    const sum = formatSetSummary(e.v);
+    if (sum) sets.push(sum);
+  });
+  return { main, secondary, cardio, moves: t.moveLog?.[dateKey]?.names || [], sets };
 }
 
 /** Table key → row id: region ids stand for their fixed row, user muscles are their own id. */
@@ -1783,7 +2074,8 @@ function daySummaryRowHtml(t, dates, todayKey, marks, cardioIds) {
     const shown = groups.slice(0, 2).map((g) => `<span class="mt-day-g">${esc(DAY_GROUP_SHORT[g.name] || g.name)}</span>`).join('');
     const more = groups.length > 2 ? `<span class="mt-day-more">+${groups.length - 2}</span>` : '';
     const cardio = cut > 0 ? '<span class="mt-day-cardio" aria-label="มีคาดิโอ">คาดิโอ</span>' : '';
-    const any = groups.length || cut > 0 || t.moveLog?.[dk]?.names?.length;
+    const daySets = Object.entries(t.sets || {}).some(([k, e]) => k.endsWith(`|${dk}`) && e?.v);
+    const any = groups.length || cut > 0 || t.moveLog?.[dk]?.names?.length || daySets;
     return `<td class="mt-cell mt-day-cell${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}"${any ? ' data-day-sum="1" title="แตะเพื่อดูวันนั้น"' : ''}>${shown}${more}${cardio}</td>`;
   }).join('');
   return `<tr class="mt-row mt-day-row">
@@ -1894,6 +2186,7 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
   const photoRows = opts.photoRows instanceof Set ? opts.photoRows : new Set();
   const photoCells = opts.photoCells instanceof Set ? opts.photoCells : new Set();
   const noteRows = new Set(Object.keys(t.cellNotes || {}).filter((k) => t.cellNotes[k].text).map((k) => k.split('|')[0]));
+  const setsRows = new Set(Object.keys(t.sets || {}).filter((k) => t.sets[k].v).map((k) => k.split('|')[0]));
   const states = restStates(t, todayKey);
   const restMap = primaryRestMap(states, t.restProfile);
   const anyRestMap = computeRegionRest(states, t.restProfile);
@@ -1945,17 +2238,32 @@ export function renderMuscleLogTableHtml(tree, opts = {}) {
       const label = v === MARK_MAIN ? 'หลัก' : v === MARK_SECONDARY ? 'รอง' : 'ว่าง';
       const hasPic = photoCells.has(`${id}|${dk}`);
       const hasNote = Boolean(t.cellNotes?.[cellKey(id, dk)]?.text);
-      const pic = hasPic || hasNote ? ' has-photo' : '';
-      const what = hasPic && hasNote ? 'รูปและโน้ต' : hasPic ? 'รูป' : 'โน้ต';
-      const dot = hasPic || hasNote
-        ? `<button type="button" class="mt-photo-dot${hasPic ? '' : ' is-note'}" data-photo-row="${esc(id)}" data-photo-date="${esc(dk)}" aria-label="${esc(`ดู${what} ${name} ${dk}`)}" title="ดู${what}วันนี้"></button>`
+      const hasSets = Boolean(t.sets?.[cellKey(id, dk)]?.v);
+      const marked = v > 0;
+      const showDot = hasPic || hasNote || hasSets || marked;
+      const pic = showDot ? ' has-photo' : '';
+      const setsSum = hasSets ? formatSetSummary(t.sets[cellKey(id, dk)].v) : '';
+      const whatBits = [];
+      if (hasPic) whatBits.push('รูป');
+      if (hasNote) whatBits.push('โน้ต');
+      if (hasSets) whatBits.push('เซ็ต');
+      const what = !whatBits.length
+        ? 'เซ็ต'
+        : whatBits.length === 1
+          ? whatBits[0]
+          : whatBits.length === 2
+            ? `${whatBits[0]}และ${whatBits[1]}`
+            : `${whatBits[0]} ${whatBits[1]} และ${whatBits[2]}`;
+      const dotCls = hasPic ? '' : hasSets ? ' is-sets' : hasNote ? ' is-note' : ' is-sets';
+      const dot = showDot
+        ? `<button type="button" class="mt-photo-dot${dotCls}" data-photo-row="${esc(id)}" data-photo-date="${esc(dk)}" aria-label="${esc(`ดู${what} ${name} ${dk}`)}" title="${esc(setsSum || `ดู${what}วันนี้`)}"></button>`
         : '';
       return `<td class="mt-cell is-mark${state}${pic}${dk === todayKey ? ' is-today' : ''}" data-date="${esc(dk)}">
         <button type="button" class="mt-mark-btn" data-mark-node="${esc(id)}" data-date="${esc(dk)}" aria-label="${esc(`${name} ${dk} ${label} · แตะเพื่อเปลี่ยน`)}">${v === MARK_MAIN ? '●' : v === MARK_SECONDARY ? '•' : ''}</button>${dot}
       </td>`;
     }).join('');
     return `<tr class="mt-row${cls}" data-node-id="${esc(id)}"${solo ? '' : ` data-parent-id="${esc(g.id)}"`}>
-      ${nameCellHtml({ id, name, cls, photo: photoRows.has(id) || noteRows.has(id), attrs: region ? ` data-muscle-region="${esc(rid)}" title="แตะเพื่อดูท่าไกด์และตั้งวันพัก"` : ' title="กล้ามที่เพิ่มเอง · แก้ชื่อ/ลบ ที่ปุ่มจัดการ"' })}
+      ${nameCellHtml({ id, name, cls, photo: photoRows.has(id) || noteRows.has(id) || setsRows.has(id), attrs: region ? ` data-muscle-region="${esc(rid)}" title="แตะเพื่อดูท่าไกด์และตั้งวันพัก"` : ' title="กล้ามที่เพิ่มเอง · แก้ชื่อ/ลบ ที่ปุ่มจัดการ"' })}
       <td class="mt-col-count${pos} is-leaf${count ? ' is-filled' : ''}" data-node-id="${esc(id)}" title="เป็นกล้ามหลัก ${count} วัน"><span class="mt-count-val">${count || ''}</span></td>
       ${regionRestCellHtml(t, [rid], `${pos} is-leaf`, id, restMap, anyRestMap)}
       ${cells}

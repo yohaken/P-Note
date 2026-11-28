@@ -3,10 +3,10 @@
  * muscle row and day. Images live in Cloud Storage under the row/day path; the index is a
  * listing of that prefix cached in localStorage, so the synced Firestore payload is untouched.
  */
-import { CONFIG } from './config.js?v=354';
-import { auth } from './firebase.js?v=354';
-import { getSpaceId } from './remote.js?v=354';
-import { getDownloadUrl } from './files.js?v=354';
+import { CONFIG } from './config.js?v=355';
+import { auth } from './firebase.js?v=355';
+import { getSpaceId } from './remote.js?v=355';
+import { getDownloadUrl } from './files.js?v=355';
 
 const INDEX_KEY = 'pnote_mphoto_index';
 const REQUEST_TIMEOUT_MS = 20000;

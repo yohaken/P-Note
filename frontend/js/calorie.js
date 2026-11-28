@@ -3,7 +3,7 @@
  * Meals are "kcal,protein" cells; derived columns are computed, not stored.
  */
 
-import { nowIso, nowMs, compareStamp, newerStampIso, stampMs, clampStampMs } from './clock.js?v=354';
+import { nowIso, nowMs, compareStamp, newerStampIso, stampMs, clampStampMs } from './clock.js?v=355';
 import {
   cellKey,
   CARDIO_NAME_RE,
@@ -20,7 +20,7 @@ import {
   normalizeMuscleTree,
   setMoveLogNames,
   toMuscleLayout,
-} from './muscle-tree.js?v=354';
+} from './muscle-tree.js?v=355';
 
 export const CALORIE_PAYLOAD_VERSION = 1;
 export const DEFAULT_PROTEIN_FACTOR = 1.5;
@@ -252,6 +252,384 @@ export function sumExerciseBurn(exercises) {
     sum += parseExerciseCell(cell).burn || 0;
   });
   return sum > 0 ? Math.round(sum) : 0;
+}
+
+/** Tombstone TTL / cap for day.exAt (per-entry exercise merge stamps). */
+export const EX_AT_TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export const EX_AT_MAX_ENTRIES = 60;
+
+/**
+ * Per-entry key: label + 1-based occurrence in the day's freeform list.
+ * Cells stay plain "kcal,label"; occurrence only lives in exAt / pending ops.
+ */
+export function exerciseEntryKey(label, n = 1) {
+  const lab = String(label || '').trim().slice(0, 40);
+  const num = Math.max(1, Math.round(Number(n)) || 1);
+  return `${lab}#${num}`;
+}
+
+/**
+ * Display order for a day's exercise entries (label#n keys).
+ * Keys are always derived from STORED day.exercises occurrence — never from
+ * display order — so reordering cannot renumber exAt / pending ops.
+ */
+export function normalizeExOrder(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const item of raw) {
+    // Allow commas in keys (array slots — not stamp,key packed). Dropping
+    // them used to silently lose order for labels that contain ",".
+    const key = String(item || '').trim().slice(0, 60);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+    if (out.length >= MAX_EXERCISE_SLOTS) break;
+  }
+  return out;
+}
+
+/** label#n keys for a stored exercises list (occurrence order). */
+function exerciseKeysFromList(list) {
+  const keys = [];
+  const counts = new Map();
+  for (const cell of normalizeExercises(list)) {
+    const p = parseExerciseCell(cell);
+    if (p.empty) continue;
+    const n = (counts.get(p.label) || 0) + 1;
+    counts.set(p.label, n);
+    keys.push(exerciseEntryKey(p.label, n));
+  }
+  return keys;
+}
+
+/**
+ * Map a caller (pre-save) order onto keys of the newly built exercises list.
+ * Identity when the old key still exists; otherwise assign the next free
+ * same-label key (so deleting ท่า1#1 remaps surviving ท่า1#2 → ท่า1#1).
+ */
+function remapExOrderToNextKeys(order, exercises) {
+  const nextKeys = exerciseKeysFromList(exercises);
+  const nextSet = new Set(nextKeys);
+  const nextByLabel = new Map();
+  for (const k of nextKeys) {
+    const { label } = parseExerciseEntryKey(k);
+    if (!nextByLabel.has(label)) nextByLabel.set(label, []);
+    nextByLabel.get(label).push(k);
+  }
+  const seen = new Set();
+  const out = [];
+  for (const oldKey of normalizeExOrder(order)) {
+    if (nextSet.has(oldKey) && !seen.has(oldKey)) {
+      seen.add(oldKey);
+      out.push(oldKey);
+      continue;
+    }
+    const { label } = parseExerciseEntryKey(oldKey);
+    const pool = nextByLabel.get(label) || [];
+    const free = pool.find((k) => !seen.has(k));
+    if (!free) continue;
+    seen.add(free);
+    out.push(free);
+  }
+  for (const k of nextKeys) {
+    if (!seen.has(k)) out.push(k);
+  }
+  return out;
+}
+
+/** Stable-sort entries by exOrder; unknown keys keep relative order at the end. */
+function applyExOrder(entries, order) {
+  const ord = normalizeExOrder(order);
+  if (!ord.length || !entries?.length) return entries || [];
+  const rank = new Map(ord.map((k, i) => [k, i]));
+  return entries
+    .map((e, i) => ({
+      e,
+      i,
+      r: e?.key && rank.has(e.key) ? rank.get(e.key) : ord.length + i,
+    }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map((x) => x.e);
+}
+
+export function parseExerciseEntryKey(key) {
+  const s = String(key || '').trim();
+  const m = s.match(/^(.*)#(\d+)$/);
+  if (!m) return { label: s.slice(0, 40), n: 1 };
+  return {
+    label: String(m[1] || '').trim().slice(0, 40),
+    n: Math.max(1, Number(m[2]) || 1),
+  };
+}
+
+/** Parse one exAt string: "~stamp,label#n" / "-~stamp,label#n" (ISO stamps ok). */
+export function parseExAtEntry(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return null;
+  const dead = s.charAt(0) === '-';
+  const body = dead ? s.slice(1) : s;
+  const comma = body.indexOf(',');
+  if (comma < 0) return null;
+  const stampRaw = body.slice(0, comma).trim();
+  const key = body.slice(comma + 1).trim();
+  if (!key || key.includes(',')) return null;
+  const stamp = expandStamp(stampRaw);
+  if (!stamp && stampRaw !== '+') {
+    // Allow empty only if truly empty; otherwise keep raw for compareStamp=0.
+    if (!stampRaw) return null;
+  }
+  return { key, stamp: stamp || stampRaw, dead };
+}
+
+function formatExAtEntry(entry) {
+  if (!entry?.key) return '';
+  const stamp = expandStamp(entry.stamp || '') || String(entry.stamp || '');
+  if (!stamp) return '';
+  return `${entry.dead ? '-' : ''}${stamp},${entry.key}`;
+}
+
+function formatExAtEntryCompact(entry) {
+  if (!entry?.key) return '';
+  const stamp = compactStamp(entry.stamp || '');
+  if (!stamp) return '';
+  return `${entry.dead ? '-' : ''}${stamp},${entry.key}`;
+}
+
+/** Normalize exAt to expanded-ISO strings; newer stamp wins; equal stamp → prefer alive. */
+export function normalizeExAt(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const byKey = new Map();
+  for (const item of list) {
+    const p = parseExAtEntry(item);
+    if (!p) continue;
+    const prev = byKey.get(p.key);
+    if (!prev) {
+      byKey.set(p.key, p);
+      continue;
+    }
+    const cmp = compareStamp(p.stamp, prev.stamp);
+    if (cmp > 0) byKey.set(p.key, p);
+    else if (cmp === 0 && prev.dead && !p.dead) byKey.set(p.key, p);
+  }
+  return [...byKey.values()]
+    .sort((a, b) => {
+      const c = compareStamp(a.stamp, b.stamp);
+      if (c !== 0) return c;
+      return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+    })
+    .map(formatExAtEntry)
+    .filter(Boolean);
+}
+
+/**
+ * Build label#n → { cell, stamp, dead } from exercises + exAt.
+ * When treeLabels is set, only freeform cells get occurrence keys (tree rows ignored).
+ * Sparse merge keys (e.g. jog#2,#3 after deleting #1) are recovered by zipping
+ * stamp-sorted alive exAt entries with list-order cells when keys aren't 1..n.
+ */
+export function buildExerciseEntryMap(exercises, exAt, fallbackStamp = '', treeLabels = null) {
+  const map = new Map();
+  const fb = expandStamp(fallbackStamp || '') || String(fallbackStamp || '');
+  const atByKey = new Map();
+  for (const raw of normalizeExAt(exAt)) {
+    const p = parseExAtEntry(raw);
+    if (p) atByKey.set(p.key, p);
+  }
+
+  const freeformCells = [];
+  const cellCountByLabel = new Map();
+  for (const cell of normalizeExercises(exercises)) {
+    const p = parseExerciseCell(cell);
+    if (p.empty) continue;
+    if (treeLabels && treeLabels.has(p.label)) continue;
+    freeformCells.push(cell);
+    cellCountByLabel.set(p.label, (cellCountByLabel.get(p.label) || 0) + 1);
+  }
+
+  const aliveFreeform = [];
+  for (const at of atByKey.values()) {
+    if (at.dead) continue;
+    const { label } = parseExerciseEntryKey(at.key);
+    if (treeLabels && treeLabels.has(label)) continue;
+    aliveFreeform.push(at);
+  }
+
+  let sparse = false;
+  const aliveByLabel = new Map();
+  for (const at of aliveFreeform) {
+    const { label, n } = parseExerciseEntryKey(at.key);
+    if (!aliveByLabel.has(label)) aliveByLabel.set(label, []);
+    aliveByLabel.get(label).push(n);
+  }
+  for (const [label, ns] of aliveByLabel) {
+    const count = cellCountByLabel.get(label) || 0;
+    const sorted = [...ns].sort((a, b) => a - b);
+    if (sorted.length !== count) {
+      sparse = true;
+      break;
+    }
+    for (let i = 0; i < sorted.length; i += 1) {
+      if (sorted[i] !== i + 1) {
+        sparse = true;
+        break;
+      }
+    }
+    if (sparse) break;
+  }
+  // Alive keys for a label with zero cells also mark sparse (merge kept keys only).
+  if (!sparse) {
+    for (const label of aliveByLabel.keys()) {
+      if (!cellCountByLabel.has(label)) {
+        sparse = true;
+        break;
+      }
+    }
+  }
+
+  if (sparse && aliveFreeform.length === freeformCells.length && freeformCells.length > 0) {
+    // Round-trip merge output: cells were emitted in stamp/key order with original keys.
+    const sortedAlive = [...aliveFreeform].sort((a, b) => {
+      const c = compareStamp(a.stamp, b.stamp);
+      if (c !== 0) return c;
+      return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+    });
+    for (let i = 0; i < freeformCells.length; i += 1) {
+      const at = sortedAlive[i];
+      map.set(at.key, { cell: freeformCells[i], stamp: at.stamp || fb, dead: false });
+    }
+  } else {
+    const counts = new Map();
+    for (const cell of freeformCells) {
+      const p = parseExerciseCell(cell);
+      const n = (counts.get(p.label) || 0) + 1;
+      counts.set(p.label, n);
+      const key = exerciseEntryKey(p.label, n);
+      const at = atByKey.get(key);
+      map.set(key, {
+        cell,
+        stamp: at && !at.dead && at.stamp ? at.stamp : fb,
+        dead: false,
+      });
+    }
+  }
+
+  for (const [key, at] of atByKey) {
+    if (!at.dead) continue;
+    if (treeLabels) {
+      const { label } = parseExerciseEntryKey(key);
+      if (treeLabels.has(label)) continue;
+    }
+    if (map.has(key)) continue; // alive cell wins over stale tombstone here; merge compares stamps
+    map.set(key, { cell: '', stamp: at.stamp, dead: true });
+  }
+  return map;
+}
+
+/**
+ * Stamp / tombstone freeform exAt entries after an exercises patch.
+ * Tree-backed labels keep alive marker keys in exAt (so a tree-only day is
+ * never stored with empty exAt and mistaken for a 354 client); cells still own
+ * the row content. Tree tombstones are not written.
+ */
+export function stampExAt(prevDay, nextExercises, now, entryAt = '', treeLabels = null) {
+  const prevEx = normalizeExercises(prevDay?.exercises);
+  const nextEx = normalizeExercises(nextExercises);
+  const prevFb = prevDay?.musAt || (prevEx.length ? prevDay?.updatedAt : '') || '';
+  const prevMap = buildExerciseEntryMap(prevEx, prevDay?.exAt, prevFb, treeLabels);
+  const counts = new Map();
+  const nextFree = [];
+  for (const cell of nextEx) {
+    const p = parseExerciseCell(cell);
+    if (p.empty) continue;
+    if (treeLabels && treeLabels.has(p.label)) continue;
+    const n = (counts.get(p.label) || 0) + 1;
+    counts.set(p.label, n);
+    nextFree.push({ key: exerciseEntryKey(p.label, n), cell });
+  }
+  const nextKeySet = new Set(nextFree.map((e) => e.key));
+  const out = new Map();
+
+  // Preserve prior tombstones (TTL prune happens on compact).
+  for (const [key, ent] of prevMap) {
+    if (ent.dead) out.set(key, { key, stamp: ent.stamp, dead: true });
+  }
+
+  for (const { key, cell } of nextFree) {
+    const prev = prevMap.get(key);
+    if (prev && !prev.dead && prev.cell === cell && prev.stamp) {
+      out.set(key, { key, stamp: prev.stamp, dead: false });
+      continue;
+    }
+    const stamp = pickMealStamp(entryAt, prev?.stamp || '', now);
+    out.set(key, { key, stamp, dead: false });
+  }
+
+  for (const [key, ent] of prevMap) {
+    if (ent.dead) continue;
+    const { label } = parseExerciseEntryKey(key);
+    if (treeLabels && treeLabels.has(label)) continue;
+    if (nextKeySet.has(key)) continue;
+    const stamp = pickMealStamp(entryAt, ent.stamp || '', now);
+    out.set(key, { key, stamp, dead: true });
+  }
+
+  // Alive markers for tree-backed cells — new-client signal after compact.
+  if (treeLabels && treeLabels.size) {
+    const prevAtByKey = new Map();
+    for (const raw of normalizeExAt(prevDay?.exAt)) {
+      const p = parseExAtEntry(raw);
+      if (p) prevAtByKey.set(p.key, p);
+    }
+    const treeCounts = new Map();
+    for (const cell of nextEx) {
+      const p = parseExerciseCell(cell);
+      if (p.empty || !treeLabels.has(p.label)) continue;
+      const n = (treeCounts.get(p.label) || 0) + 1;
+      treeCounts.set(p.label, n);
+      const key = exerciseEntryKey(p.label, n);
+      const prevAt = prevAtByKey.get(key);
+      const stamp = prevAt && !prevAt.dead && prevAt.stamp
+        ? prevAt.stamp
+        : pickMealStamp(entryAt, '', now);
+      out.set(key, { key, stamp, dead: false });
+    }
+  }
+
+  return normalizeExAt([...out.values()].map(formatExAtEntry));
+}
+
+/**
+ * Keep alive tree-backed markers; drop tree tombstones; prune freeform
+ * tombstones by TTL and cap at EX_AT_MAX_ENTRIES (oldest tombs first).
+ */
+export function pruneExAt(exAt, { treeLabels = null, now = Date.now() } = {}) {
+  let list = [];
+  for (const raw of normalizeExAt(exAt)) {
+    const p = parseExAtEntry(raw);
+    if (!p) continue;
+    const { label } = parseExerciseEntryKey(p.key);
+    if (treeLabels && treeLabels.has(label)) {
+      if (p.dead) continue; // tree rows are cell-owned; no tree tombs in storage
+      list.push(p);
+      continue;
+    }
+    if (p.dead) {
+      const t = stampMs(p.stamp);
+      if (t && now - t >= EX_AT_TOMBSTONE_TTL_MS) continue;
+    }
+    list.push(p);
+  }
+  while (list.length > EX_AT_MAX_ENTRIES) {
+    const tombs = list
+      .filter((p) => p.dead)
+      .sort((a, b) => stampMs(a.stamp) - stampMs(b.stamp));
+    if (!tombs.length) break;
+    const dropKey = tombs[0].key;
+    const dropStamp = tombs[0].stamp;
+    list = list.filter((p) => !(p.dead && p.key === dropKey && p.stamp === dropStamp));
+  }
+  return normalizeExAt(list.map(formatExAtEntry));
 }
 
 /** Lifestyle burns only (เซ็กส์ / ถูกออรัล) — for fixed/tdee goal bump. */
@@ -1289,7 +1667,7 @@ function trimTrailingEmpty(arr) {
 }
 
 /** Drop null/blank/empty fields + encode stamps; id is derived on read. */
-export function compactDayRowForStorage(day) {
+export function compactDayRowForStorage(day, { treeLabels = null } = {}) {
   const d = day && typeof day === 'object' ? day : {};
   const mealsIn = Array.isArray(d.meals) ? d.meals.map((c) => String(c ?? '')) : [];
   const atIn = Array.isArray(d.mealsAt) ? d.mealsAt.map((s) => String(s ?? '')) : [];
@@ -1323,7 +1701,18 @@ export function compactDayRowForStorage(day) {
   if (mealsAt.length) out.mealsAt = mealsAt;
   if (mealsPrev.length) out.mealsPrev = mealsPrev;
 
-  for (const key of ['waistAt', 'weightAt', 'bodyFatAt', 'musAt', 'noteAt', 'updatedAt']) {
+  const exAtPruned = pruneExAt(d.exAt, { treeLabels, now: nowMs() });
+  if (exAtPruned.length) {
+    out.exAt = exAtPruned.map((raw) => {
+      const p = parseExAtEntry(raw);
+      return p ? formatExAtEntryCompact(p) : '';
+    }).filter(Boolean);
+  }
+
+  const exOrder = normalizeExOrder(d.exOrder);
+  if (exOrder.length) out.exOrder = exOrder;
+
+  for (const key of ['waistAt', 'weightAt', 'bodyFatAt', 'musAt', 'noteAt', 'exOrderAt', 'updatedAt']) {
     const c = compactStamp(d[key] || '');
     if (c) out[key] = c;
   }
@@ -1336,8 +1725,9 @@ export function compactDayRowForStorage(day) {
  */
 export function compactCalorieForStorage(calorie) {
   if (!calorie || typeof calorie !== 'object') return calorie;
+  const treeLabels = new Set(treeMoveIndex(normalizeMuscleTree(calorie.muscleTree)).keys());
   const days = Array.isArray(calorie.days)
-    ? calorie.days.map((d) => compactDayRowForStorage(d))
+    ? calorie.days.map((d) => compactDayRowForStorage(d, { treeLabels }))
     : [];
   return { ...calorie, days, compactV: 1 };
 }
@@ -1362,6 +1752,8 @@ export function createDayRow(partial = {}) {
     mealsPrev: normalizeMealsPrev(partial.mealsPrev, meals),
     mus: partial.mus == null || partial.mus === '' ? null : Number(partial.mus),
     exercises: normalizeExercises(partial.exercises),
+    exAt: normalizeExAt(partial.exAt),
+    exOrder: normalizeExOrder(partial.exOrder),
     base: partial.base == null || partial.base === '' ? null : Number(partial.base),
     note: String(partial.note || '').slice(0, 200),
     waistAt: expandStamp(partial.waistAt || ''),
@@ -1369,6 +1761,7 @@ export function createDayRow(partial = {}) {
     bodyFatAt: expandStamp(partial.bodyFatAt || ''),
     musAt: expandStamp(partial.musAt || ''),
     noteAt: expandStamp(partial.noteAt || ''),
+    exOrderAt: expandStamp(partial.exOrderAt || ''),
     // Do NOT fabricate a "now" stamp for existing rows — that lets stale
     // legacy data win merges against genuinely newer cloud content.
     updatedAt,
@@ -1610,7 +2003,9 @@ export function exercisePickerCatalog(tree) {
 /**
  * A day's exercises as editable entries: tree moves carry nodeId, freeform
  * labels (not in the tree) keep nodeId null.
- * @returns {{ nodeId: string|null, label: string, burn: number }[]}
+ * Keys (label#n) are assigned from STORED day.exercises occurrence order, then
+ * the list is stable-sorted by day.exOrder for display only.
+ * @returns {{ nodeId: string|null, label: string, burn: number, key: string, cardio?: boolean }[]}
  */
 export function dayExerciseEntries(calorie, day) {
   const t = toMuscleLayout(calorie?.muscleTree).tree;
@@ -1618,6 +2013,13 @@ export function dayExerciseEntries(calorie, day) {
   const dateKey = day?.date;
   const out = [];
   const seen = new Set();
+  const counts = new Map();
+  const nextKey = (label) => {
+    const lab = String(label || '').trim().slice(0, 40);
+    const n = (counts.get(lab) || 0) + 1;
+    counts.set(lab, n);
+    return exerciseEntryKey(lab, n);
+  };
   normalizeExercises(day?.exercises).forEach((raw) => {
     const cell = resolveAliasCell(raw, t, byLabel, dateKey);
     if (!cell) return;
@@ -1639,42 +2041,71 @@ export function dayExerciseEntries(calorie, day) {
       if (!move.cardio && !(value > 0)) return;
       if (move.cardio && !(value > 0) && !(p.burn > 0)) return;
       seen.add(move.id);
-      out.push({ nodeId: move.id, label: move.label, burn: value > 0 ? value : p.burn, cardio: move.cardio });
+      out.push({
+        nodeId: move.id,
+        label: move.label,
+        burn: value > 0 ? value : p.burn,
+        cardio: move.cardio,
+        key: nextKey(move.label),
+      });
       return;
     }
     // A 0-kcal "group · move" copy of a row that is no longer in the table carries nothing.
     if (!(p.burn > 0) && p.label.includes(' · ')) return;
-    out.push({ nodeId: null, label: p.label || `ออกกำลัง ${p.burn}`, burn: p.burn, cardio: isCardioLabel(p.label) });
+    const label = p.label || `ออกกำลัง ${p.burn}`;
+    out.push({
+      nodeId: null,
+      label,
+      burn: p.burn,
+      cardio: isCardioLabel(p.label),
+      key: nextKey(label),
+    });
   });
   if (dateKey) {
     leaves.forEach((m) => {
       const burn = t.cells[cellKey(m.id, dateKey)];
       if (!(burn > 0) || seen.has(m.id)) return;
       seen.add(m.id);
-      out.push({ nodeId: m.id, label: m.label, burn, cardio: m.cardio });
+      out.push({
+        nodeId: m.id,
+        label: m.label,
+        burn,
+        cardio: m.cardio,
+        key: nextKey(m.label),
+      });
     });
   }
-  return out;
+  return applyExOrder(out, day?.exOrder);
 }
 
 /**
  * Replace a day's exercises with the picker entries — writes tree cells for
  * tree moves (so the muscle table stays in step) and keeps freeform entries.
+ * Stored day.exercises freeform order is preserved (survivors keep position;
+ * new freeform append) so label#n / exAt keys are never renumbered by a
+ * display reorder. Pass `{ order }` to set day.exOrder (view-layer only).
  * The tree (in the converted layout) is only saved when the entries change a cell or the move log.
  */
-export function setDayExerciseEntries(calorie, dateKey, entries) {
+export function setDayExerciseEntries(calorie, dateKey, entries, opts = {}) {
   const { sheet, day } = ensureDay(calorie, dateKey);
   let tree = toMuscleLayout(sheet.muscleTree).tree;
   const want = new Map();
-  const freeform = [];
-  (entries || []).forEach((e) => {
+  const freeformWant = [];
+  (entries || []).forEach((e, i) => {
     const burn = Math.round(Number(e?.burn));
     if (e?.nodeId) {
       if (burn > 0) want.set(e.nodeId, burn);
       return;
     }
     const cell = formatExerciseCell(burn, e?.label);
-    if (cell) freeform.push(cell);
+    if (!cell) return;
+    freeformWant.push({
+      i,
+      cell,
+      burn,
+      label: String(e?.label || '').trim().slice(0, 40),
+      key: String(e?.key || '').trim(),
+    });
   });
   const cells = { ...tree.cells };
   let treeChanged = false;
@@ -1687,7 +2118,7 @@ export function setDayExerciseEntries(calorie, dateKey, entries) {
     treeChanged = true;
   });
   if (treeChanged) tree = normalizeMuscleTree({ ...tree, cells, updatedAt: nowIso() });
-  if (!want.size && !freeform.length && tree.moveLog?.[dateKey]?.names?.length) {
+  if (!want.size && !freeformWant.length && tree.moveLog?.[dateKey]?.names?.length) {
     tree = setMoveLogNames(tree, dateKey, []);
     treeChanged = true;
   }
@@ -1697,9 +2128,71 @@ export function setDayExerciseEntries(calorie, dateKey, entries) {
   // Unsaved, the day row must match the stored tree's labels (what normalizeCalorie rebuilds from).
   const slotTree = treeChanged ? tree : normalizeMuscleTree(sheet.muscleTree);
   const slots = muscleSlotsForDate(slotTree, dateKey).map((s) => formatExerciseCell(s.burn, s.label));
-  const exercises = normalizeExercises([...slots, ...freeform]);
+  const moveIndex = muscleLeafIndex(slotTree).byLabel;
+  // Keep prior freeform cell order (key = occurrence in STORED list); append new.
+  const prevFree = [];
+  for (const cell of normalizeExercises(day.exercises)) {
+    const p = parseExerciseCell(cell);
+    if (p.empty) continue;
+    if (moveIndex.has(p.label)) continue;
+    prevFree.push(cell);
+  }
+  const usedWant = new Set();
+  const wantByKey = new Map();
+  freeformWant.forEach((w) => {
+    if (w.key) wantByKey.set(w.key, w);
+  });
+  const nextFree = [];
+  const prevCounts = new Map();
+  for (const cell of prevFree) {
+    const p = parseExerciseCell(cell);
+    const n = (prevCounts.get(p.label) || 0) + 1;
+    prevCounts.set(p.label, n);
+    const key = exerciseEntryKey(p.label, n);
+    let hit = wantByKey.get(key);
+    if (hit && usedWant.has(hit.i)) hit = null;
+    if (!hit) {
+      hit = freeformWant.find((w) => !usedWant.has(w.i) && w.label === p.label) || null;
+    }
+    if (!hit) continue; // deleted
+    usedWant.add(hit.i);
+    const cellNext = formatExerciseCell(hit.burn, hit.label);
+    if (cellNext) nextFree.push(cellNext);
+  }
+  freeformWant.forEach((w) => {
+    if (usedWant.has(w.i)) return;
+    usedWant.add(w.i);
+    nextFree.push(w.cell);
+  });
+  const exercises = normalizeExercises([...slots, ...nextFree]);
   const mus = sumExerciseBurn(exercises) || null;
-  return patchDay(next, day.id, { exercises, mus });
+  const prevEx = normalizeExercises(day.exercises);
+  // Order-only saves must not rewrite exercises (keeps label#n / exAt stable).
+  const sameEx = JSON.stringify(exercises) === JSON.stringify(prevEx);
+  const patch = {};
+  if (!sameEx) {
+    patch.exercises = exercises;
+    patch.mus = mus;
+  }
+  if (opts.order !== undefined) {
+    // Remap pre-save keys onto post-save numbering (delete can renumber #n).
+    patch.exOrder = remapExOrderToNextKeys(opts.order, exercises);
+  } else {
+    // Keep prior order for survivors; append keys for newly added freeform/tree rows.
+    const prevOrder = normalizeExOrder(day.exOrder);
+    if (prevOrder.length) {
+      const nextKeys = exerciseKeysFromList(exercises);
+      const nextSet = new Set(nextKeys);
+      const kept = prevOrder.filter((k) => nextSet.has(k));
+      const keptSet = new Set(kept);
+      const added = nextKeys.filter((k) => !keptSet.has(k));
+      patch.exOrder = [...kept, ...added];
+    }
+  }
+  if (!Object.keys(patch).length) return next;
+  return patchDay(next, day.id, patch, {
+    entryAt: opts.entryAt || opts.at || '',
+  });
 }
 
 /** Per-day derived metrics (matches sheet columns). Base = auto BMR. */
@@ -4234,6 +4727,17 @@ export function upsertDay(calorie, dayPartial) {
   if (hasValue(next.bodyFat) && !next.bodyFatAt) next.bodyFatAt = next.updatedAt || now;
   if (next.mus != null && !next.musAt) next.musAt = next.updatedAt || now;
   if (String(next.note || '').trim() && !next.noteAt) next.noteAt = next.updatedAt || now;
+  // Fill missing freeform exAt stamps from musAt/updatedAt (legacy rows).
+  if (next.exercises.length && !normalizeExAt(next.exAt).length) {
+    const treeLabels = new Set(treeMoveIndex(sheet.muscleTree).keys());
+    next.exAt = stampExAt(
+      { exercises: [], exAt: [], musAt: '', updatedAt: '' },
+      next.exercises,
+      next.musAt || next.updatedAt || now,
+      next.musAt || next.updatedAt || now,
+      treeLabels,
+    );
+  }
   const idx = sheet.days.findIndex((d) => d.id === next.id || d.date === next.date);
   const days = [...sheet.days];
   if (idx >= 0) {
@@ -4248,6 +4752,7 @@ export function upsertDay(calorie, dayPartial) {
 export function patchDay(calorie, dayId, patch, opts = {}) {
   const sheet = normalizeCalorie(calorie);
   const now = nowIso();
+  const treeLabels = new Set(treeMoveIndex(sheet.muscleTree).keys());
   const days = sheet.days.map((d) => {
     if (d.id !== dayId) return d;
     const meals = normalizeMeals(patch.meals !== undefined ? patch.meals : d.meals);
@@ -4258,6 +4763,17 @@ export function patchDay(calorie, dayId, patch, opts = {}) {
       ? (sumExerciseBurn(exercises) || null)
       : patch.mus;
     const musStamp = patch.exercises !== undefined || patch.mus !== undefined;
+    const exAt = patch.exAt !== undefined
+      ? normalizeExAt(patch.exAt)
+      : patch.exercises !== undefined
+        ? stampExAt(d, exercises, now, opts.entryAt || opts.exAt || '', treeLabels)
+        : normalizeExAt(d.exAt);
+    const exOrder = patch.exOrder !== undefined
+      ? normalizeExOrder(patch.exOrder)
+      : normalizeExOrder(d.exOrder);
+    const exOrderAt = patch.exOrder !== undefined
+      ? expandStamp(opts.entryAt || opts.exOrderAt || now)
+      : expandStamp(d.exOrderAt || '');
     return normalizeDayRow(
       {
         ...d,
@@ -4265,6 +4781,9 @@ export function patchDay(calorie, dayId, patch, opts = {}) {
         id: d.id,
         meals,
         exercises,
+        exAt,
+        exOrder,
+        exOrderAt,
         mus,
         mealsAt: stampMealsAt(d, meals, now, opts.mealAt),
         mealsPrev: stampMealsPrev(d, meals),
@@ -4475,6 +4994,7 @@ export function calorieDayFingerprint(day) {
   const d = normalizeDayRow(day);
   return JSON.stringify([
     d.date, d.waist, d.weight, normalizeMeals(d.meals), d.exercises, d.mus, d.base, d.note, d.bodyFat,
+    normalizeExOrder(d.exOrder),
   ]);
 }
 
@@ -4539,19 +5059,94 @@ function mergeMealsField(a, b) {
   };
 }
 
-/** Merge exercise slot lists — newer musAt / day stamp wins the whole list (empty = cleared). */
+/**
+ * Per-entry exercise merge (label#n keys + exAt stamps/tombstones).
+ * Falls back to whole-list LWW on musAt when neither side has exAt.
+ * Implicit tombstones only when a side has exercises but empty exAt (true
+ * 354 client) — tree-only new-client rows keep alive tree markers in exAt.
+ * Alive exAt keys are kept as merged (no renumber) so tombstones cannot eat
+ * a renumbered survivor. Returns { exercises, exAt }.
+ */
 function mergeExercisesField(a, b) {
   const aEx = normalizeExercises(a?.exercises);
   const bEx = normalizeExercises(b?.exercises);
+  const aAt = normalizeExAt(a?.exAt);
+  const bAt = normalizeExAt(b?.exAt);
   // Day stamp only counts for a side that actually has exercises, so a blank
   // auto-created day can't look newer than real logged sets.
-  const aStamp = a?.musAt || (aEx.length ? a?.updatedAt : '') || '';
-  const bStamp = b?.musAt || (bEx.length ? b?.updatedAt : '') || '';
-  const cmp = compareStamp(aStamp, bStamp);
-  if (cmp > 0) return aEx;
-  if (cmp < 0) return bEx;
-  if (aEx.length && bEx.length) return pickStable(aEx, bEx);
-  return aEx.length ? aEx : bEx;
+  const aFb = a?.musAt || (aEx.length ? a?.updatedAt : '') || '';
+  const bFb = b?.musAt || (bEx.length ? b?.updatedAt : '') || '';
+
+  if (!aAt.length && !bAt.length) {
+    const cmp = compareStamp(aFb, bFb);
+    let exercises;
+    if (cmp > 0) exercises = aEx;
+    else if (cmp < 0) exercises = bEx;
+    else if (aEx.length && bEx.length) exercises = pickStable(aEx, bEx);
+    else exercises = aEx.length ? aEx : bEx;
+    return { exercises, exAt: [] };
+  }
+
+  const aHasExAt = aAt.length > 0;
+  const bHasExAt = bAt.length > 0;
+  // Old 354 client: has exercises but never wrote exAt.
+  const aLegacyNoExAt = aEx.length > 0 && !aHasExAt;
+  const bLegacyNoExAt = bEx.length > 0 && !bHasExAt;
+  const aMap = buildExerciseEntryMap(aEx, aAt, aFb);
+  const bMap = buildExerciseEntryMap(bEx, bAt, bFb);
+  const keys = new Set([...aMap.keys(), ...bMap.keys()]);
+  const merged = [];
+
+  for (const key of keys) {
+    let aEnt = aMap.get(key) || null;
+    let bEnt = bMap.get(key) || null;
+    // Old client (exercises but empty exAt): missing key ⇒ implicit tombstone at musAt.
+    if (!aEnt && aLegacyNoExAt) aEnt = { cell: '', stamp: aFb, dead: true };
+    if (!bEnt && bLegacyNoExAt) bEnt = { cell: '', stamp: bFb, dead: true };
+    if (!aEnt && bEnt) {
+      merged.push({ key, ...bEnt });
+      continue;
+    }
+    if (!bEnt && aEnt) {
+      merged.push({ key, ...aEnt });
+      continue;
+    }
+    if (!aEnt && !bEnt) continue;
+
+    const cmp = compareStamp(aEnt.stamp, bEnt.stamp);
+    let win;
+    if (cmp > 0) win = aEnt;
+    else if (cmp < 0) win = bEnt;
+    else if (aEnt.dead !== bEnt.dead) win = aEnt.dead ? bEnt : aEnt;
+    else if (aEnt.dead) win = compareStamp(aEnt.stamp, bEnt.stamp) >= 0 ? aEnt : bEnt;
+    else {
+      const cell = pickStable(aEnt.cell, bEnt.cell);
+      win = cell === aEnt.cell ? aEnt : { ...bEnt, cell };
+    }
+    merged.push({ key, cell: win.cell || '', stamp: win.stamp || '', dead: Boolean(win.dead) });
+  }
+
+  // Alive freeform (and any tree copies) sorted by stamp — reconcile prepends tree slots.
+  // Keep original keys (no renumber) so tombstones cannot collide with survivors.
+  const alive = merged
+    .filter((e) => !e.dead && e.cell)
+    .sort((x, y) => {
+      const c = compareStamp(x.stamp, y.stamp);
+      if (c !== 0) return c;
+      return x.key < y.key ? -1 : x.key > y.key ? 1 : 0;
+    });
+
+  const exercises = normalizeExercises(
+    alive.slice(0, MAX_EXERCISE_SLOTS).map((e) => e.cell),
+  );
+
+  const exAtRaw = [
+    ...alive.map((e) => formatExAtEntry({ key: e.key, stamp: e.stamp, dead: false })),
+    ...merged
+      .filter((e) => e.dead && e.stamp)
+      .map((e) => formatExAtEntry({ key: e.key, stamp: e.stamp, dead: true })),
+  ];
+  return { exercises, exAt: normalizeExAt(exAtRaw) };
 }
 
 /** Merge two day rows field-by-field (waist/weight/meals/mus/note independently). */
@@ -4559,12 +5154,33 @@ function mergeDayFields(a, b) {
   const waist = mergeScalarField(a.waist, b.waist, a.waistAt, b.waistAt, a.updatedAt, b.updatedAt);
   const weight = mergeScalarField(a.weight, b.weight, a.weightAt, b.weightAt, a.updatedAt, b.updatedAt);
   const bodyFat = mergeScalarField(a.bodyFat, b.bodyFat, a.bodyFatAt, b.bodyFatAt, a.updatedAt, b.updatedAt);
-  const exercises = mergeExercisesField(a, b);
+  const { exercises, exAt } = mergeExercisesField(a, b);
   const musBurn = sumExerciseBurn(exercises);
   const mus = musBurn > 0 ? musBurn : null;
   const note = mergeScalarField(a.note, b.note, a.noteAt, b.noteAt, a.updatedAt, b.updatedAt);
   const base = mergeScalarField(a.base, b.base, a.updatedAt, b.updatedAt, a.updatedAt, b.updatedAt);
   const meals = mergeMealsField(a, b);
+  // Whole-list LWW on exOrderAt (display order only; exercises cells stay as merged).
+  const aOrd = normalizeExOrder(a.exOrder);
+  const bOrd = normalizeExOrder(b.exOrder);
+  const aOrdAt = a.exOrderAt || '';
+  const bOrdAt = b.exOrderAt || '';
+  const ordCmp = compareStamp(aOrdAt, bOrdAt);
+  let exOrder;
+  let exOrderAt;
+  if (ordCmp > 0) {
+    exOrder = aOrd;
+    exOrderAt = aOrdAt;
+  } else if (ordCmp < 0) {
+    exOrder = bOrd;
+    exOrderAt = bOrdAt;
+  } else if (aOrd.length || bOrd.length) {
+    exOrder = pickStable(aOrd, bOrd);
+    exOrderAt = newerStampIso(aOrdAt, bOrdAt) || aOrdAt || bOrdAt;
+  } else {
+    exOrder = [];
+    exOrderAt = '';
+  }
   return normalizeDayRow({
     id: a.id && b.id ? (a.id <= b.id ? a.id : b.id) : (a.id || b.id),
     date: a.date || b.date,
@@ -4575,6 +5191,9 @@ function mergeDayFields(a, b) {
     mealsAt: meals.mealsAt,
     mealsPrev: meals.mealsPrev,
     exercises,
+    exAt,
+    exOrder,
+    exOrderAt,
     mus,
     base,
     note,

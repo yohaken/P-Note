@@ -11,7 +11,7 @@ export {
   normalizeNotifyRepeat,
   normalizeMonthPresets,
   normalizeCycleAnchor,
-} from './schedule-normalize.js?v=354';
+} from './schedule-normalize.js?v=355';
 
 import {
   everyMonthsId,
@@ -22,7 +22,7 @@ import {
   normalizeCycleAnchor,
   NOTIFY_REPEAT_OPTIONS,
   RECURRENCE_OPTIONS,
-} from './schedule-normalize.js?v=354';
+} from './schedule-normalize.js?v=355';
 
 /** Per-note reminder offset before scheduledAt (Calendar-style). */
 export const REMIND_BEFORE_OPTIONS = [

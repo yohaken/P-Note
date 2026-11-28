@@ -1,7 +1,7 @@
 /**
  * Tombstones for hard deletes — survives multi-device merge (v9+).
  */
-import { compareStamp, nowIso, newerStampIso, nowMs, stampMs } from './clock.js?v=354';
+import { compareStamp, nowIso, newerStampIso, nowMs, stampMs } from './clock.js?v=355';
 
 const KINDS = ['notes', 'notepads', 'tags'];
 const TOMBSTONE_MAX_AGE_MS = 365 * 86400000;

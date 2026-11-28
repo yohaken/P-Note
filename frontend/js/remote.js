@@ -1,9 +1,9 @@
-import { STORAGE_KEYS } from './config.js?v=354';
-import { initFirebase, getDb, auth } from './firebase.js?v=354';
-import { nowIso, setClockOffset } from './clock.js?v=354';
-import { emptyDeletions, normalizeDeletions } from './deletions.js?v=354';
-import { notesDataForCloudPush } from './import-data.js?v=354';
-import { compactCalorieForStorage } from './calorie.js?v=354';
+import { STORAGE_KEYS } from './config.js?v=355';
+import { initFirebase, getDb, auth } from './firebase.js?v=355';
+import { nowIso, setClockOffset } from './clock.js?v=355';
+import { emptyDeletions, normalizeDeletions } from './deletions.js?v=355';
+import { notesDataForCloudPush } from './import-data.js?v=355';
+import { compactCalorieForStorage } from './calorie.js?v=355';
 import {
   doc,
   getDoc,

@@ -1,9 +1,9 @@
-import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending, isQuotaError } from './local.js?v=354';
-import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=354';
-import { initGridSortable, initLongPressTap } from './sortable.js?v=354';
-import { CONFIG } from './config.js?v=354';
-import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=354';
-import { nowIso, getClockOffsetMs, nowMs as clockNowMs } from './clock.js?v=354';
+import { loadNotes, saveNotes, peekLocalNotesVersion, exportNotesBlob, isCloudPending, markCloudPending, isQuotaError } from './local.js?v=355';
+import { attachNoteCardInteractions, positionContextMenu, clearUiTextSelection } from './context-menu.js?v=355';
+import { initGridSortable, initLongPressTap } from './sortable.js?v=355';
+import { CONFIG } from './config.js?v=355';
+import { hasAnyNotes, hasCloudContent, tryAutoImport, importFromText, mergeNotesByUpdatedAt, localNeedsRemotePush } from './import-data.js?v=355';
+import { nowIso, getClockOffsetMs, nowMs as clockNowMs } from './clock.js?v=355';
 import {
   getAllowedUser,
   handleAuthRedirect,
@@ -12,7 +12,7 @@ import {
   watchAuth,
   isPinUnlocked,
   needsCloudRelink,
-} from './auth.js?v=354';
+} from './auth.js?v=355';
 import {
   addTag,
   addNotepad,
@@ -57,7 +57,7 @@ import {
   toggleNoteTag,
   updateNote,
   updateNoteInData,
-} from './notes.js?v=354';
+} from './notes.js?v=355';
 import {
   addDayFromLast,
   calorieDayFingerprint,
@@ -129,13 +129,15 @@ import {
   exercisePickerCatalog,
   dayExerciseEntries,
   setDayExerciseEntries,
+  exerciseEntryKey,
+  parseExerciseEntryKey,
   parseExerciseCell,
   lifestyleBurnKind,
   lifestyleBurnSpec,
   lifestyleKcalFromMinutes,
   isLifestyleBurnLabel,
   mealSlotTimeLabel,
-} from './calorie.js?v=354';
+} from './calorie.js?v=355';
 import {
   addMuscleCategory,
   addMuscleChild,
@@ -165,6 +167,8 @@ import {
   setMoveLogNames,
   movePlanIds,
   addMovePlanId,
+  setMovePlanIds,
+  muscleTreeNeedsPush,
   setMuscleCellInTree,
   defaultRestScale,
   nextRestTone,
@@ -188,7 +192,21 @@ import {
   CELL_NOTE_MAX,
   getCellNote,
   setCellNote,
-} from './muscle-tree.js?v=354';
+  SETS_MAX_SETS,
+  SETS_MAX_LEN,
+  SETS_REPS_MAX,
+  SETS_KG_MAX,
+  moveSetsRowKey,
+  setsKey,
+  getExSets,
+  setExSets,
+  parseSetSpec,
+  encodeSetSpec,
+  formatSetSummary,
+  lastSetSpec,
+  summarizeSetsList,
+  labelKey,
+} from './muscle-tree.js?v=355';
 import {
   musclePhotoKeys,
   musclePhotosFor,
@@ -199,7 +217,7 @@ import {
   uploadMusclePhoto,
   deleteMusclePhoto,
   musclePhotoUrl,
-} from './muscle-photos.js?v=354';
+} from './muscle-photos.js?v=355';
 import {
   ALL_EXERCISES,
   EQUIPMENT_TH,
@@ -219,9 +237,9 @@ import {
   renderBodyPairHaloHtml,
   renderBodyStatsHtml,
   exerciseImages,
-} from './muscle-map.js?v=354';
-import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=354';
-import { mountDrumPicker } from './drum-picker.js?v=354';
+} from './muscle-map.js?v=355';
+import { initExercisePicker, openExercisePicker, openExerciseDetail, refreshExercisePicker } from './exercise-picker.js?v=355';
+import { mountDrumPicker } from './drum-picker.js?v=355';
 import {
   completeOrAdvanceNote,
   countNotesByRecurrence,
@@ -262,14 +280,14 @@ import {
   yearLabel,
   notesOnDate,
   dateKeyFromDate,
-} from './schedule.js?v=354';
-import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=354';
+} from './schedule.js?v=355';
+import { densityToCssUnit, loadSettings, normalizeNotifyPrefs, normalizeGeminiModel, normalizeFilterOrder, normalizeAiProfile, normalizeAiTagRules, normalizeCameraQuality, normalizeCameraFacing, normalizeCameraSaveToDevice, normalizePriorityColors, normalizeDueColors, normalizeCalorieTones, normalizeCalorieTrendDays, calorieToneCssVars, normalizeCardDisplay, DEFAULT_CARD_DISPLAY, DEFAULT_PRIORITY_COLORS, DEFAULT_DUE_COLORS, DEFAULT_CALORIE_TONES, FIXED_UI, saveSettings, settingsForCloud, mergeSettingsFromCloud, thicknessStyleVars, dockScaleToCss, dockOffsetYToLiftPx, touchRecentNotepadId, ACK_NOTE_PAGES, ACK_NOTE_TEXT_MAX, ACK_NOTES_MAX, normalizeAckNotes, ackNotesForPage, normalizeCalorieMealPins, mealPinKey, upsertCalorieMealPin, removeCalorieMealPin, normalizeExerciseFavs, normalizeExerciseMedia, migrateLegacyExerciseFavs, clearLegacyExerciseFavsKey, parseYoutubeVideoId } from './settings.js?v=355';
 import {
   APP_ICON_OPTIONS,
   applyAppIcon,
   appIconSrc,
   normalizeAppIconId,
-} from './app-icons.js?v=354';
+} from './app-icons.js?v=355';
 import {
   allIcons,
   bestIconForLabel,
@@ -278,28 +296,28 @@ import {
   normalizeIconId,
   normalizePriorityIcons,
   suggestIconsForLabel,
-} from './icons.js?v=354';
+} from './icons.js?v=355';
 import {
   getFilesStatus,
   uploadFileToCloud,
   getDownloadUrl,
   deleteCloudFile,
-} from './files.js?v=354';
+} from './files.js?v=355';
 
 /** Lazy modules — loaded on first use to speed first paint. */
 let geminiModPromise = null;
 let cameraModPromise = null;
 let userContextModPromise = null;
 function loadGeminiMod() {
-  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=354');
+  if (!geminiModPromise) geminiModPromise = import('./gemini.js?v=355');
   return geminiModPromise;
 }
 function loadCameraMod() {
-  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=354');
+  if (!cameraModPromise) cameraModPromise = import('./camera.js?v=355');
   return cameraModPromise;
 }
 function loadUserContextMod() {
-  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=354');
+  if (!userContextModPromise) userContextModPromise = import('./user-context.js?v=355');
   return userContextModPromise;
 }
 
@@ -323,7 +341,7 @@ function refreshUserContextLazy(data) {
     .then((m) => m.refreshUserContext(data))
     .catch(() => ({ md: '', tagCount: 0, noteCount: 0 }));
 }
-import { DEFAULT_BAR_LAYOUT } from './bars.js?v=354';
+import { DEFAULT_BAR_LAYOUT } from './bars.js?v=355';
 import {
   fetchRemoteNotes,
   getSpaceId,
@@ -334,11 +352,11 @@ import {
   anchorClockFromHttpDate,
   SHARED_SPACE_ID,
   __probeAnchorClock,
-} from './remote.js?v=354';
-import { normalizeNotesData } from './notes.js?v=354';
-import { SaveManager } from './sync.js?v=354';
-import { emptyDeletions } from './deletions.js?v=354';
-import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=354';
+} from './remote.js?v=355';
+import { normalizeNotesData } from './notes.js?v=355';
+import { SaveManager } from './sync.js?v=355';
+import { emptyDeletions } from './deletions.js?v=355';
+import { NOTE_APP_VERSION, getAppBuild, formatAppBuildLabel, formatAppBuiltAt } from './version.js?v=355';
 import {
   loadPendingWrites,
   savePendingWrites,
@@ -349,7 +367,7 @@ import {
   makeSetExerciseFavOp,
   makeSetExerciseMediaOp,
   isSettingsPendingOp,
-} from './pending-writes.js?v=354';
+} from './pending-writes.js?v=355';
 
 const state = {
   notesData: {
@@ -727,6 +745,11 @@ const els = {
   mphotoOverlay: document.getElementById('mphoto-overlay'),
   mphotoBody: document.getElementById('mphoto-body'),
   mphotoTitle: document.getElementById('mphoto-title'),
+  muscleSetsOverlay: document.getElementById('muscle-sets-overlay'),
+  muscleSetsBody: document.getElementById('muscle-sets-body'),
+  muscleSetsTitle: document.getElementById('muscle-sets-title'),
+  muscleSetsClose: document.getElementById('muscle-sets-close'),
+  muscleSetsBackdrop: document.getElementById('muscle-sets-backdrop'),
   muscleRegionTitle: document.getElementById('muscle-region-title'),
   muscleRegionBody: document.getElementById('muscle-region-body'),
   cqExMap: document.getElementById('cq-ex-map'),
@@ -1013,6 +1036,7 @@ function applyFirstCloudSnapshot(remoteRaw) {
   state.cloudHydrated = true;
   // Adopt ≠ local edit — block maybeHealRemote full-doc push on cold load.
   state.localEditSinceAdopt = false;
+  lastRemoteCalorie = remote.calorie || null;
   state.syncBaseUpdatedAt = state.notesData?.updatedAt || remote?.updatedAt || null;
   saveNotes(state.notesData);
 
@@ -1040,6 +1064,7 @@ function applyRemotePayload(remoteRaw) {
   }
   applySettingsFromCloudPayload(remoteRaw);
   const remote = normalizeNotesData(remoteRaw);
+  lastRemoteCalorie = remote.calorie || null;
   const pinsBefore = homePinsFingerprint(state.notesData);
   const beforeKey = notesContentKey(state.notesData);
   const merged = mergeNotesByUpdatedAt(state.notesData, remote);
@@ -1146,6 +1171,10 @@ function flushPendingWritesToCloud() {
         const merged = mergeNotesByUpdatedAt(normalizeNotesData(state.notesData), replayed);
         state.notesData = remain.length ? { ...merged, calorie: replayed.calorie } : merged;
         saveNotes(state.notesData);
+        lastRemoteCalorie = result.data?.calorie || null;
+        if (muscleTreeNeedsPush(state.notesData.calorie, lastRemoteCalorie)) {
+          markLocalEditSinceAdopt();
+        }
         if (state.view === 'calorie') renderCalorieSheet({ preserveScroll: true });
       }
       return Boolean(result?.written);
@@ -1208,6 +1237,9 @@ function maybeHealRemote(merged, remote) {
 function markLocalEditSinceAdopt() {
   state.localEditSinceAdopt = true;
 }
+
+/** Last calorie payload seen from the cloud (for online muscle-tree heal). */
+let lastRemoteCalorie = null;
 
 async function startSpaceRemoteWatch() {
   if (!state.authUser) return;
@@ -4033,7 +4065,9 @@ function paintExerciseList(flashId = '') {
         : e.cardio ? 'คาดิโอ · หักดุลแคล · แตะเพื่อแก้' : 'ท่ากล้าม · ไม่นับแคล · แตะเพื่อแก้';
     const val = kcal ? (e.burn > 0 ? `−${e.burn}` : '0') : '✓';
     const canPick = tree || Boolean(life);
-    return `<div class="${cls}"><button type="button" class="cq-ex-pick" data-ex-pick="${i}" title="${escAttr(tip)}"${canPick ? '' : ' disabled'}><span class="cq-ex-name">${escapeHtml(e.label)}</span><span class="cq-ex-kcal">${val}</span></button><button type="button" class="cq-ex-del" data-ex-del="${i}" aria-label="ลบ ${escAttr(e.label)}">×</button></div>`;
+    const upDis = i === 0 ? ' disabled' : '';
+    const downDis = i === exEntries.length - 1 ? ' disabled' : '';
+    return `<div class="${cls}"><button type="button" class="cq-ex-pick" data-ex-pick="${i}" title="${escAttr(tip)}"${canPick ? '' : ' disabled'}><span class="cq-ex-name">${escapeHtml(e.label)}</span><span class="cq-ex-kcal">${val}</span></button><button type="button" class="cq-ex-up" data-ex-up="${i}" aria-label="เลื่อนขึ้น"${upDis}>↑</button><button type="button" class="cq-ex-down" data-ex-down="${i}" aria-label="เลื่อนลง"${downDis}>↓</button><button type="button" class="cq-ex-del" data-ex-del="${i}" aria-label="ลบ ${escAttr(e.label)}">×</button></div>`;
   }).join('');
   const head = total > 0 ? `เบิร์น −${total} kcal จากดุล` : 'ไม่หักแคล';
   host.innerHTML = `<div class="cq-ex-head"><span>${exEntries.length} ท่า</span><strong>${head}</strong></div>${rows}${EX_MANAGE_BTN}`;
@@ -4338,9 +4372,9 @@ function openExerciseWheels(dateKey) {
 }
 
 function sameExerciseEntries(a, b) {
-  const key = (list) => list
-    .map((e) => `${e.nodeId || ''}|${e.label}|${e.burn}`)
-    .sort()
+  // Order matters (exOrder) — do not sort.
+  const key = (list) => (list || [])
+    .map((e) => `${e.nodeId || ''}|${e.label}|${e.burn}|${e.key || ''}`)
     .join('\n');
   return key(a) === key(b);
 }
@@ -4368,7 +4402,24 @@ function submitExerciseWheels() {
   if (!requireSyncReady()) return false;
   const tableKey = (list) => list.filter((e) => e.nodeId).map((e) => `${e.nodeId}|${e.burn}`).sort().join('\n');
   if (tableKey(before) !== tableKey(exEntries) && !muscleLayoutForEdit()) return false;
-  let next = setDayExerciseEntries(sheet, day?.date || dateKey, exEntries);
+  // Keys for new (unkeyed) rows: next occurrence after existing keys — never
+  // renumber stored keys from display position.
+  const keyCounts = new Map();
+  for (const e of exEntries) {
+    if (!e?.key) continue;
+    const { label, n } = parseExerciseEntryKey(e.key);
+    keyCounts.set(label, Math.max(keyCounts.get(label) || 0, n));
+  }
+  const order = exEntries.map((e) => {
+    if (e.key) return e.key;
+    const lab = String(e.label || '').trim().slice(0, 40);
+    const n = (keyCounts.get(lab) || 0) + 1;
+    keyCounts.set(lab, n);
+    const key = exerciseEntryKey(lab, n);
+    e.key = key;
+    return key;
+  });
+  let next = setDayExerciseEntries(sheet, day?.date || dateKey, exEntries, { order });
   if (!exEntries.length) next = pruneFrequentMus(next);
   const total = exEntries.reduce((s, e) => s + (e.cardio ? Number(e.burn) || 0 : 0), 0);
   state.calorieActiveMonth = monthKeyFromDate(day?.date || dateKey);
@@ -4838,6 +4889,7 @@ function restoreMusclePins(tree) {
 }
 
 function persistMuscleTree(nextTree, { touchDates = [], status = '' } = {}) {
+  markLocalEditSinceAdopt();
   const sheet = ensureCaloriePayload();
   const prev = normalizeMuscleTree(sheet.muscleTree);
   backupMuscleTreeOnce(prev);
@@ -4887,44 +4939,164 @@ function cardioParentFor(tree, selectedId) {
   return { tree: next, parent: node };
 }
 
+let muscleNameResolve = null;
+
+function closeMuscleNameSheet(value) {
+  const ov = document.getElementById('muscle-name-overlay');
+  if (ov) ov.hidden = true;
+  const r = muscleNameResolve;
+  muscleNameResolve = null;
+  if (r) r(value);
+}
+
+/** In-app name sheet replacing window.prompt for muscle add/rename. */
+function askMuscleName({ title, where, value = '', placeholder = 'ชื่อท่า' } = {}) {
+  if (muscleNameResolve) closeMuscleNameSheet(null);
+  const ov = document.getElementById('muscle-name-overlay');
+  const titleEl = document.getElementById('muscle-name-title');
+  const whereEl = document.getElementById('muscle-name-where');
+  const input = document.getElementById('muscle-name-input');
+  const count = document.getElementById('muscle-name-count');
+  if (!ov || !input) return Promise.resolve(null);
+  if (titleEl) titleEl.textContent = title || 'เพิ่มท่าคาร์ดิโอ';
+  if (whereEl) whereEl.textContent = where || '';
+  input.value = String(value || '');
+  input.placeholder = placeholder || 'ชื่อท่า';
+  const syncCount = () => {
+    const len = String(input.value || '').length;
+    if (count) {
+      count.textContent = `${len}/40`;
+      count.classList.toggle('is-max', len >= 40);
+    }
+  };
+  syncCount();
+  ov.hidden = false;
+  return new Promise((resolve) => {
+    muscleNameResolve = resolve;
+    // Focus sync so iOS raises the keyboard; rAF focus often fails.
+    try {
+      input.focus();
+      if (value) input.select();
+    } catch { /* ignore */ }
+  });
+}
+
+function wireMuscleNameSheet() {
+  const input = document.getElementById('muscle-name-input');
+  const count = document.getElementById('muscle-name-count');
+  const save = document.getElementById('muscle-name-save');
+  const cancel = document.getElementById('muscle-name-cancel');
+  const syncCount = () => {
+    const len = String(input?.value || '').length;
+    if (count) {
+      count.textContent = `${len}/40`;
+      count.classList.toggle('is-max', len >= 40);
+    }
+  };
+  input?.addEventListener('input', syncCount);
+  save?.addEventListener('click', () => {
+    if (!muscleNameResolve) return;
+    closeMuscleNameSheet(String(input?.value || ''));
+  });
+  cancel?.addEventListener('click', () => closeMuscleNameSheet(null));
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!muscleNameResolve) return;
+      closeMuscleNameSheet(String(input.value || ''));
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeMuscleNameSheet(null);
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const ov = document.getElementById('muscle-name-overlay');
+    if (!ov || ov.hidden || !muscleNameResolve) return;
+    e.preventDefault();
+    closeMuscleNameSheet(null);
+  });
+}
+
+function noteCommaToast(raw) {
+  if (/,/.test(String(raw || ''))) {
+    setStatus('ใช้ , ไม่ได้ · เปลี่ยนเป็นช่องว่าง', { forceToast: true, ms: 1800 });
+  }
+}
+
 async function onMuscleAddChild() {
   if (!requireSyncReady()) return;
   const tree0 = muscleLayoutForEdit();
   if (!tree0) return;
-  const { tree: base, parent } = cardioParentFor(tree0, muscleSelectedId);
+  const { parent } = cardioParentFor(tree0, muscleSelectedId);
   if (!parent) return;
-  const name = window.prompt(`ชื่อท่าคาร์ดิโอใหม่ (อยู่ใน「${parent.name}」 · ใส่ kcal ที่เบิร์นได้)`, '');
-  if (name == null) return;
-  const { tree, node } = addMuscleChild(base, parent.id, name);
-  if (!node) {
-    setStatus('ใส่ชื่อท่าก่อน', { forceToast: true, ms: 1400 });
+  const parentId = parent.id;
+  let draft = '';
+  while (true) {
+    const name = await askMuscleName({
+      title: 'เพิ่มท่าคาร์ดิโอ',
+      where: `อยู่ใน「${parent.name}」 · ใส่ kcal ที่เบิร์นได้ในตารางภายหลัง`,
+      value: draft,
+      placeholder: 'ชื่อท่า',
+    });
+    if (name == null) return;
+    noteCommaToast(name);
+    // Re-read after await: a snapshot may have landed while the sheet was open.
+    const cur = muscleLayoutForEdit();
+    if (!cur) return;
+    const { tree, node, dup } = addMuscleChild(cur, parentId, name);
+    if (dup) {
+      draft = name;
+      setStatus('มีท่านี้แล้ว', { forceToast: true, ms: 1600 });
+      continue;
+    }
+    if (!node) {
+      setStatus('ใส่ชื่อท่าก่อน', { forceToast: true, ms: 1400 });
+      return;
+    }
+    muscleSelectedId = node.id;
+    muscleManageOpen.add(parentId);
+    unfoldMuscleGroup(parentId);
+    persistMuscleTree(tree, { status: `เพิ่ม ${node.name}` });
+    paintMuscleSheet();
+    paintMuscleSettingsList();
     return;
   }
-  muscleSelectedId = node.id;
-  muscleManageOpen.add(parent.id);
-  unfoldMuscleGroup(parent.id);
-  persistMuscleTree(tree, { status: `เพิ่ม ${node.name}` });
-  paintMuscleSheet();
-  paintMuscleSettingsList();
 }
 
 async function onMuscleAddGroup() {
   if (!requireSyncReady()) return;
-  const base = muscleLayoutForEdit();
-  if (!base) return;
-  const name = window.prompt('ชื่อกลุ่มกล้ามใหม่', '');
-  if (name == null) return;
-  const { tree, node } = addCustomGroup(base, name);
-  if (!node) {
-    setStatus('ใส่ชื่อกลุ่มก่อน', { forceToast: true, ms: 1400 });
+  if (!muscleLayoutForEdit()) return;
+  let draft = '';
+  while (true) {
+    const name = await askMuscleName({
+      title: 'เพิ่มกลุ่มกล้าม',
+      where: '',
+      value: draft,
+      placeholder: 'ชื่อกลุ่ม',
+    });
+    if (name == null) return;
+    noteCommaToast(name);
+    const cur = muscleLayoutForEdit();
+    if (!cur) return;
+    const { tree, node, dup } = addCustomGroup(cur, name);
+    if (dup) {
+      draft = name;
+      setStatus('มีท่านี้แล้ว', { forceToast: true, ms: 1600 });
+      continue;
+    }
+    if (!node) {
+      setStatus('ใส่ชื่อกลุ่มก่อน', { forceToast: true, ms: 1400 });
+      return;
+    }
+    muscleSelectedId = node.id;
+    muscleManageOpen.add(node.id);
+    unfoldMuscleGroup(node.id);
+    persistMuscleTree(tree, { status: `เพิ่มกลุ่ม ${node.name} · กด + ในกลุ่มเพื่อใส่กล้าม` });
+    paintMuscleSheet();
+    paintMuscleSettingsList();
     return;
   }
-  muscleSelectedId = node.id;
-  muscleManageOpen.add(node.id);
-  unfoldMuscleGroup(node.id);
-  persistMuscleTree(tree, { status: `เพิ่มกลุ่ม ${node.name} · กด + ในกลุ่มเพื่อใส่กล้าม` });
-  paintMuscleSheet();
-  paintMuscleSettingsList();
 }
 
 /** Manage-sheet "+" on a group row: muscle group → custom muscle, cardio group → cardio move. */
@@ -4935,21 +5107,38 @@ async function onMuscleAddIn(parentId) {
   const row = manageRows(base).find((r) => r.id === parentId && r.canAddChild);
   if (!row) return;
   const cardio = row.kind === 'cardioGroup';
-  const name = window.prompt(cardio
-    ? `ชื่อท่าคาร์ดิโอใหม่ (อยู่ใน「${row.name}」 · ใส่ kcal ที่เบิร์นได้)`
-    : `ชื่อกล้ามใหม่ (อยู่ใน「${row.name}」)`, '');
-  if (name == null) return;
-  const { tree, node } = cardio ? addMuscleChild(base, parentId, name) : addCustomMuscle(base, parentId, name);
-  if (!node) {
-    setStatus(cardio ? 'ใส่ชื่อท่าก่อน' : 'ใส่ชื่อกล้ามก่อน', { forceToast: true, ms: 1400 });
+  let draft = '';
+  while (true) {
+    const name = await askMuscleName({
+      title: cardio ? 'เพิ่มท่าคาร์ดิโอ' : 'เพิ่มกล้ามเนื้อ',
+      where: cardio
+        ? `อยู่ใน「${row.name}」 · ใส่ kcal ที่เบิร์นได้ในตารางภายหลัง`
+        : `อยู่ใน「${row.name}」`,
+      value: draft,
+      placeholder: cardio ? 'ชื่อท่า' : 'ชื่อกล้าม',
+    });
+    if (name == null) return;
+    noteCommaToast(name);
+    const cur = muscleLayoutForEdit();
+    if (!cur) return;
+    const res = cardio ? addMuscleChild(cur, parentId, name) : addCustomMuscle(cur, parentId, name);
+    if (res.dup) {
+      draft = name;
+      setStatus('มีท่านี้แล้ว', { forceToast: true, ms: 1600 });
+      continue;
+    }
+    if (!res.node) {
+      setStatus(cardio ? 'ใส่ชื่อท่าก่อน' : 'ใส่ชื่อกล้ามก่อน', { forceToast: true, ms: 1400 });
+      return;
+    }
+    muscleSelectedId = res.node.id;
+    muscleManageOpen.add(parentId);
+    unfoldMuscleGroup(parentId);
+    persistMuscleTree(res.tree, { status: `เพิ่ม ${res.node.name}` });
+    paintMuscleSheet();
+    paintMuscleSettingsList();
     return;
   }
-  muscleSelectedId = node.id;
-  muscleManageOpen.add(parentId);
-  unfoldMuscleGroup(parentId);
-  persistMuscleTree(tree, { status: `เพิ่ม ${node.name}` });
-  paintMuscleSheet();
-  paintMuscleSettingsList();
 }
 
 function muscleDayText(tree, dk) {
@@ -4959,6 +5148,7 @@ function muscleDayText(tree, dk) {
   if (d.secondary.length) parts.push(`รอง: ${d.secondary.join(', ')}`);
   if (d.cardio.length) parts.push(d.cardio.map((c) => `${c.name} −${c.kcal}`).join(', '));
   if (d.moves.length) parts.push(`ท่า: ${d.moves.join(', ')}`);
+  if (d.sets?.length) parts.push(d.sets.join(' · '));
   return parts.join(' · ') || '–';
 }
 
@@ -4993,6 +5183,16 @@ const mnoteSaveState = new Map();
 
 const mnoteKey = (rowId, date) => `${rowId}|${date}`;
 
+/** Structured sets drafts: key → [{count,reps,kg,bw,sec}, ...] */
+const setsDrafts = new Map();
+const setsSaveState = new Map();
+/** Prefill-only baseline (encoded): not dirty until the user edits away from it. */
+const setsPrefillClean = new Map();
+/** Active day-sheet context: { rowKey, date, skippable, label }. */
+let setsSheetCtx = null;
+
+const NOTE_SETS_RE = /(\d+)\s*เซ็ต.*?(\d+)\s*ครั้ง.*?(\d+(?:\.\d+)?)\s*กก/;
+
 function savedMuscleNote(rowId, date) {
   return getCellNote(ensureCaloriePayload().muscleTree, rowId, date);
 }
@@ -5004,10 +5204,291 @@ function mnoteDirty(key) {
   return draft.trim() !== savedMuscleNote(rowId, date);
 }
 
-function muscleNoteHtml(rowId, date, idPrefix) {
+function savedExSets(rowKey, date) {
+  return getExSets(ensureCaloriePayload().muscleTree, rowKey, date);
+}
+
+function ensureSetsDraft(rowKey, date, { prefillLast = false } = {}) {
+  const key = setsKey(rowKey, date);
+  if (setsDrafts.has(key)) return setsDrafts.get(key);
+  const saved = savedExSets(rowKey, date);
+  let v = saved;
+  if (!v && prefillLast) {
+    v = lastSetSpec(ensureCaloriePayload().muscleTree, rowKey);
+  }
+  const list = parseSetSpec(v);
+  const draft = list.length
+    ? list
+    : (prefillLast ? [{ count: 1, reps: 10, kg: 20, sec: null, bw: false }] : []);
+  setsDrafts.set(key, draft);
+  if (prefillLast && !saved) setsPrefillClean.set(key, encodeSetSpec(draft));
+  return draft;
+}
+
+function setsDirty(key) {
+  if (!setsDrafts.has(key)) return false;
+  const [rowKey, date] = key.split('|');
+  const saved = encodeSetSpec(parseSetSpec(savedExSets(rowKey, date)));
+  const cur = encodeSetSpec(setsDrafts.get(key));
+  if (cur === saved) {
+    setsPrefillClean.delete(key);
+    return false;
+  }
+  if (setsPrefillClean.has(key) && cur === setsPrefillClean.get(key)) return false;
+  return true;
+}
+
+function markSetsEdited(key) {
+  setsPrefillClean.delete(key);
+}
+
+function parseSetsFromNoteText(text) {
+  const m = String(text || '').match(NOTE_SETS_RE);
+  if (!m) return null;
+  const count = Math.min(SETS_MAX_SETS, Math.max(1, Math.round(Number(m[1])) || 1));
+  const reps = Math.min(SETS_REPS_MAX, Math.max(0, Math.round(Number(m[2])) || 0));
+  const kg = Math.min(SETS_KG_MAX, Math.max(0, Math.round(Number(m[3]) * 2) / 2));
+  if (kg === 0) return [{ count, reps, kg: null, sec: null, bw: true }];
+  return [{ count, reps, kg, sec: null, bw: false }];
+}
+
+function formatSetsSumThai(list) {
+  const s = summarizeSetsList(list);
+  const kgStr = Math.round(s.kg).toLocaleString('th-TH');
+  return `${s.sets} เซ็ต · ${s.reps} ครั้ง · ${kgStr} กก.`;
+}
+
+function setsEditorHtml(rowKey, date, idPrefix) {
+  const key = setsKey(rowKey, date);
+  const draft = ensureSetsDraft(rowKey, date);
+  const last = lastSetSpec(ensureCaloriePayload().muscleTree, rowKey);
+  const lastSum = last ? formatSetSummary(last) : '';
+  const noteText = savedMuscleNote(rowKey, date);
+  const fromNote = !savedExSets(rowKey, date) && parseSetsFromNoteText(noteText);
+  const rows = draft.map((s, i) => {
+    const kgVal = s.bw || s.kg == null ? '' : s.kg;
+    return `<div class="sets-row" data-sets-i="${i}">
+      <span class="sets-row-label">เซ็ต ${i + 1}</span>
+      <div class="sets-step-wrap">
+        <button type="button" class="btn btn-secondary sets-step" data-sets-step="reps" data-sets-dir="-1" aria-label="ลดครั้ง">−</button>
+        <input class="sets-num" type="text" inputmode="numeric" data-sets-field="reps" value="${escapeHtml(String(s.reps ?? 0))}" aria-label="ครั้ง" maxlength="3">
+        <button type="button" class="btn btn-secondary sets-step" data-sets-step="reps" data-sets-dir="1" aria-label="เพิ่มครั้ง">+</button>
+      </div>
+      <div class="sets-step-wrap">
+        <button type="button" class="btn btn-secondary sets-step" data-sets-step="kg" data-sets-dir="-1" aria-label="ลดกก.">−</button>
+        <input class="sets-num" type="text" inputmode="decimal" data-sets-field="kg" value="${escapeHtml(String(kgVal))}" aria-label="กก." maxlength="6" placeholder="กก.">
+        <button type="button" class="btn btn-secondary sets-step" data-sets-step="kg" data-sets-dir="1" aria-label="เพิ่มกก.">+</button>
+      </div>
+      <button type="button" class="btn btn-secondary sets-del" data-sets-del aria-label="ลบเซ็ตนี้">✕</button>
+    </div>`;
+  }).join('');
+  return `<div class="sets-block" data-sets-key="${escapeHtml(key)}" data-sets-prefix="${escapeHtml(idPrefix)}">
+      <div class="sets-block-head">
+        <strong>บันทึกเซ็ต</strong>
+        ${lastSum ? `<span class="sets-last">ครั้งก่อน: ${escapeHtml(lastSum)}</span>
+          <button type="button" class="btn btn-secondary sets-note-chip" data-sets-pref-last>ใส่ครั้งก่อน</button>` : ''}
+        ${fromNote ? `<button type="button" class="btn btn-secondary sets-note-chip" data-sets-from-note>ใช้ตัวเลขจากโน้ต</button>` : ''}
+        <button type="button" class="btn btn-secondary sets-note-chip" data-sets-bw>น้ำหนักตัว</button>
+      </div>
+      <div class="sets-rows">${rows}</div>
+      <button type="button" class="btn btn-secondary sets-add" data-sets-add>+ เซ็ต</button>
+      <button type="button" class="btn btn-secondary sets-add" data-sets-dup style="margin-top:0.25rem">ทำซ้ำเซ็ตก่อนหน้า</button>
+      <p class="sets-sum" data-sets-sum>${escapeHtml(formatSetsSumThai(draft))}</p>
+      <div class="sets-actions">
+        <span class="mnote-status sets-status" role="status" aria-live="polite"></span>
+        <button type="button" class="btn btn-primary" data-sets-save>บันทึกเซ็ต</button>
+      </div>
+    </div>`;
+}
+
+function syncSetsUi() {
+  document.querySelectorAll('.sets-block[data-sets-key]').forEach((box) => {
+    const key = box.dataset.setsKey;
+    const dirty = setsDirty(key);
+    const st = setsSaveState.get(key);
+    const status = box.querySelector('.sets-status');
+    const btn = box.querySelector('[data-sets-save]');
+    const sum = box.querySelector('[data-sets-sum]');
+    const draft = setsDrafts.get(key);
+    if (sum && draft) sum.textContent = formatSetsSumThai(draft);
+    let msg = '';
+    let cls = '';
+    if (dirty) [msg, cls] = ['ยังไม่บันทึก', 'is-dirty'];
+    else if (st === 'saving') msg = 'กำลังบันทึก…';
+    else if (st === 'cloud') [msg, cls] = ['บันทึกแล้ว · ซิงค์ขึ้นคลาวด์', 'is-ok'];
+    else if (st === 'local') [msg, cls] = ['บันทึกในเครื่องแล้ว · จะซิงค์เมื่อต่อเน็ต', 'is-warn'];
+    if (status) {
+      status.textContent = msg;
+      status.className = `mnote-status sets-status${cls ? ` ${cls}` : ''}`;
+    }
+    if (btn) btn.disabled = !dirty || st === 'saving';
+  });
+}
+
+function paintSetsEditor() {
+  if (!setsSheetCtx || !els.muscleSetsBody) return;
+  const { rowKey, date, skippable, label } = setsSheetCtx;
+  if (els.muscleSetsTitle) {
+    els.muscleSetsTitle.textContent = label
+      ? `บันทึกเซ็ต · ${label}`
+      : `บันทึกเซ็ต · ${formatDateDisplay(date)}`;
+  }
+  const realRow = !String(rowKey).startsWith('m:');
+  const photo = realRow
+    ? `<div class="sets-photo-row">
+        <button type="button" class="btn btn-secondary" data-sets-photo="camera">📷 ถ่าย</button>
+        <button type="button" class="btn btn-secondary" data-sets-photo="album">🖼 อัลบั้ม</button>
+      </div>`
+    : '';
+  const skip = skippable
+    ? `<button type="button" class="btn btn-secondary" data-sets-skip>ข้าม</button>`
+    : '';
+  els.muscleSetsBody.innerHTML = `${setsEditorHtml(rowKey, date, 'msets')}
+    ${muscleNoteHtml(rowKey, date, 'msets', { skipSets: true })}
+    ${photo}
+    <div class="sets-actions">${skip}<button type="button" class="btn btn-primary" data-sets-done>เสร็จ</button></div>`;
+  syncSetsUi();
+  syncMuscleNoteUi();
+}
+
+/**
+ * Open the day sheet for a muscle row id or move key `m:<label>`.
+ * @param {string} rowKey
+ * @param {string} date
+ * @param {{ prefillLast?: boolean, skippable?: boolean, label?: string }} [opts]
+ */
+function openMuscleDaySheet(rowKey, date, opts = {}) {
+  if (!rowKey || !date || !els.muscleSetsOverlay) return;
+  hideMusclePhotoPrompt();
+  const key = setsKey(rowKey, date);
+  if (opts.prefillLast && !savedExSets(rowKey, date)) {
+    setsDrafts.delete(key);
+    ensureSetsDraft(rowKey, date, { prefillLast: true });
+  } else if (!setsDrafts.has(key)) {
+    ensureSetsDraft(rowKey, date);
+  }
+  let label = opts.label || '';
+  if (!label && String(rowKey).startsWith('m:')) label = String(rowKey).slice(2);
+  else if (!label) label = musclePhotoRowLabel(rowKey) || rowKey;
+  setsSheetCtx = { rowKey, date, skippable: Boolean(opts.skippable), label };
+  paintSetsEditor();
+  els.muscleSetsOverlay.hidden = false;
+}
+
+async function closeMuscleSetsSheet({ discard = false } = {}) {
+  if (!discard) {
+    if (!(await settleMuscleNotes())) return false;
+    if (!(await settleExSets())) return false;
+  } else if (setsSheetCtx) {
+    const skipKey = setsKey(setsSheetCtx.rowKey, setsSheetCtx.date);
+    setsDrafts.delete(skipKey);
+    setsPrefillClean.delete(skipKey);
+    mnoteDrafts.delete(mnoteKey(setsSheetCtx.rowKey, setsSheetCtx.date));
+  }
+  if (els.muscleSetsOverlay) els.muscleSetsOverlay.hidden = true;
+  setsSheetCtx = null;
+  return true;
+}
+
+async function saveExSets(key, { force = false } = {}) {
+  if (force) markSetsEdited(key);
+  if (!setsDirty(key) || setsSaveState.get(key) === 'saving') return true;
+  if (!requireSyncReady()) return false;
+  const tree = muscleLayoutForEdit();
+  if (!tree) return false;
+  const [rowKey, date] = key.split('|');
+  const v = encodeSetSpec(setsDrafts.get(key) || []);
+  setsSaveState.set(key, 'saving');
+  syncSetsUi();
+  const ok = await persistMuscleTree(setExSets(tree, rowKey, date, v), { status: '' });
+  setsDrafts.set(key, parseSetSpec(v));
+  setsPrefillClean.delete(key);
+  setsSaveState.set(key, ok ? 'cloud' : 'local');
+  syncSetsUi();
+  paintMuscleSheet();
+  return true;
+}
+
+function dirtySetsKeys() {
+  return [...setsDrafts.keys()].filter(setsDirty);
+}
+
+async function settleExSets() {
+  const keys = dirtySetsKeys();
+  if (!keys.length) return true;
+  const save = await showConfirm('มีเซ็ตที่ยังไม่บันทึก\nบันทึกก่อนปิดไหม?', { okLabel: 'บันทึก', cancelLabel: 'ไม่บันทึก' });
+  if (save) {
+    for (const key of keys) {
+      if (!(await saveExSets(key))) return false;
+    }
+  } else {
+    keys.forEach((key) => setsDrafts.delete(key));
+  }
+  return true;
+}
+
+function onSetsStep(rowKey, date, index, field, dir) {
+  const key = setsKey(rowKey, date);
+  const draft = ensureSetsDraft(rowKey, date);
+  const s = draft[index];
+  if (!s) return;
+  if (field === 'reps') {
+    s.reps = Math.max(0, Math.min(SETS_REPS_MAX, (s.reps || 0) + dir));
+  } else if (field === 'kg') {
+    if (s.bw) s.bw = false;
+    const cur = s.kg == null ? 0 : Number(s.kg);
+    const next = Math.round((cur + dir * 2.5) * 2) / 2;
+    const kg = Math.max(0, Math.min(SETS_KG_MAX, next));
+    if (kg === 0) {
+      s.bw = true;
+      s.kg = null;
+    } else {
+      s.bw = false;
+      s.kg = kg;
+    }
+  }
+  setsDrafts.set(key, draft);
+  markSetsEdited(key);
+  if (setsSaveState.get(key) !== 'saving') setsSaveState.delete(key);
+  paintSetsEditorInPlace(key);
+}
+
+function paintSetsEditorInPlace(key) {
+  const box = [...document.querySelectorAll('.sets-block[data-sets-key]')]
+    .find((el) => el.dataset.setsKey === key);
+  if (!box) {
+    if (setsSheetCtx && setsKey(setsSheetCtx.rowKey, setsSheetCtx.date) === key) paintSetsEditor();
+    return;
+  }
+  // Rebuild rows only when structure changes; otherwise sync values.
+  const draft = setsDrafts.get(key) || [];
+  const host = box.querySelector('.sets-rows');
+  if (!host || host.children.length !== draft.length) {
+    if (setsSheetCtx && setsKey(setsSheetCtx.rowKey, setsSheetCtx.date) === key) paintSetsEditor();
+    else {
+      const [rowKey, date] = key.split('|');
+      const prefix = box.dataset.setsPrefix || 'msets';
+      box.outerHTML = setsEditorHtml(rowKey, date, prefix);
+      syncSetsUi();
+    }
+    return;
+  }
+  draft.forEach((s, i) => {
+    const row = host.children[i];
+    if (!row) return;
+    const reps = row.querySelector('[data-sets-field="reps"]');
+    const kg = row.querySelector('[data-sets-field="kg"]');
+    if (reps && document.activeElement !== reps) reps.value = String(s.reps ?? 0);
+    if (kg && document.activeElement !== kg) kg.value = s.bw || s.kg == null ? '' : String(s.kg);
+  });
+  syncSetsUi();
+}
+
+function muscleNoteHtml(rowId, date, idPrefix, { skipSets = false } = {}) {
   const key = mnoteKey(rowId, date);
   const text = mnoteDrafts.get(key) ?? savedMuscleNote(rowId, date);
-  return `<div class="mnote" data-mnote-key="${escapeHtml(key)}">
+  const sets = skipSets ? '' : setsEditorHtml(rowId, date, idPrefix);
+  return `${sets}<div class="mnote" data-mnote-key="${escapeHtml(key)}">
       <label class="mnote-label" for="${idPrefix}-note">📝 โน้ต · ${escapeHtml(formatDateDisplay(date))}</label>
       <textarea id="${idPrefix}-note" class="mnote-input" rows="3" maxlength="${CELL_NOTE_MAX}"
         placeholder="เช่น 4 เซ็ต × 10 ครั้ง · 50 กก. · เซ็ตสุดท้ายหนัก">${escapeHtml(text)}</textarea>
@@ -5040,6 +5521,7 @@ function syncMuscleNoteUi() {
 }
 
 function onMuscleNoteInput(e) {
+  if (onSetsUiInput(e)) return;
   const input = e.target?.closest?.('.mnote-input');
   const key = input?.closest('.mnote')?.dataset.mnoteKey;
   if (!key) return;
@@ -5086,19 +5568,15 @@ async function settleMuscleNotes() {
 
 async function closeMusclePhotoViewer() {
   if (!(await settleMuscleNotes())) return;
+  if (!(await settleExSets())) return;
   if (els.mphotoOverlay) els.mphotoOverlay.hidden = true;
   mphotoView.noteDate = '';
 }
 
-/** Note-only path (no photo): open the row's viewer on that day with the note box focused. */
+/** Note-only path: open the day sheet (sets + note). */
 function openMuscleNote(rowId, date) {
   hideMusclePhotoPrompt();
-  openMusclePhotos(rowId, date, { note: true });
-  const input = document.getElementById('mphoto-note');
-  if (input) {
-    input.focus();
-    input.scrollIntoView({ block: 'nearest' });
-  }
+  openMuscleDaySheet(rowId, date);
 }
 
 function musclePhotoRowLabel(rowId) {
@@ -5289,6 +5767,7 @@ function paintMusclePhotoUpload() {
   }
   body.innerHTML = `${preview}${status}${note}${actions ? `<div class="mphoto-actions">${actions}</div>` : ''}`;
   syncMuscleNoteUi();
+  syncSetsUi();
 }
 
 async function closeMusclePhotoUpload({ keepNote = false } = {}) {
@@ -5394,6 +5873,7 @@ async function paintMusclePhotoViewer() {
     ${muscleNoteHtml(rowId, entry.date, 'mphoto')}
     <div class="mphoto-actions">${takeBtn}${photo ? `<button type="button" class="btn btn-secondary mphoto-del" data-mphoto-del="${escapeHtml(photo.storagePath)}">ลบรูปนี้</button>` : ''}</div>`;
   syncMuscleNoteUi();
+  syncSetsUi();
   body.querySelector('.mphoto-chip.is-on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   if (!photo) return;
   try {
@@ -5425,7 +5905,150 @@ async function onMusclePhotoDelete(storagePath) {
   void paintMusclePhotoViewer();
 }
 
+function onSetsUiClick(e) {
+  const t = e.target;
+  const box = t?.closest?.('.sets-block[data-sets-key]');
+  const sheetHit = t?.closest?.('[data-sets-skip],[data-sets-done],[data-sets-photo]');
+  if (sheetHit && !box) {
+    if (t.closest('[data-sets-skip]')) {
+      void closeMuscleSetsSheet({ discard: true });
+      return true;
+    }
+    if (t.closest('[data-sets-done]')) {
+      void (async () => {
+        if (setsSheetCtx) {
+          const key = setsKey(setsSheetCtx.rowKey, setsSheetCtx.date);
+          if (setsDirty(key)) await saveExSets(key);
+          const nkey = mnoteKey(setsSheetCtx.rowKey, setsSheetCtx.date);
+          if (mnoteDirty(nkey)) await saveMuscleNote(nkey);
+        }
+        await closeMuscleSetsSheet({ discard: false });
+      })();
+      return true;
+    }
+    const photoBtn = t.closest('[data-sets-photo]');
+    if (photoBtn && setsSheetCtx && !String(setsSheetCtx.rowKey).startsWith('m:')) {
+      pickMusclePhoto(setsSheetCtx.rowKey, setsSheetCtx.date, photoBtn.getAttribute('data-sets-photo') || 'camera');
+      return true;
+    }
+  }
+  if (!box) return false;
+  const key = box.dataset.setsKey;
+  const [rowKey, date] = key.split('|');
+  const draft = ensureSetsDraft(rowKey, date);
+
+  if (t.closest('[data-sets-save]')) {
+    void saveExSets(key, { force: true });
+    return true;
+  }
+  if (t.closest('[data-sets-add]') || t.closest('[data-sets-dup]')) {
+    if (draft.length >= SETS_MAX_SETS) {
+      setStatus('สูงสุด 12 เซ็ต', { forceToast: true, ms: 2000 });
+      return true;
+    }
+    const last = draft[draft.length - 1] || { count: 1, reps: 10, kg: 20, sec: null, bw: false };
+    draft.push({ count: 1, reps: last.reps, kg: last.kg, sec: last.sec, bw: last.bw });
+    setsDrafts.set(key, draft);
+    markSetsEdited(key);
+    setsSaveState.delete(key);
+    paintSetsEditorInPlace(key);
+    return true;
+  }
+  if (t.closest('[data-sets-del]')) {
+    const row = t.closest('[data-sets-i]');
+    const i = Number(row?.dataset.setsI);
+    if (Number.isInteger(i) && i >= 0) {
+      draft.splice(i, 1);
+      setsDrafts.set(key, draft);
+      markSetsEdited(key);
+      setsSaveState.delete(key);
+      paintSetsEditorInPlace(key);
+    }
+    return true;
+  }
+  const step = t.closest('[data-sets-step]');
+  if (step) {
+    const row = t.closest('[data-sets-i]');
+    const i = Number(row?.dataset.setsI);
+    const dir = Number(step.dataset.setsDir) || 0;
+    const field = step.dataset.setsStep;
+    if (Number.isInteger(i) && field) onSetsStep(rowKey, date, i, field, dir);
+    return true;
+  }
+  if (t.closest('[data-sets-bw]')) {
+    const row = t.closest('[data-sets-i]') || box.querySelector('[data-sets-i]');
+    const i = Number(row?.dataset.setsI) || 0;
+    if (draft[i]) {
+      draft[i].bw = true;
+      draft[i].kg = null;
+      setsDrafts.set(key, draft);
+      markSetsEdited(key);
+      setsSaveState.delete(key);
+      paintSetsEditorInPlace(key);
+    }
+    return true;
+  }
+  if (t.closest('[data-sets-pref-last]')) {
+    const last = lastSetSpec(ensureCaloriePayload().muscleTree, rowKey);
+    if (last) {
+      setsDrafts.set(key, parseSetSpec(last));
+      markSetsEdited(key);
+      setsSaveState.delete(key);
+      paintSetsEditorInPlace(key);
+    }
+    return true;
+  }
+  if (t.closest('[data-sets-from-note]')) {
+    const parsed = parseSetsFromNoteText(savedMuscleNote(rowKey, date) || mnoteDrafts.get(mnoteKey(rowKey, date)) || '');
+    if (parsed) {
+      setsDrafts.set(key, parsed);
+      markSetsEdited(key);
+      setsSaveState.delete(key);
+      paintSetsEditorInPlace(key);
+    }
+    return true;
+  }
+  return false;
+}
+
+function onSetsUiInput(e) {
+  const input = e.target?.closest?.('[data-sets-field]');
+  const box = input?.closest?.('.sets-block[data-sets-key]');
+  if (!input || !box) return false;
+  const key = box.dataset.setsKey;
+  const [rowKey, date] = key.split('|');
+  const draft = ensureSetsDraft(rowKey, date);
+  const row = input.closest('[data-sets-i]');
+  const i = Number(row?.dataset.setsI);
+  if (!Number.isInteger(i) || !draft[i]) return true;
+  const field = input.dataset.setsField;
+  if (field === 'reps') {
+    draft[i].reps = Math.max(0, Math.min(SETS_REPS_MAX, Math.round(Number(input.value)) || 0));
+  } else if (field === 'kg') {
+    const raw = String(input.value || '').trim();
+    if (!raw) {
+      draft[i].bw = true;
+      draft[i].kg = null;
+    } else {
+      const kg = Math.max(0, Math.min(SETS_KG_MAX, Math.round(Number(raw) * 2) / 2 || 0));
+      if (kg === 0) {
+        draft[i].bw = true;
+        draft[i].kg = null;
+      } else {
+        draft[i].bw = false;
+        draft[i].kg = kg;
+      }
+    }
+  }
+  setsDrafts.set(key, draft);
+  markSetsEdited(key);
+  setsSaveState.delete(key);
+  syncSetsUi();
+  return true;
+}
+
 function onMusclePhotoClick(e) {
+  if (onSetsUiClick(e)) return;
   const t = e.target;
   const save = t?.closest?.('[data-mnote-save]');
   if (save) {
@@ -5493,7 +6116,7 @@ function onMuscleScrollClick(e) {
   const photoRow = e.target?.closest?.('[data-photo-row]');
   if (photoRow && els.muscleScroll?.contains(photoRow)) {
     e.preventDefault();
-    openMusclePhotos(photoRow.dataset.photoRow, photoRow.dataset.photoDate || '');
+    openMuscleDaySheet(photoRow.dataset.photoRow, photoRow.dataset.photoDate || toDateKey());
     return;
   }
   const mark = e.target?.closest?.('[data-mark-node]');
@@ -5547,7 +6170,7 @@ function onMuscleScrollClick(e) {
 }
 
 /** Manage-sheet rename for any row: fixed group / fixed muscle keep a standard name to fall back to. */
-function onMuscleManageRename(id) {
+async function onMuscleManageRename(id) {
   if (!requireSyncReady()) return;
   const tree0 = muscleLayoutForEdit();
   if (!tree0) return;
@@ -5555,32 +6178,52 @@ function onMuscleManageRename(id) {
   if (!row) return;
   const fixedGroup = BEGINNER_GROUPS.find((g) => g.id === id);
   const rid = regionOfLeaf(id);
-  const hint = row.fixed ? ` (ว่าง = ${row.stdName})` : '';
-  const input = window.prompt(`${row.depth ? 'ชื่อแถว' : 'ชื่อกลุ่ม'}${hint}`, row.name);
-  if (input == null) return;
-  let tree;
-  let leaves;
-  if (fixedGroup) {
-    tree = setGroupName(tree0, id, input.trim());
-    if (groupLabel(tree, id) === groupLabel(tree0, id)) return;
-    leaves = new Set([
-      ...fixedGroup.regions.map((r) => regionLeafId(r)),
-      ...tree.nodes.filter((n) => n.parentId === id).map((n) => n.id),
-    ]);
-  } else if (rid) {
-    tree = setRegionName(tree0, rid, input.trim());
-    if (regionLabel(tree, rid) === regionLabel(tree0, rid)) return;
-    leaves = new Set([id]);
-  } else {
-    const res = renameMuscleNode(tree0, id, input);
-    if (!res.changed) return;
-    tree = res.tree;
-    leaves = new Set([id, ...tree.nodes.filter((n) => n.parentId === id).map((n) => n.id)]);
+  const where = row.fixed ? `ว่าง = ${row.stdName}` : (row.parentId
+    ? `อยู่ใน「${manageRows(tree0).find((r) => r.id === row.parentId)?.name || ''}」`
+    : '');
+  let draft = row.name;
+  while (true) {
+    const input = await askMuscleName({
+      title: 'แก้ชื่อ',
+      where,
+      value: draft,
+      placeholder: row.depth ? 'ชื่อแถว' : 'ชื่อกลุ่ม',
+    });
+    if (input == null) return;
+    noteCommaToast(input);
+    // Re-read after await so a mid-sheet snapshot is not wiped by stamp diffs.
+    const cur = muscleLayoutForEdit();
+    if (!cur) return;
+    let tree;
+    let leaves;
+    if (fixedGroup) {
+      tree = setGroupName(cur, id, input.trim());
+      if (groupLabel(tree, id) === groupLabel(cur, id)) return;
+      leaves = new Set([
+        ...fixedGroup.regions.map((r) => regionLeafId(r)),
+        ...tree.nodes.filter((n) => n.parentId === id).map((n) => n.id),
+      ]);
+    } else if (rid) {
+      tree = setRegionName(cur, rid, input.trim());
+      if (regionLabel(tree, rid) === regionLabel(cur, rid)) return;
+      leaves = new Set([id]);
+    } else {
+      const res = renameMuscleNode(cur, id, input);
+      if (res.dup) {
+        draft = input;
+        setStatus('มีท่านี้แล้ว', { forceToast: true, ms: 1600 });
+        continue;
+      }
+      if (!res.changed) return;
+      tree = res.tree;
+      leaves = new Set([id, ...tree.nodes.filter((n) => n.parentId === id).map((n) => n.id)]);
+    }
+    const touch = [...new Set(Object.keys(tree.cells).filter((k) => leaves.has(k.split('|')[0])).map((k) => k.split('|')[1]))];
+    persistMuscleTree(tree, { touchDates: touch, status: fixedGroup ? 'เปลี่ยนชื่อกลุ่มแล้ว' : 'เปลี่ยนชื่อแล้ว' });
+    paintMuscleSheet();
+    paintMuscleSettingsList();
+    return;
   }
-  const touch = [...new Set(Object.keys(tree.cells).filter((k) => leaves.has(k.split('|')[0])).map((k) => k.split('|')[1]))];
-  persistMuscleTree(tree, { touchDates: touch, status: fixedGroup ? 'เปลี่ยนชื่อกลุ่มแล้ว' : 'เปลี่ยนชื่อแล้ว' });
-  paintMuscleSheet();
-  paintMuscleSettingsList();
 }
 
 /** Bring back every deleted fixed row / fixed group (their cells were kept). */
@@ -5630,17 +6273,53 @@ async function onMuscleDeleteNode(nodeId) {
   if (row.fixed) {
     if (muscleSelectedId === nodeId) muscleSelectedId = null;
     muscleManageOpen.delete(nodeId);
-    persistMuscleTree(setRowHidden(fresh, nodeId, true), { touchDates: [], status: `ลบ ${row.name}` });
+    persistMuscleTree(setRowHidden(fresh, nodeId, true), { touchDates: [], status: '' });
+    setStatus(`ลบ ${row.name}`, {
+      undo: () => {
+        const cur = muscleLayoutForEdit();
+        if (!cur) return;
+        persistMuscleTree(setRowHidden(cur, nodeId, false), { status: 'คืนแถวแล้ว' });
+        paintMuscleSheet();
+        paintMuscleSettingsList();
+      },
+    });
     paintMuscleSheet();
     paintMuscleSettingsList();
     return;
   }
+  const removedNode = fresh.nodes.find((n) => n.id === nodeId);
+  const savedCells = {};
+  Object.keys(fresh.cells || {}).forEach((k) => {
+    if (k.split('|')[0] === nodeId) savedCells[k] = fresh.cells[k];
+  });
   const node = { name: row.name };
   const { tree, changed, touchDates } = removeMuscleNode(fresh, nodeId);
-  if (!changed) return;
+  if (!changed || !removedNode) return;
   if (muscleSelectedId === nodeId || !tree.nodes.some((n) => n.id === muscleSelectedId)) muscleSelectedId = null;
   muscleManageOpen.delete(nodeId);
-  persistMuscleTree(tree, { touchDates: touchDates || [], status: `ลบ ${node.name}` });
+  persistMuscleTree(tree, { touchDates: touchDates || [], status: '' });
+  setStatus(`ลบ ${node.name}`, {
+    undo: () => {
+      const cur = muscleLayoutForEdit();
+      if (!cur) return;
+      if (cur.nodes.some((n) => n.id === nodeId)) {
+        paintMuscleSheet();
+        paintMuscleSettingsList();
+        return;
+      }
+      const next = normalizeMuscleTree({
+        ...cur,
+        nodes: [...cur.nodes, removedNode],
+        cells: { ...cur.cells, ...savedCells },
+      });
+      persistMuscleTree(next, {
+        touchDates: Object.keys(savedCells).map((k) => k.split('|')[1]),
+        status: 'คืนแถวแล้ว',
+      });
+      paintMuscleSheet();
+      paintMuscleSettingsList();
+    },
+  });
   paintMuscleSheet();
   paintMuscleSettingsList();
 }
@@ -6654,18 +7333,22 @@ function paintMusclePlanToday(tree, todayKey) {
     const ex = ALL_EXERCISES.find((e) => e.id === id);
     const name = ex?.name || id;
     const done = logged.has(name);
-    return `<button type="button" class="mt-plan-chip${done ? ' is-done' : ''}" data-plan-ex="${escapeHtml(id)}" title="${escapeHtml(name)}">${done ? '✓ ' : ''}${escapeHtml(name)}</button>`;
+    const setsV = done ? getExSets(tree, moveSetsRowKey(name), todayKey) : '';
+    const sub = setsV ? formatSetSummary(setsV) : '';
+    return `<span class="mt-plan-item"><button type="button" class="mt-plan-chip${done ? ' is-done' : ''}" data-plan-ex="${escapeHtml(id)}" data-plan-name="${escapeHtml(name)}" title="${escapeHtml(name)}">${done ? '✓ ' : ''}<span class="mt-plan-name">${escapeHtml(name)}</span>${sub ? `<span class="mt-plan-sub">${escapeHtml(sub)}</span>` : ''}</button><button type="button" class="mt-plan-x" data-plan-del="${escapeHtml(id)}" aria-label="เอาออก">✕</button></span>`;
   }).join('');
   host.hidden = false;
-  host.innerHTML = `<div class="mt-plan-head">แผนวันนี้</div><div class="mt-plan-chips">${chips}</div>`;
+  host.innerHTML = `<div class="mt-plan-head"><span>แผนวันนี้</span><button type="button" class="mt-plan-clear" data-plan-clear>ล้างแผน</button></div><div class="mt-plan-chips">${chips}</div>`;
 }
 
 /**
  * "เล่นแล้ว" on a guide move: marks its main muscles (and secondary ones) today and notes
  * its name. Undo puts back exactly what was there before.
+ * @param {string} name
+ * @param {{ openSetsSheet?: boolean }} [opts] — false when the picker will call onLoggedSets after close
  * @returns {{ node: { name: string }, created: boolean, logged: boolean, undo: () => void }|null}
  */
-function logMoveToday(name) {
+function logMoveToday(name, opts = {}) {
   if (!requireSyncReady()) return null;
   const lib = libraryExerciseByName(name);
   const move = lib || { name, ...resolveMoveMuscles({ name }, '') };
@@ -6685,6 +7368,13 @@ function logMoveToday(name) {
   const loggedName = (tree.moveLog?.[todayKey]?.names || []).find((n) => !beforeNames.includes(n)) || '';
   persistMuscleTree(tree, { touchDates: [todayKey], status: `เล่น ${move.name} วันนี้ · ติ๊กกล้ามให้แล้ว` });
   paintMuscleSheet();
+  if (opts.openSetsSheet !== false) {
+    openMuscleDaySheet(moveSetsRowKey(move.name), todayKey, {
+      prefillLast: true,
+      skippable: true,
+      label: move.name,
+    });
+  }
   const undo = () => {
     const cur = normalizeMuscleTree(ensureCaloriePayload().muscleTree);
     const cells = { ...cur.cells };
@@ -6793,12 +7483,31 @@ function onMuscleScrollChange(e) {
   const dateKey = input.dataset.date;
   if (!nodeId || !dateKey) return;
   const sheet = ensureCaloriePayload();
+  const before = normalizeMuscleTree(sheet.muscleTree);
+  const prevCell = before.cells?.[`${nodeId}|${dateKey}`];
+  const raw = String(input.value || '').trim();
+  const rawNum = Number(raw);
+  if (raw && Number.isFinite(rawNum) && rawNum > 5000) {
+    setStatus('สูงสุด 5000', { forceToast: true, ms: 1600 });
+  }
   const { tree, changed } = setMuscleCellInTree(sheet.muscleTree, nodeId, dateKey, input.value);
   if (!changed) {
     paintMuscleSheet();
     return;
   }
+  const cleared = prevCell != null && (raw === '' || !Number.isFinite(rawNum) || rawNum <= 0);
   persistMuscleTree(tree, { touchDates: [dateKey], status: '' });
+  if (cleared) {
+    setStatus('ล้างค่าแล้ว', {
+      undo: () => {
+        const cur = muscleLayoutForEdit();
+        if (!cur) return;
+        const { tree: restored } = setMuscleCellInTree(cur, nodeId, dateKey, prevCell);
+        persistMuscleTree(restored, { touchDates: [dateKey], status: 'คืนค่าแล้ว' });
+        paintMuscleSheet();
+      },
+    });
+  }
   paintMuscleSheet();
 }
 
@@ -13132,11 +13841,16 @@ async function init({ fromBoot = false } = {}) {
   els.muscleManageBtn?.addEventListener('click', () => openMuscleManage());
   els.muscleManageClose?.addEventListener('click', () => closeMuscleManage());  els.muscleManageBackdrop?.addEventListener('click', () => closeMuscleManage());
   els.muscleRestBtn?.addEventListener('click', () => openMuscleRest());
+  wireMuscleNameSheet();
   document.querySelectorAll('[data-close-overlay]').forEach((el) => {
     el.addEventListener('click', () => {
       const id = el.getAttribute('data-close-overlay');
       if (id === 'mphoto-overlay') {
         void closeMusclePhotoViewer();
+        return;
+      }
+      if (id === 'muscle-name-overlay') {
+        closeMuscleNameSheet(null);
         return;
       }
       const ov = document.getElementById(id);
@@ -13151,6 +13865,17 @@ async function init({ fromBoot = false } = {}) {
       if (mphotoView.repaintOnBlur && !els.mphotoOverlay?.hidden) repaintMusclePhotoViewer();
     }, 400);
   });
+  els.muscleSetsBody?.addEventListener('click', (e) => {
+    if (onSetsUiClick(e)) return;
+    const save = e.target?.closest?.('[data-mnote-save]');
+    if (save) {
+      const key = save.closest('.mnote')?.dataset.mnoteKey;
+      if (key) void saveMuscleNote(key);
+    }
+  });
+  els.muscleSetsBody?.addEventListener('input', onMuscleNoteInput);
+  els.muscleSetsClose?.addEventListener('click', () => { void closeMuscleSetsSheet(); });
+  els.muscleSetsBackdrop?.addEventListener('click', () => { void closeMuscleSetsSheet(); });
   els.muscleRegionBody?.addEventListener('click', onMusclePhotoClick);
   document.getElementById('mphoto-prompt-take')?.addEventListener('click', () => {
     if (mphotoTarget) pickMusclePhoto(mphotoTarget.rowId, mphotoTarget.date, 'camera');
@@ -13201,6 +13926,7 @@ async function init({ fromBoot = false } = {}) {
       const res = logMoveToday(log.dataset.exLog);
       if (res?.logged) {
         setStatus(`ติ๊กกล้ามของ ${res.node.name} วันนี้แล้ว`, { undo: res.undo, forceToast: true });
+        if (els.muscleRegionOverlay) els.muscleRegionOverlay.hidden = true;
       }
       return;
     }
@@ -13274,7 +14000,7 @@ async function init({ fromBoot = false } = {}) {
     }
     const rename = e.target?.closest?.('[data-muscle-rename]');
     if (rename) {
-      onMuscleManageRename(rename.getAttribute('data-muscle-rename'));
+      void onMuscleManageRename(rename.getAttribute('data-muscle-rename'));
       return;
     }
     if (e.target?.closest?.('[data-muscle-restore]')) {
@@ -13292,7 +14018,14 @@ async function init({ fromBoot = false } = {}) {
   initExercisePicker({
     getTree: muscleLayoutView,
     getTodayKey: toDateKey,
-    onAdd: logMoveToday,
+    onAdd: (name) => logMoveToday(name, { openSetsSheet: false }),
+    onLoggedSets: (label) => {
+      openMuscleDaySheet(moveSetsRowKey(label), toDateKey(), {
+        prefillLast: true,
+        skippable: true,
+        label,
+      });
+    },
     onPlanToday: planMoveToday,
     getFavs: () => getExerciseFavSet(),
     setFav: persistExerciseFav,
@@ -13308,8 +14041,59 @@ async function init({ fromBoot = false } = {}) {
     openExercisePicker();
   });
   els.musclePlanToday?.addEventListener('click', (e) => {
+    const clearBtn = e.target?.closest?.('[data-plan-clear]');
+    if (clearBtn && els.musclePlanToday.contains(clearBtn)) {
+      void (async () => {
+        const ok = await showConfirm('ล้างแผนวันนี้?', { okLabel: 'ล้าง', danger: true });
+        if (!ok) return;
+        const todayKey = toDateKey();
+        const tree0 = muscleLayoutForEdit();
+        if (!tree0) return;
+        const prevIds = movePlanIds(tree0, todayKey);
+        if (!prevIds.length) return;
+        persistMuscleTree(setMovePlanIds(tree0, todayKey, []), { status: '' });
+        paintMuscleSheet();
+        setStatus('ล้างแผนแล้ว', {
+          undo: () => {
+            const cur = muscleLayoutForEdit();
+            if (!cur) return;
+            persistMuscleTree(setMovePlanIds(cur, todayKey, prevIds), { status: 'คืนแผนแล้ว' });
+            paintMuscleSheet();
+          },
+        });
+      })();
+      return;
+    }
+    const del = e.target?.closest?.('[data-plan-del]');
+    if (del && els.musclePlanToday.contains(del)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = del.getAttribute('data-plan-del');
+      const todayKey = toDateKey();
+      const tree0 = muscleLayoutForEdit();
+      if (!tree0 || !id) return;
+      const prevIds = movePlanIds(tree0, todayKey);
+      const nextIds = prevIds.filter((x) => x !== id);
+      if (nextIds.length === prevIds.length) return;
+      persistMuscleTree(setMovePlanIds(tree0, todayKey, nextIds), { status: '' });
+      paintMuscleSheet();
+      setStatus('เอาออกจากแผนแล้ว', {
+        undo: () => {
+          const cur = muscleLayoutForEdit();
+          if (!cur) return;
+          persistMuscleTree(setMovePlanIds(cur, todayKey, prevIds), { status: 'คืนแผนแล้ว' });
+          paintMuscleSheet();
+        },
+      });
+      return;
+    }
     const chip = e.target?.closest?.('[data-plan-ex]');
     if (!chip) return;
+    if (chip.classList.contains('is-done')) {
+      const name = chip.getAttribute('data-plan-name') || chip.getAttribute('title') || '';
+      openMuscleDaySheet(moveSetsRowKey(name), toDateKey(), { label: name });
+      return;
+    }
     openExerciseDetail(chip.getAttribute('data-plan-ex'));
   });
   els.muscleScroll?.addEventListener('click', onMuscleScrollClick);
@@ -13429,11 +14213,40 @@ async function init({ fromBoot = false } = {}) {
       void onExerciseManage();
       return;
     }
+    const up = e.target?.closest?.('[data-ex-up]');
+    if (up && els.cqExList.contains(up) && !up.disabled) {
+      const i = Number(up.dataset.exUp);
+      if (Number.isInteger(i) && i > 0 && exEntries[i]) {
+        const tmp = exEntries[i - 1];
+        exEntries[i - 1] = exEntries[i];
+        exEntries[i] = tmp;
+        if (exLifestyleEditIndex === i) exLifestyleEditIndex = i - 1;
+        else if (exLifestyleEditIndex === i - 1) exLifestyleEditIndex = i;
+        paintExerciseList();
+        syncExerciseBar();
+      }
+      return;
+    }
+    const down = e.target?.closest?.('[data-ex-down]');
+    if (down && els.cqExList.contains(down) && !down.disabled) {
+      const i = Number(down.dataset.exDown);
+      if (Number.isInteger(i) && i >= 0 && i < exEntries.length - 1 && exEntries[i]) {
+        const tmp = exEntries[i + 1];
+        exEntries[i + 1] = exEntries[i];
+        exEntries[i] = tmp;
+        if (exLifestyleEditIndex === i) exLifestyleEditIndex = i + 1;
+        else if (exLifestyleEditIndex === i + 1) exLifestyleEditIndex = i;
+        paintExerciseList();
+        syncExerciseBar();
+      }
+      return;
+    }
     const del = e.target?.closest?.('[data-ex-del]');
     if (del && els.cqExList.contains(del)) {
       const i = Number(del.dataset.exDel);
       if (Number.isInteger(i) && exEntries[i]) {
         const removed = exEntries[i];
+        const at = i;
         exEntries.splice(i, 1);
         if (exLifestyleEditIndex === i) {
           exLifestyleEditIndex = -1;
@@ -13444,6 +14257,16 @@ async function init({ fromBoot = false } = {}) {
         paintExerciseList();
         syncExerciseBar();
         if (isLifestyleBurnLabel(removed?.label)) syncLifestyleChrome();
+        setStatus(`ลบ ${removed.label || 'รายการ'}`, {
+          undo: () => {
+            const idx = Math.min(at, exEntries.length);
+            exEntries.splice(idx, 0, removed);
+            paintExerciseList();
+            syncExerciseBar();
+            if (isLifestyleBurnLabel(removed?.label)) syncLifestyleChrome();
+            setStatus('คืนรายการแล้ว');
+          },
+        });
       }
       return;
     }
@@ -14226,6 +15049,9 @@ async function init({ fromBoot = false } = {}) {
     if (!state.authUser || !isPinUnlocked()) return;
     hideSyncGate();
     state.online = true;
+    if (muscleTreeNeedsPush(ensureCaloriePayload(), lastRemoteCalorie)) {
+      markLocalEditSinceAdopt();
+    }
     void ensureCloudReady({ force: true, announce: true });
     if (state.cloudHydrated) void flushPendingWritesToCloud();
   });
@@ -14290,6 +15116,7 @@ function attachSyncTestApi() {
       openDetail: (nameOrId) => openExerciseDetail(nameOrId),
       openMusclePane: () => { setCaloriePane('muscle'); paintMuscleSheet(); },
       paintMuscle: () => paintMuscleSheet(),
+      muscleDayText: (tree, dk) => muscleDayText(tree || muscleLayoutView(), dk),
       getDay: (dateKey) => {
         const days = state.notesData?.calorie?.days || [];
         return days.find((d) => d.date === dateKey || d.id === dateKey) || null;

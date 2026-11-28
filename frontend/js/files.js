@@ -2,9 +2,9 @@
  * Full-size note file uploads to Google Cloud Storage via signed URLs.
  * Falls back silently so offline / old notes keep working with base64.
  */
-import { CONFIG } from './config.js?v=354';
-import { auth } from './firebase.js?v=354';
-import { getSpaceId } from './remote.js?v=354';
+import { CONFIG } from './config.js?v=355';
+import { auth } from './firebase.js?v=355';
+import { getSpaceId } from './remote.js?v=355';
 
 const REQUEST_TIMEOUT_MS = 20000;
 const downloadCache = new Map(); // storagePath -> { url, expiresAt }

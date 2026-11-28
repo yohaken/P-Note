@@ -8,8 +8,8 @@ import {
   calorieToneCssVars,
   dockScaleToCss,
   dockOffsetYToLiftPx,
-} from './settings.js?v=354';
-import { applyAppIcon } from './app-icons.js?v=354';
+} from './settings.js?v=355';
+import { applyAppIcon } from './app-icons.js?v=355';
 
 function applyCalorieChrome() {
   document.body.classList.add('light', 'calorie-mode', 'calorie-only');

@@ -1,10 +1,10 @@
-import { auth, initFirebase } from './firebase.js?v=354';
+import { auth, initFirebase } from './firebase.js?v=355';
 import {
   onAuthStateChanged,
   signInWithCustomToken,
   signOut as firebaseSignOut,
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
-import { CONFIG } from './config.js?v=354';
+import { CONFIG } from './config.js?v=355';
 
 const GATE_KEY = 'pnote_gate';
 const GATE_VERIFIER_KEY = 'pnote_gate_v';
@@ -332,12 +332,24 @@ async function migrateV1Marker() {
   // If offline/exchange failed, keep v1: marker until next boot.
 }
 
+/** Drop persisted Firebase anonymous sessions (build 353); rules deny anon. */
+async function dropStaleAnonymous() {
+  if (!auth?.currentUser?.isAnonymous) return false;
+  try {
+    await firebaseSignOut(auth);
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
 async function ensureCloudSession() {
   const hook = syncTestHook();
   if (hook && hook.skipAuth) {
     return fakeTestUser();
   }
   await initFirebase();
+  await dropStaleAnonymous();
   if (auth.currentUser) return auth.currentUser;
 
   const pin = pendingPin || v1Suffix();
@@ -358,7 +370,7 @@ export function needsCloudRelink() {
   const hook = syncTestHook();
   if (hook && hook.skipAuth) return false;
   try {
-    if (auth?.currentUser) return false;
+    if (auth?.currentUser && !auth.currentUser.isAnonymous) return false;
   } catch {
     /* ignore */
   }
@@ -437,6 +449,10 @@ export function watchAuth(callback) {
   return onAuthStateChanged(auth, async (user) => {
     if (authSuppressed || !isPinUnlocked()) {
       callback(null);
+      return;
+    }
+    if (user && user.isAnonymous) {
+      await dropStaleAnonymous();
       return;
     }
     if (!user) {
